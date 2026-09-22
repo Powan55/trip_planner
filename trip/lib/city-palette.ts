@@ -9,8 +9,11 @@ import { getActiveTrip, legForDate, type TripConfig } from '@/core/trips';
  * Keyed off the LEG ID and the by-date city only. `DayPlan.countryLabel` ('USA') is display text
  * and must never pick a colour.
  *
- * Rule: one hue per leg (default pack: leg 0 orange->gold = --np-a/--np-b, leg 1 pink->violet =
- * --jp-a/--jp-b; more legs cycle HUES). Inside a leg, BASE cities take shades stepped along the
+ * Rule: one hue per leg (default pack: leg 0 sky blue, leg 1 pink->violet = --jp-a/--jp-b; more
+ * legs cycle HUES). Leg 0 is deliberately its OWN hue, not --np-a/--np-b (owner call 2026-09-21:
+ * the brand orange read too close to Japan's pink-violet once both sat on the dark tint). The
+ * brand tokens keep the orange elsewhere (hero, day-strip chip, budget) — only the calendar
+ * diverges. Inside a leg, BASE cities take shades stepped along the
  * hue in first-visit order. A city with a single day in its leg is a SATELLITE (a day trip): it
  * keeps the shade of the nearest preceding base city in that leg, else the next one. A
  * single-leg trip has no country to tell apart, so its cities spread across the hues instead.
@@ -23,9 +26,13 @@ import { getActiveTrip, legForDate, type TripConfig } from '@/core/trips';
  * Active trip is captured at module load, like lib/leg-label.ts: a trip switch is a full reload.
  */
 
-// Leg 0 / leg 1 mirror --np-a/--np-b and --jp-a/--jp-b in app/globals.css (a unit test pins it).
+// Leg 1 mirrors --jp-a/--jp-b in app/globals.css (a unit test pins it). Leg 0 does not — see
+// the module comment above.
+// KNOWN CEILING: HUES[0] (225-237deg) and HUES[2] (185-262deg) overlap in hue, so a 3+-leg
+// custom trip could show two legs in near-identical blue. Unexercised today (no pack has
+// 3+ legs); widen HUES[2] away from blue if one ever does.
 export const HUES: readonly (readonly [string, string])[] = [
-  ['#FF8A3D', '#FFC43D'],
+  ['#5EC4FF', '#8FE0FF'],
   ['#FF8FC7', '#C08CFF'],
   ['#4FD6C8', '#7AA8FF'],
   ['#4ADE80', '#D4E157'],
@@ -42,7 +49,7 @@ const lerp = (a: number[], b: number[], t: number) => a.map((v, i) => v + (b[i] 
  * Shade `index` of `count` along hue `hue`. Evenly spaced between the hue's two stops; every
  * odd step is also lifted 40% toward white, because a hue shift alone leaves 3+ steps too close
  * to tell apart (measured adjacent OKLab distance 0.067 at n=3, 0.045 at n=4 without the lift).
- * KNOWN CEILING: the orange-gold pair spans only 20 degrees, so 3+ shades of leg 0 sit ~0.066 apart.
+ * KNOWN CEILING: the leg-0 blue pair spans only ~13 degrees, so 3+ shades of leg 0 sit ~0.066 apart.
  */
 export function shadeColor(hue: number, index: number, count: number): string {
   const [a, b] = HUES[((hue % HUES.length) + HUES.length) % HUES.length];
