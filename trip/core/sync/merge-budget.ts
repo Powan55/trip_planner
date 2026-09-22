@@ -46,11 +46,11 @@ function valueFingerprint(entry: BudgetFieldEntry): string {
  * HLC upstream (`seedHlcFromLegacy(undefined)` ⇒ pt 0) so it always loses to any real edit.
  */
 export function mergeBudget(local: BudgetFields, remote: BudgetFields): BudgetFields {
-  const out: BudgetFields = {};
+  const out: BudgetFields = Object.create(null);
   const paths = new Set([...Object.keys(local ?? {}), ...Object.keys(remote ?? {})]);
   for (const path of paths) {
-    const a = local?.[path];
-    const b = remote?.[path];
+    const a = local && Object.prototype.hasOwnProperty.call(local, path) ? local[path] : undefined;
+    const b = remote && Object.prototype.hasOwnProperty.call(remote, path) ? remote[path] : undefined;
     if (!a) {
       out[path] = b!;
       continue;

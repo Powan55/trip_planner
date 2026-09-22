@@ -5377,6 +5377,17 @@ The original length is kept because it is diagnostic in its own right: it is how
 
 **Changes if:** the `?trip=` handshake is rewired to set the share id instead of switching packs, which would make the link and the code the same thing.
 
+### D-546 · (issue #485, 2026-09-21) · Prototype-safe maps at the settlement and budget-merge boundary
+
+**Decision.** `core/budget/settlement.ts` and `core/sync/merge-budget.ts` build their accumulator maps with `Object.create(null)` and read with `Object.prototype.hasOwnProperty.call`. A participant or field path named `constructor`, `toString` or `__proto__` behaves like any other key. `core/sync/hlc.ts` `parse` returns the oldest stamp for a non-string input rather than throwing.
+
+**Why the plain object was wrong.** `'constructor' in {}` is `true`, so settlement's zero-init was a no-op and `balances[id] += amount` accumulated onto an inherited function: `NaN`, a `NaN` deficit, the largest-remainder loop never ran, and every transfer on that leg came out wrong. With `__proto__` the write hit the prototype setter instead, the payer vanished, and the debtors owed nobody. Traveller names are free text and a custom roster is derived from `paidBy`/`split`/`createdBy`, so this is reachable without a hostile doc.
+
+**The null prototype escapes both modules deliberately.** `settle()`'s result is display-only — `settle-up-summary.tsx` reads it with `Object.entries`. `mergeBudget()`'s result is normalised before it leaves: `sanitizeFieldsForWrite` in `lib/budget-remote.ts` is `JSON.parse(JSON.stringify(...))` on the write path, and `flatten.ts` `fieldsToModel` rebuilds fresh objects on the read path. Firestore's own `isPlainObject` accepts a null prototype, so the SDK is a second layer rather than the relied-upon one. Two constraints follow: never call `.hasOwnProperty()` as a method on these values, and never string-coerce them — both throw on a null prototype.
+
+**Testing note.** Only an own-key assertion pins this. Reading `obj.__proto__` back off a plain object returns the value that was silently written to the prototype, so `expect(merged.__proto__)` passes with the bug present. Assert `Object.keys()` or the JSON round-trip instead.
+
+**Changes if:** either result starts being written somewhere without passing through those two normalisers.
 ### D-543 · (2026-09-20) · Calendar colour derives from one module, keyed on leg id and by-date city
 
 **Decision.** All calendar colour comes from `trip/lib/city-palette.ts`. One hue per leg, cities take shades in first-visit order. A city with one day in its leg is a day trip and inherits the shade of the nearest preceding base city. A leg change, or a first-day departure from outside the trip, is a transit day and renders as a split cell. Nothing may key colour off `DayPlan.countryLabel`.

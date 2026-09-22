@@ -12,6 +12,17 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.4.2 (app) · 2026-09-22 · worker stays at v1.11.0
+
+Patch. ICS export was writing the wrong instant for any item with a timezone override, so the
+JFK/Delhi/Guangzhou/Detroit flight legs landed 10h45m off once imported into a real calendar
+(#469), and a stale endDate on a duplicated or moved multi-day item could emit DTEND before
+DTSTART, which RFC 5545 forbids (#486). Settlement and budget merge no longer break on a
+participant or field path named constructor or __proto__ (#485). Two build guards that said
+they fail the build only warned; both now throw (#474).
+
+---
+
 ## v7.4.1 (app) · 2026-09-21 · worker stays at v1.11.0
 
 Patch. Kathmandu's calendar shade is now a distinct sky blue instead of orange, which read too

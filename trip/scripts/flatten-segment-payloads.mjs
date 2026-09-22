@@ -32,11 +32,14 @@
  * for. Verified against a served `out/`: before, 4 x 404 on "/" and the
  * prefetch never lands; after, zero 4xx and navigation is still a soft nav.
  *
- * DELETE THIS FILE when a Next release writes the flat name itself. It is a
- * no-op the moment the `__next.*` directories stop appearing, so a fixed Next
- * needs no coordination — but it also stops being free to keep, because a
- * silent no-op is indistinguishable from a scheme change. The throws below are
- * what makes that distinguishable: any shape this has not seen is loud.
+ * THIS IS A WINDOWS-ONLY EXPORT DEFECT. A Linux build of the same Next version
+ * writes the dot-joined name directly, which is why CI and the deploy find
+ * nothing to flatten. Verified against the live Linux-built site:
+ * `/plan/__next.plan.__PAGE__.txt` 200, `/plan/__next.plan/__PAGE__.txt` 404.
+ * So zero copies is only a defect when the flat payloads are missing too —
+ * that is what the guard below checks, rather than the copy count alone.
+ *
+ * DELETE THIS FILE when a Next release writes the flat name on Windows as well.
  */
 
 import { readdir, copyFile, access } from 'node:fs/promises';
@@ -106,9 +109,35 @@ if (!(await exists(OUT_DIR))) {
   throw new Error(`flatten-segment-payloads: out/ not found at ${OUT_DIR}. Run \`next build\` first.`);
 }
 
+/** Count `__next.*` payload FILES below the root — the shape the router requests. */
+async function flatPayloads(dir, depth = 0) {
+  let found = 0;
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) found += await flatPayloads(join(dir, entry.name), depth + 1);
+    else if (depth > 0 && entry.name.startsWith(SEGMENT_DIR_PREFIX)) found += 1;
+  }
+  return found;
+}
+
 const copied = await walk(OUT_DIR);
-console.log(
-  copied === 0
-    ? 'flatten-segment-payloads: no __next.* segment directories — Next may have fixed this; see the header before deleting.'
-    : `flatten-segment-payloads: wrote ${copied} flat segment payload(s) next to their nested originals`
-);
+if (copied === 0) {
+  const flat = await flatPayloads(OUT_DIR);
+  if (flat === 0 && !process.env.ALLOW_ZERO_SEGMENT_PAYLOADS) {
+    const topLevel = (await readdir(OUT_DIR, { withFileTypes: true }))
+      .map((e) => e.name + (e.isDirectory() ? '/' : ''))
+      .sort();
+    throw new Error(
+      'flatten-segment-payloads: neither __next.* segment directories nor flat per-route ' +
+        'payloads are present, so every <Link> prefetch would 404. Re-derive the URL scheme ' +
+        `from a served build before shipping. out/ top level was: [${topLevel.join(', ')}]. ` +
+        'To bypass once, set ALLOW_ZERO_SEGMENT_PAYLOADS=1.'
+    );
+  }
+  console.log(
+    `flatten-segment-payloads: export already writes the flat shape (${flat} payload(s)), nothing to do`
+  );
+} else {
+  console.log(
+    `flatten-segment-payloads: wrote ${copied} flat segment payload(s) next to their nested originals`
+  );
+}

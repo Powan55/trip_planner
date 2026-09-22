@@ -1,7 +1,8 @@
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 import {
-  effectiveStartMinutes,
   effectiveDurationMinutes,
+  effectiveOffsetMin,
+  effectiveStartMinutes,
   offsetForCountry,
   placeWallClockToUtcMs,
 } from '@/core/dates/item-time';
@@ -73,9 +74,14 @@ function eventLines(day: DayPlan, item: ItineraryItem, dtstamp: string): string[
   const startMin = effectiveStartMinutes(item);
   if (startMin === undefined) {
     lines.push(`DTSTART;VALUE=DATE:${formatIcsDate(day.date, 0)}`);
-    lines.push(`DTEND;VALUE=DATE:${formatIcsDate(item.endDate ?? day.date, 1)}`);
+    const endDate = item.endDate && item.endDate > day.date ? item.endDate : day.date;
+    lines.push(`DTEND;VALUE=DATE:${formatIcsDate(endDate, 1)}`);
   } else {
-    const startMs = placeWallClockToUtcMs(day.date, startMin, offsetForCountry(day.country));
+    const startMs = placeWallClockToUtcMs(
+      day.date,
+      startMin,
+      effectiveOffsetMin(item, offsetForCountry(day.country)),
+    );
     const durationMin = effectiveDurationMinutes(item) ?? DEFAULT_DURATION_MIN;
     lines.push(`DTSTART:${formatUtcStamp(startMs)}`);
     lines.push(`DTEND:${formatUtcStamp(startMs + durationMin * 60_000)}`);
