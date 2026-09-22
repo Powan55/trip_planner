@@ -48,6 +48,27 @@ describe('itineraryToIcs', () => {
     expect(props.get('SUMMARY')).toBe('Visit temple');
   });
 
+  it('#469 — a per-item tzOffsetMin override wins over the day country offset', () => {
+    const ics = itineraryToIcs([
+      day({
+        date: '2026-12-09',
+        country: 'nepal',
+        items: [item({ id: 'n1-1', time: '05:30', tzOffsetMin: -300 })],
+      }),
+    ]);
+    // 05:30 EST (-300) on 2026-12-09, not 05:30 NPT (+345).
+    expect(eventProps(ics, 'n1-1').get('DTSTART')).toBe('20261209T103000Z');
+  });
+
+  it('#486 — a stale endDate before the rendered day does not push DTEND before DTSTART', () => {
+    const ics = itineraryToIcs([
+      day({ date: '2026-12-20', items: [item({ id: 'stale1', endDate: '2026-12-12' })] }),
+    ]);
+    const props = eventProps(ics, 'stale1');
+    expect(props.get('DTSTART;VALUE=DATE')).toBe('20261220');
+    expect(props.get('DTEND;VALUE=DATE')).toBe('20261221');
+  });
+
   it('an untimed item becomes an all-day VALUE=DATE event with an exclusive next-day DTEND', () => {
     const ics = itineraryToIcs([day({ date: '2026-12-11', items: [item({ id: 'u1' })] })]);
     const props = eventProps(ics, 'u1');

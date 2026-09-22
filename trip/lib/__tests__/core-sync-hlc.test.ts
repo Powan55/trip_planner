@@ -59,6 +59,15 @@ describe('HLC — serialize / parse', () => {
   it('parse of a malformed string yields the oldest stamp (pt:0, ct:0, actor:"")', () => {
     expect(parse('garbage')).toEqual({ pt: 0, ct: 0, actor: '' });
   });
+
+  // #485 — a non-string reaches `parse` at runtime despite the `serialized: string` signature:
+  // `merge-items.ts` passes `row.hlc ?? seedHlcFromLegacy(...)` (a bad `row.hlc` goes straight
+  // through the `??`), and `stamp.ts` gates on truthiness, not type. `serialized.indexOf` would
+  // throw on a non-string without the guard.
+  it('parse of a non-string yields the oldest stamp, same as a malformed string', () => {
+    expect(parse(5 as unknown as string)).toEqual({ pt: 0, ct: 0, actor: '' });
+    expect(parse(undefined as unknown as string)).toEqual({ pt: 0, ct: 0, actor: '' });
+  });
 });
 
 describe('HLC — monotonicity', () => {

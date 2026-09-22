@@ -107,8 +107,14 @@ if (!(await exists(OUT_DIR))) {
 }
 
 const copied = await walk(OUT_DIR);
+if (copied === 0 && !process.env.ALLOW_ZERO_SEGMENT_PAYLOADS) {
+  throw new Error(
+    'flatten-segment-payloads: no __next.* segment directories found, so zero payloads were ' +
+      'flattened. Next may have fixed this upstream — confirm which URL shape the router now ' +
+      'requests, then delete this script rather than let it pick. To bypass once, set ' +
+      'ALLOW_ZERO_SEGMENT_PAYLOADS=1.'
+  );
+}
 console.log(
-  copied === 0
-    ? 'flatten-segment-payloads: no __next.* segment directories — Next may have fixed this; see the header before deleting.'
-    : `flatten-segment-payloads: wrote ${copied} flat segment payload(s) next to their nested originals`
+  `flatten-segment-payloads: wrote ${copied} flat segment payload(s) next to their nested originals`
 );
