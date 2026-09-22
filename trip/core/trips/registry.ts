@@ -14,6 +14,8 @@ import {
   DEFAULT_TRIP_ID,
   getActiveTripId,
   setActiveTripId,
+  getDefaultTripShareId,
+  setDefaultTripShareId,
   getKnownTripsRaw,
   setKnownTripsRaw,
   getRemovedTripsRaw,
@@ -364,13 +366,89 @@ export function renameKnownTrip(id: string, name: string): void {
 }
 
 /**
- * THE shared switch primitive: register the trip, then write the active-trip pointer.
- * Does NOT reload — the caller performs the full page reload.
+ * D-546 — the WIRE form of a default-pack share id. A share id and a pack id are both bare uuids,
+ * so a token on its own cannot say which namespace it belongs to; every entrance resolved the
+ * ambiguity the same wrong way, sending a `?trip=<shareId>` joiner through `joinTrip` into a
+ * single-leg custom trip (`utcOffsetMin: 0` ⇒ `tripOffsetMinFor` null ⇒ NPT +345 / JST +540 lost,
+ * `contentRef: 'empty'` ⇒ every guide gone). The prefix is transport only: it is stripped here and
+ * never reaches a Firestore path.
  */
-export function joinTrip(id: string, name?: string): void {
-  if (!id) return;
-  upsertKnownTrip(id, name);
-  setActiveTripId(id);
+export const DEFAULT_SHARE_PREFIX = 'pack:';
+
+/** What a pasted/linked token turns out to be. */
+export type TripToken =
+  | { kind: 'default'; id: string }
+  | { kind: 'custom'; id: string };
+
+/**
+ * The floor every token must clear before it can become a Firestore path segment (#476). Not a
+ * shape lock — a hand-made id stays legal — only the characters that would compose a DIFFERENT
+ * path than the one written: `/` splits a segment, `.`/`..` resolve away, `__x__` is reserved by
+ * Firestore, and whitespace/control bytes silently produce a neighbouring empty trip.
+ */
+function isSafeSegment(id: string): boolean {
+  if (id === '' || id.length > 128) return false;
+  if (id === '.' || id === '..') return false;
+  if (id.includes('/') || id.includes(' ')) return false;
+  if (/^__.*__$/.test(id)) return false;
+  // Control bytes by code point rather than a character class: an escape in a regex literal here
+  // has been written through as the raw byte before now, which silently changes what is matched.
+  for (let i = 0; i < id.length; i += 1) {
+    const code = id.charCodeAt(i);
+    if (code < 32 || code === 127) return false;
+  }
+  return true;
+}
+
+/**
+ * Resolve a raw token (pasted, or off a `?trip=` link) into the namespace it names, or `null` when
+ * it can never be used. Pure and total — callers branch on `null` to refuse rather than writing
+ * half of a join.
+ */
+export function parseTripToken(raw: string): TripToken | null {
+  const trimmed = (raw ?? '').trim();
+  if (trimmed.startsWith(DEFAULT_SHARE_PREFIX)) {
+    const id = trimmed.slice(DEFAULT_SHARE_PREFIX.length).trim();
+    return isSafeSegment(id) ? { kind: 'default', id } : null;
+  }
+  if (!isSafeSegment(trimmed)) return null;
+  return { kind: 'custom', id: trimmed };
+}
+
+/**
+ * The inverse: the copyable/linkable form of a pack's remote token. `''` when the pack has no
+ * remote path yet (the default pack before D-542's opt-in), which is what every share affordance
+ * already disables itself on.
+ */
+export function formatShareToken(packId: string, remoteId: string): string {
+  if (!remoteId) return '';
+  return packId === DEFAULT_TRIP_ID ? `${DEFAULT_SHARE_PREFIX}${remoteId}` : remoteId;
+}
+
+/**
+ * THE shared switch primitive: resolve the token, then write the pointer it names.
+ * Does NOT reload — the caller performs the full page reload.
+ *
+ * D-546 — a default-pack token sets the share id (D-542's mechanism, the same one the code-paste
+ * dialog uses) and points the browser at the pack, instead of registering the share id as a trip
+ * of its own. Every entrance routes through here, so the `?trip=` link, the front door's held
+ * invitation, the handshake and both paste boxes agree by construction.
+ *
+ * RETURNS whether the switch actually landed. The gateway swallows a blocked/full-storage write by
+ * contract, so a call returning is not evidence anything was stored; the pointer is read back
+ * here rather than at each call site, where three of the five forgot to.
+ */
+export function joinTrip(id: string, name?: string): boolean {
+  const token = parseTripToken(id);
+  if (!token) return false;
+  if (token.kind === 'default') {
+    setDefaultTripShareId(token.id);
+    setActiveTripId(DEFAULT_TRIP_ID);
+    return getDefaultTripShareId() === token.id && getActiveTripId() === DEFAULT_TRIP_ID;
+  }
+  upsertKnownTrip(token.id, name);
+  setActiveTripId(token.id);
+  return getActiveTripId() === token.id;
 }
 
 /**

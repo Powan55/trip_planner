@@ -339,11 +339,23 @@ describe('getTripConfig — prototype-pollution-shaped ids never leak a function
       expect(cfg).toBe(NEPAL_JAPAN_2026); // unregistered id ⇒ same as any other unknown id
     });
 
-    it(`getTripConfig('${poison}') after joinTrip('${poison}') ⇒ the config-less placeholder, never a crash`, () => {
-      // The reachable path: pasting the poison string into "Add a trip by Trip Token" (or
-      // `?trip=${poison}`) calls joinTrip, which registers it with NO config block — exactly
-      // the A-2 config-less state, now on a prototype-key id.
-      joinTrip(poison);
+    it(`getTripConfig('${poison}') once it is on disk ⇒ the config-less placeholder, never a crash`, () => {
+      // Pasting the poison string into "Add a trip by Trip Token" (or `?trip=${poison}`) calls
+      // joinTrip, which registers it with NO config block — exactly the A-2 config-less state,
+      // now on a prototype-key id.
+      //
+      // D-546 narrowed which of these are still reachable that way: `joinTrip` refuses a
+      // Firestore-reserved `__x__` id outright, so `__proto__` can no longer be pasted in. It can
+      // still be ON DISK — from before that change, or from any other write of the pointer — and
+      // `getTripConfig` is what has to stay total against it either way, so the state is set up
+      // directly here rather than the case being dropped.
+      if (poison === '__proto__') {
+        expect(joinTrip(poison)).toBe(false);
+        upsertKnownTrip(poison);
+        setActiveTripId(poison);
+      } else {
+        expect(joinTrip(poison)).toBe(true);
+      }
       const cfg = getTripConfig(poison);
       // was TRIP_PACKS[poison] === the Object constructor (typeof 'function') pre-fix.
       expect(typeof cfg).not.toBe('function');
