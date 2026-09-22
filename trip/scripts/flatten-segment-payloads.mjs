@@ -106,13 +106,18 @@ if (!(await exists(OUT_DIR))) {
   throw new Error(`flatten-segment-payloads: out/ not found at ${OUT_DIR}. Run \`next build\` first.`);
 }
 
+// A Linux build of the same Next version finds zero of these where a Windows build
+// of it finds 19, so the error carries out/'s real listing rather than a guess.
 const copied = await walk(OUT_DIR);
 if (copied === 0 && !process.env.ALLOW_ZERO_SEGMENT_PAYLOADS) {
+  const topLevel = (await readdir(OUT_DIR, { withFileTypes: true }))
+    .map((e) => e.name + (e.isDirectory() ? '/' : ''))
+    .sort();
   throw new Error(
-    'flatten-segment-payloads: no __next.* segment directories found, so zero payloads were ' +
-      'flattened. Next may have fixed this upstream — confirm which URL shape the router now ' +
-      'requests, then delete this script rather than let it pick. To bypass once, set ' +
-      'ALLOW_ZERO_SEGMENT_PAYLOADS=1.'
+    'flatten-segment-payloads: no __next.* segment directories found, so zero ' +
+      'payloads were flattened. Next may have fixed this upstream — confirm which URL shape the ' +
+      'router now requests, then delete this script rather than let it pick. out/ top level was: ' +
+      `[${topLevel.join(', ')}]. To bypass once, set ALLOW_ZERO_SEGMENT_PAYLOADS=1.`
   );
 }
 console.log(
