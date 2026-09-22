@@ -399,11 +399,16 @@ export async function createTripDoc(tripId: string): Promise<void> {
  * - already in `members` ⇒ return, with no write at all. This is the common case on every load
  *   after the first, so it must cost one read and nothing else.
  * - members map ABSENT (a grandfathered capability trip), or one the rules read as open because
- *   it names no owner (`readMembers`) ⇒ the first device to enrol takes `'owner'`. Somebody has
- *   to be able to manage the roster, and on a members-less trip the rules let any signed-in
- *   holder of the tripId write one — so the first mover is the only available
- *   answer. It is also the right one: the first device to open a trip it created before the lock
- *   existed is overwhelmingly the creator's.
+ *   it names no owner (`readMembers`) ⇒ return, with no write at all. #477: this branch used to
+ *   take `'owner'`, on the theory that the first device to open a pre-lock trip is overwhelmingly
+ *   its creator. It is not — a `?trip=` link forwarded into a group chat makes whoever taps it
+ *   first the sole owner and locks the real creator out for good, with no self-service route back.
+ *   Nothing local distinguishes the creator from a tapper (the registry records `joinedAt` for
+ *   both), and `'member'` is not the safer answer either: `rosterIsWellFormed()` refuses any
+ *   update leaving the map naming no owner, so it would be denied and raise access-pending on a
+ *   trip this device can in fact read and write. So: no write. An owner-less trip stays OPEN to
+ *   every token holder, which is the grandfather contract (D-540/#453), and a roster is minted
+ *   only where the creator is actually known — `createTripDoc` and the first-snapshot seed.
  * - anyone else ⇒ `'member'`.
  *
  * The explicit target is intentional: the normal page-load caller passes the active trip, while
@@ -426,12 +431,15 @@ export async function ensureMembership(tripId: string): Promise<void> {
     const { doc, getDocFromServer, updateDoc } = fs;
     const ref = doc(db, 'trips', tripId);
     // SERVER read: a cached copy can be stale in both directions — an absent members map that has
-    // since been written (we would try to self-enrol as owner and be denied) or a stale roster.
+    // since been written (we would read the trip as still open and skip the enrolment the rules
+    // now require, with no access-pending toast to explain the denials that follow) or a stale
+    // roster (we would re-add an entry that is already there).
     const snap = await getDocFromServer(ref);
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
-    if (members && uid in members) return; // already enrolled — no write
-    await updateDoc(ref, { [`members.${uid}`]: members ? 'member' : 'owner' });
+    if (!members) return; // open trip — nothing to enrol in, and no roster to invent (#477)
+    if (uid in members) return; // already enrolled — no write
+    await updateDoc(ref, { [`members.${uid}`]: 'member' });
   } catch (err) {
     if (isPermissionDenied(err)) {
       if (typeof window !== 'undefined') {

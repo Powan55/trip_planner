@@ -518,8 +518,10 @@ function LinkGoogleIdentity() {
  * refusal rather than pretending it worked.
  *
  * A trip with NO roster is the grandfathered case (it predates the lock): everyone holding the
- * Trip Token can open it, and saying so is more honest than showing an empty list. Simply opening
- * such a trip enrols this device as its owner, so the empty state is short-lived.
+ * Trip Token can open it, and saying so is more honest than showing an empty list. That state is
+ * permanent, not short-lived — #477 stopped the client minting a roster for such a trip on page
+ * load — so the add form is hidden there: the rules refuse any roster that names no owner, so
+ * "Add device" could only ever fail.
  */
 function TripAccessGroup() {
   const [uid, setUid] = useState<string | null>(null);
@@ -663,9 +665,9 @@ function TripAccessGroup() {
                 className="mt-1 flex max-w-2xl items-start gap-1.5 text-t-body text-ink-mid"
               >
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                Anyone holding this trip&rsquo;s Trip Token can open it. Once this device has
-                finished syncing, it becomes the trip&rsquo;s owner and you can add the others by
-                their device codes.
+                Anyone holding this trip&rsquo;s Trip Token can open it. This trip was made before
+                per-device access existed, so there is no list to manage &mdash; share the Trip
+                Token with the people you want in, and nobody else.
               </p>
             ) : (
               <ul data-testid="settings-access-list" className="mt-3 flex flex-col gap-2">
@@ -701,6 +703,7 @@ function TripAccessGroup() {
               </ul>
             )}
 
+            {members !== null && (
             <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
               <label htmlFor="settings-access-add" className="sr-only">
                 Device code to add
@@ -727,6 +730,7 @@ function TripAccessGroup() {
                 Add device
               </button>
             </form>
+            )}
           </>
         )}
         <div aria-live="polite" className="mt-2 min-h-[1.25rem]">

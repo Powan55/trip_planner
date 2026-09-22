@@ -6,9 +6,9 @@
 //   1. `createTripDoc` mints `members: { <uid>: 'owner' }` on the trip doc (the ONLY moment the
 //      rules accept a members map being created).
 //   2. `ensureMembership`'s four branches — absent doc, already enrolled, grandfathered
-//      members-less trip (first enroller takes `owner`), and a refusal (⇒ `trip:access-pending`,
-//      never a throw) — plus the FIELD-PATH shape of its write, which is what the rules' add-only
-//      diff requires (a whole-document overwrite is refused for a non-owner).
+//      members-less trip (#477: NO write at all), and a refusal (⇒ `trip:access-pending`, never a
+//      throw) — plus the FIELD-PATH shape of its write, which is what the rules' add-only diff
+//      requires (a whole-document overwrite is refused for a non-owner).
 //   3. The presence heartbeat STOPS on a refusal instead of retrying every 60s forever.
 //
 // ⚠ Assertions count writes and reads, not only outcomes: every function here swallows failure to
@@ -160,15 +160,11 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     expect(fake.writes).toHaveLength(0);
   });
 
-  it('MEMBERS-LESS legacy trip ⇒ the first enroller takes owner, via a FIELD PATH', async () => {
+  it('MEMBERS-LESS legacy trip ⇒ NO write: the reader does not become its owner (#477)', async () => {
     fake.docs.set(TRIP_PATH, { schemaVersion: 1, createdAt: 1, seededFrom: 'sample' });
     await ensureMembership(TRIP);
-    const writes = writesTo(TRIP_PATH);
-    expect(writes).toHaveLength(1);
-    // FIELD PATH, not a whole-document overwrite: the rules refuse any non-owner edit that touches
-    // a key other than `members`, so the write must name `members.<uid>` and nothing else.
-    expect(writes[0].op).toBe('update');
-    expect(writes[0].data).toEqual({ [`members.${UID}`]: 'owner' });
+    expect(fake.serverReads).toBe(1); // the read ran — a measurement, not a bypassed mock
+    expect(writesTo(TRIP_PATH)).toHaveLength(0);
   });
 
   it('members map present without this uid ⇒ enrols as member (belt to the rules braces)', async () => {
@@ -176,7 +172,12 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     // refusal test below). It is pinned because the client must never assume itself an owner.
     fake.docs.set(TRIP_PATH, { schemaVersion: 1, members: { someone: 'owner' } });
     await ensureMembership(TRIP);
-    expect(writesTo(TRIP_PATH)[0].data).toEqual({ [`members.${UID}`]: 'member' });
+    const writes = writesTo(TRIP_PATH);
+    expect(writes).toHaveLength(1);
+    // FIELD PATH, not a whole-document overwrite: the rules refuse any non-owner edit that touches
+    // a key other than `members`, so the write must name `members.<uid>` and nothing else.
+    expect(writes[0].op).toBe('update');
+    expect(writes[0].data).toEqual({ [`members.${UID}`]: 'member' });
   });
 
   it('REFUSED ⇒ dispatches trip:access-pending, writes nothing, never throws', async () => {
@@ -202,21 +203,31 @@ describe('ensureMembership — four branches, one read (#10)', () => {
 
     window.removeEventListener(TRIP_ACCESS_PENDING_EVENT, onPending);
     expect(seen).toHaveLength(0); // junk in the doc is never read as "you have no access"
-    expect(writesTo(TRIP_PATH)[0].data).toEqual({ [`members.${UID}`]: 'owner' });
+    expect(writesTo(TRIP_PATH)).toHaveLength(0);
   });
 
-  // #453: the rules read a roster naming no owner as OPEN and refuse any write that leaves it
-  // owner-less, so enrolling as 'member' here would be denied and show access-pending wrongly.
+  // #453 + #477: the rules read a roster naming no owner as OPEN, and `rosterIsWellFormed()`
+  // refuses any update that leaves it owner-less — so 'member' would be denied here, and 'owner'
+  // would hand the trip to whoever opened the forwarded link first. Neither: write nothing. The
+  // trip stays open to every token holder, which is what these shapes already mean.
   it.each([
+    ['NO members field', undefined],
+    ['a non-map members field', 'not-a-map'],
     ['an EMPTY map', {}],
     ['an all-member map', { a: 'member', b: 'member' }],
     ['a map already listing this uid, but no owner', { [UID]: 'member', other: 'Owner' }],
-  ])('%s reads as open ⇒ enrols as owner', async (_label, members) => {
-    fake.docs.set(TRIP_PATH, { schemaVersion: 1, members });
+  ])('%s reads as open ⇒ no write, no access-pending (#477)', async (_label, members) => {
+    const seen: Event[] = [];
+    const onPending = (e: Event) => seen.push(e);
+    window.addEventListener(TRIP_ACCESS_PENDING_EVENT, onPending);
+
+    fake.docs.set(TRIP_PATH, { schemaVersion: 1, ...(members === undefined ? {} : { members }) });
     await ensureMembership(TRIP);
-    const writes = writesTo(TRIP_PATH);
-    expect(writes).toHaveLength(1);
-    expect(writes[0].data).toEqual({ [`members.${UID}`]: 'owner' });
+
+    window.removeEventListener(TRIP_ACCESS_PENDING_EVENT, onPending);
+    expect(fake.serverReads).toBe(1);
+    expect(writesTo(TRIP_PATH)).toHaveLength(0);
+    expect(seen).toHaveLength(0); // an open trip is readable and writable — nothing to ask for
   });
 
   it('no-ops with NO read when the trip is not remote (the local-only sample)', async () => {
