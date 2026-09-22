@@ -33,6 +33,7 @@ import {
 import { type MapMarker, type MarkerCategory } from '@/lib/map-data';
 import { buildMapStyle, CATEGORY_COLOR, BRAND } from '@/lib/map-style';
 import { buildMapsDirectionsUrl } from '@/lib/maps-link';
+import { placeColor } from '@/lib/city-palette';
 import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
 import { footprintsToGeoJSON, type CountryFootprint } from '@/lib/visited-footprint';
 import { MAP_PIN_DND_TYPE } from '@/lib/day-anchor';
@@ -190,7 +191,11 @@ function MarkerPopupContent({
   const Icon = style.icon;
   const favorited = isFavorite(marker.id);
   return (
-    <div className="plate w-[248px] max-w-[80vw]" data-leg={marker.country === 'Japan' ? 'japan' : 'nepal'}>
+    <div
+      className="plate w-[248px] max-w-[80vw]"
+      data-leg={marker.country === 'Japan' ? 'japan' : 'nepal'}
+      style={{ ['--now' as string]: placeColor(marker.country, marker.area) }}
+    >
       {/* DOM chrome only — the ratio lives on the frame as `--plate-ar`, which is what the
           recipe reads, and the grid is what gives the ramp a row to span. */}
       {marker.image && !imgError && (
@@ -228,7 +233,7 @@ function MarkerPopupContent({
               scanned the popup with content OPEN for the first time (the earlier
               /map axe pack never opens a popup, so this was never exercised). */}
           <p className="pr pr--lo flex items-center gap-1 mb-1.5">
-            <MapPin className="w-3 h-3" aria-hidden="true" />
+            <MapPin className="w-3 h-3 text-now" aria-hidden="true" />
             {marker.area} · {marker.country}
           </p>
         </div>

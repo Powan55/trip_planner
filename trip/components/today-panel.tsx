@@ -9,6 +9,7 @@ import {
 } from '@/lib/trip-data';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { offsetForCountry } from '@/core/dates';
+import { dayShade } from '@/lib/city-palette';
 import { nextUp } from '@/lib/whats-next';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { generateItemId } from '@/lib/item-id';
@@ -155,7 +156,7 @@ export default function TodayPanel() {
             sets it rather than inheriting Nepal's stop through the Japan fortnight. */}
         <header
           className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6"
-          style={{ ['--now']: todayInTrip.country.toLowerCase() === 'japan' ? 'var(--jp-a)' : 'var(--np-a)' } as CSSProperties}
+          style={{ ['--now']: dayShade(todayInTrip.date).color } as CSSProperties}
         >
           <div>
             <p className="pr mb-2">Today on the trip</p>

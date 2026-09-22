@@ -6,6 +6,7 @@ import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { JOURNEYS, BOOKED_STAYS } from '@/lib/booking-data';
 import { describeItemTime } from '@/lib/item-time-display';
 import { dayPlaceLabel } from '@/lib/leg-label';
+import { dayShade } from '@/lib/city-palette';
 import { groupItemsByPhase } from '@/lib/phase-of-day';
 import { TRIP_DATES, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 
@@ -112,6 +113,7 @@ export default function PrintItinerary() {
           // custom trip prints continuously. That is the right answer, not a fallback.
           const legStart = i > 0 && day.country !== days[i - 1].country;
           const items = groupItemsByPhase(day.items ?? []).map((g) => g.item);
+          const shade = dayShade(day.date);
 
           return (
             <section
@@ -119,10 +121,22 @@ export default function PrintItinerary() {
               className="print-day"
               data-leg-start={legStart ? 'true' : undefined}
             >
-              <h3 className="print-day-head">
+              <h3
+                className="print-day-head"
+                data-testid={`print-day-head-${day.date}`}
+                style={{
+                  borderLeft: `2.2mm ${shade.transit ? 'double' : shade.satellite ? 'dashed' : 'solid'} ${shade.transit ? '#000' : shade.color}`,
+                  paddingLeft: '2mm',
+                  printColorAdjust: 'exact',
+                  WebkitPrintColorAdjust: 'exact',
+                }}
+              >
                 <span className="print-day-n">Day {i + 1}</span>
                 <span>{formatDateLong(day.date)}</span>
-                <span className="print-meta">{dayPlaceLabel(day)}</span>
+                <span className="print-meta">
+                  {dayPlaceLabel(day)}
+                  {shade.transit ? ' · travel day' : shade.satellite ? ` · day trip from ${shade.city}` : ''}
+                </span>
               </h3>
 
               {items.length === 0 ? (

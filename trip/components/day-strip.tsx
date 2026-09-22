@@ -12,13 +12,13 @@
 
 import { useEffect, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
+import { dayShade, cellPaint, shadeLabel } from '@/lib/city-palette';
 
 /** Per-date presentation meta the parent precomputes from the store (pure consumer). */
 export interface DayStripDateMeta {
   /** 'YYYY-MM-DD' trip date. */
   date: string;
-  /** Leg id for the country dot (himalaya = nepal, sakura = japan).: `string` — a custom
-   * trip's single leg is `'main'`; for the default pack it is still exactly nepal/japan. */
+  /** Leg id. Not read for colour: the chip colour comes from `dayShade` (lib/city-palette.ts). */
   country: string;
   /** Number of planned items on this day (drives the count badge; 0 = no badge). */
   count: number;
@@ -83,7 +83,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
       {dates.map((date) => {
         const { weekday, dayNum, long } = parseDay(date);
         const m = metaByDate.get(date);
-        const country = m?.country ?? 'nepal';
+        const shade = dayShade(date);
         const count = m?.count ?? 0;
         const isSelected = date === selectedDate;
         const isToday = todayDate != null && date === todayDate;
@@ -98,8 +98,9 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             type="button"
             onClick={() => onSelect(date)}
             aria-pressed={isSelected}
-            aria-label={`${long}${todayLabel}${activityLabel}`}
+            aria-label={`${long}${todayLabel}${activityLabel}${shadeLabel(shade)}`}
             data-testid={`day-strip-${date}`}
+            style={isSelected ? undefined : cellPaint(shade, { planned: count > 0, tint: 0, border: 100 })}
             // A DAY TAB (SPEC 9.9). MATERIAL carries the active state — a lighter surface,
             // raised 5px — so it does not depend on an accent colour, which is what leaves
             // the screen's one accent fill for the thing that is actually live. A day with
@@ -110,10 +111,8 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
               isSelected
                 ? '-translate-y-[5px] bg-[rgb(var(--surface-overlay))] border-[hsl(var(--border))] text-[color:var(--text-hi)]'
                 : count > 0
-                  ? country === 'nepal'
-                    ? 'bg-[rgb(var(--surface-low))] border-[color:var(--np-a)] text-[color:var(--np-a)] hover:bg-white/5'
-                    : 'bg-[rgb(var(--surface-low))] border-[color:var(--jp-a)] text-[color:var(--jp-a)] hover:bg-white/5'
-                  : 'border-dashed border-[color:var(--text-lo)] text-[color:var(--text-lo)] hover:bg-white/5'
+                  ? 'bg-[rgb(var(--surface-low))] hover:bg-white/5'
+                  : 'border-dashed text-[color:var(--text-lo)] hover:bg-white/5'
             }`}
           >
             {/* THE STAMP — applied after printing, in another ink, off-register. There is
@@ -134,13 +133,10 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             {/* The country mark: FILLED when the day carries items, an unfilled ring when
                 it does not. Same disc, same place — only the fill says which. */}
             <span
-              className={`h-[7px] w-[7px] rounded-full ${
-                count > 0
-                  ? country === 'nepal'
-                    ? 'bg-[color:var(--np-a)]'
-                    : 'bg-[color:var(--jp-a)]'
-                  : 'border-2 border-[color:var(--text-lo)]'
+              className={`h-[7px] w-[7px] ${shade.satellite ? 'rotate-45' : 'rounded-full'} ${
+                count > 0 ? '' : 'border-2 border-[color:var(--text-lo)]'
               }`}
+              style={count > 0 ? { background: shade.color } : undefined}
               aria-hidden="true"
             />
             {/* Item-count badge, only when the day has items. */}
