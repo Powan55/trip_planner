@@ -2,7 +2,7 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.3.1`, deployed 2026-09-20. The newest live worker is `v1.11.0`, deployed 2026-09-17: v1.10.0's membership gate and rate limiter plus the opt-in Kimi K3 leg (see v7.2.0). The gate and limiter went live together in `v1.10.0`, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.4.0`, deployed 2026-09-21. The newest live worker is `v1.11.0`, deployed 2026-09-17: v1.10.0's membership gate and rate limiter plus the opt-in Kimi K3 leg (see v7.2.0). The gate and limiter went live together in `v1.10.0`, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
 
 **`v7.1.1` shipped on 2026-09-06.** Tag `v7.1.1` is `0f39f3e`, that commit is `origin/main`'s head, and its deploy run (`34078213707`) succeeded — verified against the tag and the run, not against this paragraph. `v7.1.0` shipped on 2026-09-01 as `974f960`, run `33501267415`. The live CSS carries `--plate-split` and no longer carries `railwrap`, which is the served-bytes half of that check. `v7.0.1` shipped earlier the same day as `fa2f497`, run `33476633246`. That gap is the drift this paragraph keeps falling into — it named `v6.1.0` for a day after `v7.0.0` went live, and then `v7.0.0` after `v7.0.1` did. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
@@ -12,7 +12,7 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
-## v7.4.1 (app) · 2026-09-21 · worker stays at v1.11.0
+## v7.4.2 (app) · 2026-09-22 · worker stays at v1.11.0
 
 Patch. ICS export was writing the wrong instant for any item with a timezone override, so the
 JFK/Delhi/Guangzhou/Detroit flight legs landed 10h45m off once imported into a real calendar
@@ -22,6 +22,15 @@ participant or field path named constructor or __proto__ (#485). Two build guard
 they fail the build only warned; both now throw (#474).
 
 ---
+
+## v7.4.1 (app) · 2026-09-21 · worker stays at v1.11.0
+
+Patch. Kathmandu's calendar shade is now a distinct sky blue instead of orange, which read too
+close to Japan's pink-violet on the dark ground. Calendar-scoped only — the hero, day-strip and
+budget currency tags keep the brand orange.
+
+---
+
 ## v7.4.0 (app) · 2026-09-21 · worker stays at v1.11.0
 
 The calendar is color-coded by country, with a shade per city. Day trips keep their base city's shade and get
