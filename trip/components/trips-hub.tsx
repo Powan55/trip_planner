@@ -140,6 +140,8 @@ export default function TripsHub() {
   const [creating, setCreating] = useState(false);
   const [joinKey, setJoinKey] = useState('');
   const [joinName, setJoinName] = useState('');
+  /** D-546 — the one refusal this form can now make: a token that could never compose a path. */
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [forgetId, setForgetId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -378,8 +380,17 @@ export default function TripsHub() {
   const join = (e: React.FormEvent) => {
     e.preventDefault();
     const id = joinKey.trim();
-    if (!id) return; // non-empty is the only possible/needed validation
-    joinTrip(id, joinName.trim() || undefined);
+    if (!id) return;
+    // D-546 — `joinTrip` resolves which namespace the token names (a `pack:` share id keeps the
+    // browser on the default pack with its legs, offsets and guides; anything else is a custom
+    // trip) and reports whether the pointer landed. Navigating regardless used to look like the
+    // paste had worked while leaving the browser exactly where it was.
+    if (!joinTrip(id, joinName.trim() || undefined)) {
+      setJoinError(
+        'That Trip Token can’t be used. Check it was copied whole — chat apps often cut long codes short.',
+      );
+      return;
+    }
     // same unawaited-push-then-navigate shape as create was, but NOT the defect —
     // the trip-list push self-heals on the next load (subscribeTripList re-pushes local extras),
     // and no peer depends on it. Left fire-and-forget deliberately; revisit only if that
@@ -762,11 +773,16 @@ export default function TripsHub() {
               id="trips-hub-join-key"
               data-testid="trips-hub-join-key"
               value={joinKey}
-              onChange={(e) => setJoinKey(e.target.value)}
+              onChange={(e) => {
+                setJoinKey(e.target.value);
+                setJoinError(null);
+              }}
               placeholder="Paste a Trip Token"
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
+              aria-invalid={joinError !== null || undefined}
+              aria-describedby={joinError ? 'trips-hub-join-error' : undefined}
               className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             />
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -793,6 +809,16 @@ export default function TripsHub() {
               </button>
             </div>
           </div>
+          {joinError && (
+            <p
+              id="trips-hub-join-error"
+              role="alert"
+              data-testid="trips-hub-join-error"
+              className="mt-2 max-w-2xl text-t-body text-amber-300"
+            >
+              {joinError}
+            </p>
+          )}
           <p className="mt-3 max-w-2xl text-t-sm text-ink-lo">
             A Trip Token opens one trip &mdash; it is not a login, and your own key never goes
             here. Trip Tokens can&rsquo;t be verified in advance: if the trip opens empty, it may be

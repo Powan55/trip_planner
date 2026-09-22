@@ -183,6 +183,29 @@ describe('settle — fast path contributes zero', () => {
   });
 });
 
+describe('settle — prototype-named payer does not corrupt balances (#485)', () => {
+  it('payer "constructor": balances still sum to zero and the transfer is correct', () => {
+    const [s] = settle(
+      [exp({ paidBy: 'constructor', split: ['constructor', 'Sushil'], amount: 300 })],
+      ROSTER,
+    );
+    expect(s.balances).toEqual({ constructor: 150, Sushil: -150 });
+    expect(Object.values(s.balances).reduce((a, b) => a + b, 0)).toBe(0);
+    expect(s.transfers).toEqual([{ from: 'Sushil', to: 'constructor', amount: 150 }]);
+  });
+
+  it('payer "__proto__": the credit is not swallowed; balances sum to zero', () => {
+    const [s] = settle(
+      [exp({ paidBy: '__proto__', split: ['__proto__', 'Sushil'], amount: 300 })],
+      ROSTER,
+    );
+    expect(s.balances.__proto__).toBe(150);
+    expect(s.balances.Sushil).toBe(-150);
+    expect(Object.values(s.balances).reduce((a, b) => a + b, 0)).toBe(0);
+    expect(s.transfers).toEqual([{ from: 'Sushil', to: '__proto__', amount: 150 }]);
+  });
+});
+
 describe('settle — largest-remainder rounding keeps balances summing to 0 (D-337 family)', () => {
   it('a 3-way split of an odd amount rounds balances so a creditor’s transfers-received sum to exactly their balance', () => {
     const [s] = settle(

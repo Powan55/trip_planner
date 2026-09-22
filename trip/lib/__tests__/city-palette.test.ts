@@ -188,7 +188,7 @@ describe('measured on the rendered ground', () => {
     }
   });
 
-  it('adjacent shades stay apart (OKLab): four per hue, two for the short orange-gold stop pair', () => {
+  it('adjacent shades stay apart (OKLab): four per hue, two for the short leg-0 blue stop pair', () => {
     for (let hue = 0; hue < HUES.length; hue++) {
       for (let n = 2; n <= (hue === 0 ? 2 : 4); n++) {
         for (let i = 1; i < n; i++) {
@@ -198,11 +198,17 @@ describe('measured on the rendered ground', () => {
     }
   });
 
-  it('hues 0 and 1 mirror the --np / --jp tokens', () => {
+  it('hue 1 mirrors the --jp tokens; hue 0 deliberately does not mirror --np', () => {
     const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
     const tok = (n: string) => new RegExp(`${n}:\\s*(#[0-9A-Fa-f]{6})`).exec(css)![1].toUpperCase();
-    expect([tok('--np-a'), tok('--np-b')]).toEqual([...HUES[0]]);
     expect([tok('--jp-a'), tok('--jp-b')]).toEqual([...HUES[1]]);
+    expect([tok('--np-a'), tok('--np-b')]).not.toEqual([...HUES[0]]);
+  });
+
+  it('hue 0 (calendar Nepal blue) reads well against a dark ground and stays apart from hue 1', () => {
+    const bgDark = [10, 8, 24]; // --background
+    for (const c of HUES[0]) expect(ratio(ch(c), bgDark)).toBeGreaterThanOrEqual(4.5);
+    expect(Math.abs(hueDeg(HUES[0][0]) - hueDeg(HUES[1][0]))).toBeGreaterThan(60);
   });
 });
 

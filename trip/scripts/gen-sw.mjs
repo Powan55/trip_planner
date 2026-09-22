@@ -107,13 +107,13 @@ async function eagerStaticAssets(htmlFiles) {
     const css = await readFile(join(OUT_DIR, rel), 'utf8');
     for (const ref of css.match(REF) ?? []) set.add(ref);
   }
-  // Fail-LOUD floor (mirrors stripPolyfills' WARN): if a future Next output
-  // shape stops matching REF, this silently drops the whole shell from the
-  // precache and offline rendering degrades with a still-green build.
-  if (set.size < 5) {
-    console.warn(
-      `gen-sw: WARNING — only ${set.size} eager asset(s) scraped from route HTML; ` +
-        'the _next/static reference shape may have changed.'
+  // A REF shape change otherwise drops the whole shell from the precache under
+  // a green build. KNOWN CEILING: an aggregate floor, not per-route — 70 refs
+  // across 22 routes today, so a dynamic route emitting ~48 pages would trip it.
+  if (set.size < htmlFiles.length) {
+    throw new Error(
+      `gen-sw: only ${set.size} eager asset(s) scraped from ${htmlFiles.length} route HTML ` +
+        'file(s); the _next/static reference shape may have changed.'
     );
   }
   return set;

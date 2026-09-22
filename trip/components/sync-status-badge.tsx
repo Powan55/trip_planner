@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { m } from 'framer-motion';
 import { AlertTriangle, Check, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
+import { usePresence } from '@/hooks/use-presence';
 import { useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
 import ShareDefaultTripDialog from '@/components/share-default-trip';
@@ -39,6 +40,14 @@ import ShareDefaultTripDialog from '@/components/share-default-trip';
  * nowhere. It renders LAST in the precedence chain below: a real pending/blocked count is a live
  * fact about a trip that IS shared, and must not be masked by the invitation to share one.
  *
+ * D-546 SPLITS THE SYNCED STATE IN TWO, on the audience rather than on the outbox. Everything the
+ * outbox knows is about this device's own writes; "Synced" was therefore a claim about transport
+ * being read as a claim about delivery, and it held just as firmly when the share link was putting
+ * every joiner on a different trip. With at least one other traveller present it now says so
+ * ("Synced · 2 here"); alone it says "Saved", which is the honest weaker claim — uploaded, read by
+ * nobody yet. Alone is the NORMAL state of a solo trip, so it keeps the neutral check mark and the
+ * plain tone; the explanation lives in the sr-only sentence rather than in a warning.
+ *
  * THREE STATES, not two (#267, widened by #271). "pending" tells a traveler their edits will land
  * on their own; for a change (or a read) the security rules REFUSED that is false and no amount of
  * waiting fixes it, so a refusal gets its own wording and its own `data-state`. `blocked` is a
@@ -53,6 +62,19 @@ import ShareDefaultTripDialog from '@/components/share-default-trip';
  */
 export function SyncStatusBadge() {
   const { pending, blocked, readBlocked, lastAckAt, localOnly } = useSyncStatus();
+  /**
+   * D-546 — DELIVERY, not transport. Everything above comes out of this device's own outbox:
+   * `lastAckAt` is stamped when Firestore accepted the bytes, which is equally true whether one
+   * peer or zero will ever read them. So the pill said "Synced 2m ago" while the share link was
+   * putting every joiner on a different trip — the data was going nowhere and the badge was the
+   * one surface that could have said so.
+   *
+   * `usePresence()` already answers "who else is on this trip", off the same heartbeat collection
+   * the presence bar reads, with the same gate and the same 6-minute active window. No new
+   * subsystem and no new dependency; the subscribe is the identical query the bar already opens,
+   * which the Firestore SDK multiplexes onto one listen target.
+   */
+  const peers = usePresence();
   const [shareOpen, setShareOpen] = useState(false);
   // OfflineBanner owns top-center at the same `top-20`, and at 360-414px its centred pill
   // overlaps this right-anchored one — which is exactly when both are showing (offline with
@@ -80,6 +102,13 @@ export function SyncStatusBadge() {
   // so the two surfaces reading this one outbox agree on what a refusal looks like.
   const tone = isBlocked ? 'text-amber-300' : 'text-ink-mid';
   const relative = lastAckAt ? formatRelativeTime(lastAckAt) : null;
+  /**
+   * How many OTHER devices are on this trip right now. Being alone on a trip is the NORMAL case,
+   * not a fault: it gets a quieter word ("Saved" — uploaded, read by nobody yet) and keeps the
+   * same neutral check mark, never amber and never an alert. Only the presence of an audience is
+   * stated as a positive; its absence is stated as a fact, in the sr-only sentence.
+   */
+  const audience = peers.length;
   const label = isBlocked
     ? blocked > 0
       ? `${blocked} not syncing`
@@ -88,7 +117,9 @@ export function SyncStatusBadge() {
       ? `${pending} pending`
       : isLocalOnly
         ? 'This device only'
-        : `Synced ${relative ?? 'recently'}`;
+        : audience > 0
+          ? `Synced · ${audience} here`
+          : `Saved ${relative ?? 'recently'}`;
   const localOnlySummary =
     'Your plan is saved on this device only. Nothing you change here reaches anyone else, and it is not backed up anywhere. Activate to share it.';
   const summary = isBlocked
@@ -99,7 +130,9 @@ export function SyncStatusBadge() {
       ? `${pending} change${pending === 1 ? '' : 's'} ${pending === 1 ? 'is' : 'are'} waiting to sync to the shared trip. This will clear automatically once the connection confirms.`
       : isLocalOnly
         ? localOnlySummary
-        : `All changes are synced to the shared trip${relative ? `, last confirmed ${relative}` : ''}.`;
+        : audience > 0
+          ? `All changes are synced to the shared trip${relative ? `, last confirmed ${relative}` : ''}. ${audience === 1 ? `${peers[0].name} is` : `${audience} other travellers are`} on it right now.`
+          : `All changes are uploaded to the shared trip${relative ? `, last confirmed ${relative}` : ''}, and will be there the next time someone opens it. No one else is on the trip right now.`;
 
   // The local-only pill is the ONE interactive state: it is an offer, not a report, so it is a real
   // <button> (focusable, Enter/Space, a named action) rather than a pill with a click handler. The
@@ -124,7 +157,15 @@ export function SyncStatusBadge() {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             data-testid="sync-status-badge"
             data-state={
-              isBlocked ? 'blocked' : isPending ? 'pending' : isLocalOnly ? 'local-only' : 'synced'
+              isBlocked
+                ? 'blocked'
+                : isPending
+                  ? 'pending'
+                  : isLocalOnly
+                    ? 'local-only'
+                    : audience > 0
+                      ? 'synced'
+                      : 'synced-alone'
             }
             className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
           >

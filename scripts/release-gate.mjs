@@ -14,6 +14,11 @@
 // Assertion 1b turns that hazard into a loud failure rather than a silent pass: with zero
 // tags visible it refuses instead of assuming the version went up.
 //
+// NO ASSERTION MAY PRINT `ok` FOR A CONDITION IT DID NOT EVALUATE. An unevaluated check that
+// reads as green is worse than no check, because the output is taken as evidence. Where a check
+// genuinely cannot run, say `skipped` and why, the way assertion 3 does — and make sure the
+// state that made it unanswerable is failed by some other assertion in the same run.
+//
 // No dependencies and no npm install, so this answers in seconds and can run before
 // anything is installed. Run it by hand from the repo root: `node scripts/release-gate.mjs`.
 
@@ -36,11 +41,21 @@ const pass = (msg) => console.log(`ok   ${msg}`);
 //    deploy writes no tag, so that version is still above the newest one. This assertion is
 //    inequality only; assertion 1b immediately below is what checks the version went UP.
 //    D-305 deferred that check, D-337 supersedes the deferral and adds it.
+//
+//    `-q --verify` exits 1 for a ref that is genuinely absent and 128 for "not a git
+//    repository", and the catch used to read every throw as absent — a pass printed for a
+//    question that was never asked. A tagless but real checkout still answers 1 here, which
+//    is correct as far as this assertion goes and is what 1b below refuses.
 try {
   execFileSync('git', ['rev-parse', '-q', '--verify', `refs/tags/${tag}`], { stdio: 'ignore' });
   fail(`Version ${version} was already deployed (tag ${tag} exists). Bump trip/package.json.`);
-} catch {
-  pass(`${version} has no deploy tag yet (${tag} absent).`);
+} catch (err) {
+  if (err.status === 1) {
+    pass(`${version} has no deploy tag yet (${tag} absent).`);
+  } else {
+    fail(`git could not be asked whether tag ${tag} exists (exit ${err.status ?? err.code ?? 'unknown'}), ` +
+      `so this gate cannot tell whether ${version} already deployed. Run it from a git checkout.`);
+  }
 }
 
 // 1b. Went UP, not just sideways. Assertion 1 is inequality only, and the tag list has real
@@ -71,12 +86,16 @@ try {
     .filter(Boolean);
   const mine = triple(version);
   const newest = tags.length ? tags.reduce((a, b) => (higher(b, a) ? b : a)) : null;
+  // Recorded before any verdict, and deliberately NOT inside the "went up" branch below.
+  // Assertion 2 needs the newest tag whatever this assertion answers; hanging the assignment
+  // off the pass branch left it null on every other outcome, which silently disarmed the
+  // preamble comparison and still printed "and preamble is current." on a stale preamble.
+  newestTag = newest ? newest.join('.') : null;
   if (!newest) {
     fail(NO_TAGS);
   } else if (!mine) {
     fail(`trip/package.json version "${version}" is not a plain N.N.N, so it cannot be ordered.`);
   } else if (higher(mine, newest)) {
-    newestTag = newest.join('.');
     pass(`${version} is above the newest deploy tag v${newest.join('.')}.`);
   } else {
     fail(`Version ${version} is not above the newest deploy tag v${newest.join('.')}. ` +
@@ -137,7 +156,12 @@ if (!heading) {
   fail(`trip/docs/RELEASES.md has no "## ${tag}" heading. Every deploy says what it changed.`);
 } else if (HOLD_MARKER.test(heading.clean)) {
   fail(`trip/docs/RELEASES.md marks ${tag} as held, so it must not ship: ${heading.line.trim()}`);
-} else if (newestTag && preambleVersion !== newestTag) {
+} else if (!newestTag) {
+  // NOT a pass for the preamble: the comparison had nothing to compare against. `newestTag`
+  // is null only when assertion 1b has already failed (no tags visible, or no repository at
+  // all), so the run is red regardless and this reports the half it could answer.
+  pass(`trip/docs/RELEASES.md documents ${tag} with no hold marker; no deploy tag is visible, so the preamble check skipped.`);
+} else if (preambleVersion !== newestTag) {
   fail(`trip/docs/RELEASES.md preamble says the newest live app is v${preambleVersion || 'unknown'}, but the newest deploy tag is v${newestTag}. Update the preamble to: The newest live app is \`v${newestTag}\`.`);
 } else {
   pass(`trip/docs/RELEASES.md documents ${tag} with no hold marker, and preamble is current.`);
