@@ -17,7 +17,12 @@
 // behaves exactly as a localStorage-only client. This is the default state of the repo
 // and of any fork/clone with no env configured.
 
-import { getActiveTripId, getDefaultTripShareId, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
+import {
+  getActiveTripId,
+  getDefaultTripShareId,
+  isSafeTripSegment,
+  DEFAULT_TRIP_ID,
+} from '@/core/storage/gateway';
 
 // All NEXT_PUBLIC_* so they are inlined at build time (static export safe — no server).
 export const FIREBASE_CONFIG = {
@@ -63,16 +68,20 @@ export function isRemoteConfigured(): boolean {
  * localStorage, so it is a real capability token rather than a bundled one.
  * - Every other pack: the local pack id IS the capability token — return it verbatim.
  *
+ * #476 — either way the value must be able to compose the path it claims, or this returns `''`
+ * (⇒ `isTripRemoteConfigured()` false ⇒ the remote layer stays inert for that pack). `joinTrip` is
+ * the one entrance and already refuses such a token, so this is a floor under a value that was
+ * written BEFORE that guard existed: a `/` re-parents every write, and the ruleset would then
+ * evaluate `isMember()` against a different document from the one being written under.
+ *
  * Never throws (getActiveTripId inherits the gateway's never-throw). SSR-safe: getActiveTripId
  * returns DEFAULT_TRIP_ID with no window and getDefaultTripShareId reads '' with no window, so
  * SSR still resolves '' (nothing remote server-side).
  */
 export function getTripId(): string {
   const activeId = getActiveTripId();
-  if (activeId === DEFAULT_TRIP_ID) {
-    return getDefaultTripShareId();
-  }
-  return activeId;
+  const id = activeId === DEFAULT_TRIP_ID ? getDefaultTripShareId() : activeId;
+  return isSafeTripSegment(id) ? id : '';
 }
 
 /**

@@ -73,6 +73,15 @@ describe('firebase-config sync gate + dynamic trip id (S232 / D-205 / D-210)', (
       localStorage.setItem('tripPlannerActiveTrip', 'a1b2c3d4-token');
       expect(getTripId()).toBe('a1b2c3d4-token');
     });
+
+    it("a pointer that would re-parent the write resolves to '' — the floor under a pre-guard value (#476)", async () => {
+      // `joinTrip` refuses these at the entrance, but a device that followed a `?trip=A/B` link
+      // before that guard shipped still has the value on disk.
+      const { getTripId, isTripRemoteConfigured } = await loadConfigWithEnv();
+      localStorage.setItem('tripPlannerActiveTrip', 'a1b2c3d4-token/profile');
+      expect(getTripId()).toBe('');
+      expect(isTripRemoteConfigured()).toBe(false);
+    });
   });
 
   // ── isTripRemoteConfigured() — the TRIP-scoped gate (#10) ────────────────────────────────────

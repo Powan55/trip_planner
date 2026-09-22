@@ -550,6 +550,33 @@ export const STORAGE_KEYS = {
 export const DEFAULT_TRIP_ID = 'nepal-japan-2026';
 
 /**
+ * The floor a trip id must clear before it can become a Firestore path segment (#476). Not a
+ * shape lock — a hand-made id stays legal — only the characters that would compose a DIFFERENT
+ * path than the one written: `/` splits a segment, `.`/`..` resolve away, `__x__` is reserved by
+ * Firestore, and whitespace/control bytes silently produce a neighbouring empty trip. A `/` is the
+ * one that matters: `trips/A/B/days/{d}` is matched by the ruleset as tripId `A`, so `isMember()`
+ * would be evaluated against a DIFFERENT document from the one being written under.
+ *
+ * Lives here, beside the pointer accessors, so the two places that need it agree by construction:
+ * `core/trips/registry.ts` refuses such a token at the join — the one entrance every pointer write
+ * routes through — and `lib/firebase-config.ts` refuses to compose a path out of a value already
+ * on disk from before that guard existed.
+ */
+export function isSafeTripSegment(id: string): boolean {
+  if (id === '' || id.length > 128) return false;
+  if (id === '.' || id === '..') return false;
+  if (id.includes('/') || id.includes(' ')) return false;
+  if (/^__.*__$/.test(id)) return false;
+  // Control bytes by code point rather than a character class: an escape in a regex literal here
+  // has been written through as the raw byte before now, which silently changes what is matched.
+  for (let i = 0; i < id.length; i += 1) {
+    const code = id.charCodeAt(i);
+    if (code < 32 || code === 127) return false;
+  }
+  return true;
+}
+
+/**
  * Read the active pack id, or `DEFAULT_TRIP_ID` when the pointer is unset / SSR / unreadable.
  * TOTAL, never-throws (inherits `readString`). Read per call — the id only changes across a full
  * reload, so there is no cache to invalidate and SSR/first-paint ordering stays trivial.

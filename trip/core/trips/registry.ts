@@ -23,6 +23,7 @@ import {
   wipeTripData,
   keyForTrip,
   readJson,
+  isSafeTripSegment,
 } from '@/core/storage/gateway';
 // Type only — `lib/city-coords.ts` is a leaf module (no imports of its own), so this does not
 // pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
@@ -381,26 +382,6 @@ export type TripToken =
   | { kind: 'custom'; id: string };
 
 /**
- * The floor every token must clear before it can become a Firestore path segment (#476). Not a
- * shape lock — a hand-made id stays legal — only the characters that would compose a DIFFERENT
- * path than the one written: `/` splits a segment, `.`/`..` resolve away, `__x__` is reserved by
- * Firestore, and whitespace/control bytes silently produce a neighbouring empty trip.
- */
-function isSafeSegment(id: string): boolean {
-  if (id === '' || id.length > 128) return false;
-  if (id === '.' || id === '..') return false;
-  if (id.includes('/') || id.includes(' ')) return false;
-  if (/^__.*__$/.test(id)) return false;
-  // Control bytes by code point rather than a character class: an escape in a regex literal here
-  // has been written through as the raw byte before now, which silently changes what is matched.
-  for (let i = 0; i < id.length; i += 1) {
-    const code = id.charCodeAt(i);
-    if (code < 32 || code === 127) return false;
-  }
-  return true;
-}
-
-/**
  * Resolve a raw token (pasted, or off a `?trip=` link) into the namespace it names, or `null` when
  * it can never be used. Pure and total — callers branch on `null` to refuse rather than writing
  * half of a join.
@@ -409,9 +390,9 @@ export function parseTripToken(raw: string): TripToken | null {
   const trimmed = (raw ?? '').trim();
   if (trimmed.startsWith(DEFAULT_SHARE_PREFIX)) {
     const id = trimmed.slice(DEFAULT_SHARE_PREFIX.length).trim();
-    return isSafeSegment(id) ? { kind: 'default', id } : null;
+    return isSafeTripSegment(id) ? { kind: 'default', id } : null;
   }
-  if (!isSafeSegment(trimmed)) return null;
+  if (!isSafeTripSegment(trimmed)) return null;
   return { kind: 'custom', id: trimmed };
 }
 
