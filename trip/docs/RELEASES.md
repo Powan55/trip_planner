@@ -12,6 +12,14 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.4.0 (app) · 2026-09-21 · worker stays at v1.11.0
+
+The calendar is color-coded by country, with a shade per city. Day trips keep their base city's shade and get
+a marker; travel days show as a split cell. Applies to the month grid, planner headers, day strip, journey
+bar, print and the map popup. City names are now in the day aria-labels (#468).
+
+---
+
 ## v7.3.1 (app) · 2026-09-20 · worker stays at v1.11.0
 
 Patch. The built-in plan now matches the owner's exported itinerary: 11 items added, 5 removed,

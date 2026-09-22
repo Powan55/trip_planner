@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { formatDate } from '@/core/dates';
 import { journeyLegs } from '@/lib/journey-legs';
+import { legGradient } from '@/lib/city-palette';
 
 /**
  * Home's journey bar (issue #92) — the whole trip in one glance: every leg as a weighted
@@ -22,14 +23,12 @@ import { journeyLegs } from '@/lib/journey-legs';
  * COLOUR CARRIES NOTHING ALONE (D-293 R9). The rail is `aria-hidden` decoration; every fact
  * it draws — which leg, how long, which cities — is written out in the cards below it, in
  * DOM order, and the fills only repeat the ordering the numbered eyebrows already give.
- * The two gradient stops are the country tokens the front door's chapters use; a pack with
- * more than two legs alternates between them rather than inventing a third.
+ * Each segment is its leg's hue from lib/city-palette.ts; the first two are the country
+ * tokens the front door's chapters use, further legs cycle the palette.
  *
  * NO ENTRANCE AND NO LOOP. This is below the fold on an Operate surface, so the content is
  * present when you arrive; nothing here rests below full opacity.
  */
-
-const RAIL_FILLS = ['var(--grad-nepal)', 'var(--grad-japan)'] as const;
 
 export default function HomeJourneyBar() {
   const legs = useMemo(journeyLegs, []);
@@ -65,7 +64,7 @@ export default function HomeJourneyBar() {
           {legs.map((leg, i) => (
             <div
               key={leg.id}
-              style={{ flexGrow: leg.days, flexBasis: 0, background: RAIL_FILLS[i % RAIL_FILLS.length] }}
+              style={{ flexGrow: leg.days, flexBasis: 0, background: legGradient(i) }}
             />
           ))}
         </div>
