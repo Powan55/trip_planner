@@ -66,7 +66,8 @@
  *   5. restored     — shape guard back on, hostile writes denied again.
  *   6. MEMBERSHIP, positive — owner creates a trip carrying a members map and can do every job;
  *                     a member has full content read+write and may ADD a third member.
- *   7. MEMBERSHIP, negative — a stranger reaches nothing; a member cannot remove or re-role the
+ *   7. MEMBERSHIP, negative — a stranger reaches nothing, not one content doc by read, write
+ *                     or delete; a member cannot remove or re-role the
  *                     owner, cannot delete the trip, and cannot create a trip owning nobody; an
  *                     UNAUTHENTICATED client reaches nothing at all (the new floor); and D-219
  *                     still holds under auth (no /trips list, no collection group). A roster
@@ -75,11 +76,11 @@
  *   8. GRANDFATHER  — a trip with NO members map keeps capability semantics for any signed-in
  *                     holder of the tripId. This is the opt-in lock: it is what stops a rules
  *                     deploy (instant, global) bricking every legacy trip and every ?trip= link.
- *   9. THE DOOR     — profile/** keeps capability semantics behind the auth floor, so the login
- *                     door's probe of an ABSENT trips/{code}/profile/identity resolves to
+ *   9. THE DOOR     — profile/identity and profile/tripList keep capability semantics behind the
+ *                     auth floor, so the login door's probe of an ABSENT trips/{code}/profile/identity resolves to
  *                     "missing" rather than to permission-denied (D-296: a 403 there would make
  *                     token validation silently vacuous), and meta/** is readable by a
- *                     not-yet-member joiner.
+ *                     not-yet-member joiner. Nothing else planted under profile/ is permanent.
  *  10. NEGATIVE CONTROL — the same member denials with the membership predicates REMOVED must
  *                     all be ALLOWED. Same reason as phase 4, for the other half of the file.
  *  10b. restored    — membership back on, the denials deny again.
@@ -113,6 +114,7 @@ const L = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';      // phases 6-10: the membe
 const K = 'ffffffff-0000-1111-2222-333333333333';      // phase 8: a legacy, members-less trip
 const ACCT = '99999999-8888-7777-6666-555555555555';   // phase 9: a User Token — never a trip
 const THIRD = 'third-friend-uid-000000000000';         // a uid that is only ever a map key
+const GATED_DAY = '2026-12-14';                        // one content doc under the gated trip
 const BRICK = '00000000-1111-2222-3333-444444444444';  // phase 7f: a trip carrying a malformed roster
 
 let pass = 0, fail = 0;
@@ -217,6 +219,13 @@ async function seed(path, data) {
   await loadRules(ALLOW_ALL);
   await setDoc(doc(db, ...path), data);
   await loadRules(shipped);
+}
+
+// Phase 10 overwrites and deletes both, so every phase running MEMBER_DENIALS rebuilds them.
+async function seedGated() {
+  await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+  await seed(['trips', L, 'days', GATED_DAY],
+    { date: GATED_DAY, city: 'Kathmandu', country: 'nepal', items: bigList(2) });
 }
 
 console.log(`\nfirestore.rules harness — emulator ${HOST}, auth ${AUTH_HOST}, project ${PROJECT}`);
@@ -454,12 +463,18 @@ await expect('O deletes trips/L', 'ALLOWED', () => deleteDoc(doc(db, 'trips', L)
 const phase6 = flush('PHASE 6 (membership, positive)');
 
 // ── 7. MEMBERSHIP, the negative path ─────────────────────────────────────────
-// These seven are the control set: phase 10 re-runs them with membership neutered and every
+// This is the control set: phase 10 re-runs them with membership neutered and every
 // one of them MUST flip to ALLOWED.
 let createN = 0;
 const MEMBER_DENIALS = [
   ['stranger S gets trips/L', () => getDoc(doc(dbS, 'trips', L))],
   ['stranger S lists trips/L/days', () => getDocs(collection(dbS, 'trips', L, 'days'))],
+  // create/update and delete are separate allow lines on the subtree wildcard; without these,
+  // relaxing either one leaves every other denial here passing (#395).
+  ['stranger S gets trips/L/days/{date}', () => getDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
+  ['stranger S writes trips/L/days/{date}',
+    () => setDoc(doc(dbS, 'trips', L, 'days', GATED_DAY), { date: GATED_DAY, city: 'Tokyo', country: 'japan', items: bigList(2) })],
+  ['stranger S deletes trips/L/days/{date}', () => deleteDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
   ['stranger S adds ITSELF to members', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' })],
   ['member M removes the owner', () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: deleteField() })],
   ["member M changes the owner's role", () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'member' })],
@@ -471,7 +486,7 @@ const MEMBER_DENIALS = [
 ];
 
 console.log('\n\n=== 7. MEMBERSHIP (negative): everyone else is out ===');
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 console.log(`  -- 7a. the ${MEMBER_DENIALS.length} member denials (phase 10 re-runs exactly these) --`);
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 
@@ -588,6 +603,22 @@ await expect('...but the same NON-MEMBER still cannot list trips/L/days', 'DENIE
   () => getDocs(collection(dbS, 'trips', L, 'days')));
 await expect('...and still cannot list trips/L/meta', 'DENIED',
   () => getDocs(collection(dbS, 'trips', L, 'meta')));
+
+console.log('\n  -- 9c. the carve-out is two document ids, and nothing planted under profile/ is permanent (#398) --');
+await expect('authed deletes trips/{acct}/profile/tripList -> DENIED (same reason as identity)', 'DENIED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'tripList')));
+await expect('stranger S creates trips/L/profile/planted   (gated trip, uncarved id)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'planted'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/identity/deep/doc  (any depth)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'identity', 'deep', 'doc'), { junk: 1 }));
+await expect('stranger S gets trips/L/profile/planted', 'DENIED',
+  () => getDoc(doc(dbS, 'trips', L, 'profile', 'planted')));
+await seed(['trips', ACCT, 'profile', 'planted'], { junk: 1 });
+await expect('authed deletes a planted trips/{acct}/profile/planted', 'ALLOWED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'planted')));
+await seed(['trips', ACCT, 'profile', 'identity', 'deep', 'doc'], { junk: 1 });
+await expect('authed deletes a planted trips/{acct}/profile/identity/deep/doc', 'ALLOWED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity', 'deep', 'doc')));
 const phase9 = flush('PHASE 9 (the door + the account path)');
 
 // ── 10. NEGATIVE CONTROL for membership ──────────────────────────────────────
@@ -599,7 +630,7 @@ for (const fn of ['isMember', 'isOwner', 'claimsSelfAsOwner', 'rosterIsWellForme
   membersOff = neuter(membersOff, fn, 'return request.auth != null;',
     'without a working phase 10 the suite cannot distinguish member gating from a bare auth floor.');
 }
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 {
   const r = await loadRules(membersOff);
   console.log(`  membership-removed rules compile: HTTP ${r.status}`);
@@ -612,7 +643,7 @@ const phase10 = flush('PHASE 10 (membership REMOVED)  <-- MUST be red');
 // seed() reloads the shipped rules, and phase 10 mutated and then deleted trips/L, so the
 // fixture is rebuilt rather than assumed.
 console.log('\n\n=== 10b. MEMBERSHIP RESTORED ===');
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 const phase10b = flush('PHASE 10b (membership RESTORED)');
 
