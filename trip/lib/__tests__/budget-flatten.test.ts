@@ -13,6 +13,7 @@ import {
   stampBudgetChanges,
 } from '@/core/budget/flatten';
 import { normalizeModel, type BudgetModel } from '@/core/budget/model';
+import { mergeBudget, type BudgetFields } from '@/core/sync/merge-budget';
 
 function fullModel(): BudgetModel {
   return {
@@ -120,6 +121,52 @@ describe('modelToFields / fieldsToModel — stamped round-trip + stamped-null cl
   it('an UNSTAMPED live field gets an oldest-possible seed HLC (loses to any real edit)', () => {
     const fields = modelToFields(fullModel()); // no sync ⇒ every field seeded
     expect(fields['rates.NPR'].hlc).toBe('000000000000000:000000:'); // pt 0, empty actor
+  });
+});
+
+// A leaf a NEWER build minted, arriving from a peer through `budgetDocToFields` (which retains
+// unknown paths). `unflattenBudget` rebuilds a closed path set, so its VALUE is dropped on the way
+// into the model while `fieldsToModel` keeps its `hlc` — the state `modelToFields` used to write
+// back as a stamped-null clear carrying the peer's own stamp. This is the lazily-updating-PWA
+// window (D-374), not a same-build case, so nothing else in either budget suite reaches it.
+describe('a leaf THIS BUILD CANNOT NAME is a peer forward field, never a clear', () => {
+  const PEER_HLC = '000000000005000:000000:PEER';
+  const FORWARD = 'rates.EUR';
+  const peerFields = (): BudgetFields => ({
+    ...modelToFields(fullModel()),
+    [FORWARD]: { v: 400000, hlc: PEER_HLC },
+  });
+
+  it('the value is dropped from the model but NO stamped null is emitted for it', () => {
+    const local = fieldsToModel(peerFields());
+    expect(local.sync!.fieldHlc[FORWARD]).toBe(PEER_HLC); // the stamp is kept…
+    expect(modelToFields(local)[FORWARD]).toBeUndefined(); // …and must not become {v:null}
+  });
+
+  it("the peer's value survives the snapshot merge AND this device's next push", () => {
+    // Snapshot: mergeBudget(local, remote) → fieldsToModel → saveBudget.
+    const local = fieldsToModel(mergeBudget(modelToFields(fullModel()), peerFields()));
+    // Next push: pushBudgetMerged re-reads the remote doc in a transaction and merges local on top.
+    const pushed = mergeBudget(modelToFields(local), peerFields());
+    expect(pushed[FORWARD]).toEqual({ v: 400000, hlc: PEER_HLC });
+  });
+
+  it('and survives the SAME tie re-run in the reverse direction (it did not self-heal)', () => {
+    const local = fieldsToModel(mergeBudget(modelToFields(fullModel()), peerFields()));
+    const other = mergeBudget(peerFields(), modelToFields(local));
+    expect(other[FORWARD]).toEqual({ v: 400000, hlc: PEER_HLC });
+  });
+
+  it('a path for a leg outside the active pack is treated the same way', () => {
+    const fields: BudgetFields = {
+      ...modelToFields(fullModel()),
+      'legBudgets.antarctica': { v: 900, hlc: PEER_HLC },
+      'categoryBudgets.antarctica.food': { v: 25, hlc: PEER_HLC },
+    };
+    const pushedBack = modelToFields(fieldsToModel(fields));
+    expect(pushedBack['legBudgets.antarctica']).toBeUndefined();
+    expect(pushedBack['categoryBudgets.antarctica.food']).toBeUndefined();
+    expect(mergeBudget(pushedBack, fields)['legBudgets.antarctica']).toEqual({ v: 900, hlc: PEER_HLC });
   });
 });
 

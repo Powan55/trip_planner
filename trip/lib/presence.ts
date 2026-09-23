@@ -11,8 +11,8 @@
 // `stopPresence()` clears the interval, removes listeners, and best-effort deletes
 // the doc so the traveler drops off the bar immediately on sign-out / unmount.
 // READ (subscribe): `subscribePresence(cb)` opens ONE `onSnapshot` on the presence
-// collection (<=3 docs) and maps docs → `PresenceRecord[]`. The caller filters to
-// "active" travelers via `isActive(lastSeen)`.
+// collection, BOUNDED (see PRESENCE_LIMIT), and maps docs → `PresenceRecord[]`. The caller
+// filters to "active" travelers via `isActive(lastSeen)`.
 //
 // DORMANT-SAFE: firebase is imported
 // ONLY via dynamic `import()` behind `isRemoteConfigured()`. With the env absent the gate
@@ -23,8 +23,11 @@
 //
 // FREE-TIER: cadence is HEARTBEAT_MS (>=30s) and the
 // loop is PAUSED while hidden, so it can never become a sustained sub-30s write loop.
-// Budget: ~1 write / HEARTBEAT_MS / traveler. At 180s × 3 travelers ≈ 1,440 writes/day ≈
-// ~7% of Spark's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
+// Budget: ~1 write / HEARTBEAT_MS / DEVICE. At 180s × 3 travelers ≈ 1,440 writes/day ≈
+// ~7% of Spark's ~20k writes/day. READS are the side that scales badly: `onSnapshot` bills
+// per delivered doc, so an unbounded collection subscribe costs writes × concurrent
+// subscribers — at 9 live devices that is ~38,880 reads/day, 78% of Spark's 50k, and Spark
+// cannot be billed, so an overrun is a feature outage. PRESENCE_LIMIT bounds it.
 //
 // REUSES the existing firebase init: it awaits firebase-remote.ts's `getRemote()`, which owns
 // the one app + the one anonymous session. There is no second initialization path here.
@@ -48,6 +51,15 @@ export const HEARTBEAT_MS = 180_000;
 
 /** A traveler counts as "active now" if their lastSeen is within this window (~6 min). */
 export const ACTIVE_WINDOW_MS = 2 * HEARTBEAT_MS;
+
+/**
+ * Ceiling on how many presence docs ONE subscription may hold — the free-tier read bound.
+ * Docs are keyed by DEVICE (D-205) with no GC beyond a best-effort delete, so an unbounded
+ * collection subscribe grows with every device that ever opened the trip and bills reads for
+ * each of their beats. 8 is roughly three travelers on two or three devices each: it never
+ * truncates a real trip, and it caps the pathological case instead of leaving it to the quota.
+ */
+export const PRESENCE_LIMIT = 8;
 
 /** A presence record as surfaced to the UI. `lastSeen` is epoch ms (or null if pending). */
 export interface PresenceRecord {
@@ -113,6 +125,10 @@ export function isActive(lastSeen: number | null, now: number = Date.now()): boo
 interface HeartbeatLoop {
   /** The traveler name this loop is beating for (used to detect an identity change). */
   name: string;
+  /** Trip + device this loop's doc lives at, captured at start(): sign-out clears the
+   * active-trip key BEFORE teardown runs, so reading them later composes `trips//presence/…`. */
+  tripId: string;
+  deviceId: string;
   intervalId: ReturnType<typeof setInterval> | null;
   onVisibility: (() => void) | null;
   /** True once stop() has run, so a late async write resolving after stop is dropped. */
@@ -132,12 +148,15 @@ async function writeHeartbeat(): Promise<void> {
   const traveler = getActiveTraveler();
   if (!traveler) return; // guest / signed-out: never write
 
+  const current = loop;
   try {
     const { db, fs } = await getPresence();
-    // A stop() during the await wins — don't write after teardown.
-    if (loop?.stopped) return;
+    // A stop() during the await wins — don't write after teardown. Read the loop CAPTURED
+    // before the await: teardownLoop() nulls the module binding, so `loop?.stopped` is
+    // `undefined?.stopped` after a plain stop and the NEXT identity's loop after a restart.
+    if (!current || current.stopped) return;
     const { doc, setDoc, serverTimestamp } = fs;
-    const ref = doc(db, 'trips', getTripId(), 'presence', deviceStore.getId());
+    const ref = doc(db, 'trips', current.tripId, 'presence', current.deviceId);
     await setDoc(
       ref,
       { name: traveler.name, lastSeen: serverTimestamp() },
@@ -186,6 +205,8 @@ export function startPresence(): void {
 
   const current: HeartbeatLoop = {
     name: traveler.name,
+    tripId: getTripId(),
+    deviceId: deviceStore.getId(),
     intervalId: null,
     onVisibility: null,
     stopped: false,
@@ -260,17 +281,22 @@ function teardownLoop(): HeartbeatLoop | null {
  * Idempotent and SSR-safe (no-op when there's no loop / no `window`).
  */
 export function stopPresence(): void {
-  if (!teardownLoop()) return;
+  const stopped = teardownLoop();
+  if (!stopped) return;
 
   // Best-effort delete so the traveler disappears at once (not just after they age out of
-  // the active window). Gated: only when the ACTIVE trip syncs (#10 — the default pack never
-  // wrote a doc, so there is nothing to delete). Failure is non-fatal.
-  if (!isTripRemoteConfigured()) return;
+  // the active window). Targets the trip/device CAPTURED at start, not the live ones: on
+  // sign-out `wipeAllTripData()` clears the active-trip key before this runs, so
+  // `isTripRemoteConfigured()` is already false (the delete never fired) and `getTripId()`
+  // is `''` (it would compose `trips//presence/{id}`). A loop only exists for a trip that
+  // synced (#10 — the default pack never wrote a doc), so a non-empty captured id is the gate.
+  // Failure is non-fatal.
+  if (!stopped.tripId) return;
   void (async () => {
     try {
       const { db, fs } = await getPresence();
       const { doc, deleteDoc } = fs;
-      await deleteDoc(doc(db, 'trips', getTripId(), 'presence', deviceStore.getId()));
+      await deleteDoc(doc(db, 'trips', stopped.tripId, 'presence', stopped.deviceId));
     } catch (err) {
       console.warn('[presence] heartbeat doc delete failed:', err);
     }
@@ -308,11 +334,21 @@ export function subscribePresence(
       const { db, fs } = await getPresence();
       if (cancelled) return;
 
-      const { collection, onSnapshot } = fs;
-      const presenceCol = collection(db, 'trips', getTripId(), 'presence');
+      const { collection, query, where, orderBy, limit, onSnapshot } = fs;
+      // BOUNDED, not the whole collection. `where` on recency skips every device doc that was
+      // already stale when the tab opened (they are never GC'd), `orderBy` desc makes the
+      // `limit` keep the most recently seen rather than an arbitrary id-ordered slice. Both
+      // are the same single field, so this needs only the automatic single-field index — no
+      // composite, which the free tier would still allow but which nothing here creates.
+      const recent = query(
+        collection(db, 'trips', getTripId(), 'presence'),
+        where('lastSeen', '>', new Date(Date.now() - ACTIVE_WINDOW_MS)),
+        orderBy('lastSeen', 'desc'),
+        limit(PRESENCE_LIMIT),
+      );
 
       firestoreUnsub = onSnapshot(
-        presenceCol,
+        recent,
         (snapshot) => {
           // Never route an `expect()` through this callback (incl. through `onChange`): the catch
           // below swallows anything thrown here into a console.warn, so a FAILING assertion still
