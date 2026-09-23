@@ -399,11 +399,16 @@ export async function createTripDoc(tripId: string): Promise<void> {
  * - already in `members` ⇒ return, with no write at all. This is the common case on every load
  *   after the first, so it must cost one read and nothing else.
  * - members map ABSENT (a grandfathered capability trip), or one the rules read as open because
- *   it names no owner (`readMembers`) ⇒ the first device to enrol takes `'owner'`. Somebody has
- *   to be able to manage the roster, and on a members-less trip the rules let any signed-in
- *   holder of the tripId write one — so the first mover is the only available
- *   answer. It is also the right one: the first device to open a trip it created before the lock
- *   existed is overwhelmingly the creator's.
+ *   it names no owner (`readMembers`) ⇒ return, with no write at all. #477: this branch used to
+ *   take `'owner'`, on the theory that the first device to open a pre-lock trip is overwhelmingly
+ *   its creator. It is not — a `?trip=` link forwarded into a group chat makes whoever taps it
+ *   first the sole owner and locks the real creator out for good, with no self-service route back.
+ *   Nothing local distinguishes the creator from a tapper (the registry records `joinedAt` for
+ *   both), and `'member'` is not the safer answer either: `rosterIsWellFormed()` refuses any
+ *   update leaving the map naming no owner, so it would be denied and raise access-pending on a
+ *   trip this device can in fact read and write. So: no write. An owner-less trip stays OPEN to
+ *   every token holder, which is the grandfather contract (D-540/#453), and a roster is minted
+ *   only where the creator is actually known — `createTripDoc` and the first-snapshot seed.
  * - anyone else ⇒ `'member'`.
  *
  * The explicit target is intentional: the normal page-load caller passes the active trip, while
@@ -425,13 +430,19 @@ export async function ensureMembership(tripId: string): Promise<void> {
     const { db, fs, uid } = await getRemote();
     const { doc, getDocFromServer, updateDoc } = fs;
     const ref = doc(db, 'trips', tripId);
-    // SERVER read: a cached copy can be stale in both directions — an absent members map that has
-    // since been written (we would try to self-enrol as owner and be denied) or a stale roster.
+    // SERVER read: a cached copy can be stale in both directions, and BOTH are silent.
+    // - absent members map that has since been written ⇒ we read the trip as still open and skip
+    //   the enrolment the rules now require, with no access-pending toast to explain the denials
+    //   that follow.
+    // - stale roster missing this uid where the server already has it as `'owner'` ⇒ the write
+    //   below is `members.<uid> = 'member'`, and the rules evaluate `isOwner()` against the STORED
+    //   doc, so it is ALLOWED: the owner silently demotes itself.
     const snap = await getDocFromServer(ref);
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
-    if (members && uid in members) return; // already enrolled — no write
-    await updateDoc(ref, { [`members.${uid}`]: members ? 'member' : 'owner' });
+    if (!members) return; // open trip — nothing to enrol in, and no roster to invent (#477)
+    if (uid in members) return; // already enrolled — no write
+    await updateDoc(ref, { [`members.${uid}`]: 'member' });
   } catch (err) {
     if (isPermissionDenied(err)) {
       if (typeof window !== 'undefined') {
@@ -453,23 +464,40 @@ export async function ensureKnownTripMemberships(): Promise<void> {
 }
 
 /**
- * The trip's roster, or `undefined` when there is none to show — dormant, unreachable, no trip
- * doc, or a doc with no members map (a grandfathered capability trip, where "everyone holding the
- * link" is the honest answer and a list would be a lie). TOTAL, never throws.
+ * What a roster read could establish. The three states were ONE `undefined` until #477, and
+ * collapsing them is now a user-visible bug rather than a tidy simplification: since the UI hides
+ * the add-device control on `'open'`, "this trip has no roster" and "I could not find out" must
+ * not be the same answer. `getDocFromServer` REJECTS offline rather than serving the cache, so
+ * `'unknown'` is a routine state for an ordinary member-gated trip, not an exotic one.
  */
-export async function fetchTripMembers(
-  tripId: string,
-): Promise<Record<string, TripRole> | undefined> {
-  if (!isTripRemoteConfigured() || !tripId) return undefined;
+export type TripRosterRead =
+  /** A read that came back with a roster the rules will actually gate on. */
+  | { state: 'roster'; members: Record<string, TripRole> }
+  /** A read that SUCCEEDED and found no usable roster: no trip doc, no members map, or one
+   *  `readMembers`/`isOpen()` read as open. Everyone holding the trip id can open it. */
+  | { state: 'open' }
+  /** Nothing was established — dormant, offline, unreachable, or refused. */
+  | { state: 'unknown' };
+
+/**
+ * The trip's roster. TOTAL, never throws — every failure answers `{ state: 'unknown' }`, which the
+ * caller must render differently from `'open'` (a grandfathered capability trip, where "everyone
+ * holding the link" is the honest answer and a list would be a lie).
+ */
+export async function fetchTripMembers(tripId: string): Promise<TripRosterRead> {
+  if (!isTripRemoteConfigured() || !tripId) return { state: 'unknown' };
   try {
     const { db, fs } = await getRemote();
     const { doc, getDocFromServer } = fs;
     const snap = await getDocFromServer(doc(db, 'trips', tripId));
-    if (!snap.exists()) return undefined;
-    return readMembers(snap.data() as Record<string, unknown>) as Record<string, TripRole> | undefined;
+    if (!snap.exists()) return { state: 'open' };
+    const members = readMembers(snap.data() as Record<string, unknown>) as
+      | Record<string, TripRole>
+      | undefined;
+    return members ? { state: 'roster', members } : { state: 'open' };
   } catch (err) {
     console.warn('[trips-remote] members fetch failed:', err);
-    return undefined;
+    return { state: 'unknown' };
   }
 }
 
