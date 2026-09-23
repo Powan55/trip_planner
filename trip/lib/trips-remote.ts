@@ -597,6 +597,7 @@ export async function pushTripList(code: string): Promise<void> {
         docToTrips(data),
         listRemovedTrips(),
         docToRemoved(data),
+        { keepUnknownKeys: true }, // #519: this merge is written straight back to the doc below
       );
       tx.set(ref, {
         version: 1,

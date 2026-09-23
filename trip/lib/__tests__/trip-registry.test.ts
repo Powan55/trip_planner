@@ -27,6 +27,7 @@ import {
   removeKnownTrip,
   listRemovedTrips,
   mergeTripLists,
+  importRemoteTrips,
   DEFAULT_SHARE_PREFIX,
 } from '@/core/trips/registry';
 
@@ -266,6 +267,48 @@ describe('trip registry (S238)', () => {
       removeKnownTrip('gone');
 
       await vi.waitFor(async () => expect(await defaultBlobStore.list()).toEqual(['ph-kept-1']));
+    });
+  });
+
+  // ── #518: a tombstone dropped through importRemoteTrips wipes the trip's data too ─────────
+  describe('importRemoteTrips — a tombstone that drops a locally-known trip wipes its data (#518)', () => {
+    it('wipes trip:{id}:* and the photo blobs for an id the incoming tombstone drops', async () => {
+      await defaultBlobStore.putWithId('ph-gone-1', new Blob(['a']));
+      await defaultBlobStore.putWithId('ph-kept-1', new Blob(['c']));
+      window.localStorage.setItem(
+        'trip:gone:photos',
+        JSON.stringify([
+          { id: 'ph-gone-1', owner: { kind: 'journal', date: '2026-12-10' }, altText: 'a', createdAt: '2026-12-10T00:00:00.000Z' },
+        ]),
+      );
+      window.localStorage.setItem('trip:gone:budget', 'x');
+      window.localStorage.setItem('trip:kept:budget', 'keep-me');
+
+      joinTrip('gone', 'Going away'); // this device knows 'gone' locally, with real data
+      joinTrip(DEFAULT_TRIP_ID);
+
+      importRemoteTrips([], [{ id: 'gone', removedAt: Date.now() + 60_000 }]); // peer forgot it
+
+      expect(window.localStorage.getItem('trip:gone:budget')).toBeNull();
+      expect(window.localStorage.getItem('trip:kept:budget')).toBe('keep-me');
+      await vi.waitFor(async () => expect(await defaultBlobStore.list()).toEqual(['ph-kept-1']));
+    });
+
+    it('does NOT wipe an id the tombstone drops but the same merge re-adds (re-join beats a stale tombstone)', () => {
+      joinTrip('t1', 'One');
+      joinTrip(DEFAULT_TRIP_ID);
+      window.localStorage.setItem('trip:t1:budget', 'still-here');
+      const removedAt = Date.now() - 1000; // stale: older than the entry's own recency below
+
+      importRemoteTrips([{ id: 't1', name: 'Re-joined', joinedAt: Date.now() }], [{ id: 't1', removedAt }]);
+
+      expect(window.localStorage.getItem('trip:t1:budget')).toBe('still-here');
+    });
+
+    it('never wipes the default pack even if a (refused) tombstone named it', () => {
+      window.localStorage.setItem(STORAGE_KEYS.budget, 'default-pack-data');
+      importRemoteTrips([], [{ id: DEFAULT_TRIP_ID, removedAt: Date.now() }]);
+      expect(window.localStorage.getItem(STORAGE_KEYS.budget)).toBe('default-pack-data');
     });
   });
 
