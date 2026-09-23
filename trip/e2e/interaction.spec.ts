@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPalette } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -139,23 +139,6 @@ async function openFilters(page: Page) {
 async function closeFilters(page: Page) {
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('guide-filters-sheet')).toHaveCount(0);
-}
-
-/**
- * Open the ⌘K/Ctrl+K command palette, tolerating the post-hydration listener
- * race. The global keydown listener is attached in a `useEffect`
- * (command-palette.tsx) that runs AFTER hydration; under the loaded single-worker
- * harness a Ctrl+K pressed too early can land before the listener exists and is
- * simply lost (the palette is mounted but not yet listening). We re-press until
- * the dialog appears — this doesn't mask a bug: the palette genuinely opens once
- * its effect has run; we're only absorbing the hydration-timing jitter.
- */
-async function openPalette(page: Page) {
-  const palette = page.getByRole('dialog', { name: 'Command palette' });
-  await expect(async () => {
-    await page.keyboard.press('Control+k');
-    await expect(palette).toBeVisible({ timeout: 1500 });
-  }).toPass({ timeout: 15_000 });
 }
 
 test.describe('S83 · guide filters + search + sort (RecommendationSection, /nepal/)', () => {
