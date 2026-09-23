@@ -535,8 +535,10 @@ function TripAccessGroup() {
   const [uid, setUid] = useState<string | null>(null);
   const [tripKey, setTripKey] = useState<string | null>(null);
   // `undefined` = not established (still loading, or the read failed); `null` = a SUCCESSFUL read
-  // that found no roster; an object = the roster. See the three-states note above.
-  const [members, setMembers] = useState<Record<string, string> | null | undefined>(undefined);
+  // that found no roster; `'absent'` = no trip doc yet (#501); an object = the roster.
+  const [members, setMembers] = useState<Record<string, string> | null | 'absent' | undefined>(
+    undefined,
+  );
   const [copied, setCopied] = useState(false);
   const [addValue, setAddValue] = useState('');
   const [busy, setBusy] = useState(false);
@@ -550,6 +552,7 @@ function TripAccessGroup() {
     const read = await fetchTripMembers(id);
     if (read.state === 'roster') setMembers(read.members);
     else if (read.state === 'open') setMembers(null);
+    else if (read.state === 'absent') setMembers('absent');
     else setMembers(undefined);
   };
 
@@ -572,7 +575,7 @@ function TripAccessGroup() {
     };
   }, []);
 
-  const myRole = uid && members ? members[uid] : undefined;
+  const myRole = uid && typeof members === 'object' && members ? members[uid] : undefined;
 
   const copyUid = async () => {
     if (!uid) return;
@@ -671,7 +674,15 @@ function TripAccessGroup() {
           </p>
         ) : (
           <>
-            {members === null ? (
+            {members === 'absent' ? (
+              <p
+                data-testid="settings-access-absent"
+                className="mt-1 max-w-2xl text-t-body text-ink-mid"
+              >
+                This trip hasn&rsquo;t synced yet &mdash; whoever created it needs to open it with a
+                connection once. Then you can add devices here.
+              </p>
+            ) : members === null ? (
               <p
                 data-testid="settings-access-open"
                 className="mt-1 flex max-w-2xl items-start gap-1.5 text-t-body text-ink-mid"
@@ -725,7 +736,7 @@ function TripAccessGroup() {
 
             {/* Hidden ONLY on a confirmed-rosterless trip, where the rules can never accept the
                 write. `undefined` (unknown) keeps it, exactly as it shipped before #477. */}
-            {members !== null && (
+            {members !== null && members !== 'absent' && (
               <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <label htmlFor="settings-access-add" className="sr-only">
                   Device code to add

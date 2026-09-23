@@ -50,7 +50,12 @@ import {
   type TripMeta,
   type RemovedTrip,
 } from '@/core/trips/registry';
-import { DEFAULT_TRIP_ID, getActiveTripId, isSafeTripSegment } from '@/core/storage/gateway';
+import {
+  DEFAULT_TRIP_ID,
+  getActiveTripId,
+  isSafeTripSegment,
+  wasTripCreatedHere,
+} from '@/core/storage/gateway';
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
@@ -441,7 +446,12 @@ export async function ensureMembership(tripId: string): Promise<void> {
     const snap = await getDocFromServer(ref);
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
-    if (!members) return; // open trip — nothing to enrol in, and no roster to invent (#477)
+    if (!members) {
+      // Open trip — no roster to invent (#477), unless this device created it and a joiner's
+      // seed landed first (#501): the creator reclaims owner.
+      if (wasTripCreatedHere(tripId)) await updateDoc(ref, { [`members.${uid}`]: 'owner' });
+      return;
+    }
     if (uid in members) return; // already enrolled — no write
     await updateDoc(ref, { [`members.${uid}`]: 'member' });
   } catch (err) {
@@ -474,9 +484,11 @@ export async function ensureKnownTripMemberships(): Promise<void> {
 export type TripRosterRead =
   /** A read that came back with a roster the rules will actually gate on. */
   | { state: 'roster'; members: Record<string, TripRole> }
-  /** A read that SUCCEEDED and found no usable roster: no trip doc, no members map, or one
+  /** A read that SUCCEEDED and found no usable roster: no members map, or one
    *  `readMembers`/`isOpen()` read as open. Everyone holding the trip id can open it. */
   | { state: 'open' }
+  /** A read that SUCCEEDED and found no trip doc: the creator's first sync has not landed (#501). */
+  | { state: 'absent' }
   /** Nothing was established — dormant, offline, unreachable, or refused. */
   | { state: 'unknown' };
 
@@ -491,7 +503,7 @@ export async function fetchTripMembers(tripId: string): Promise<TripRosterRead> 
     const { db, fs } = await getRemote();
     const { doc, getDocFromServer } = fs;
     const snap = await getDocFromServer(doc(db, 'trips', tripId));
-    if (!snap.exists()) return { state: 'open' };
+    if (!snap.exists()) return { state: 'absent' };
     const members = readMembers(snap.data() as Record<string, unknown>) as
       | Record<string, TripRole>
       | undefined;

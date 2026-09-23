@@ -16,7 +16,13 @@ import {
 } from '@/core/trips/registry';
 import { VIBES, DEFAULT_VIBE } from '@/core/trips/custom';
 import { formatDateLong } from '@/core/dates/trip-dates';
-import { getActiveTripId, DEFAULT_TRIP_ID, getSyncCode, setSyncCode } from '@/core/storage/gateway';
+import {
+  getActiveTripId,
+  DEFAULT_TRIP_ID,
+  getSyncCode,
+  setSyncCode,
+  markTripCreatedHere,
+} from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import UserTokenShowOnce from '@/components/user-token-show-once';
@@ -333,6 +339,7 @@ export default function TripsHub() {
       vibe,
       updatedAt: 0, // setTripConfig stamps its own updatedAt
     };
+    markTripCreatedHere(id);
     joinTrip(id, name);
     setTripConfig(id, config);
     // — the trip is registered locally above; the remote meta doc is what a JOINER reads to
