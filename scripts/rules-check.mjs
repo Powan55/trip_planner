@@ -512,7 +512,7 @@ await expect('...writes its content', 'ALLOWED', () => setDoc(doc(dbS, 'trips', 
 await expect('...and overwrites the roster with a valid one (the repair)', 'ALLOWED',
   () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
 await seed(['trips', BRICK], { schemaVersion: 1, members: 'x' });
-await expect('...or self-enrols as owner by field path (ensureMembership)', 'ALLOWED',
+await expect('...or writes an owner by field path (rules still allow it; no client does it since #477)', 'ALLOWED',
   () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'owner' }));
 await seed(['trips', BRICK], { schemaVersion: 1, members: {} });
 await expect('authed reads a trip whose stored members map is EMPTY', 'ALLOWED', () => getDoc(doc(dbS, 'trips', BRICK)));
@@ -524,7 +524,7 @@ await expect('authed reads a trip whose roster names NO owner', 'ALLOWED', () =>
 await expect('...writes its content', 'ALLOWED', () => setDoc(doc(dbS, 'trips', BRICK, 'days', '2026-12-15'), BRICK_DAY));
 await expect('...but self-enrolling as "member" still names no owner', 'DENIED',
   () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'member' }));
-await expect('...self-enrols as owner by field path (ensureMembership)', 'ALLOWED',
+await expect('...writes an owner by field path (rules still allow it; no client does it since #477)', 'ALLOWED',
   () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'owner' }));
 await seed(['trips', BRICK], NO_OWNER);
 await expect('...or overwrites the roster with a valid one (the repair)', 'ALLOWED',
