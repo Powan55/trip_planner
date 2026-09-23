@@ -5,7 +5,6 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { ItineraryProvider } from '@/components/itinerary-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
-import CommandPalette from '@/components/command-palette'
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
@@ -25,6 +24,7 @@ import {
   QuickAddHost,
   ExpenseLogHost,
   TripJoinHandshake,
+  CommandPalette,
 } from './chrome-islands'
 
 // TWO faces — a text family and a machine family.
