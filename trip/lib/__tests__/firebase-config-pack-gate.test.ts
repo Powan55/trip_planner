@@ -82,6 +82,14 @@ describe('firebase-config sync gate + dynamic trip id (S232 / D-205 / D-210)', (
       expect(getTripId()).toBe('');
       expect(isTripRemoteConfigured()).toBe(false);
     });
+
+    it("…and on the DEFAULT-pack branch, which is the one D-542 devices use (#476)", async () => {
+      const { getTripId, isTripRemoteConfigured } = await loadConfigWithEnv();
+      localStorage.setItem('tripPlannerActiveTrip', 'nepal-japan-2026');
+      localStorage.setItem('nepal_japan_default_trip_share', 'a/b');
+      expect(getTripId()).toBe('');
+      expect(isTripRemoteConfigured()).toBe(false);
+    });
   });
 
   // ── isTripRemoteConfigured() — the TRIP-scoped gate (#10) ────────────────────────────────────

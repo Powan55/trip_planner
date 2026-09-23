@@ -26,6 +26,7 @@ import {
   joinTrip,
   removeKnownTrip,
   listRemovedTrips,
+  mergeTripLists,
   DEFAULT_SHARE_PREFIX,
 } from '@/core/trips/registry';
 
@@ -204,6 +205,21 @@ describe('trip registry (S238)', () => {
       expect(joinTrip(`${DEFAULT_SHARE_PREFIX}${UUID}`, 'Shared trip')).toBe(true);
       expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID);
       expect(getDefaultTripShareId()).toBe(UUID); // the path segment, prefix gone
+    });
+
+    // The other door into the same invariant: an entry can arrive in the known-trips list WITHOUT
+    // passing through joinTrip (a Sync-Code merge), and `ensureKnownTripMemberships` then writes a
+    // members map at `doc(db, 'trips', <that id>)`. An even segment count is a valid ref that does
+    // not throw, so `A/B/C` would land under a document the rules authorize against trip `A`.
+    it('sanitize drops a multi-slash id on BOTH doors — the stored parse and the remote merge', () => {
+      const poison = { id: 'A/B/C', name: 'Merged in', joinedAt: 1 };
+      const good = { id: UUID, name: 'Real trip', joinedAt: 2 };
+
+      window.localStorage.setItem(KEY, JSON.stringify([poison, good]));
+      expect(listKnownTrips().map((t) => t.id)).toEqual([DEFAULT_TRIP_ID, UUID]);
+
+      const { merged } = mergeTripLists([], [poison, good]);
+      expect(merged.map((t) => t.id)).toEqual([UUID]);
     });
   });
 

@@ -68,11 +68,13 @@ export function isRemoteConfigured(): boolean {
  * localStorage, so it is a real capability token rather than a bundled one.
  * - Every other pack: the local pack id IS the capability token — return it verbatim.
  *
- * #476 — either way the value must be able to compose the path it claims, or this returns `''`
- * (⇒ `isTripRemoteConfigured()` false ⇒ the remote layer stays inert for that pack). `joinTrip` is
- * the one entrance and already refuses such a token, so this is a floor under a value that was
- * written BEFORE that guard existed: a `/` re-parents every write, and the ruleset would then
- * evaluate `isMember()` against a different document from the one being written under.
+ * #476 — either way the id must occupy EXACTLY ONE path segment, or this returns `''`
+ * (⇒ `isTripRemoteConfigured()` false ⇒ the remote layer stays inert for that pack). One segment is
+ * what makes `{tripId}` bind the whole id, so the membership subject and the document being written
+ * under are the same doc; a `/` re-parents the write and `isMember()` is then evaluated against a
+ * different trip (depth is irrelevant — `{document=**}` matches any number of trailing segments).
+ * `joinTrip` is the one entrance and already refuses such a token, so this is a floor under a value
+ * written BEFORE that guard existed.
  *
  * Never throws (getActiveTripId inherits the gateway's never-throw). SSR-safe: getActiveTripId
  * returns DEFAULT_TRIP_ID with no window and getDefaultTripShareId reads '' with no window, so

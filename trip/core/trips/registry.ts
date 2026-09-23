@@ -178,13 +178,20 @@ export const SHARED_NAME = 'Shared trip';
  * Base entry is byte-identical to pre- (3 keys). The additive fields (`updatedAt`, `config`) are
  * attached ONLY when valid/present, so a config-less trip serializes to the exact same 3-key object
  * as before. Shared by the local-store parse below AND the remote-list merge (`mergeTripLists`).
+ *
+ * #476 — that sharing is why the id is shape-checked HERE and not only at the join: a synced list
+ * is a trust boundary of its own. An entry merged in with an id like `A/B/C` never passes through
+ * `joinTrip` or `getTripId()`, but `ensureKnownTripMemberships` maps it straight to
+ * `doc(db, 'trips', 'A/B/C')` — an even segment count, so a VALID ref that does not throw — and the
+ * members map then lands under a document the rules authorize against trip `A`. Dropping the entry
+ * also retires the chip such a trip would otherwise draw in the hub, which no join could honour.
  */
 export function sanitizeTripMetaEntry(e: unknown): TripMeta | undefined {
   if (
     typeof e !== 'object' ||
     e === null ||
     typeof (e as TripMeta).id !== 'string' ||
-    (e as TripMeta).id.length === 0 ||
+    !isSafeTripSegment((e as TripMeta).id) || // subsumes the old `.length === 0` check
     typeof (e as TripMeta).name !== 'string' ||
     (e as TripMeta).name.length === 0 ||
     typeof (e as TripMeta).joinedAt !== 'number' ||
