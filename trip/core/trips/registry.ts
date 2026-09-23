@@ -25,6 +25,7 @@ import {
   readJson,
   isSafeTripSegment,
 } from '@/core/storage/gateway';
+import { outboxDirty, type SyncDomain } from '@/core/sync/outbox';
 // Type only — `lib/city-coords.ts` is a leaf module (no imports of its own), so this does not
 // pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
 // the trip's own record, never written into that shared table.
@@ -455,6 +456,17 @@ export function joinReplacesLocalPlan(id: string): boolean {
 
 export const REPLACE_LOCAL_PLAN_COPY =
   'Their plan replaces the one you have here. Back yours up first if you have edits worth keeping.';
+
+const SYNC_DOMAINS: readonly SyncDomain[] = ['itinerary', 'expenses', 'budget', 'docs', 'places'];
+
+/** Confirm copy for `joinReplacesLocalPlan`, naming how many queued-but-unsynced edits the
+ * default pack's outbox would drop (issue #526). Reads the default pack's own slot, not the
+ * active trip's — the join box is reachable while a custom trip is active. */
+export function replaceLocalPlanCopy(): string {
+  const n = SYNC_DOMAINS.reduce((sum, d) => sum + outboxDirty(d, DEFAULT_TRIP_ID).length, 0);
+  if (n === 0) return REPLACE_LOCAL_PLAN_COPY;
+  return `${REPLACE_LOCAL_PLAN_COPY} ${n} unsynced ${n === 1 ? 'edit' : 'edits'} on this device will be lost.`;
+}
 
 /**
  * Tombstone cap. The prior "grows unbounded" debt note proposed a purge pass keyed on
