@@ -192,7 +192,13 @@ export const SHARED_NAME = 'Shared trip';
  * members map then lands under a document the rules authorize against trip `A`. Dropping the entry
  * also retires the chip such a trip would otherwise draw in the hub, which no join could honour.
  */
-export function sanitizeTripMetaEntry(e: unknown): TripMeta | undefined {
+/** Read-boundary option, same shape/intent as `core/places/model.ts`'s (D-374): retain keys this
+ *  build does not declare, so a merge-and-write-back never strips a newer client's field. */
+export interface SanitizeOptions {
+  keepUnknownKeys?: boolean;
+}
+
+export function sanitizeTripMetaEntry(e: unknown, opts: SanitizeOptions = {}): TripMeta | undefined {
   if (
     typeof e !== 'object' ||
     e === null ||
@@ -206,7 +212,12 @@ export function sanitizeTripMetaEntry(e: unknown): TripMeta | undefined {
     return undefined;
   }
   const { id, name, joinedAt } = e as TripMeta;
-  const entry: TripMeta = { id, name, joinedAt };
+  const entry: TripMeta = {
+    ...(opts.keepUnknownKeys ? (e as TripMeta) : ({} as Partial<TripMeta>)),
+    id,
+    name,
+    joinedAt,
+  };
   const rawUpdatedAt = (e as TripMeta).updatedAt;
   if (typeof rawUpdatedAt === 'number' && Number.isFinite(rawUpdatedAt)) entry.updatedAt = rawUpdatedAt;
   const config = sanitizeTripConfig((e as TripMeta).config);
@@ -478,6 +489,17 @@ export function removeKnownTrip(id: string): void {
   writeStored(readStored().filter((t) => t.id !== id));
   const removed = [{ id, removedAt: Date.now() }, ...readRemoved().filter((r) => r.id !== id)];
   writeRemoved(removed.slice(0, REMOVED_TRIPS_CAP)); // newest-first, drop-oldest cap
+  wipeForgottenTripData(id);
+}
+
+/**
+ * The wipe half of forgetting a trip — `trip:{id}:*` (`wipeTripData`) plus its photo BYTES —
+ * shared by `removeKnownTrip` (a local forget) and `importRemoteTrips` (#518: a tombstone arriving
+ * from another device dropped the entry from the list but left this exact data on disk forever,
+ * because only the local-forget path ran it). Never call for `DEFAULT_TRIP_ID` — see
+ * `removeKnownTrip`'s docblock for why the pack is never wiped.
+ */
+function wipeForgottenTripData(id: string): void {
   const photoMeta = readJson<unknown>('local', keyForTrip(id, 'photos'), null);
   wipeTripData(id);
   if (photoMeta !== null) {
@@ -514,16 +536,17 @@ export function mergeTripLists(
   remote: TripMeta[],
   localRemoved: RemovedTrip[] = [],
   remoteRemoved: RemovedTrip[] = [],
+  opts: SanitizeOptions = {},
 ): { merged: TripMeta[]; localHadExtras: boolean; removed: RemovedTrip[] } {
   const tombstones = mergeRemovedSets(localRemoved, remoteRemoved);
   const merged = new Map<string, TripMeta>();
   for (const raw of local) {
-    const e = sanitizeTripMetaEntry(raw);
+    const e = sanitizeTripMetaEntry(raw, opts);
     if (e && e.id !== DEFAULT_TRIP_ID && !merged.has(e.id)) merged.set(e.id, e);
   }
   const remoteIds = new Set<string>();
   for (const raw of remote) {
-    const e = sanitizeTripMetaEntry(raw);
+    const e = sanitizeTripMetaEntry(raw, opts);
     if (!e || e.id === DEFAULT_TRIP_ID) continue;
     remoteIds.add(e.id);
     const existing = merged.get(e.id);
@@ -569,10 +592,24 @@ export function importRemoteTrips(
 ): { localHadExtras: boolean } {
   const stored = readStored();
   const defaultEntry = stored.find((t) => t.id === DEFAULT_TRIP_ID);
-  const { merged, localHadExtras, removed } = mergeTripLists(stored, remote, readRemoved(), remoteRemoved);
+  const { merged, localHadExtras, removed } = mergeTripLists(
+    stored,
+    remote,
+    readRemoved(),
+    remoteRemoved,
+    { keepUnknownKeys: true },
+  );
   writeStored(defaultEntry ? [defaultEntry, ...merged] : merged);
   writeRemoved(removed);
   const active = getActiveTripId();
   if (removed.some((r) => r.id === active)) setActiveTripId(DEFAULT_TRIP_ID);
+  // #518 — a tombstone that arrived through THIS merge (not one already dropped before it) wipes
+  // the id's local data, same as a local forget. Scoped to ids that (a) actually had data here —
+  // `stored`, never the whole `merged` universe — and (b) are still gone AFTER the merge, so an id
+  // re-added in the same merge (a race-losing re-join) is never wiped.
+  const mergedIds = new Set(merged.map((t) => t.id));
+  for (const t of stored) {
+    if (t.id !== DEFAULT_TRIP_ID && !mergedIds.has(t.id)) wipeForgottenTripData(t.id);
+  }
   return { localHadExtras };
 }

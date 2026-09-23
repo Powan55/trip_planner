@@ -153,6 +153,17 @@ describe('mergeTripLists — additive union + updatedAt LWW (Plan D6)', () => {
     expect(localHadExtras).toBe(false);
   });
 
+  // #519 — pushTripList writes this merge straight back to the doc; a strict rebuild here erases
+  // any field a newer client wrote and this build has never heard of (mirrors #138/D-374 for places).
+  it('keepUnknownKeys retains a field this build does not declare; the strict default still drops it', () => {
+    const remoteRow = { ...meta('a'), futureField: 'kept-by-a-newer-client' };
+    const strict = mergeTripLists([], [remoteRow]);
+    expect(strict.merged[0]).not.toHaveProperty('futureField');
+
+    const retained = mergeTripLists([], [remoteRow], [], [], { keepUnknownKeys: true });
+    expect(retained.merged[0]).toHaveProperty('futureField', 'kept-by-a-newer-client');
+  });
+
   it('rename LWW: the higher updatedAt wins in BOTH directions', () => {
     const remoteWins = mergeTripLists(
       [meta('a', { name: 'Old', updatedAt: 1 })],
