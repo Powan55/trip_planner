@@ -5,7 +5,7 @@ import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
 import { downloadTripBackup } from '@/lib/trip-backup';
 import { defaultBlobStore } from '@/core/photos/blob-store';
-import { getSyncCode } from '@/core/storage/gateway';
+import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -32,9 +32,10 @@ import {
  * stay available.
  *
  * `forgetDevice` escalates to ALSO clear every locally
- * stored photo blob (IndexedDB, app-scoped) via `defaultBlobStore.clear()` before signing out —
- * strictly more destructive than a plain sign-out, which deliberately leaves photos alone (a photo
- * is expensive to re-acquire and is not identity-linked).
+ * stored photo blob (IndexedDB, app-scoped) via `defaultBlobStore.clear()`, and the three
+ * lifetime-scoped keys (`lifetimeVisits`, `visitConfirmations`, `passportStamps`) that
+ * `wipeAllTripData()` leaves behind, before signing out (D-503). Strictly more destructive than a
+ * plain sign-out, which leaves photos and that travel history alone.
  *
  * Reload after teardown (Ruling 3): the local domain stores (`hooks/create-reactive-store.ts`) only
  * re-read on their own event or a cross-tab `storage` event, which never fires in the tab that made
@@ -82,7 +83,14 @@ export default function SignOutConfirm({
 
   const handleConfirm = () => {
     void (async () => {
-      if (forgetDevice) await defaultBlobStore.clear();
+      if (forgetDevice) {
+        await defaultBlobStore.clear();
+        // D-503: the lifetime keys stay out of `wipeAllTripData()` on purpose (D-314/D-320);
+        // this is the one path that clears them, for a device changing hands.
+        removeKey('local', STORAGE_KEYS.lifetimeVisits);
+        removeKey('local', STORAGE_KEYS.visitConfirmations);
+        removeKey('local', STORAGE_KEYS.passportStamps);
+      }
       signOut();
       // Reload after teardown (Ruling 3) — every mounted local store re-hydrates fresh; precedent.
       window.location.reload();
@@ -116,10 +124,10 @@ export default function SignOutConfirm({
               ? 'Signing out erases this key from this device, and nothing can re-issue it. Save it now — it is the only way back into your account.'
               : code
                 ? forgetDevice
-                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device. It erases your key too, so you'll get one last look at it next — neither the plan nor these photos come back unless the trip was synced elsewhere first."
+                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). It erases your key too, so you'll get one last look at it next. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device, and your key along with it. You'll get one last look at the key next — it's the only way back into your account, and the plan itself won't come back unless it's synced to another device."
                 : forgetDevice
-                  ? 'This does everything signing out does, and also permanently deletes every photo stored on this device. There is no key stored here, so nothing signs back in afterwards, and neither the plan nor these photos come back unless the trip was synced elsewhere first.'
+                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). There is no key stored here, so nothing signs back in afterwards. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device. There is no key stored here, so nothing signs back in afterwards, and the plan won't come back unless it's synced to another device."}
           </AlertDialogDescription>
         </AlertDialogHeader>

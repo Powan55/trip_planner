@@ -39,6 +39,8 @@ import SignOutConfirm from '@/components/sign-out-confirm';
 import {
   joinTrip,
   formatShareToken,
+  isOwnAccountToken,
+  OWN_ACCOUNT_TOKEN_COPY,
   joinReplacesLocalPlan,
   replaceLocalPlanCopy,
 } from '@/core/trips/registry';
@@ -314,13 +316,15 @@ function IdentityGroup({ name }: { name: string | null }) {
       {/* (Q3) — claim the items you stamped under a name you used to go by. */}
       {name && <ClaimOldName current={name} />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
-          deletes every locally-stored photo (IndexedDB, app-scoped). Gated on `name` like Rename
+          deletes every locally-stored photo (IndexedDB, app-scoped) and the lifetime travel
+          history (D-503). Gated on `name` like Rename
           above (meaningless when not signed in). */}
       {name && (
         <div className="border-hair border-border bg-surface-raised px-gut py-4">
           <h3 className="pr pr--l text-ink-hi">Forget this device</h3>
           <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
-            Signs out and permanently deletes every photo stored on this device. Use this before
+            Signs out and permanently deletes every photo and your travel history (visited places
+            and passport stamps) stored on this device. Use this before
             handing the device to someone else or giving it away.
           </p>
           <SignOutConfirm testId="settings-forget-device" forgetDevice>
@@ -1037,7 +1041,9 @@ function TripGroup() {
     // paste had worked while leaving the browser exactly where it was.
     if (!joinTrip(id, 'Shared trip')) {
       setJoinError(
-        'That code can’t be used. Check it was copied whole — chat apps often cut long codes short.',
+        isOwnAccountToken(id)
+          ? OWN_ACCOUNT_TOKEN_COPY
+          : 'That code can’t be used. Check it was copied whole — chat apps often cut long codes short.',
       );
       return;
     }

@@ -20,6 +20,7 @@ import {
   setKnownTripsRaw,
   getRemovedTripsRaw,
   setRemovedTripsRaw,
+  getSyncCode,
   wipeTripData,
   keyForTrip,
   readJson,
@@ -434,6 +435,25 @@ export function formatShareToken(packId: string, remoteId: string): string {
 }
 
 /**
+ * D-504 — true when `raw` names this device's own account key (`getSyncCode()`, the User Token).
+ * That key is an account credential, never a trip capability (D-239), so `joinTrip` refuses it:
+ * joined as a custom trip it would become a registry row and a Firestore path segment, and joined
+ * as a `pack:` share id every share link would then print it. Compared on the PARSED id, so the
+ * `pack:` prefix cannot smuggle it past, and case-folded, because a uuid pasted in capitals is
+ * still the same key to whoever reads it. Callers that refuse on a `false` from `joinTrip` use
+ * this to say which refusal it was: "your own key" is a different sentence from "unusable".
+ */
+export function isOwnAccountToken(raw: string): boolean {
+  const account = getSyncCode();
+  const id = parseTripToken(raw)?.id;
+  return !!account && !!id && id.toLowerCase() === account.trim().toLowerCase();
+}
+
+/** What a paste field says when `isOwnAccountToken` is why the join was refused. */
+export const OWN_ACCOUNT_TOKEN_COPY =
+  'That’s your own key. It signs you in and can’t be added as a trip. Ask whoever owns the trip for its Trip Token.';
+
+/**
  * THE shared switch primitive: resolve the token, then write the pointer it names.
  * Does NOT reload — the caller performs the full page reload.
  *
@@ -444,11 +464,12 @@ export function formatShareToken(packId: string, remoteId: string): string {
  *
  * RETURNS whether the switch actually landed. The gateway swallows a blocked/full-storage write by
  * contract, so a call returning is not evidence anything was stored; the pointer is read back
- * here rather than at each call site, where three of the five forgot to.
+ * here rather than at each call site, where three of the five forgot to. It also returns `false`,
+ * writing nothing, for an unusable token or this device's own account key (`isOwnAccountToken`).
  */
 export function joinTrip(id: string, name?: string): boolean {
   const token = parseTripToken(id);
-  if (!token) return false;
+  if (!token || isOwnAccountToken(id)) return false;
   if (token.kind === 'default') {
     setDefaultTripShareId(token.id);
     setActiveTripId(DEFAULT_TRIP_ID);
@@ -464,7 +485,9 @@ export function joinTrip(id: string, name?: string): boolean {
 export function joinReplacesLocalPlan(id: string): boolean {
   const token = parseTripToken(id);
   const current = getDefaultTripShareId();
-  return token?.kind === 'default' && current !== '' && current !== token.id;
+  return (
+    token?.kind === 'default' && current !== '' && current !== token.id && !isOwnAccountToken(id)
+  );
 }
 
 export const REPLACE_LOCAL_PLAN_COPY =

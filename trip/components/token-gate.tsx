@@ -10,6 +10,7 @@ import { joinTrip } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import { TRIP_START } from '@/lib/trip-data';
+import { getNow } from '@/lib/trip-now';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import LandingPage from '@/components/landing-page';
@@ -829,14 +830,15 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
 
 /**
  * Compact live countdown for the boarding pass. Ticks once a second so HH:MM:SS stays truthful; the
- * math is the shared pure helper vs TRIP_START. Mount-gated so SSR and first client paint
+ * math is the shared pure helper vs TRIP_START, read off the app's one clock (`getNow()`, D-075), so
+ * `?today=` drives it like every other countdown. Mount-gated so SSR and first client paint
  * agree (no hydration mismatch — value starts null).
  */
 function CompactCountdown() {
   const [cd, setCd] = useState<Countdown | null>(null);
 
   useEffect(() => {
-    const tick = () => setCd(computeCountdown(TRIP_START, new Date()));
+    const tick = () => setCd(computeCountdown(TRIP_START, getNow()));
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);

@@ -8,6 +8,8 @@ import {
   renameKnownTrip,
   removeKnownTrip,
   joinTrip,
+  isOwnAccountToken,
+  OWN_ACCOUNT_TOKEN_COPY,
   joinReplacesLocalPlan,
   replaceLocalPlanCopy,
   setTripConfig,
@@ -99,7 +101,7 @@ function settleWithin(pushes: Promise<unknown>[], ms: number): Promise<unknown> 
  *
  * 1. YOUR TRIPS — `listKnownTrips()` rows (default pack always first). The current row
  * (id-equal `getActiveTripId()`) links Home; any other row's main action is the
- * switch primitive VERBATIM: `joinTrip(id)` then a full navigation to Home. Pencil =
+ * switch primitive: `joinTrip(id)`, then a full navigation to Home only if the switch landed. Pencil =
  * inline rename via `renameKnownTrip`. Per-row "Copy link"
  * builds the same `?trip=` share URL as Settings: for a non-default pack the id
  * IS the capability token. The DEFAULT pack is a LOCAL-ONLY SAMPLE (#10 —
@@ -285,7 +287,9 @@ export default function TripsHub() {
   // switch primitive: register + write the pointer, then a FULL navigation to Home so the
   // pack re-hydrates fresh and the switcher lands oriented (same target as the ?trip= handshake).
   const switchTo = (id: string) => {
-    joinTrip(id);
+    // A row written before `joinTrip` refused it (the account key, say) can still be listed;
+    // navigating anyway would land Home on the trip it never left.
+    if (!joinTrip(id)) return;
     window.location.assign(withBasePath('/'));
   };
 
@@ -397,7 +401,9 @@ export default function TripsHub() {
     // paste had worked while leaving the browser exactly where it was.
     if (!joinTrip(id, joinName.trim() || undefined)) {
       setJoinError(
-        'That Trip Token can’t be used. Check it was copied whole — chat apps often cut long codes short.',
+        isOwnAccountToken(id)
+          ? OWN_ACCOUNT_TOKEN_COPY
+          : 'That Trip Token can’t be used. Check it was copied whole — chat apps often cut long codes short.',
       );
       return;
     }
