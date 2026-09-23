@@ -113,7 +113,7 @@ import {
 } from '@/lib/trips-remote';
 import { startPresence, stopPresence, HEARTBEAT_MS } from '@/lib/presence';
 import { signIn } from '@/lib/token-auth';
-import { deviceStore } from '@/core/storage/gateway';
+import { deviceStore, markTripCreatedHere } from '@/core/storage/gateway';
 import { upsertKnownTrip } from '@/core/trips/registry';
 
 const TRIP = 'trip-abc';
@@ -180,6 +180,16 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     await ensureMembership(TRIP);
     expect(fake.serverReads).toBe(1); // the read ran — a measurement, not a bypassed mock
     expect(writesTo(TRIP_PATH)).toHaveLength(0);
+  });
+
+  it('MEMBERS-LESS trip created on THIS device ⇒ reclaims owner by field path (#501)', async () => {
+    fake.docs.set(TRIP_PATH, { schemaVersion: 1, createdAt: 1, seededFrom: 'sample' });
+    markTripCreatedHere(TRIP);
+    await ensureMembership(TRIP);
+    const writes = writesTo(TRIP_PATH);
+    expect(writes).toHaveLength(1);
+    expect(writes[0].op).toBe('update');
+    expect(writes[0].data).toEqual({ [`members.${UID}`]: 'owner' });
   });
 
   it('members map present without this uid ⇒ enrols as member (belt to the rules braces)', async () => {
@@ -287,13 +297,17 @@ describe('fetchTripMembers separates "no roster" from "could not find out" (#477
     });
   });
 
+  it('a successful read of NO trip doc answers absent (#501)', async () => {
+    expect(await fetchTripMembers(TRIP)).toEqual({ state: 'absent' });
+    expect(fake.serverReads).toBe(1);
+  });
+
   it.each([
-    ['NO trip doc', undefined],
     ['no members key', { schemaVersion: 1 }],
     ['a non-map members field', { schemaVersion: 1, members: 'not-a-map' }],
     ['a roster naming no owner', { schemaVersion: 1, members: { a: 'member' } }],
   ])('a successful read of %s answers open', async (_label, doc) => {
-    if (doc) fake.docs.set(TRIP_PATH, doc);
+    fake.docs.set(TRIP_PATH, doc);
     expect(await fetchTripMembers(TRIP)).toEqual({ state: 'open' });
     expect(fake.serverReads).toBe(1);
   });
