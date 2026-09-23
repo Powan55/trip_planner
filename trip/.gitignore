@@ -19,3 +19,6 @@ e2e/fixtures/live-v5-vault/live-dump.json
 
 # Local build-time config (Firebase keys, concierge URL). See .env.local.example.
 .env.local
+
+# Copied from node_modules by scripts/copy-maplibre-worker.mjs.
+public/maplibre/
