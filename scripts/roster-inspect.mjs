@@ -154,7 +154,7 @@
 
 import { createSign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import assert from 'node:assert';
+import nodeAssert from 'node:assert';
 
 const TOKEN_URI = 'https://oauth2.googleapis.com/token';
 const FIRESTORE_API = 'https://firestore.googleapis.com/v1';
@@ -604,6 +604,19 @@ async function main(keyPath) {
 // ── self-test: classification + decoding, against inline fixtures. No network, no credential. ──
 
 function selfTest() {
+  // Count assertions so a gutted body (e.g. every call replaced by a no-op) can't pass silent.
+  let assertionCount = 0;
+  const assert = new Proxy(nodeAssert, {
+    get(target, prop) {
+      const fn = target[prop];
+      if (typeof fn !== 'function') return fn;
+      return (...args) => {
+        assertionCount += 1;
+        return fn.apply(target, args);
+      };
+    },
+  });
+
   // The decoder, one case per branch that this script actually depends on.
   assert.equal(decode({ stringValue: 'Ana' }), 'Ana');
   assert.equal(decode({ integerValue: '42' }), 42, 'REST sends int64 as a string');
@@ -764,7 +777,7 @@ function selfTest() {
   );
   assert.equal(missingIsOpenGuards('function isMember() { return true; }'), null);
 
-  console.log('roster-inspect self-test: all assertions passed');
+  console.log(`roster-inspect self-test: ${assertionCount} assertions passed`);
 }
 
 if (process.argv.includes('--self-test')) {
