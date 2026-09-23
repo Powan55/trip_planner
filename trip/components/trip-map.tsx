@@ -554,6 +554,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   ref,
 ) {
   const [mapReady, setMapReady] = useState(false);
+  // Issue #502 — set when the WebGL2 context can't be created; renders the
+  // unavailable message in place of the canvas instead of leaving it blank.
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   // The marker whose popup is currently open — drives the React portal content.
   const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
   // The DOM node inside the open popup that we portal React content into.
@@ -690,16 +693,30 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       if (cancelled || !containerRef.current) return;
       mapLibreRef.current = maplibregl;
 
-      maplibregl.setWorkerUrl(withBasePath('/maplibre/maplibre-gl-worker.mjs'));
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: buildMapStyle() as never,
-        bounds: ALL_BOUNDS,
-        fitBoundsOptions: { padding: 48 },
-        attributionControl: false, // added explicitly below (compact)
-        maxZoom: 17,
-        minZoom: 2,
-      });
+      // Issue #503 — the worker path is versioned by the installed engine's own
+      // version (copy-maplibre-worker.mjs copies into the same path), so a
+      // maplibre-only bump can never run against a stale cached worker.
+      maplibregl.setWorkerUrl(
+        withBasePath(`/maplibre/${maplibregl.getVersion()}/maplibre-gl-worker.mjs`),
+      );
+      // Issue #502 — `new Map` throws synchronously when the browser can't give it a
+      // WebGL2 context (old device, disabled GPU, too many contexts already open).
+      // Uncaught here it would just leave the panel blank forever post-mount.
+      try {
+        map = new maplibregl.Map({
+          container: containerRef.current,
+          style: buildMapStyle() as never,
+          bounds: ALL_BOUNDS,
+          fitBoundsOptions: { padding: 48 },
+          attributionControl: false, // added explicitly below (compact)
+          maxZoom: 17,
+          minZoom: 2,
+        });
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setMapUnavailable(true);
+        return;
+      }
       mapRef.current = map;
 
       map.addControl(
@@ -1198,8 +1215,25 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         role="region"
       />
 
+      {/* Issue #502 — WebGL2 unavailable. `role="status"` since this fires post-mount
+          (unlike MapIslandBoundary's chunk-load case, there's nothing static about it —
+          the rest of the page already rendered around a map that then failed). No motion. */}
+      {mapUnavailable && (
+        <div
+          data-testid="map-unavailable"
+          role="status"
+          className="empty-frame absolute inset-0 mx-auto flex max-w-md flex-col items-center justify-center p-gut py-6 text-center"
+        >
+          <p className="pr pr--l err mb-2">Map unavailable on this device</p>
+          <p className="empty">
+            This device or browser can&apos;t create the map engine&apos;s WebGL2
+            context. Everything else on this page still works.
+          </p>
+        </div>
+      )}
+
       {/* Loading skeleton until the GL canvas is ready. */}
-      {!mapReady && (
+      {!mapUnavailable && !mapReady && (
         // The word is a real text node, not a `content:` string — a static block is
         // indistinguishable from an empty one, and generated content is not reliably
         // announced. The pulse goes with it: the word carries the state.
