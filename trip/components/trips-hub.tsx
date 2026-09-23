@@ -9,7 +9,7 @@ import {
   removeKnownTrip,
   joinTrip,
   joinReplacesLocalPlan,
-  REPLACE_LOCAL_PLAN_COPY,
+  replaceLocalPlanCopy,
   setTripConfig,
   getKnownTrip,
   TRIP_DAYS_MAX,
@@ -390,7 +390,7 @@ export default function TripsHub() {
     e.preventDefault();
     const id = joinKey.trim();
     if (!id) return;
-    if (joinReplacesLocalPlan(id) && !window.confirm(REPLACE_LOCAL_PLAN_COPY)) return;
+    if (joinReplacesLocalPlan(id) && !window.confirm(replaceLocalPlanCopy())) return;
     // D-546 — `joinTrip` resolves which namespace the token names (a `pack:` share id keeps the
     // browser on the default pack with its legs, offsets and guides; anything else is a custom
     // trip) and reports whether the pointer landed. Navigating regardless used to look like the
