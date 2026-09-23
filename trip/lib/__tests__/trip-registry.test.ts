@@ -17,6 +17,7 @@ import {
   DEFAULT_TRIP_ID,
   setActiveTripId,
   getActiveTripId,
+  getDefaultTripShareId,
 } from '@/core/storage/gateway';
 import {
   listKnownTrips,
@@ -25,6 +26,8 @@ import {
   joinTrip,
   removeKnownTrip,
   listRemovedTrips,
+  mergeTripLists,
+  DEFAULT_SHARE_PREFIX,
 } from '@/core/trips/registry';
 
 /**
@@ -169,6 +172,55 @@ describe('trip registry (S238)', () => {
     joinTrip('abc-123', 'Named once');
     joinTrip('abc-123', 'Shared trip'); // e.g. re-opening the same share link
     expect(listKnownTrips().find((t) => t.id === 'abc-123')?.name).toBe('Named once');
+  });
+
+  // ── joinTrip is the trust boundary for the Firestore path segment (#476) ───
+  describe('joinTrip refuses a token that cannot compose the path it claims (#476)', () => {
+    const UUID = '3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+
+    it.each([
+      ['a separator — trips/A/B/days/{d} is matched by the rules as tripId A', 'A/B'],
+      ['the auth-only carve-out', 'V/profile'],
+      // The D-546 prefix is stripped BEFORE the id becomes a path, so the guard has to run on
+      // the post-strip value or a prefixed token walks straight past it.
+      ['a separator hiding behind the wire prefix', 'pack:A/B'],
+      ['a relative segment', '..'],
+      ['whitespace that would compose a neighbouring empty trip', 'has space'],
+      ['a control byte', 'tab\there'],
+      ['a Firestore-reserved id', '__proto__'],
+      ['nothing at all', ''],
+    ])('rejects %s', (_why, raw) => {
+      expect(joinTrip(raw, 'Shared trip')).toBe(false);
+      expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBeNull();
+      expect(getDefaultTripShareId()).toBe('');
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it('a minted uuid — what the share flow actually produces — still joins', () => {
+      expect(joinTrip(UUID, 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe(UUID);
+    });
+
+    it('a legitimately prefixed share id still joins, with the prefix stripped (D-546)', () => {
+      expect(joinTrip(`${DEFAULT_SHARE_PREFIX}${UUID}`, 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID);
+      expect(getDefaultTripShareId()).toBe(UUID); // the path segment, prefix gone
+    });
+
+    // The other door into the same invariant: an entry can arrive in the known-trips list WITHOUT
+    // passing through joinTrip (a Sync-Code merge), and `ensureKnownTripMemberships` then writes a
+    // members map at `doc(db, 'trips', <that id>)`. An even segment count is a valid ref that does
+    // not throw, so `A/B/C` would land under a document the rules authorize against trip `A`.
+    it('sanitize drops a multi-slash id on BOTH doors — the stored parse and the remote merge', () => {
+      const poison = { id: 'A/B/C', name: 'Merged in', joinedAt: 1 };
+      const good = { id: UUID, name: 'Real trip', joinedAt: 2 };
+
+      window.localStorage.setItem(KEY, JSON.stringify([poison, good]));
+      expect(listKnownTrips().map((t) => t.id)).toEqual([DEFAULT_TRIP_ID, UUID]);
+
+      const { merged } = mergeTripLists([], [poison, good]);
+      expect(merged.map((t) => t.id)).toEqual([UUID]);
+    });
   });
 
   // ── removeKnownTrip sweeps the trip's local data (A-10 / #100) ─────────────

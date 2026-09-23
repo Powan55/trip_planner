@@ -196,6 +196,7 @@ import { loadPlans, savePlans, ITINERARY_STORAGE_KEY } from '@/lib/itinerary-sto
 import { mergeDay } from '@/core/sync/merge-day';
 import { serialize } from '@/core/sync/hlc';
 import { isReadDenied, setReadDenied } from '@/core/sync/read-denied';
+import { markTripCreatedHere } from '@/core/storage/gateway';
 import type { Firestore } from 'firebase/firestore';
 import * as fs from 'firebase/firestore';
 
@@ -382,6 +383,30 @@ describe('#271 — a permission-denied READ stream is classified, not endlessly 
 
     expect(isReadDenied()).toBe(false);
     unsub();
+  });
+});
+
+describe('#501 — the first-snapshot seed names this device owner only if it created the trip', () => {
+  async function seedFromAbsentTripDoc(): Promise<DocData | undefined> {
+    const unsub = subscribeRemote();
+    await flush();
+    fake.emitServerSnapshot();
+    await flush();
+    await flush();
+    unsub();
+    return fake.docs.get(`trips/${TRIP_ID}`);
+  }
+
+  it('a device that did not create the trip seeds the doc WITHOUT a members map', async () => {
+    const seeded = await seedFromAbsentTripDoc();
+    expect(seeded).toBeDefined();
+    expect(seeded).not.toHaveProperty('members');
+  });
+
+  it('the creating device seeds itself as owner', async () => {
+    markTripCreatedHere(TRIP_ID);
+    const seeded = await seedFromAbsentTripDoc();
+    expect(seeded?.members).toEqual({ 'device-uid-fake': 'owner' });
   });
 });
 

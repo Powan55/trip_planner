@@ -52,6 +52,7 @@ import { outboxDirty } from '@/core/sync/outbox';
 import { itinerarySyncPort } from './itinerary-ports';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { setReadDenied } from '@/core/sync/read-denied';
+import { wasTripCreatedHere } from '@/core/storage/gateway';
 import { realClock } from './trip-now';
 import { getRemote, type FirestoreMod } from './firebase-remote';
 
@@ -634,7 +635,8 @@ async function reconcileFirstSnapshot(
   applyRemote: (plans: DayPlan[]) => boolean,
 ): Promise<void> {
   const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid } = ctx;
-  const tripRef = doc(db, 'trips', getTripId());
+  const tripId = getTripId();
+  const tripRef = doc(db, 'trips', tripId);
 
   // The trip-doc marker is the "has this group ever synced" signal. Read it from
   // the SERVER so a fresh client doesn't see a stale/absent cached value as authoritative
@@ -705,14 +707,14 @@ async function reconcileFirstSnapshot(
     // already there (the create-path doc, #10) — rewriting it would clobber a `members` entry a
     // peer added between the create and this first snapshot.
     // #10: the marker carries the same `members` map `createTripDoc` writes, so a trip seeded
-    // through THIS legacy path is member-gated from birth too (parity — otherwise the two ways a
-    // trip doc can come into existence would disagree about whether the lock is on).
+    // through THIS legacy path is member-gated from birth too. #501: but only on the device that
+    // created the trip — otherwise a joiner arriving before the creator's doc landed would own it.
     if (!tripExists) {
       await setDoc(tripRef, {
         schemaVersion: 1,
         createdAt: serverTimestamp(),
         seededFrom: localIsUserData ? 'local-edits' : 'sample',
-        members: { [uid]: 'owner' },
+        ...(wasTripCreatedHere(tripId) ? { members: { [uid]: 'owner' } } : {}),
       });
     }
 
