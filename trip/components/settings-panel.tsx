@@ -520,13 +520,23 @@ function LinkGoogleIdentity() {
  * A trip with NO roster is the grandfathered case (it predates the lock): everyone holding the
  * Trip Token can open it, and saying so is more honest than showing an empty list. That state is
  * permanent, not short-lived — #477 stopped the client minting a roster for such a trip on page
- * load — so the add form is hidden there: the rules refuse any roster that names no owner, so
- * "Add device" could only ever fail.
+ * load — so the add form is hidden there: the rules refuse any roster that names no owner
+ * (`rosterIsWellFormed`), so "Add device" could only ever fail.
+ *
+ * ⚠ THREE ROSTER STATES, NOT TWO, and the third is why `undefined` is not `null` here. "No roster"
+ * and "I could not find out" were one value until #477 made the difference load-bearing: the add
+ * form is hidden on the first and MUST NOT be on the second. `fetchTripMembers` reads through
+ * `getDocFromServer`, which REJECTS offline rather than serving the cache, so a perfectly normal
+ * member-gated trip opened on a dead connection answers `'unknown'` — and collapsing that to "no
+ * roster" would tell its owner their trip predates per-device access and take the control away.
+ * A control is never hidden on a guess; unknown renders exactly what shipped before.
  */
 function TripAccessGroup() {
   const [uid, setUid] = useState<string | null>(null);
   const [tripKey, setTripKey] = useState<string | null>(null);
-  const [members, setMembers] = useState<Record<string, string> | null>(null);
+  // `undefined` = not established (still loading, or the read failed); `null` = a SUCCESSFUL read
+  // that found no roster; an object = the roster. See the three-states note above.
+  const [members, setMembers] = useState<Record<string, string> | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
   const [addValue, setAddValue] = useState('');
   const [busy, setBusy] = useState(false);
@@ -537,8 +547,10 @@ function TripAccessGroup() {
     const id = getTripId();
     if (!id) return;
     const { fetchTripMembers } = await import('@/lib/trips-remote');
-    const roster = await fetchTripMembers(id);
-    setMembers(roster ?? null);
+    const read = await fetchTripMembers(id);
+    if (read.state === 'roster') setMembers(read.members);
+    else if (read.state === 'open') setMembers(null);
+    else setMembers(undefined);
   };
 
   useEffect(() => {
@@ -669,6 +681,14 @@ function TripAccessGroup() {
                 per-device access existed, so there is no list to manage &mdash; share the Trip
                 Token with the people you want in, and nobody else.
               </p>
+            ) : members === undefined ? (
+              <p
+                data-testid="settings-access-unknown"
+                className="mt-1 max-w-2xl text-t-body text-ink-mid"
+              >
+                Who can open this trip isn&rsquo;t available right now &mdash; it needs a
+                connection. You can still add a device by its code.
+              </p>
             ) : (
               <ul data-testid="settings-access-list" className="mt-3 flex flex-col gap-2">
                 {Object.entries(members).map(([memberUid, role]) => (
@@ -703,33 +723,35 @@ function TripAccessGroup() {
               </ul>
             )}
 
+            {/* Hidden ONLY on a confirmed-rosterless trip, where the rules can never accept the
+                write. `undefined` (unknown) keeps it, exactly as it shipped before #477. */}
             {members !== null && (
-            <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <label htmlFor="settings-access-add" className="sr-only">
-                Device code to add
-              </label>
-              <input
-                id="settings-access-add"
-                value={addValue}
-                onChange={(e) => setAddValue(e.target.value)}
-                placeholder="Paste a device code"
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                data-testid="settings-access-add-input"
-                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              />
-              <button
-                type="submit"
-                disabled={!addValue.trim() || busy}
-                aria-busy={busy}
-                data-testid="settings-access-add-submit"
-                className="btn btn--2 px-4"
-              >
-                <UserPlus className="h-4 w-4" aria-hidden="true" />
-                Add device
-              </button>
-            </form>
+              <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="settings-access-add" className="sr-only">
+                  Device code to add
+                </label>
+                <input
+                  id="settings-access-add"
+                  value={addValue}
+                  onChange={(e) => setAddValue(e.target.value)}
+                  placeholder="Paste a device code"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-testid="settings-access-add-input"
+                  className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                />
+                <button
+                  type="submit"
+                  disabled={!addValue.trim() || busy}
+                  aria-busy={busy}
+                  data-testid="settings-access-add-submit"
+                  className="btn btn--2 px-4"
+                >
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  Add device
+                </button>
+              </form>
             )}
           </>
         )}

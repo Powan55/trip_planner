@@ -430,10 +430,13 @@ export async function ensureMembership(tripId: string): Promise<void> {
     const { db, fs, uid } = await getRemote();
     const { doc, getDocFromServer, updateDoc } = fs;
     const ref = doc(db, 'trips', tripId);
-    // SERVER read: a cached copy can be stale in both directions — an absent members map that has
-    // since been written (we would read the trip as still open and skip the enrolment the rules
-    // now require, with no access-pending toast to explain the denials that follow) or a stale
-    // roster (we would re-add an entry that is already there).
+    // SERVER read: a cached copy can be stale in both directions, and BOTH are silent.
+    // - absent members map that has since been written ⇒ we read the trip as still open and skip
+    //   the enrolment the rules now require, with no access-pending toast to explain the denials
+    //   that follow.
+    // - stale roster missing this uid where the server already has it as `'owner'` ⇒ the write
+    //   below is `members.<uid> = 'member'`, and the rules evaluate `isOwner()` against the STORED
+    //   doc, so it is ALLOWED: the owner silently demotes itself.
     const snap = await getDocFromServer(ref);
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
@@ -461,23 +464,40 @@ export async function ensureKnownTripMemberships(): Promise<void> {
 }
 
 /**
- * The trip's roster, or `undefined` when there is none to show — dormant, unreachable, no trip
- * doc, or a doc with no members map (a grandfathered capability trip, where "everyone holding the
- * link" is the honest answer and a list would be a lie). TOTAL, never throws.
+ * What a roster read could establish. The three states were ONE `undefined` until #477, and
+ * collapsing them is now a user-visible bug rather than a tidy simplification: since the UI hides
+ * the add-device control on `'open'`, "this trip has no roster" and "I could not find out" must
+ * not be the same answer. `getDocFromServer` REJECTS offline rather than serving the cache, so
+ * `'unknown'` is a routine state for an ordinary member-gated trip, not an exotic one.
  */
-export async function fetchTripMembers(
-  tripId: string,
-): Promise<Record<string, TripRole> | undefined> {
-  if (!isTripRemoteConfigured() || !tripId) return undefined;
+export type TripRosterRead =
+  /** A read that came back with a roster the rules will actually gate on. */
+  | { state: 'roster'; members: Record<string, TripRole> }
+  /** A read that SUCCEEDED and found no usable roster: no trip doc, no members map, or one
+   *  `readMembers`/`isOpen()` read as open. Everyone holding the trip id can open it. */
+  | { state: 'open' }
+  /** Nothing was established — dormant, offline, unreachable, or refused. */
+  | { state: 'unknown' };
+
+/**
+ * The trip's roster. TOTAL, never throws — every failure answers `{ state: 'unknown' }`, which the
+ * caller must render differently from `'open'` (a grandfathered capability trip, where "everyone
+ * holding the link" is the honest answer and a list would be a lie).
+ */
+export async function fetchTripMembers(tripId: string): Promise<TripRosterRead> {
+  if (!isTripRemoteConfigured() || !tripId) return { state: 'unknown' };
   try {
     const { db, fs } = await getRemote();
     const { doc, getDocFromServer } = fs;
     const snap = await getDocFromServer(doc(db, 'trips', tripId));
-    if (!snap.exists()) return undefined;
-    return readMembers(snap.data() as Record<string, unknown>) as Record<string, TripRole> | undefined;
+    if (!snap.exists()) return { state: 'open' };
+    const members = readMembers(snap.data() as Record<string, unknown>) as
+      | Record<string, TripRole>
+      | undefined;
+    return members ? { state: 'roster', members } : { state: 'open' };
   } catch (err) {
     console.warn('[trips-remote] members fetch failed:', err);
-    return undefined;
+    return { state: 'unknown' };
   }
 }
 

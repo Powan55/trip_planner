@@ -267,9 +267,10 @@ export function runTripMetaSelfHeal(): () => void {
  * #10 — MEMBERSHIP ENROLMENT, once per page load, for the active non-default trip.
  *
  * `ensureMembership` reads the trip doc and adds THIS device's uid to its `members` map if the
- * trip has one and this device is not in it (or takes `owner` on a grandfathered members-less
- * trip). It costs one server read on every load after the first, and nothing else — the
- * already-enrolled branch writes nothing.
+ * trip has one and this device is not in it. A trip with no usable roster is left alone — #477:
+ * self-enrolling as `owner` there handed a forwarded `?trip=` link to whoever tapped it first. It
+ * costs one server read on every load after the first, and nothing else — the already-enrolled
+ * and no-roster branches both write nothing.
  *
  * Gated exactly like the domain sync effects: configured build ∧ a non-default (non-sample) trip
  * ∧ an identified traveler. A guest never enrols, and the local-only sample has no members map at
