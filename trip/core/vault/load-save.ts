@@ -24,7 +24,8 @@ import {
   CURRENT_ITINERARY_VERSION,
   runItineraryMigrations,
 } from './migrations';
-import { isQuotaError, notifyQuotaExceeded } from '@/core/storage/gateway';
+import { isQuotaError, notifyQuotaExceeded, readString, writeString } from '@/core/storage/gateway';
+import { QUARANTINE_MAX_CHARS } from './compression';
 
 /**
  * Configuration for a Vault-backed storage slot. The itinerary passes its unchanged
@@ -44,11 +45,16 @@ export interface VaultConfig {
 const defaultNowISO = () => new Date().toISOString();
 
 /**
- * Preserve a corrupt raw payload verbatim so it is never silently lost.
+ * Preserve a corrupt raw payload so it is never silently lost.
  *
  * - Writes `raw` to the quarantine key ONLY IF that key is currently absent
  * (don't-clobber-first-capture — the first corruption most likely holds the user's
  * real, recoverable data).
+ * - Capped at `QUARANTINE_MAX_CHARS`, the same cap `export-import.ts`'s `quarantineImport()`
+ * uses for the same key on the import side — uncapped, this doubled a multi-megabyte corrupt
+ * value's footprint at the moment storage is least healthy (#411).
+ * - Routed through the gateway (`readString`/`writeString`) rather than raw `localStorage`, so a
+ * write dropped for quota fires `trip:quota-exceeded` instead of vanishing into the catch below.
  * - `console.warn` so the loss is never silent.
  * - NEVER throws — the preserve attempt is itself try/caught (quota / disabled storage
  * degrade quietly). Fires on ANY failure: parse error, unrecognized shape, failed
@@ -56,8 +62,12 @@ const defaultNowISO = () => new Date().toISOString();
  */
 function quarantineCorrupt(quarantineKey: string, raw: string): void {
   try {
-    if (window.localStorage.getItem(quarantineKey) === null) {
-      window.localStorage.setItem(quarantineKey, raw);
+    if (readString('local', quarantineKey) === null) {
+      const kept =
+        raw.length <= QUARANTINE_MAX_CHARS
+          ? raw
+          : raw.slice(0, QUARANTINE_MAX_CHARS) + '\n… [truncated by trip-vault: ' + raw.length + ' chars total]';
+      writeString('local', quarantineKey, kept);
     }
     console.warn(
       '[trip-vault] corrupt itinerary data detected; original preserved at',

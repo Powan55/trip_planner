@@ -27,6 +27,7 @@ import { keyFor, hasKey, writeString } from '@/core/storage/gateway';
 import { makeEnvelope } from './envelope';
 import { parseItineraryPayloadStrict } from './schema';
 import { CURRENT_ITINERARY_VERSION, runItineraryMigrations } from './migrations';
+import { QUARANTINE_MAX_CHARS } from './compression';
 // Reuse the read path's version detection + payload extraction (exported export-only
 // from load-save.ts in) so import makes the IDENTICAL migrate-vs-quarantine
 // decision as the on-disk read — ONE source of truth, no re-derived copy to drift.
@@ -74,8 +75,11 @@ export function exportItinerary(): string {
  * base64 photo, so a mid-size file that fits could sit on most of the ~5 MB localStorage budget
  * indefinitely. The worst case self-limited only because a file too big to store threw a quota
  * error into a swallowing catch, which is luck, not a design.
+ *
+ * Shared with `load-save.ts`'s `quarantineCorrupt()` (same key, read-side corruption path) via
+ * `./compression` — a leaf module neither of these two already-mutually-importing files needs to
+ * import from each other for — so the two writers cannot drift apart (#411).
  */
-const QUARANTINE_MAX_CHARS = 4096;
 
 function quarantineImport(raw: string): void {
   if (typeof window === 'undefined') return;

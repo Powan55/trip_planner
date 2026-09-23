@@ -24,12 +24,21 @@ import {
 
 // A tiny in-memory StoragePort so the factory can be exercised free of any domain (items/ids/
 // tombstones). `save` records what was written; `load` returns the freshest saved value.
-function makeStorage(initial: number[]): { port: StoragePort<number[]>; disk: { v: number[] } } {
+function makeStorage(initial: number[]): {
+  port: StoragePort<number[]>;
+  disk: { v: number[] };
+  loads: { n: number };
+} {
   const disk = { v: initial };
+  const loads = { n: 0 };
   return {
     disk,
+    loads,
     port: {
-      load: () => disk.v,
+      load: () => {
+        loads.n += 1;
+        return disk.v;
+      },
       save: (value: number[]) => {
         disk.v = value;
       },
@@ -174,6 +183,67 @@ describe('createReactiveStore — the shared hydrate/listen/commit skeleton (D-1
     const h = render(useStore);
     await expect(h.run((c) => c.commit((cur) => [...cur, 2]))).resolves.toBeUndefined();
     expect(disk.v).toEqual([1, 2]);
+    h.unmount();
+  });
+
+  // `load()` is the whole vault chain for the itinerary (getItem → JSON.parse → detectVersion →
+  // migrations → lenient zod over 32 days), and it runs inside the click handler. The dispatch
+  // used to wake the dispatcher's OWN listener, which re-read a value commit already had in
+  // hand — and `useItinerary()` has two mounted call sites sharing the bus, so one click paid
+  // for it twice over. Counting loads is the only assertion that catches a regression here:
+  // every value-level assertion passes either way.
+  it('commit loads ONCE per instance — the dispatcher does not re-read its own event', async () => {
+    const { port, loads } = makeStorage([1]);
+    const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });
+    const h = render(useStore);
+
+    loads.n = 0; // ignore the mount seed + hydrate load
+    await h.run((c) => c.commit((cur) => [...cur, 2]));
+    expect(loads.n).toBe(1); // the fresh base for `compute`, and nothing else
+
+    h.unmount();
+  });
+
+  it('with two instances mounted, one commit costs 2 loads, not 3', async () => {
+    const { port, loads } = makeStorage([1]);
+    const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });
+    const a = render(useStore);
+    const b = render(useStore);
+
+    loads.n = 0;
+    await a.run((c) => c.commit((cur) => [...cur, 2]));
+
+    // 1 for a's fresh base + 1 for b hearing the event. a re-reading itself was the third.
+    expect(loads.n).toBe(2);
+    expect(a.current.value).toEqual([1, 2]); // the committer still shows the committed value
+    expect(b.current.value).toEqual([1, 2]); // ...and the cross-instance contract is intact
+    a.unmount();
+    b.unmount();
+  });
+
+  it('the suppression is scoped to the dispatch: a later event still re-reads the committer', async () => {
+    const { port, disk, loads } = makeStorage([1]);
+    const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });
+    const h = render(useStore);
+    await h.run((c) => c.commit((cur) => [...cur, 2]));
+
+    // Same-tab event from somewhere else (another instance's commit, a domain-side dispatch).
+    disk.v = [5];
+    loads.n = 0;
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(EVENT));
+      await Promise.resolve();
+    });
+    expect(loads.n).toBe(1);
+    expect(h.current.value).toEqual([5]);
+
+    // ...and so does the cross-tab layer, which never went through commit at all.
+    disk.v = [6];
+    await act(async () => {
+      window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+      await Promise.resolve();
+    });
+    expect(h.current.value).toEqual([6]);
     h.unmount();
   });
 });
