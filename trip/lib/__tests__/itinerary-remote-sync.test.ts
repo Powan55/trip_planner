@@ -474,14 +474,34 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     expect(written.items.map((i) => i.id)).toEqual(['X']);
   });
 
+  // #408: `mergeDay(local, remote)` resolves a day-metadata key present on BOTH sides to
+  // LOCAL (union with local precedence, see merge-day.ts). `pushDayMerged` must pass the
+  // actual local day as `local`, not the just-read remote-now doc — else an edit to a field
+  // the remote doc ALREADY carries (not just a new field) can never reach the write.
+  it('pushDayMerged: a local edit to an existing day-metadata field wins over the stale remote value', async () => {
+    fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
+      date: '2026-12-09',
+      city: 'Kathmandu',
+      country: 'nepal',
+      items: [item('X', { hlc: hlc(1000, 'me'), rev: 1 })],
+    });
+    const localDay: DayPlan = {
+      ...day('2026-12-09', [item('X', { hlc: hlc(1000, 'me'), rev: 1 })]),
+      city: 'Pokhara',
+    };
+    await pushDayMerged(fake as unknown as Firestore, fs, localDay);
+    const written = fake.docs.get(`trips/${TRIP_ID}/days/2026-12-09`) as unknown as DayPlan;
+    expect(written.city).toBe('Pokhara');
+  });
+
   // ── S407 — the per-day DISPLAY label must survive the Firestore ROUND TRIP ────────────────
   // `DayPlan.countryLabel` is what makes the Dec-9 header read "New York, USA" instead of
   // "New York, Nepal". The write side was always fine (`sanitizeDayForWrite` is a JSON clone),
   // but BOTH read-shaped constructions dropped it: `docToDayPlan`'s four-field literal, and
-  // `pushDayMerged`'s absent-remote fallback — and since `mergeDay(remoteNow, localDay)` takes
-  // day-level fields from its FIRST argument, that fallback erased the label on the very first
-  // push. Without these two cases the whole S407 fix silently reverts on any synced device
-  // while every other test on the machine stays green.
+  // `pushDayMerged`'s absent-remote fallback — and since `mergeDay` takes day-level fields from
+  // its FIRST argument, that fallback erased the label on the very first push (when the call
+  // order still passed `remoteNow` first). Without these two cases the whole S407 fix silently
+  // reverts on any synced device while every other test on the machine stays green.
   it('S407: a per-day countryLabel survives docToDayPlan, and stays ABSENT when the doc has none', () => {
     const withLabel = docToDayPlan('2026-12-09', {
       date: '2026-12-09',
