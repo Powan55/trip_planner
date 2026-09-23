@@ -142,7 +142,13 @@ export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
 
 /** Validate a raw `cityCoords` map: drop any entry whose key is empty or whose coordinate isn't a
  *  finite, in-range lat/lng. `undefined` when nothing survives, so an empty/malformed map never
- *  adds a bare `{}` to the sanitized block. TOTAL, never throws. */
+ *  adds a bare `{}` to the sanitized block. TOTAL, never throws.
+ *
+ *  The bounds arithmetic is the same as `ranged` (core/vault/item-schema.ts), but the RULE is not,
+ *  and merging them would be a bug: `ranged` blanks ONE OPTIONAL field and keeps its row, whereas
+ *  `CityCoord` has no optional half — blanking a latitude here hands `lib/weather.ts` a coordinate
+ *  with one side missing. So a bad number takes its whole city entry with it, and the other cities
+ *  survive. */
 function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const out: Record<string, CityCoord> = {};

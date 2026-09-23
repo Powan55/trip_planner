@@ -112,12 +112,16 @@ function resolveWinner<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R 
   //
   // KNOWN CEILING (#152): step 2 is commutative and idempotent but NOT associative — three-plus
   // rows sharing one exact HLC, mutually incomparable by key set, can resolve to different winners
-  // depending on fold order. Unreachable today: `actor` is unique per device, so an exact-HLC tie
-  // only ever appears as the two-row case this was written for (a peer's copy vs. this device's own
-  // strict-sanitized re-read); a three-way needs two devices minting the same actor. A key-COUNT
-  // total order would restore associativity but would let a row with more keys beat one holding
-  // keys it lacks — real data loss traded for tidiness, not worth it. Revisit only if `actor` stops
-  // being unique per device.
+  // depending on fold order. REACHABLE AND ACCEPTED. The old text here called it unreachable
+  // because "`actor` is unique per device"; that premise is false and has been for as long as it
+  // was written — `actor` is the traveller's display NAME in all five hooks, so two devices signed
+  // in as the same traveller mint the same one. What keeps the ceiling effectively unreachable is
+  // the conjunction it actually needs: three same-name devices minting one identical
+  // `{pt, ct, actor}` stamp whose key sets are mutually incomparable. A key-COUNT total order would
+  // restore associativity but would let a row with more keys beat one holding keys it lacks — real
+  // data loss traded for tidiness, not worth it. A device-scoped actor (`deviceStore.getId()`,
+  // synchronous and firebase-free) would restore the premise, at the cost of the human-readable
+  // attribution the same field carries. That trade is what to revisit — not the retired trigger.
   if (aDel !== bDel) return aDel ? a : b;
   const richer = supersetRow(a, b);
   if (richer) return richer;
