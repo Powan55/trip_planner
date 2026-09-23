@@ -6,6 +6,7 @@ import Sheet from '@/components/ui/sheet-dark';
 import { SectionHeading } from '@/components/section-heading';
 import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart, Check } from 'lucide-react';
 import { Recommendation } from '@/lib/nepal-data';
+import { cityOf } from '@/lib/leg-label';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import AddedBadge from '@/components/added-badge';
@@ -37,17 +38,6 @@ const CTRL =
 const FACET =
   'chip min-h-tap px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
-
-/**
- * Derive a display city from a Recommendation's free-text `location`. Locations read
- * like "Boudha, Kathmandu" or "Lalitpur" — the LAST comma segment is the city/town.
- * Undefined when the record has no location.
- */
-function cityOf(loc: string | undefined): string | undefined {
-  if (!loc) return undefined;
-  const parts = loc.split(',').map((s) => s.trim()).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : undefined;
-}
 
 function RecommendationCard({
   item,

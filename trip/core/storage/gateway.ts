@@ -787,7 +787,7 @@ export function keyForTrip(id: string, slot: TripScopedSlot): string {
  * Full local teardown for sign-out. Clears
  * EVERY on-disk trace of the previous traveler's TRIP DATA on this device — not just the active pack:
  *
- * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the 15 bare
+ * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the bare
  * `STORAGE_KEYS[slot]` literals from `TRIP_SCOPED_SLOTS` (the default pack's data — `keyFor`
  * grandfathers it to the UNPREFIXED literal, so a `trip:` sweep ALONE misses it entirely;
  * the default pack is the common case on a fresh/shared device, not an edge case).
