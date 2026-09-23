@@ -636,6 +636,15 @@ export function getDefaultTripShareId(): string {
   return (readString('local', STORAGE_KEYS.defaultTripShare) ?? '').trim();
 }
 
+const DEFAULT_SHARE_SYNCED_SLOTS = [
+  'syncOutbox',
+  'itinerary',
+  'expenses',
+  'budget',
+  'docsChecklist',
+  'myPlaces',
+] as const satisfies readonly TripScopedSlot[];
+
 /**
  * Point the default pack at a remote trip id, or clear it with `''`. Write-ONLY — the CALLER
  * performs the full page reload, mirroring `setActiveTripId`. The reload is not optional: the
@@ -643,6 +652,12 @@ export function getDefaultTripShareId(): string {
  */
 export function setDefaultTripShareId(id: string): void {
   const trimmed = id.trim();
+  // D-561 — the outbox and the synced slots belong to the trip they were edited under, not to the
+  // pack. Moving from one shared trip to another would otherwise push them into the new one.
+  const prev = getDefaultTripShareId();
+  if (prev !== '' && trimmed !== '' && prev !== trimmed) {
+    for (const slot of DEFAULT_SHARE_SYNCED_SLOTS) removeKey('local', keyForTrip(DEFAULT_TRIP_ID, slot));
+  }
   if (trimmed === '') removeKey('local', STORAGE_KEYS.defaultTripShare);
   else writeString('local', STORAGE_KEYS.defaultTripShare, trimmed);
 }

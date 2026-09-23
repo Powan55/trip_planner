@@ -36,7 +36,12 @@ import {
   identityStore,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
-import { joinTrip, formatShareToken } from '@/core/trips/registry';
+import {
+  joinTrip,
+  formatShareToken,
+  joinReplacesLocalPlan,
+  REPLACE_LOCAL_PLAN_COPY,
+} from '@/core/trips/registry';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
@@ -1026,6 +1031,7 @@ function TripGroup() {
     e.preventDefault();
     const id = joinValue.trim();
     if (!id) return;
+    if (joinReplacesLocalPlan(id) && !window.confirm(REPLACE_LOCAL_PLAN_COPY)) return;
     // D-546 — `joinTrip` refuses a token it cannot use and reports whether the pointer landed
     // (storage writes are swallowed by contract). Reloading regardless used to look like the
     // paste had worked while leaving the browser exactly where it was.
