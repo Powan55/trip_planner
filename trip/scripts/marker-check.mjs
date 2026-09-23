@@ -176,10 +176,13 @@ function scanDocRefs(text, relPath, repoRoot) {
 /**
  * Flag a bare UUID-shaped string in a markdown doc — the shape
  * `crypto.randomUUID()` produces for a Firestore trip id (`core/trips/custom.ts`,
- * `getTripId()`). A trip id IS the capability: anyone who opens one is
- * self-enrolled into that trip's roster (`ensureMembership`,
- * `lib/trips-remote.ts`), so one landing in this public repo's prose is a
- * live leak, not a cosmetic one — D-341 records the one this rule follows.
+ * `getTripId()`). A trip id IS the capability: on a trip with no roster,
+ * holding one is enough to read and write everything under it (`isOpen()` in
+ * `firestore.rules`), so one landing in this public repo's prose is a live
+ * leak, not a cosmetic one — D-341 records the one this rule follows. (Until
+ * #477 the reason given here was that opening a trip self-enrolled the reader
+ * into its roster; the client no longer does that, and the rule is unaffected
+ * — an open trip needs no roster entry to be readable.)
  *
  * Markdown-only, deliberately, same reasoning as `dangling-doc-ref`: a
  * UUID-shaped constant in a `.test.ts`/`.spec.ts` fixture or in
