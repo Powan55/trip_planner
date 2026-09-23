@@ -22,6 +22,7 @@
 //     - delete+undo restores the SAME id, byte-identical, with NO deleted/rev/hlc stamped anywhere.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { firebaseConfigMock } from './firebase-config-mock';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -30,13 +31,8 @@ import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 // Controllable config gate — flip `remoteOn` per-suite to exercise sync-on vs dormant on the REAL hook.
 const state = vi.hoisted(() => ({ remoteOn: false }));
-vi.mock('@/lib/firebase-config', () => ({
-  FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
-  isRemoteConfigured: () => state.remoteOn,
-  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
-  isTripRemoteConfigured: () => state.remoteOn,
-  getTripId: () => 'nepal-japan-2026',
-}));
+vi.mock('@/lib/firebase-config', (io) =>
+  firebaseConfigMock(io, () => state.remoteOn, 'nepal-japan-2026'));
 // Never let the sync fan-out touch firebase here: stub the SyncPort to no-ops.
 vi.mock('@/lib/itinerary-ports', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/itinerary-ports')>();

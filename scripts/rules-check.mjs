@@ -298,6 +298,10 @@ const shipped = readFileSync(RULES, 'utf8');
 console.log('\n  -- 3a. D-219 REGRESSION: the two-block split still holds --');
 await expect('LIST /trips (enumerate every capability token)', 'DENIED', () => getDocs(collection(db, 'trips')));
 await expect('collectionGroup("days") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'days')));
+// #439: only `days` was asserted here — the expenses and presence collection listeners had no
+// cross-trip enumeration check at all, positive or negative.
+await expect('collectionGroup("expenses") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'expenses')));
+await expect('collectionGroup("presence") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'presence')));
 await expect('GET /trips/{knownId} by direct id', 'ALLOWED', () => getDoc(doc(db, 'trips', TRIP)));
 await expect('LIST /trips/{knownId}/days (subcollection query)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'days')));
 // The OTHER two collection listeners in the client (#450). `days` was the only one asserted, so
@@ -568,7 +572,7 @@ await expect('authed get on the PRESENT identity doc -> EXISTS', 'ALLOWED', asyn
   const snap = await getDoc(doc(db, 'trips', ACCT, 'profile', 'identity'));
   if (!snap.exists()) throw new Error('fixture: the probe target must exist by now');
 });
-await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-9: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
+await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-341: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
   () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity')));
 await expect('UNAUTH gets trips/{acct}/profile/identity', 'DENIED',
   () => getDoc(doc(dbU, 'trips', ACCT, 'profile', 'identity')));
