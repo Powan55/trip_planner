@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { Share2, MapPin, CheckCircle2, Wallet, BookOpen, Camera, Backpack, FileCheck2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { getNow } from '@/lib/trip-now';
+import { getNowAtTrip } from '@/lib/trip-now';
 import { deriveWrapped, type WrappedStats } from '@/core/recap/wrapped';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useExpenses } from '@/hooks/use-expenses';
@@ -39,15 +39,6 @@ import SectionSkeleton from '@/components/section-skeleton';
  * The one-shot completion burst reuses `<CelebrationBurst/>` verbatim — it already renders
  * nothing under reduced motion.
  */
-
-/** The resolved clock's LOCAL calendar day as 'YYYY-MM-DD' (matches trip-story-recap.tsx's helper;
- * duplicated here rather than imported so this island stays independently composable —
- * does not touch trip-story-recap.tsx's internals, and the helper isn't exported). */
-function nowDateString(): string {
-  const d = getNow();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
 
 function capitalize(s: string): string {
   return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
@@ -134,9 +125,12 @@ export default function WrappedStory() {
   const { items: docItems, hydrated: docsHydrated } = useDocs();
   const reducedMotion = useReducedMotion();
 
+  // The DESTINATION-offset trip day (`getNowAtTrip().date`), the same one `trip-recap.tsx` and
+  // every other trip-day surface reads — not the device's own calendar day, which diverges from it
+  // for most of the day on a device left on home time.
   const [nowDateStr, setNowDateStr] = useState('');
   useEffect(() => {
-    setNowDateStr(nowDateString());
+    setNowDateStr(getNowAtTrip().date);
   }, []);
 
   const hydrated =
