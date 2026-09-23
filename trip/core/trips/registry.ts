@@ -466,6 +466,19 @@ export function joinTrip(id: string, name?: string): boolean {
   return getActiveTripId() === token.id;
 }
 
+/** True when `joinTrip(id)` would move the default pack off one shared trip onto another, which
+ * drops this device's copy of the plan (D-561). Paste boxes confirm before that. */
+export function joinReplacesLocalPlan(id: string): boolean {
+  const token = parseTripToken(id);
+  const current = getDefaultTripShareId();
+  return (
+    token?.kind === 'default' && current !== '' && current !== token.id && !isOwnAccountToken(id)
+  );
+}
+
+export const REPLACE_LOCAL_PLAN_COPY =
+  'Their plan replaces the one you have here. Back yours up first if you have edits worth keeping.';
+
 /**
  * Tombstone cap. The prior "grows unbounded" debt note proposed a purge pass keyed on
  * a device set this app doesn't track; a fixed cap needs none. Mirrors `PLACES_CAP`'s exact idiom

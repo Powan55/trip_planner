@@ -41,6 +41,8 @@ import {
   formatShareToken,
   isOwnAccountToken,
   OWN_ACCOUNT_TOKEN_COPY,
+  joinReplacesLocalPlan,
+  REPLACE_LOCAL_PLAN_COPY,
 } from '@/core/trips/registry';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
@@ -1033,6 +1035,7 @@ function TripGroup() {
     e.preventDefault();
     const id = joinValue.trim();
     if (!id) return;
+    if (joinReplacesLocalPlan(id) && !window.confirm(REPLACE_LOCAL_PLAN_COPY)) return;
     // D-546 — `joinTrip` refuses a token it cannot use and reports whether the pointer landed
     // (storage writes are swallowed by contract). Reloading regardless used to look like the
     // paste had worked while leaving the browser exactly where it was.
