@@ -560,7 +560,11 @@ export function mergeTripLists(
       // Local wins (newer or a tie) on the DECLARED fields, but `local` is the strict-parsed
       // read of local storage (#519 - the common case): without this, the remote's undeclared
       // keys are dropped here even though the caller asked to retain them for the write-back.
-      merged.set(e.id, { ...e, ...existing });
+      // `id`/`name`/`joinedAt`/`updatedAt`/`config` are stripped off `e` first — those are
+      // DECLARED fields local already won on, so a remote value (e.g. a config local lacks)
+      // must not fill in behind the winner's back.
+      const { id: _id, name: _name, joinedAt: _joinedAt, updatedAt: _updatedAt, config: _config, ...unknown } = e;
+      merged.set(e.id, { ...unknown, ...existing });
     }
   }
   // Apply tombstones: drop the forgotten trip unless it was re-joined/renamed AFTER the forget.

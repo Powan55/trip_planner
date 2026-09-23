@@ -184,6 +184,18 @@ describe('mergeTripLists — additive union + updatedAt LWW (Plan D6)', () => {
     expect(merged[0].name).toBe('a'); // declared field still comes from the local winner
   });
 
+  // A DECLARED field is not an "unknown key" — a remote config must not fill in behind a local
+  // winner that simply has none.
+  it('on a local-wins tie, a remote config does NOT fill in when local has none', () => {
+    const localRow = meta('a', { updatedAt: 5 });
+    const remoteRow = meta('a', {
+      updatedAt: 5,
+      config: { start: '2026-01-01', end: '2026-01-05', destinations: ['Tokyo'], vibe: 'chill', updatedAt: 1 },
+    });
+    const { merged } = mergeTripLists([localRow], [remoteRow], [], [], { keepUnknownKeys: true });
+    expect(merged[0].config).toBeUndefined();
+  });
+
   it('rename LWW: the higher updatedAt wins in BOTH directions', () => {
     const remoteWins = mergeTripLists(
       [meta('a', { name: 'Old', updatedAt: 1 })],
