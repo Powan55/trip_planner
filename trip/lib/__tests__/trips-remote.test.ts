@@ -237,6 +237,11 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
     expect(getDocFromServerCalls).toBe(2);
   });
 
+  it("a key that is not one path segment ⇒ 'missing' with no read (#476)", async () => {
+    expect(await probeAccountIdentity('A/B/C')).toEqual({ verdict: 'missing' });
+    expect(getDocFromServerCalls).toBe(0);
+  });
+
   it("read rejects ⇒ 'unavailable' (offline/error must admit, never lock a real user out)", async () => {
     serverRead.impl = async () => {
       throw new Error('network down');

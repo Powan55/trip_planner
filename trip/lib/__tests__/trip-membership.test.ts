@@ -87,6 +87,12 @@ vi.mock('firebase/firestore', () => ({
     if (fake.denied.has(ref.path)) throw permissionDenied();
     fake.writes.push({ op: 'delete', path: ref.path, data: {} });
   },
+  getDoc: async (ref: { path: string }) => {
+    fake.serverReads += 1;
+    fake.serverReadPaths.push(ref.path);
+    const data = fake.docs.get(ref.path);
+    return { exists: () => data !== undefined, data: () => data };
+  },
   getDocFromServer: async (ref: { path: string }) => {
     fake.serverReads += 1;
     fake.serverReadPaths.push(ref.path);
@@ -102,6 +108,7 @@ import {
   ensureMembership,
   ensureKnownTripMemberships,
   fetchTripMembers,
+  fetchTripMeta,
   TRIP_ACCESS_PENDING_EVENT,
 } from '@/lib/trips-remote';
 import { startPresence, stopPresence, HEARTBEAT_MS } from '@/lib/presence';
@@ -223,6 +230,15 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     expect(fake.serverReads).toBe(1);
     expect(writesTo(TRIP_PATH)).toHaveLength(0);
     expect(seen).toHaveLength(0); // an open trip is readable and writable — nothing to ask for
+  });
+
+  it('a multi-segment pointer (A/B/C) is refused before any read or write (#476)', async () => {
+    fake.docs.set('trips/A/B/C', { schemaVersion: 1, members: { someone: 'owner' } });
+    fake.docs.set('trips/A/B/C/meta/info', { name: 'x' });
+    await ensureMembership('A/B/C');
+    expect(await fetchTripMeta('A/B/C')).toBeUndefined();
+    expect(fake.serverReads).toBe(0);
+    expect(fake.writes).toHaveLength(0);
   });
 
   it('no-ops with NO read when the trip is not remote (the local-only sample)', async () => {
