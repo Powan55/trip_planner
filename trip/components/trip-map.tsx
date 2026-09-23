@@ -38,6 +38,7 @@ import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
 import { footprintsToGeoJSON, type CountryFootprint } from '@/lib/visited-footprint';
 import { MAP_PIN_DND_TYPE } from '@/lib/day-anchor';
 import { prefersReducedMotion } from '@/lib/motion';
+import { withBasePath } from '@/lib/base-path';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -689,6 +690,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       if (cancelled || !containerRef.current) return;
       mapLibreRef.current = maplibregl;
 
+      maplibregl.setWorkerUrl(withBasePath('/maplibre/maplibre-gl-worker.mjs'));
       map = new maplibregl.Map({
         container: containerRef.current,
         style: buildMapStyle() as never,

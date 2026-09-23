@@ -5464,3 +5464,8 @@ The original length is kept because it is diagnostic in its own right: it is how
 A creator offline at create loses `createTripDoc`, so whichever device first snapshotted the trip seeded the doc and named itself owner, letting a joiner take the trip over. The seed now writes `members` only when this device created the trip, tracked in a local-only id list (storage key 46), kept off the trip registry because that syncs across devices. Any other device seeds a doc with no roster, which reads as open (D-540), and the creator reclaims owner through `ensureMembership` on its next load. That reclaim needs the creator on this build; an older client marks nothing, so its trip stays open. Settings says "hasn't synced yet" when the trip doc does not exist, instead of calling it a pre-lock trip.
 
 **Changes if:** trips get created anywhere other than the trips hub or the default-pack share dialog. That path must mark the id too, or its creator seeds an open trip.
+### D-550 · (issue #471, 2026-09-22) · The map worker is a same-origin file, and worker-src drops blob:
+
+**Decision.** maplibre-gl 6 loads its worker from a URL. `scripts/copy-maplibre-worker.mjs` copies `maplibre-gl-worker.mjs` and `maplibre-gl-shared.mjs` into `public/maplibre/` (gitignored) before `dev`, `build` and `analyze`, and `trip-map.tsx` calls `setWorkerUrl(withBasePath(...))` before the first `new Map`. A same-origin URL is spawned directly, so the CSP is `worker-src 'self'` with no `blob:`. Neither file is precached; they are runtime-cached on the first online /map visit, like the engine chunk.
+
+**Changes if:** the worker URL ever points at another origin. maplibre then wraps it in a blob, and `blob:` has to come back into worker-src.
