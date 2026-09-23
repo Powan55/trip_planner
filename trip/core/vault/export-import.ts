@@ -146,13 +146,26 @@ export function parseBackup(rawText: string): ParseResult {
   if (detected > CURRENT_ITINERARY_VERSION) {
     payload = extractPayload(parsed, detected);
   } else {
+    const toMigrate = extractPayload(parsed, detected);
     try {
-      payload = runItineraryMigrations(extractPayload(parsed, detected), detected);
+      payload = runItineraryMigrations(toMigrate, detected);
     } catch {
       quarantineImport(rawText);
       return {
         ok: false,
         error: 'That trip file could not be upgraded to the current format. No changes were made.',
+      };
+    }
+    // The migration runner DROPS un-migratable rows (#123 partial-beats-nothing), which is right
+    // for the read path but not here: the rows are gone before the strict parser below can object,
+    // so a pre-v5 restore succeeded on the survivors and overwrote the live trip with a truncated
+    // copy (and under sync `restorePlans` tombstoned the rest onto every device). The steps are
+    // whole-array maps, so a shorter result means rows were dropped. All-or-nothing, D-098.
+    if (Array.isArray(toMigrate) && Array.isArray(payload) && payload.length < toMigrate.length) {
+      quarantineImport(rawText);
+      return {
+        ok: false,
+        error: 'That trip file is missing or has malformed data. No changes were made to your trip.',
       };
     }
   }
