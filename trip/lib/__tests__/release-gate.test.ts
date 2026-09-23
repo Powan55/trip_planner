@@ -116,7 +116,12 @@ describe('release heading matching is shared by the gate and notes extractor (#4
  * assertions have something to read. `runGate` above deliberately does not, which is why
  * it cannot reach the preamble comparison at all.
  */
-function runGateInRepo(opts: { version: string; tags: string[]; preamble?: string }): string {
+function runGateInRepo(opts: {
+  version: string;
+  tags: string[];
+  preamble?: string;
+  heading?: string;
+}): string {
   const dir = mkdtempSync(join(tmpdir(), 'release-gate-repo-'));
   const git = (...args: string[]) =>
     execFileSync('git', args, { cwd: dir, stdio: ['ignore', 'ignore', 'ignore'] });
@@ -124,9 +129,10 @@ function runGateInRepo(opts: { version: string; tags: string[]; preamble?: strin
     mkdirSync(join(dir, 'trip', 'docs'), { recursive: true });
     writeFileSync(join(dir, 'trip', 'package.json'), JSON.stringify({ version: opts.version }));
     const live = opts.preamble ? `The newest live app is \`v${opts.preamble}\`, deployed today.` : '';
+    const heading = opts.heading ?? `## v${opts.version} (app) · 2026-09-20`;
     writeFileSync(
       join(dir, 'trip', 'docs', 'RELEASES.md'),
-      `# Releases\n\n${live}\n\n---\n\n## v${opts.version} (app) · 2026-09-20\n\nWhat shipped.\n`,
+      `# Releases\n\n${live}\n\n---\n\n${heading}\n\nWhat shipped.\n`,
     );
     git('init', '-q', '.');
     git('-c', 'user.email=t@example.test', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'x');
@@ -181,6 +187,33 @@ describe('release-gate checks the preamble independently of the version ordering
     expect(out).not.toContain(CURRENT);
     // And the state that makes it unanswerable is itself a failure, so nothing goes green.
     expect(out).toContain('::error::No v*.*.* tags are visible');
+  });
+});
+
+// The heading verdict and the preamble verdict share no input, so a held or missing heading
+// must not suppress the preamble check — that used to be an if / else-if chain, which meant
+// fixing the heading and re-pushing was the only way to discover the preamble was also stale.
+describe('release-gate checks the preamble even when the heading itself fails (#429)', () => {
+  it('still flags a stale preamble when the heading is held', () => {
+    const out = runGateInRepo({
+      version: '7.4.0',
+      tags: ['v7.3.0'],
+      preamble: '7.2.0',
+      heading: '## v7.4.0 (app) · **NOT DEPLOYED**',
+    });
+    expect(out).toContain('::error::trip/docs/RELEASES.md marks v7.4.0 as held');
+    expect(out).toContain('::error::trip/docs/RELEASES.md preamble says the newest live app is v7.2.0');
+  });
+
+  it('still flags a stale preamble when there is no heading at all', () => {
+    const out = runGateInRepo({
+      version: '7.4.0',
+      tags: ['v7.3.0'],
+      preamble: '7.2.0',
+      heading: '## v7.4.01 (app) · 2026-09-20',
+    });
+    expect(out).toContain('::error::trip/docs/RELEASES.md has no "## v7.4.0" heading');
+    expect(out).toContain('::error::trip/docs/RELEASES.md preamble says the newest live app is v7.2.0');
   });
 });
 
