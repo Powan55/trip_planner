@@ -18,6 +18,7 @@ import {
   setActiveTripId,
   getActiveTripId,
   getDefaultTripShareId,
+  setSyncCode,
 } from '@/core/storage/gateway';
 import {
   listKnownTrips,
@@ -28,6 +29,7 @@ import {
   listRemovedTrips,
   mergeTripLists,
   DEFAULT_SHARE_PREFIX,
+  isOwnAccountToken,
 } from '@/core/trips/registry';
 
 /**
@@ -197,6 +199,27 @@ describe('trip registry (S238)', () => {
     });
 
     it('a minted uuid — what the share flow actually produces — still joins', () => {
+      expect(joinTrip(UUID, 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe(UUID);
+    });
+
+    // #393 / D-504 — the account key is a credential, not a trip capability.
+    it.each([
+      ['as a custom trip', (k: string) => k],
+      ['behind the pack: prefix, which would make it the share id', (k: string) => `pack:${k}`],
+      ['in capitals with padding', (k: string) => `  ${k.toUpperCase()} `],
+    ])('refuses this device\'s own account key %s', (_why, wrap) => {
+      setSyncCode(UUID);
+      expect(isOwnAccountToken(wrap(UUID))).toBe(true);
+      expect(joinTrip(wrap(UUID), 'Shared trip')).toBe(false);
+      expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBeNull();
+      expect(getDefaultTripShareId()).toBe('');
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it('a different token still joins while an account key is stored', () => {
+      setSyncCode('aaaa1111-bbbb-4222-8333-cccc4444dddd');
+      expect(isOwnAccountToken(UUID)).toBe(false);
       expect(joinTrip(UUID, 'Shared trip')).toBe(true);
       expect(getActiveTripId()).toBe(UUID);
     });

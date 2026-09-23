@@ -5320,6 +5320,24 @@ The original length is kept because it is diagnostic in its own right: it is how
 
 **Changes if:** a recovery UI is built that consumes the quarantine key (it would need the full bytes, which this no longer stores — that is the trade, and D-096's own "changes if" already anticipated a consumer), or a real backup ever trips the 64 MB cap.
 
+### D-503 · Implements D-314 residual (2) · (issue #401, 2026-09-22) · "Forget this device" clears the three lifetime-scoped keys; `wipeAllTripData()` still does not
+
+**Decision.** The `forgetDevice` branch of `components/sign-out-confirm.tsx` removes `lifetimeVisits`, `visitConfirmations` and `passportStamps` after `defaultBlobStore.clear()` and before `signOut()`. `core/storage/gateway.ts` is untouched: the keys stay out of `TRIP_SCOPED_SLOTS` and `wipeAllTripData()`, so plain sign-out and a trip clear leave the lifetime record where they always did. D-314 residual (2) named this path as the one clearing surface that does not reopen D-314, and D-320 retired the "nothing writes the key yet" clause that had kept it moot.
+
+**Copy moved with the behaviour.** The dialog and the Settings row both say the travel history goes too, and the dialog says it is kept only on this device, so unlike the plan and photos it cannot come back from a sync.
+
+**Coverage.** `components/__tests__/sign-out-confirm.test.tsx` asserts forget-device leaves all three keys absent and plain sign-out leaves them intact.
+
+**Changes if:** the lifetime record gains a remote copy; clearing the local keys would then be a detach, not a deletion, and the copy would have to say so.
+
+### D-504 · Amends D-239's never-mix clause for the join direction · (issue #393, 2026-09-22) · The account key is refused at `joinTrip`
+
+**Decision.** `core/trips/registry.ts::joinTrip` returns `false` and writes nothing when the token names this device's own account key (`isOwnAccountToken`: the PARSED id, so a `pack:` prefix cannot carry it past, compared trimmed and case-folded against `getSyncCode()`). The boolean contract from D-546 is kept rather than widened to a reason object: callers that speak (`trips-hub` and `settings-panel` join forms) ask `isOwnAccountToken` which refusal it was and render `OWN_ACCOUNT_TOKEN_COPY`; `trip-join-handshake` checks up front and draws the refusal instead of a confirm whose only outcome would have been the storage-failure sentence. `token-gate` already falls through to `/trips/` on `false`. The two switch surfaces that pass registry ids (`trips-hub` row, `home-trip-strip` chip) no longer navigate when the pointer did not move.
+
+**Why it matters.** A registry row's id is that trip's capability token: it gets a copy control, a `?trip=` link and a push to the account's trip list. Joined as `pack:<key>` it would become the default pack's share id and be printed in every share link. The account key must never enter either.
+
+**Residual.** A row a pre-fix device already created, or one arriving through the account trip-list merge, is not swept. It is inert (every switch refuses it) but still listed.
+
 ### D-535 · (2026-09-17) · Kimi K3 is an opt-in concierge model on NVIDIA's free endpoint; Groq stays the default
 
 **Decision.** The concierge header carries a model picker. Groq is the default. Picking Kimi K3 adds `provider: 'kimi'` to the request body, and the Worker then tries Kimi first with a 170s leg timeout before falling back to its Groq 120b → 20b ladder. Without the field the Worker behaves exactly as before, and the default body stays byte-identical, so the measured ~14.1 KB worst case against the 16 KB cap does not move. The pick is a device preference in key 44, not trip data.

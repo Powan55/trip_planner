@@ -14,6 +14,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import SignOutConfirm from '@/components/sign-out-confirm';
 
+// jsdom has no IndexedDB; "Forget this device" clears the blob store before anything else.
+vi.mock('@/core/photos/blob-store', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/core/photos/blob-store')>();
+  return { ...orig, defaultBlobStore: orig.makeInMemoryBlobStore() };
+});
+
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const SYNC_KEY = 'tripPlannerSyncCode';
@@ -131,6 +137,29 @@ describe('SignOutConfirm — no key stored', () => {
 
     expect(at('t-key-value')).toBeNull();
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  // #401 / D-503 — the lifetime keys survive every teardown except this one.
+  const LIFETIME = [
+    'tripPlannerLifetimeVisits',
+    'tripPlannerVisitConfirmations',
+    'tripPlannerPassportStamps',
+  ];
+
+  it('"Forget this device" clears the three lifetime keys', async () => {
+    for (const k of LIFETIME) window.localStorage.setItem(k, '[]');
+    await mount({ forgetDevice: true });
+    expect(at('t-dialog')!.textContent).toContain('travel history');
+    await click('t-confirm');
+    for (const k of LIFETIME) expect(window.localStorage.getItem(k)).toBeNull();
+  });
+
+  it('a plain sign-out leaves them alone', async () => {
+    for (const k of LIFETIME) window.localStorage.setItem(k, '[]');
+    await mount();
+    await click('t-confirm');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    for (const k of LIFETIME) expect(window.localStorage.getItem(k)).toBe('[]');
   });
 
   it('and the copy stops promising a key that is not there', async () => {
