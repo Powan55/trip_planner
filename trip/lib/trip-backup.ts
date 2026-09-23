@@ -104,6 +104,10 @@ export type CommitDocsChecklist = (items: DocItem[]) => void;
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
+/** Container version, read on import: anything HIGHER is refused (see `importTripBackup`). Bump it
+ *  only alongside a migration for the shape it names — a bump on its own locks users out of the
+ *  backups they already hold. Distinct from the itinerary Vault envelope's own `schemaVersion`
+ *  nested at `domains.itinerary`, which has its own runner and its own forward-version rule. */
 export const BACKUP_VERSION = 1;
 
 /** On-disk envelope. `domains` holds each domain's raw JSON value (itinerary nests its Vault envelope);
@@ -380,7 +384,11 @@ function isTripBackup(v: unknown): v is TripBackup {
  * Restore a whole-trip backup into the ACTIVE trip, replacing it. Fails safe:
  * - a non-JSON / unrecognized file OR a legacy itinerary-only export is routed to the importer,
  * which quarantines-or-imports the ITINERARY only and never touches another domain;
- * - a recognized full backup restores every WELL-FORMED domain and drops any malformed one.
+ * - a container stamped with a version this build does not know is refused outright, rather than
+ * read as if it were a v1 one;
+ * - a recognized full backup restores every WELL-FORMED domain and drops any malformed one, and
+ * names what it committed in `restored` so the caller can report the truth rather than a fixed
+ * success string.
  * The caller reloads on `ok:true` to re-hydrate the stores. `blobStore` is injectable for tests.
  */
 export async function importTripBackup(
@@ -436,6 +444,20 @@ export async function importTripBackup(
   // trip A, switching to trip B, and restoring silently replaces every domain of B with A's — and
   // under sync propagates to B's other members. Zero writes have happened yet (still Phase A).
   const env = parsed;
+
+  // `version` was stamped on export and never read, so a v2 container was restored as if it were a
+  // v1 one — `DOMAINS` has no spec for a slot it does not know, so the loop below never visits it and
+  // the domain vanished into the success string. Checked BEFORE `tripId`: a format this build cannot
+  // claim to understand is not one whose fields it should be reading. The copy says NEWER rather than
+  // corrupt because those send the user hunting two different things, and only one of them exists.
+  if (env.version > BACKUP_VERSION) {
+    return {
+      ok: false,
+      error:
+        'That backup was made by a newer version of this app, so this version cannot read it safely. No changes were made to your trip.',
+    };
+  }
+
   if (env.tripId !== getActiveTripId()) {
     return {
       ok: false,
@@ -476,6 +498,18 @@ export async function importTripBackup(
         photosSkipped++; // malformed data URL → this photo becomes a placeholder (meta kept, blob absent)
       }
     }
+  }
+
+  // Nothing survived validation — refuse before Phase B touches anything. `hasMeta` with
+  // `metas.length === 0` (a `photos.meta: []` envelope) would otherwise still reach `savePhotos`
+  // below and wipe every live photo blob, then report `restored: []` as if zero writes had
+  // happened. Checked here, before any write, so this can honestly promise none did.
+  if (domainWrites.length === 0 && itinPlans === null && metas.length === 0) {
+    return {
+      ok: false,
+      error:
+        'Nothing in that file could be restored — no itinerary, journal, photos or other trip data was found in it. No changes were made to your trip.',
+    };
   }
 
   // ── Phase B — commit ──

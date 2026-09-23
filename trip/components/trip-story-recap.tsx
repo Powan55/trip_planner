@@ -5,7 +5,7 @@ import { m } from 'framer-motion';
 import { BookOpen, Camera, ImageOff, Sparkles, Wallet } from 'lucide-react';
 import { formatDateLong } from '@/lib/trip-data';
 import { getCityForDate, getCountryForDate, TRIP_DATES } from '@/core/dates';
-import { getNow } from '@/lib/trip-now';
+import { getNowAtTrip } from '@/lib/trip-now';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
@@ -52,13 +52,6 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   rough: { glyph: '😮‍💨', label: 'Rough' },
 };
 
-/** The resolved clock's LOCAL calendar day as 'YYYY-MM-DD' (matches trip-recap.tsx's helper). */
-function nowDateString(): string {
-  const d = getNow();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 const LAST_TRIP_DATE = TRIP_DATES[TRIP_DATES.length - 1];
 
 export default function TripStoryRecap() {
@@ -68,10 +61,12 @@ export default function TripStoryRecap() {
   const { photosFor, hydrated: photosHydrated } = usePhotos();
 
   // '' until mount (SSR-safe default) — a single mount read is enough (post-trip status doesn't
-  // change second-to-second; no interval needed, by design).
+  // change second-to-second; no interval needed, by design). The trip day comes from
+  // `getNowAtTrip().date`, the DESTINATION-offset day every other trip-day surface reads; the
+  // device's own calendar day diverges from it for most of the day on a device left on home time.
   const [nowDateStr, setNowDateStr] = useState<string>('');
   useEffect(() => {
-    setNowDateStr(nowDateString());
+    setNowDateStr(getNowAtTrip().date);
   }, []);
 
   const hydrated =
