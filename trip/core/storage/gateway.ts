@@ -537,7 +537,28 @@ export const STORAGE_KEYS = {
    * slices have collided on "next free key" before, so re-check before reusing 45.
    */
   defaultTripShare: 'nepal_japan_default_trip_share',
+  /**
+   * localStorage — JSON `string[]` of remote trip ids CREATED on this device (created-here, key 46;
+   * D-551). The first-snapshot seed names this device `owner` only for these, so a joiner who
+   * reaches a trip before its creator's doc landed cannot seed themselves owner. APP-SCOPED and
+   * deliberately NOT on the trip registry: that syncs across devices and drops unknown fields.
+   */
+  tripsCreatedHere: 'nepal_japan_trips_created_here',
 } as const;
+
+function tripsCreatedHere(): unknown[] {
+  const ids = readJson<unknown>('local', STORAGE_KEYS.tripsCreatedHere, []);
+  return Array.isArray(ids) ? ids : [];
+}
+
+export function markTripCreatedHere(id: string): void {
+  const ids = tripsCreatedHere();
+  if (!ids.includes(id)) writeJson('local', STORAGE_KEYS.tripsCreatedHere, [...ids, id]);
+}
+
+export function wasTripCreatedHere(id: string): boolean {
+  return tripsCreatedHere().includes(id);
+}
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
 /**
@@ -823,6 +844,7 @@ export function wipeAllTripData(): void {
   // SHARED plan, so a sign-out that left it behind would silently sync the next person on this
   // device straight into that trip. Same reasoning as `syncCode` two lines up.
   removeKey('local', STORAGE_KEYS.defaultTripShare);
+  removeKey('local', STORAGE_KEYS.tripsCreatedHere);
 }
 
 /**

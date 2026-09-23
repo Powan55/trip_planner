@@ -12,7 +12,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { setDefaultTripShareId } from '@/core/storage/gateway';
+import { markTripCreatedHere, setDefaultTripShareId } from '@/core/storage/gateway';
 import { parseTripToken } from '@/core/trips/registry';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { withBasePath } from '@/lib/base-path';
@@ -96,7 +96,11 @@ export function ShareDefaultTripDialog({
     window.location.assign(withBasePath('/'));
   };
 
-  const startSharing = () => applyShareId(crypto.randomUUID());
+  const startSharing = () => {
+    const id = crypto.randomUUID();
+    markTripCreatedHere(id);
+    applyShareId(id);
+  };
   /**
    * D-546 — this box's subject IS the default pack, so a bare code and a `pack:`-prefixed one both
    * mean the same thing here; the prefix is stripped rather than written into a Firestore path.
