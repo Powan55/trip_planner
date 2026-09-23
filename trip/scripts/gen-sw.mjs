@@ -714,6 +714,12 @@ const ROOT_INDEX_PAYLOAD = '__next._index.txt';
 // other two would each add another copy of the same page to every install.
 const NOT_FOUND_DUPLICATES = new Set(['404/index.html', '_not-found/index.html']);
 
+// Pure predicate pulled out of buildPrecacheList so #417's dedup is testable without a
+// real `.next`/`out` build (islandAssets() below needs both).
+function isDedupedSegmentPayload(rel) {
+  return SEGMENT_PAYLOAD.test(rel) && !rel.endsWith('/' + ROOT_INDEX_PAYLOAD);
+}
+
 async function buildPrecacheList(allFiles) {
   const set = new Set();
   const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
@@ -747,7 +753,7 @@ async function buildPrecacheList(allFiles) {
     // included: its payload is out/index.txt, which has no directory to end with.
     else if (rel === 'index.txt' || rel.endsWith('/index.txt')) set.add(rel);
     // The 19 non-root copies are omitted; cacheKey() rewrites their URLs onto the root entry.
-    else if (SEGMENT_PAYLOAD.test(rel) && !rel.endsWith('/' + ROOT_INDEX_PAYLOAD)) set.add(rel);
+    else if (isDedupedSegmentPayload(rel)) set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs
@@ -1364,4 +1370,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   });
 }
 
-export { eagerStaticAssets, buildPrecacheList };
+export { eagerStaticAssets, isDedupedSegmentPayload };

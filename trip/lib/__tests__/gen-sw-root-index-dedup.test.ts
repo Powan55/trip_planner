@@ -5,22 +5,25 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildPrecacheList } from '../../scripts/gen-sw.mjs';
+import { isDedupedSegmentPayload } from '../../scripts/gen-sw.mjs';
 
-describe('buildPrecacheList: root __next._index.txt dedup', () => {
-  it('keeps exactly one __next._index.txt entry out of many identical per-route copies', async () => {
-    const allFiles = [
-      '__next._index.txt', // root
-      'plan/__next._index.txt',
-      'travel/__next._index.txt',
-      'plan/__next._tree.txt', // sibling shape: per-route, must survive untouched
-      'travel/__next._tree.txt',
-    ];
-    const list = await buildPrecacheList(allFiles);
-    const indexEntries = list.filter((rel) => rel.endsWith('__next._index.txt'));
-    expect(indexEntries).toEqual(['__next._index.txt']);
-    expect(list).toContain('plan/__next._tree.txt');
-    expect(list).toContain('travel/__next._tree.txt');
+// Pure predicate, extracted from buildPrecacheList so this is hermetic — buildPrecacheList
+// itself calls islandAssets(), which needs a real `.next`/`out` from `next build` and isn't
+// available before CI's unit-test step.
+describe('isDedupedSegmentPayload: root __next._index.txt dedup', () => {
+  it('keeps the root __next._index.txt and drops every per-route copy', () => {
+    expect(isDedupedSegmentPayload('__next._index.txt')).toBe(true);
+    expect(isDedupedSegmentPayload('plan/__next._index.txt')).toBe(false);
+    expect(isDedupedSegmentPayload('travel/__next._index.txt')).toBe(false);
+  });
+
+  it('leaves the sibling per-route segment shapes untouched', () => {
+    expect(isDedupedSegmentPayload('plan/__next._tree.txt')).toBe(true);
+    expect(isDedupedSegmentPayload('travel/__next.__PAGE__.txt')).toBe(true);
+  });
+
+  it('still excludes __next._full.txt (SEGMENT_PAYLOAD carve-out, unrelated to #417)', () => {
+    expect(isDedupedSegmentPayload('plan/__next._full.txt')).toBe(false);
   });
 });
 
