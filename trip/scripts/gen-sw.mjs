@@ -186,12 +186,8 @@ async function eagerStaticAssets(htmlFiles) {
 // map labels are blank on a cold-offline first open. The ENGINE comes back on the first
 // online /map visit — it is a same-origin, non-image, non-navigate GET, so it lands on
 // the last branch of the fetch listener and cacheFirst() writes it into PRECACHE.
-// The GLYPHS take the same branch IF the worker sees them: maplibre requests them from
-// a BLOB-URL web worker, and a blob worker inherits its creator's controller, so the SW
-// should intercept — spec-and-implementation reasoning, NOT measured on this tree. If it
-// does not hold, the glyphs are never cached and offline map LABELS stay blank
-// permanently. Blank labels on a route D-274 already refuses to promise offline is a
-// degradation, not a crash; measure it before promising otherwise.
+// So do the worker scripts under /maplibre/ and the GLYPHS it requests: the worker loads
+// same-origin from inside the SW scope, so the SW sees its fetches (offline not yet measured).
 //
 // 🔴 THE BOUNDARY IS REQUIRED, MORE THAN UNDER ②. A missing dynamic() chunk THROWS
 // out to app/error.tsx and takes the whole route down, and the chunk is now missing
@@ -751,11 +747,9 @@ async function buildPrecacheList(allFiles) {
     // while the glyphs were cross-origin the SW's first fetch-handler line returned
     // them untouched and nothing could ever cache them. Self-hosted, they are
     // same-origin non-image GETs, so the static cacheFirst handler should pick them up
-    // on the first online map visit — with the caveat named in islandAssets: maplibre
-    // requests glyphs from a BLOB-URL worker, and that interception is reasoned, not
-    // measured. The named regression: map labels are blank on a COLD-offline first
-    // open of /map, and possibly on every offline open if the worker is not
-    // intercepted. Labels on /map is a promise D-274 does not make.
+    // on the first online map visit (the worker requesting them loads from same-origin
+    // /maplibre/, so the SW sees its fetches). The named regression: map labels are
+    // blank on a COLD-offline first open of /map. Labels on /map is a promise D-274 does not make.
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
     // NOTE: images/** is deliberately excluded (runtime cache) EXCEPT the hero

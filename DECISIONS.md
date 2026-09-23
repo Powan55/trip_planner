@@ -5438,3 +5438,9 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Cost.** No new Firestore read on the happy path: the badge opens the identical collection query the presence bar already holds, which the SDK multiplexes onto one listen target. Worst case, if it ever were a second target, it is ≤3 docs per heartbeat — under 1k reads/day, ~2% of Spark's 50k.
 
 **Changes if:** a third token namespace appears (an account-scoped invite, a per-leg share). Then the prefix stops being a boolean and `parseTripToken` needs a real scheme rather than one literal — decide that before adding the second prefix, not after.
+
+### D-550 · (issue #471, 2026-09-22) · The map worker is a same-origin file, and worker-src drops blob:
+
+**Decision.** maplibre-gl 6 loads its worker from a URL. `scripts/copy-maplibre-worker.mjs` copies `maplibre-gl-worker.mjs` and `maplibre-gl-shared.mjs` into `public/maplibre/` (gitignored) before `dev`, `build` and `analyze`, and `trip-map.tsx` calls `setWorkerUrl(withBasePath(...))` before the first `new Map`. A same-origin URL is spawned directly, so the CSP is `worker-src 'self'` with no `blob:`. Neither file is precached; they are runtime-cached on the first online /map visit, like the engine chunk.
+
+**Changes if:** the worker URL ever points at another origin. maplibre then wraps it in a blob, and `blob:` has to come back into worker-src.
