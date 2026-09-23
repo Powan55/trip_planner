@@ -537,6 +537,8 @@ export async function removeTripMember(tripId: string, uid: string): Promise<Mem
   return writeMemberField(tripId, uid, null);
 }
 
+const FIREBASE_UID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
 /** One field-path write against the members map — `null` value ⇒ delete that entry. */
 async function writeMemberField(
   tripId: string,
@@ -544,6 +546,7 @@ async function writeMemberField(
   role: TripRole | null,
 ): Promise<MemberWriteResult> {
   if (!isTripRemoteConfigured() || !isSafeTripSegment(tripId) || !uid) return 'failed';
+  if (!FIREBASE_UID_RE.test(uid)) return 'failed';
   try {
     const { db, fs } = await getRemote();
     const { doc, updateDoc, deleteField } = fs;
