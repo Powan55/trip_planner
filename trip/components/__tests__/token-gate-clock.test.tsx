@@ -24,12 +24,15 @@ vi.mock('framer-motion', async () => {
   const m = new Proxy(
     {},
     {
-      get: (_t, tag: string) =>
-        React.forwardRef((props: Record<string, unknown>, ref: unknown) => {
+      get: (_t, tag: string) => {
+        const Motion = React.forwardRef((props: Record<string, unknown>, ref: unknown) => {
           const clean: Record<string, unknown> = {};
           for (const k of Object.keys(props)) if (!DROP.has(k)) clean[k] = props[k];
           return React.createElement(tag, { ...clean, ref });
-        }),
+        });
+        Motion.displayName = `motion.${tag}`;
+        return Motion;
+      },
     },
   );
   return { m, AnimatePresence: ({ children }: { children: unknown }) => children };
