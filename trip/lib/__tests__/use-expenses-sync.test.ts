@@ -18,6 +18,7 @@
 // D-038 (dormant gate), D-041 (attribution), D-149 (expense sync), D-032/D-119 (fresh-id undo) cited.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { firebaseConfigMock } from './firebase-config-mock';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -25,13 +26,8 @@ import type { ExpenseStore } from '@/hooks/use-expenses';
 import type { Expense } from '@/core/budget/expenses';
 
 const state = vi.hoisted(() => ({ remoteOn: false }));
-vi.mock('@/lib/firebase-config', () => ({
-  FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
-  isRemoteConfigured: () => state.remoteOn,
-  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
-  isTripRemoteConfigured: () => state.remoteOn,
-  getTripId: () => 'nepal-japan-2026',
-}));
+vi.mock('@/lib/firebase-config', (io) =>
+  firebaseConfigMock(io, () => state.remoteOn, 'nepal-japan-2026'));
 // Never let the sync fan-out touch firebase in this unit suite: stub the SyncPort to no-ops.
 // (The push/subscribe wiring is covered by expenses-remote-sync.test.ts against a fake Firestore;
 // here we only exercise the STORE's local stamping/tombstone/filter behavior.)

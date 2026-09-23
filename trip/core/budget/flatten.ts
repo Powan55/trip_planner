@@ -9,7 +9,8 @@
  * - `unflattenBudget` — rebuilds a `BudgetModel` from a leaf-path map (inverse of flatten).
  * - `modelToFields` / `fieldsToModel` — convert between a model (+ its per-field HLC map) and the
  * Firestore field-doc shape (`BudgetFields`, `core/sync/merge-budget.ts`). A CLEARED field
- * (stamped in `sync.fieldHlc` but with no live value) round-trips as a stamped `null`.
+ * (a KNOWN path stamped in `sync.fieldHlc` but with no live value) round-trips as a stamped
+ * `null`; a stamped path this build cannot name is a peer's forward leaf and is NOT emitted.
  * - `stampBudgetChanges` — the edit stamper: diff prev vs next flatten, advance the HLC of exactly
  * the CHANGED leaf paths (via `nextSyncStamp`). Gated on `isRemoteConfigured()` by the CALLER
  * (`use-budget`) — dormant never calls it.
@@ -55,6 +56,20 @@ export function flattenBudget(model: BudgetModel): Record<string, FieldValue> {
   return flat;
 }
 
+/**
+ * Every leaf path THIS BUILD can name — the closed superset `flattenBudget` draws from, which is
+ * wider than any one model's flatten (a category budget is only flattened when set). Anything
+ * outside it is a path a newer build minted, and `unflattenBudget` drops its value on the way in.
+ */
+function knownPaths(): Set<string> {
+  const paths = new Set<string>(['homeCurrency', 'rates.NPR', 'rates.JPY']);
+  for (const leg of LEGS) {
+    paths.add(`legBudgets.${leg}`);
+    for (const cat of BUDGET_CATEGORIES) paths.add(`categoryBudgets.${leg}.${cat}`);
+  }
+  return paths;
+}
+
 // Generic leg segment — a leg id is any dot-free slug; membership is checked against LEGS.
 const CATEGORY_PATH = /^categoryBudgets\.([^.]+)\.(.+)$/;
 
@@ -83,18 +98,26 @@ export function unflattenBudget(flat: Record<string, FieldValue>): BudgetModel {
 /**
  * Convert a model (+ its per-field HLC map) into the Firestore field-doc. Every live leaf gets its
  * stamped HLC (or an oldest-possible seed HLC when unstamped, so a seeded default always loses to a
- * real edit). A path stamped in `sync.fieldHlc` but with NO live value is a CLEARED field → written
- * as a stamped `null`, so the deletion propagates without a tombstone list.
+ * real edit). A KNOWN path stamped in `sync.fieldHlc` but with NO live value is a CLEARED field →
+ * written as a stamped `null`, so the deletion propagates without a tombstone list.
+ *
+ * A stamped path this build CANNOT name is the opposite case and is omitted entirely.
+ * `unflattenBudget` drops such a leaf's VALUE while `fieldsToModel` keeps its `hlc`, so emitting a
+ * clear here wrote `{v:null}` under the PEER'S OWN stamp — and `mergeBudget`'s equal-HLC tie-break
+ * ranks `"null"` above every number and quoted string, so it won on the server AND, resolving
+ * identically from the other side, on the peer. Omitting it leaves the union to carry the peer's
+ * entry through — the forward-key retention D-374/D-403 give the other synced domains.
  */
 export function modelToFields(model: BudgetModel): BudgetFields {
   const flat = flattenBudget(model);
   const fieldHlc = model.sync?.fieldHlc ?? {};
+  const known = knownPaths();
   const fields: BudgetFields = {};
   for (const [path, v] of Object.entries(flat)) {
     fields[path] = { v, hlc: fieldHlc[path] ?? seedHlcFromLegacy(undefined) };
   }
   for (const [path, hlc] of Object.entries(fieldHlc)) {
-    if (!(path in flat)) fields[path] = { v: null, hlc }; // stamped-null = cleared field
+    if (!(path in flat) && known.has(path)) fields[path] = { v: null, hlc }; // stamped-null = cleared field
   }
   return fields;
 }
