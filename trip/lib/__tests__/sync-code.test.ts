@@ -164,6 +164,26 @@ describe('mergeTripLists — additive union + updatedAt LWW (Plan D6)', () => {
     expect(retained.merged[0]).toHaveProperty('futureField', 'kept-by-a-newer-client');
   });
 
+  // #519 follow-up: the keepUnknownKeys spread must not let a malformed KNOWN field survive
+  // alongside the retained unknown ones — a junk `updatedAt` would let entryRecency's Math.max
+  // treat the row as newer than any real tombstone and resurrect a forgotten trip.
+  it('a malformed known field is dropped under keepUnknownKeys and cannot outrank a tombstone', () => {
+    const removedAt = Date.now();
+    const poisonRow = { id: 'a', name: 'Poison', joinedAt: 1, updatedAt: '9e15', config: 'junk' } as unknown as TripMeta;
+    const { merged } = mergeTripLists([], [poisonRow], [], [tomb('a', removedAt)], { keepUnknownKeys: true });
+    expect(merged.map((t) => t.id)).not.toContain('a'); // still dropped by the tombstone
+  });
+
+  // #519, the common case: on a tie/local-newer the WINNING entry is local's (strict-parsed), so
+  // the remote's undeclared keys must be carried over onto it rather than lost.
+  it('on a local-wins tie, the remote entry\'s unknown keys are still retained', () => {
+    const localRow = meta('a', { updatedAt: 5 });
+    const remoteRow = { ...meta('a', { updatedAt: 5 }), futureField: 'from-remote' };
+    const { merged } = mergeTripLists([localRow], [remoteRow], [], [], { keepUnknownKeys: true });
+    expect(merged[0]).toHaveProperty('futureField', 'from-remote');
+    expect(merged[0].name).toBe('a'); // declared field still comes from the local winner
+  });
+
   it('rename LWW: the higher updatedAt wins in BOTH directions', () => {
     const remoteWins = mergeTripLists(
       [meta('a', { name: 'Old', updatedAt: 1 })],

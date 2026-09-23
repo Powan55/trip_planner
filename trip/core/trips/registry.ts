@@ -220,8 +220,10 @@ export function sanitizeTripMetaEntry(e: unknown, opts: SanitizeOptions = {}): T
   };
   const rawUpdatedAt = (e as TripMeta).updatedAt;
   if (typeof rawUpdatedAt === 'number' && Number.isFinite(rawUpdatedAt)) entry.updatedAt = rawUpdatedAt;
+  else delete entry.updatedAt; // a malformed stamp must not survive the keepUnknownKeys spread — entryRecency compares it
   const config = sanitizeTripConfig((e as TripMeta).config);
   if (config) entry.config = config;
+  else delete entry.config; // ditto: a junk config must not survive the spread
   return entry;
 }
 
@@ -554,6 +556,11 @@ export function mergeTripLists(
       merged.set(e.id, e); // remote-only trip → appears locally (the cross-device fix)
     } else if ((e.updatedAt ?? 0) > (existing.updatedAt ?? 0)) {
       merged.set(e.id, { ...e, joinedAt: existing.joinedAt }); // remote newer → take name/config, keep local joinedAt
+    } else if (opts.keepUnknownKeys) {
+      // Local wins (newer or a tie) on the DECLARED fields, but `local` is the strict-parsed
+      // read of local storage (#519 - the common case): without this, the remote's undeclared
+      // keys are dropped here even though the caller asked to retain them for the write-back.
+      merged.set(e.id, { ...e, ...existing });
     }
   }
   // Apply tombstones: drop the forgotten trip unless it was re-joined/renamed AFTER the forget.
