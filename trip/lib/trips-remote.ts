@@ -50,7 +50,7 @@ import {
   type TripMeta,
   type RemovedTrip,
 } from '@/core/trips/registry';
-import { DEFAULT_TRIP_ID, getActiveTripId } from '@/core/storage/gateway';
+import { DEFAULT_TRIP_ID, getActiveTripId, isSafeTripSegment } from '@/core/storage/gateway';
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
@@ -67,7 +67,7 @@ export type TripMetaPayload = { name: string; config?: TripConfigBlock };
  * that is about to unload the page must await it under a timeout.
  */
 export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promise<void> {
-  if (!isRemoteConfigured() || !tripId) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return;
   try {
     const { db, fs } = await getRemote();
     const { doc, setDoc } = fs;
@@ -89,7 +89,7 @@ export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promi
  * than failing the whole fetch.
  */
 export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | undefined> {
-  if (!isRemoteConfigured() || !tripId) return undefined;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return undefined;
   try {
     const { db, fs } = await getRemote();
     const { doc, getDoc } = fs;
@@ -140,7 +140,7 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
  * legitimately set any name the user actually typed, including that one. Intent is the discriminator.
  */
 export async function pushAccountIdentity(code: string, name: string): Promise<void> {
-  if (!isRemoteConfigured() || !code) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
   const trimmed = name.trim().slice(0, 24);
   if (!trimmed) return;
   try {
@@ -185,7 +185,7 @@ async function writeIdentityDoc(code: string, name?: string): Promise<void> {
  * swallowed, and the next login's fallback backfills it anyway.
  */
 export async function seedAccountDocs(code: string, name?: string | null): Promise<void> {
-  if (!isRemoteConfigured() || !code) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
   const trimmed = name?.trim().slice(0, 24);
   const publishable = trimmed && trimmed !== DEFAULT_TRAVELER_NAME ? trimmed : undefined;
   await Promise.all([
@@ -206,7 +206,7 @@ export async function seedAccountDocs(code: string, name?: string | null): Promi
  * single read. This serves the provider's post-load reconciler, which has no probe to ride on.
  */
 export async function fetchAccountIdentity(code: string): Promise<string | undefined> {
-  if (!isRemoteConfigured() || !code) return undefined;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return undefined;
   try {
     const { db, fs } = await getRemote();
     const { doc, getDoc } = fs;
@@ -264,6 +264,7 @@ function readIdentityName(data: Record<string, unknown> | undefined): string | u
  */
 export async function probeAccountIdentity(code: string): Promise<AccountProbeResult> {
   if (!isRemoteConfigured() || !code) return { verdict: 'unavailable' };
+  if (!isSafeTripSegment(code)) return { verdict: 'missing' };
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
@@ -375,7 +376,7 @@ function readMembers(data: Record<string, unknown> | undefined): Record<string, 
  * `trips-hub`'s create awaits this inside its existing navigation budget, ahead of the meta push.
  */
 export async function createTripDoc(tripId: string): Promise<void> {
-  if (!isRemoteConfigured() || !tripId) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return;
   try {
     const { db, fs, uid } = await getRemote();
     const { doc, setDoc, serverTimestamp } = fs;
@@ -425,7 +426,7 @@ export async function createTripDoc(tripId: string): Promise<void> {
 export async function ensureMembership(tripId: string): Promise<void> {
   // This function also repairs every known trip after Google-account adoption, when the
   // active pack may be the local-only sample. Gate the explicit target, not the active pack.
-  if (!isRemoteConfigured() || !tripId || tripId === DEFAULT_TRIP_ID) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId) || tripId === DEFAULT_TRIP_ID) return;
   try {
     const { db, fs, uid } = await getRemote();
     const { doc, getDocFromServer, updateDoc } = fs;
@@ -485,7 +486,7 @@ export type TripRosterRead =
  * holding the link" is the honest answer and a list would be a lie).
  */
 export async function fetchTripMembers(tripId: string): Promise<TripRosterRead> {
-  if (!isTripRemoteConfigured() || !tripId) return { state: 'unknown' };
+  if (!isTripRemoteConfigured() || !isSafeTripSegment(tripId)) return { state: 'unknown' };
   try {
     const { db, fs } = await getRemote();
     const { doc, getDocFromServer } = fs;
@@ -530,7 +531,7 @@ async function writeMemberField(
   uid: string,
   role: TripRole | null,
 ): Promise<MemberWriteResult> {
-  if (!isTripRemoteConfigured() || !tripId || !uid) return 'failed';
+  if (!isTripRemoteConfigured() || !isSafeTripSegment(tripId) || !uid) return 'failed';
   try {
     const { db, fs } = await getRemote();
     const { doc, updateDoc, deleteField } = fs;
@@ -568,7 +569,7 @@ function docToRemoved(data: Record<string, unknown>): RemovedTrip[] {
  * re-merges instead.
  */
 export async function pushTripList(code: string): Promise<void> {
-  if (!isRemoteConfigured() || !code) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
   try {
     const { db, fs } = await getRemote();
     const { doc, runTransaction } = fs;
@@ -613,7 +614,7 @@ export function subscribeTripList(
   code: string,
   onMerge?: (activeTripChanged: boolean) => void,
 ): () => void {
-  if (!isRemoteConfigured() || !code) return () => {};
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return () => {};
 
   let cancelled = false;
   let firestoreUnsub: (() => void) | null = null;

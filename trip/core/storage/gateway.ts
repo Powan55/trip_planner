@@ -550,6 +550,42 @@ export const STORAGE_KEYS = {
 export const DEFAULT_TRIP_ID = 'nepal-japan-2026';
 
 /**
+ * The floor a trip id must clear before it can become a Firestore path segment (#476).
+ *
+ * THE INVARIANT, stated exactly: the id must occupy EXACTLY ONE path segment, so that `{tripId}`
+ * in the ruleset binds the whole id and the membership subject is the same document the write
+ * lands under. It is NOT about depth — `match /{sub}/{document=**}` is recursive and `{document=**}`
+ * matches zero or more segments, so `trips/A/B/C/days/d` still binds `tripId=A` and `isMember()`
+ * still resolves against `trips/A`. Rejecting `/` is the whole of what delivers the invariant; the
+ * rest is hygiene on values that would silently name a neighbouring trip (`.`/`..` resolve away,
+ * `__x__` is reserved by Firestore, whitespace/control bytes compose an empty one).
+ *
+ * Not a shape lock — a hand-made id stays legal.
+ *
+ * Lives here, beside the pointer accessors, so every place that needs it agrees by construction:
+ * `core/trips/registry.ts` refuses such a token at the join AND drops it out of a parsed/merged
+ * known-trips entry, and `lib/firebase-config.ts` refuses to compose a path out of a value already
+ * on disk from before that guard existed.
+ */
+export function isSafeTripSegment(id: string): boolean {
+  if (id === '' || id.length > 128) return false;
+  if (id === '.' || id === '..') return false;
+  if (id.includes('/') || id.includes(' ')) return false;
+  // `[\s\S]`, not `.`: JS `.` does not match the two line-separator code points (U+2028,
+  // U+2029), so an id of that form would slip past the `__*__` name Firestore reserves. Neither
+  // character is written literally here, on purpose: one of them inside a line comment ENDS the
+  // line, and the rest of it is then parsed as code.
+  if (/^__[\s\S]*__$/.test(id)) return false;
+  // Control bytes by code point rather than a character class: an escape in a regex literal here
+  // has been written through as the raw byte before now, which silently changes what is matched.
+  for (let i = 0; i < id.length; i += 1) {
+    const code = id.charCodeAt(i);
+    if (code < 32 || code === 127) return false;
+  }
+  return true;
+}
+
+/**
  * Read the active pack id, or `DEFAULT_TRIP_ID` when the pointer is unset / SSR / unreadable.
  * TOTAL, never-throws (inherits `readString`). Read per call — the id only changes across a full
  * reload, so there is no cache to invalidate and SSR/first-paint ordering stays trivial.
