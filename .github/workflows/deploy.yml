@@ -200,6 +200,8 @@ jobs:
       HAS_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Pinned, and not decoration: this is the one job that runs with a Google credential, and
       # firebase-tools needs Node >= 20. Today's ubuntu-latest ships it, so leaving this off
       # would work right up until the runner image moves and the publish breaks with the key

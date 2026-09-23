@@ -202,15 +202,20 @@ jobs:
       # The `|| true` is part of the same fix, not sloppiness: steps run under `bash -e`, so the
       # exit 2 we are deliberately ignoring would abort the step before the sentinel is tested.
       #
-      # firebase-tools is pinned to an EXACT version, matching deploy.yml's publish step: a range
-      # lets `npx --yes` resolve a whole unreviewed transitive tree on every run, and the same
-      # command runs in the job that holds the service-account key. Bump both together, and read
-      # the changelog first — v15 changes `emulators:exec` semantics. The Firestore emulator jar
-      # needs Java; the ubuntu runner image ships one, and if that ever changes the fix is
-      # actions/setup-java, not dropping this job.
+      # firebase-tools version comes from tools/package.json (#478), matching deploy.yml's
+      # publish step — installed from the committed lockfile with --ignore-scripts, not
+      # `npx --yes`, so Dependabot bumps one place and this job and the publish step never
+      # drift apart. Bump both together, and read the changelog first — v15 changes
+      # `emulators:exec` semantics. The Firestore emulator jar needs Java; the ubuntu runner
+      # image ships one, and if that ever changes the fix is actions/setup-java, not dropping
+      # this job.
+      - name: Install the pinned firebase-tools toolchain
+        working-directory: tools
+        run: npm ci --ignore-scripts
+
       - name: Validate firestore.rules against the emulator
         run: |
-          npx --yes firebase-tools@14.27.0 emulators:exec --only firestore,auth --project demo-rules \
+          ./tools/node_modules/.bin/firebase emulators:exec --only firestore,auth --project demo-rules \
             "node scripts/rules-check.mjs && touch \"$RUNNER_TEMP/rules-ok\"" || true
           test -f "$RUNNER_TEMP/rules-ok"
 
