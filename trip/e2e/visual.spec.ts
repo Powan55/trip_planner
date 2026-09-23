@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPalette } from './fixtures';
 import type { Page, Locator } from '@playwright/test';
 
 /**
@@ -227,9 +227,8 @@ for (const vp of VIEWPORTS) {
       // was deliberately left unfixed pending exactly this baseline). Opened via the
       // real ⌘K/Ctrl+K shortcut (command-palette.tsx), not a direct DOM poke.
       await gotoSettled(page, '/');
-      await page.keyboard.press('Control+k');
+      await openPalette(page);
       const dialog = page.getByTestId('command-palette-dialog');
-      await expect(dialog).toBeVisible();
       await expect(dialog).toHaveScreenshot(`command-palette-${vp.name}.png`, SHOT);
     });
 

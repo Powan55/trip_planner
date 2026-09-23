@@ -699,11 +699,26 @@ const HERO_PRECACHE = /^images\/hero\/[^/]+\.avif$/;
 // for — the router only reaches it when the segment cache misses.
 const SEGMENT_PAYLOAD = /(^|\/)__next\.(?!_full\.txt$)[^/]*\.txt$/;
 
+// The ROOT-LAYOUT segment payload. The exporter writes a full segment tree under every
+// route, so `__next._index.txt` — the root layout, of which there is exactly one — is emitted
+// once per route: 20 files, one md5, 21,989 B each. Precaching all 20 spends 408.0 KiB raw /
+// 57.3 KiB gzipped on 19 redundant bodies, on every install and again on every deploy (the
+// precache is content-hashed). Only the root copy is listed; the SW's cacheKey() rewrites the
+// other 19 URLs onto it. Distinct from the sibling `__next._tree.txt` / `__next._full.txt`,
+// which are per-route and all 20 differ. Issue #417.
+const ROOT_INDEX_PAYLOAD = '__next._index.txt';
+
 // Route dirs holding a byte-identical copy of 404.html. Verified by md5 on a real
 // build: out/404.html, out/404/index.html and out/_not-found/index.html are the same
 // bytes. Only 404.html is precached (the nav handler serves it as NAV_FALLBACK); the
 // other two would each add another copy of the same page to every install.
 const NOT_FOUND_DUPLICATES = new Set(['404/index.html', '_not-found/index.html']);
+
+// Pure predicate pulled out of buildPrecacheList so #417's dedup is testable without a
+// real `.next`/`out` build (islandAssets() below needs both).
+function isDedupedSegmentPayload(rel) {
+  return SEGMENT_PAYLOAD.test(rel) && !rel.endsWith('/' + ROOT_INDEX_PAYLOAD);
+}
 
 async function buildPrecacheList(allFiles) {
   const set = new Set();
@@ -737,7 +752,8 @@ async function buildPrecacheList(allFiles) {
     // links to /_not-found/), so the runtime cache never deposits it. Root route
     // included: its payload is out/index.txt, which has no directory to end with.
     else if (rel === 'index.txt' || rel.endsWith('/index.txt')) set.add(rel);
-    else if (SEGMENT_PAYLOAD.test(rel)) set.add(rel);
+    // The 19 non-root copies are omitted; cacheKey() rewrites their URLs onto the root entry.
+    else if (isDedupedSegmentPayload(rel)) set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs
@@ -1065,9 +1081,19 @@ async function cacheMatch(request, options) {
 // Scoped to .txt DELIBERATELY: this is only sound because a static export's payload
 // is prerendered per ROUTE and cannot vary by query. For any other asset a param can
 // select the bytes, so dropping the search globally would be wrong.
+//
+// A route's __next._index.txt is the ROOT-LAYOUT segment, and there is one root layout, so
+// all 20 the export emits are the same bytes. Only the root copy is precached; every other
+// route's URL is rewritten onto it here rather than storing 19 more copies of it. Issue #417.
+const ROOT_INDEX_PAYLOAD_PATH = ${JSON.stringify(withBase('/__next._index.txt'))};
 function cacheKey(request) {
   const url = new URL(request.url);
   if (url.pathname.endsWith('.txt')) {
+    if (url.pathname.endsWith('/__next._index.txt')) {
+      url.pathname = ROOT_INDEX_PAYLOAD_PATH;
+      url.search = '';
+      return url.href;
+    }
     if (!url.search) return request;
     url.search = '';
     return url.href;
@@ -1344,4 +1370,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   });
 }
 
-export { eagerStaticAssets };
+export { eagerStaticAssets, isDedupedSegmentPayload };

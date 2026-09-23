@@ -70,6 +70,53 @@ describe('S137 — `lat`/`lng` are lenient, additive OPTIONALs (schema)', () => 
     expect(parsed.success).toBe(false);
   });
 
+  // An out-of-WGS84 coordinate reaches `map.fitBounds` unchecked, and maplibre's LngLat
+  // constructor throws on it — a dead map pane for every surface that renders the day.
+  // `JSON.parse('1e999')` is Infinity, so a hand-edited backup gets there without trying.
+  it.each([
+    ['lat above 90', { lat: 500, lng: 85.3 }],
+    ['lat below -90', { lat: -500, lng: 85.3 }],
+    ['lng above 180', { lat: 27.7, lng: 900 }],
+    ['lng below -180', { lat: 27.7, lng: -900 }],
+    ['infinite lat', { lat: Number.POSITIVE_INFINITY, lng: 85.3 }],
+    ['infinite lng', { lat: 27.7, lng: Number.NEGATIVE_INFINITY }],
+  ])('drops an out-of-range coordinate (%s) but KEEPS the item', (_label, coords) => {
+    const parsed = itineraryItemSchema.safeParse({ id: 'x', title: 'Rooftop', category: 'food', ...coords });
+    expect(parsed.success).toBe(true);
+    // The row survives — losing the plan over one bad number is the worse bug (D-363).
+    expect(parsed.success && parsed.data.title).toBe('Rooftop');
+    const bad = Object.entries(coords).find(([, v]) => !Number.isFinite(v) || Math.abs(v) > 180)![0];
+    expect(parsed.success && parsed.data[bad as 'lat' | 'lng']).toBeUndefined();
+  });
+
+  it('keeps the exact WGS84 extremes', () => {
+    const parsed = itineraryItemSchema.safeParse({ id: 'x', title: 'X', category: 'food', lat: -90, lng: 180 });
+    expect(parsed.success && parsed.data.lat).toBe(-90);
+    expect(parsed.success && parsed.data.lng).toBe(180);
+  });
+
+  it('drops an out-of-range tzOffsetMin but keeps a real one', () => {
+    const wild = itineraryItemSchema.safeParse({ id: 'x', title: 'X', category: 'food', tzOffsetMin: 99999 });
+    expect(wild.success && wild.data.tzOffsetMin).toBeUndefined();
+    const real = itineraryItemSchema.safeParse({ id: 'x', title: 'X', category: 'food', tzOffsetMin: 840 });
+    expect(real.success && real.data.tzOffsetMin).toBe(840);
+  });
+
+  it('parseItineraryPayload strips a bad pin without losing the day or the plan', () => {
+    const parsed = parseItineraryPayload([
+      {
+        date: '2026-12-12',
+        city: 'Kathmandu',
+        country: 'nepal',
+        items: [{ id: 'bad', title: 'Momo lunch', category: 'food', lat: 1e999, lng: 85.3 }],
+      },
+    ]);
+    expect(parsed).toHaveLength(1);
+    const [item] = parsed![0].items as ItineraryItem[];
+    expect(item.title).toBe('Momo lunch');
+    expect(item.lat).toBeUndefined();
+  });
+
   it('parseItineraryPayload preserves lat/lng across a mixed (pinned/absent) day', () => {
     const parsed = parseItineraryPayload(PLANS_WITH_PIN);
     expect(parsed).not.toBeNull();

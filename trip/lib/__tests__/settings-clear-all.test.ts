@@ -19,6 +19,7 @@
 //     propagation path by construction; entries clear + stay cleared on reload.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { firebaseConfigMock } from './firebase-config-mock';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -34,13 +35,8 @@ const state = vi.hoisted(() => ({
   expPush: [] as Array<{ prev: Expense[]; next: Expense[] }>,
   budgetPush: [] as Array<{ prev: BudgetModel; next: BudgetModel }>,
 }));
-vi.mock('@/lib/firebase-config', () => ({
-  FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
-  isRemoteConfigured: () => state.remoteOn,
-  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
-  isTripRemoteConfigured: () => state.remoteOn,
-  getTripId: () => 'nepal-japan-2026',
-}));
+vi.mock('@/lib/firebase-config', (io) =>
+  firebaseConfigMock(io, () => state.remoteOn, 'nepal-japan-2026'));
 vi.mock('@/lib/itinerary-ports', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/itinerary-ports')>();
   return {

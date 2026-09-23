@@ -24,6 +24,7 @@
 // copy, with a negative control showing what happens WITHOUT the bump.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { firebaseConfigMock } from './firebase-config-mock';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -33,13 +34,8 @@ import type { Expense } from '@/core/budget/expenses';
 import type { DocItem } from '@/core/docs/model';
 
 const state = vi.hoisted(() => ({ remoteOn: true }));
-vi.mock('@/lib/firebase-config', () => ({
-  FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
-  isRemoteConfigured: () => state.remoteOn,
-  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
-  isTripRemoteConfigured: () => state.remoteOn,
-  getTripId: () => 'nepal-japan-2026',
-}));
+vi.mock('@/lib/firebase-config', (io) =>
+  firebaseConfigMock(io, () => state.remoteOn, 'nepal-japan-2026'));
 // Keep the fan-out off firebase — this suite exercises the STORES' local rewrite + stamping only.
 vi.mock('@/lib/expenses-ports', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/expenses-ports')>();
