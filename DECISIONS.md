@@ -5786,6 +5786,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-575 · (issues #570, #573, 2026-09-24) · A synced whole-trip restore must name the shared trip it came from
+
+**Decision.** Backups carry an optional `remoteId` (the shared trip id at export, `''` when unshared). On a synced device a restore is refused unless the file's `remoteId` equals the current shared trip id; a file with none (older backups, legacy itinerary-only exports) is refused there too, and restores only on an unshared copy. Unsynced restores are unchanged. A custom pack's id is its shared id, so an older custom-trip file with no `remoteId` falls back to its `tripId` and still restores. An older default-pack file, or one made before the device started sharing, cannot be restored into the shared trip; that is accepted over risking a cross-trip wipe. Expenses now restore through `restoreExpenses` under sync, the same injected path as my-places.
+
+**Why.** `tripId` is the local pack id, which every shared copy of the default pack has in common, and a synced restore tombstones every live row and pushes. So a backup from one shared trip could wipe another. Expenses were documented as replaced but fell to the merge path, so rows added after the backup survived.
 ### D-572 · (issue #544, 2026-09-24) · An outbox ack only clears a chunk nothing re-enqueued since its push
 
 **Decision.** The outbox slot gains an optional `seq` map: a per-domain, per-chunk counter bumped on every enqueue. A push carries the counter captured with its state, and `ack` removes the chunk only if the counter is unchanged. Additive, no `version` bump; a missing counter reads as 0, so slots already on disk ack as before. Counters are never pruned on ack, since a reset would let a stale push match a fresh edit.

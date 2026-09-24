@@ -9,6 +9,7 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useMyPlaces } from '@/hooks/use-my-places';
 import { useDocs } from '@/hooks/use-docs';
+import { useExpenses } from '@/hooks/use-expenses';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import {
   AlertDialog,
@@ -29,7 +30,7 @@ import {
  * client-side Blob URL. It carries EVERYTHING local: itinerary, journal,
  * PHOTOS (meta + bytes), expenses, budget, checklists, favorites, map anchors, share inbox.
  * - IMPORT: a file <input> → an explicit CONFIRM dialog (replaces itinerary/journal/photos;
- * merges expenses/budget/documents-checklist when synced — issue #346) →
+ * merges budget/documents-checklist when synced — issue #346; expenses replace, #573) →
  * `importTripBackup(file)` → on success the page reloads to re-hydrate every store.
  * A rejected/garbage file never touches live data, and a single malformed domain is dropped,
  * not fatal.
@@ -103,6 +104,7 @@ export default function BackupRestore() {
   const { restorePlans } = useItineraryContext();
   const { restoreMyPlaces } = useMyPlaces();
   const { restoreDocsChecklist } = useDocs();
+  const { restoreExpenses } = useExpenses();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Focus-return target. Radix's modal content restores focus to its TRIGGER, and this dialog has
   // none — it is opened by the file input's `change`, so `triggerRef` is null and focus would land
@@ -128,7 +130,7 @@ export default function BackupRestore() {
   // myPlaces and docsChecklist commit path importTripBackup uses (myPlaces: `restoreMyPlaces`,
   // tombstone-replace, issue #239; docsChecklist: `restoreDocsChecklist`, a same-id upsert since its
   // 18 ids are fixed, issue #295 — see `lib/trip-backup.ts`'s `CommitMyPlaces`/`CommitDocsChecklist`).
-  // Expenses/budget are synced too; importTripBackup still enqueues those through each domain's own
+  // Expenses restore via `restoreExpenses` (tombstone-replace, #573). Budget still goes through its
   // outbox-decorated push (a merge, not a replace — the residual gap `trip-backup.ts` documents).
   const [synced, setSynced] = useState(false);
   useEffect(() => {
@@ -170,6 +172,7 @@ export default function BackupRestore() {
       synced ? restorePlans : savePlans,
       synced ? restoreMyPlaces : undefined,
       synced ? restoreDocsChecklist : undefined,
+      synced ? restoreExpenses : undefined,
     );
     setImporting(false);
     setPendingImport(null);
@@ -333,8 +336,8 @@ export default function BackupRestore() {
               the contents of that file.{' '}
               {synced ? (
                 <>
-                  Expenses, budget and the documents checklist are merged instead — anything you&apos;ve
-                  changed on this trip since the backup was made is kept.
+                  Expenses are replaced too. Budget and the documents checklist are merged instead —
+                  anything you&apos;ve changed there since the backup was made is kept.
                 </>
               ) : (
                 <>Expenses, budget and checklists are replaced too.</>

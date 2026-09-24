@@ -42,6 +42,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 });
 
 import { useExpenses } from '@/hooks/use-expenses';
+import { importTripBackup } from '@/lib/trip-backup';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 import { mergeItems } from '@/core/sync/merge-items';
 import { parse } from '@/core/sync/hlc';
@@ -185,6 +186,34 @@ describe('SYNC ON — restoreExpenses is a tombstone-replace merge (S174, D-156)
     const sameIdRestore: Expense = { ...tomb, deleted: false, note: 'Restored' };
     const wrong = mergeItems([sameIdRestore], [tomb]);
     expect(wrong.filter((e) => e.deleted !== true)).toHaveLength(0);
+    h.unmount();
+  });
+
+  it('#573: a whole-trip restore replaces expenses, so a row added after the backup is gone', async () => {
+    const h = renderExpenses();
+    await h.run((s) => s.addExpense({ leg: 'nepal', category: 'food', amount: 999, note: 'after backup' }));
+    const addedId = h.current.expenses[0].id;
+    const file = new Blob([
+      JSON.stringify({
+        format: 'nepal-japan-trip-backup',
+        version: 1,
+        exportedAt: '2026-12-01T00:00:00.000Z',
+        tripId: 'nepal-japan-2026',
+        remoteId: 'nepal-japan-2026',
+        domains: { expenses: [backupRow('x', 'X')] },
+        photos: { meta: [], blobs: {} },
+      }),
+    ]);
+
+    let ok = false;
+    await act(async () => {
+      const res = await importTripBackup(file, undefined, undefined, undefined, undefined, h.current.restoreExpenses);
+      ok = res.ok;
+    });
+
+    expect(ok).toBe(true);
+    expect(h.current.expenses.map((e) => e.note)).toEqual(['X']);
+    expect(rawOnDisk().find((e) => e.id === addedId)?.deleted).toBe(true);
     h.unmount();
   });
 });
