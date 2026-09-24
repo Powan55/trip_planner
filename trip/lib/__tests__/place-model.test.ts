@@ -78,13 +78,52 @@ describe('sanitizePlaces — dedupe, cap, empty', () => {
       // deletion stamps — the opposite order from addedAt.
       hlc: `${String(9_000_000_000_000 - i).padStart(15, '0')}:000000:actor`,
     }));
-    const out = sanitizePlaces(dead);
+    // Shuffle so input order is NOT already the answer order (a no-op sort would otherwise
+    // pass by accident, since ids 0..199 already led the unshuffled array).
+    const shuffled = [...dead];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = (i * 2654435761) % (i + 1); // deterministic pseudo-shuffle, no Math.random
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const out = sanitizePlaces(shuffled);
     expect(out).toHaveLength(PLACES_CAP);
     // The most-recently-deleted 200 are ids 0..199 (highest hlc); ids 200..239 were evicted.
     const indices = out.map((p) => Number(p.id.replace('dead-', ''))).sort((a, b) => a - b);
     expect(indices[0]).toBe(0);
     expect(indices[indices.length - 1]).toBe(PLACES_CAP - 1);
     expect(out.some((p) => p.id === 'dead-239')).toBe(false);
+  });
+
+  it('keeps newer hlc-stamped deletes over older legacy (addedAt-only) tombstones on cap', () => {
+    // Legacy rows predate issue #17 and carry no `hlc` at all — only `addedAt`. Their deletion
+    // stamp must be SEEDED from addedAt and compared structurally (same as a real hlc's `pt`),
+    // never compared as a raw string against a real "pt:ct:actor" hlc: an hlc string is
+    // zero-padded starting with digit '0'/'1', an ISO addedAt string starts with '2' (year),
+    // so a raw string compare ranks every legacy row above every real one regardless of when
+    // either actually happened — the bug this test pins.
+    const legacyCount = PLACES_CAP; // all legacy, addedAt in the past (2020)
+    const legacy: MyPlace[] = Array.from({ length: legacyCount }, (_, i) => ({
+      ...base,
+      id: `legacy-${i}`,
+      addedAt: new Date(2020, 0, 1 + i).toISOString(),
+      deleted: true,
+      // no hlc — pre-Sync-v2 row
+    }));
+    const freshCount = 20; // real hlc deletes, physically later (2026), well past legacy's seed pt
+    const fresh: MyPlace[] = Array.from({ length: freshCount }, (_, i) => ({
+      ...base,
+      id: `fresh-${i}`,
+      addedAt: new Date(2026, 0, 1 + i).toISOString(),
+      deleted: true,
+      hlc: `${String(Date.parse(`2026-06-0${(i % 9) + 1}T00:00:00.000Z`)).padStart(15, '0')}:000000:actor`,
+    }));
+    const out = sanitizePlaces([...legacy, ...fresh]);
+    expect(out).toHaveLength(PLACES_CAP);
+    // Every fresh (real-hlc, later) delete survives; the cap evicts legacy rows instead.
+    for (let i = 0; i < freshCount; i++) {
+      expect(out.some((p) => p.id === `fresh-${i}`)).toBe(true);
+    }
+    expect(out.filter((p) => p.id.startsWith('legacy-'))).toHaveLength(PLACES_CAP - freshCount);
   });
 });
 
