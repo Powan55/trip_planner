@@ -319,6 +319,14 @@ describe('mergeItems — done state merges apart from the body winner (#541, D-5
     expect(mergeItems([tomb], [a], { deleteWins: 'always' })[0]).toEqual(tomb);
   });
 
+  it('a resurrecting edit keeps its own done state, never the tombstone’s', () => {
+    const tomb: DoneRow = { ...base, hlc: T2, doneHlc: T2, deleted: true, done: true, doneBy: 'A' };
+    const edit: DoneRow = { ...base, hlc: T3, doneHlc: T1, done: false, notes: 'back' };
+    for (const m of both(tomb, edit)) {
+      expect(m).toEqual(edit);
+    }
+  });
+
   it('docs rows: the checked flag joins the same way', () => {
     const a: DoneRow = { ...base, hlc: T1, doneHlc: T1, checked: true };
     const b: DoneRow = { ...base, hlc: T2, doneHlc: base.hlc, checked: false, note: 'P123' };

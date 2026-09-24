@@ -104,7 +104,7 @@ function mergeDone<R extends SyncedRow>(win: R, a: R, b: R): R {
   const kb = doneKey(b);
   if (ka === kb) return win;
   const src = ka > kb ? a : b;
-  if (src === win) return win;
+  if (src === win || src.deleted === true) return win;
   const out = { ...win } as Record<string, unknown>;
   const from = src as unknown as Record<string, unknown>;
   for (const k of DONE_KEYS) {
