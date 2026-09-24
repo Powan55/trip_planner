@@ -186,3 +186,28 @@ describe('DORMANT — restoreDocsChecklist is a plain local overwrite (byte-iden
     h.unmount();
   });
 });
+
+describe('SYNC ON — toggle stamps doneHlc, a note edit does not (#541)', () => {
+  beforeEach(() => {
+    state.remoteOn = true;
+  });
+
+  it('tick and untick both move doneHlc to the new hlc; setNote leaves it alone', async () => {
+    const h = renderDocs();
+    const row = () => h.current.items.find((i) => i.id === 'passport-validity') as DocItem;
+    await h.run((s) => s.toggleItem('passport-validity'));
+    const ticked = row();
+    expect(ticked.doneHlc).toBe(ticked.hlc);
+    await h.run((s) => s.setNote('passport-validity', 'P123'));
+    expect(row().doneHlc).toBe(ticked.doneHlc);
+    expect(row().hlc).not.toBe(ticked.hlc);
+    await h.run((s) => s.toggleItem('passport-validity'));
+    expect(row().checked).toBe(false);
+    expect(row().doneHlc).toBe(row().hlc);
+    // a note on a never-toggled template row must not outrank a peer's tick
+    await h.run((s) => s.setNote('japan-entry', 'QR saved'));
+    const noted = h.current.items.find((i) => i.id === 'japan-entry') as DocItem;
+    expect(noted.doneHlc! < ticked.doneHlc!).toBe(true);
+    h.unmount();
+  });
+});

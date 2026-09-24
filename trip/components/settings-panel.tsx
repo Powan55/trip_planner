@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
+import { useOnline } from '@/hooks/use-online';
+import { useClipboardCopy } from '@/hooks/use-clipboard-copy';
 import {
   User,
   LogOut,
@@ -553,6 +555,8 @@ function TripAccessGroup() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const online = useOnline();
+  const { copy: copyToClipboard, error: uidCopyError } = useClipboardCopy();
 
   const loadMembers = async () => {
     const id = getTripId();
@@ -588,12 +592,10 @@ function TripAccessGroup() {
 
   const copyUid = async () => {
     if (!uid) return;
-    try {
-      await navigator.clipboard.writeText(uid);
+    const ok = await copyToClipboard(uid);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard blocked (permissions / insecure context) — the value stays visible to select. */
     }
   };
 
@@ -601,43 +603,67 @@ function TripAccessGroup() {
     e.preventDefault();
     const code = addValue.trim();
     if (!code || busy || !tripKey) return;
+    if (!online) {
+      setError('You’re offline. Adding a device needs a connection.');
+      return;
+    }
     setBusy(true);
     setError(null);
     setStatus(null);
-    const { addTripMember } = await import('@/lib/trips-remote');
-    const result = await addTripMember(tripKey, code);
-    if (result === 'ok') {
-      setAddValue('');
-      setStatus('Added. That device can open this trip now.');
-      await loadMembers();
-    } else if (result === 'denied') {
-      setError('Only someone who already has access to this trip can add a device.');
-    } else {
-      setError('Couldn’t add that device code. Check it and try again.');
+    try {
+      const { addTripMember } = await import('@/lib/trips-remote');
+      const result = await addTripMember(tripKey, code);
+      if (result === 'ok') {
+        setAddValue('');
+        setStatus('Added. That device can open this trip now.');
+        await loadMembers();
+      } else if (result === 'denied') {
+        setError('Only someone who already has access to this trip can add a device.');
+      } else {
+        setError('Couldn’t add that device code. Check it and try again.');
+      }
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   const remove = async (memberUid: string) => {
     if (busy || !tripKey) return;
+    if (!online) {
+      setError('You’re offline. Removing a device needs a connection.');
+      return;
+    }
     setBusy(true);
     setError(null);
     setStatus(null);
-    const { removeTripMember } = await import('@/lib/trips-remote');
-    const result = await removeTripMember(tripKey, memberUid);
-    if (result === 'ok') {
-      setStatus('Removed. That device can no longer open this trip.');
-      await loadMembers();
-    } else if (result === 'denied') {
-      setError('Only the person who created this trip can remove a device.');
-    } else {
-      setError('Couldn’t remove that device. Try again.');
+    try {
+      const { removeTripMember } = await import('@/lib/trips-remote');
+      const result = await removeTripMember(tripKey, memberUid);
+      if (result === 'ok') {
+        setStatus('Removed. That device can no longer open this trip.');
+        await loadMembers();
+      } else if (result === 'denied') {
+        setError('Only the person who created this trip can remove a device.');
+      } else {
+        setError('Couldn’t remove that device. Try again.');
+      }
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   };
 
   return (
     <div className="flex flex-col gap-4" data-testid="settings-access-card">
+      {!online && (
+        <p
+          role="alert"
+          data-testid="settings-access-offline"
+          className="err flex items-center gap-2 border-hair border-border bg-surface-raised px-gut py-3 text-t-body font-medium"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          You&rsquo;re offline. Adding or removing a device needs a connection.
+        </p>
+      )}
       {/* This device's code — the out-of-band invite, and the thing a friend pastes. */}
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <h3 className="pr pr--l text-ink-hi">This device&rsquo;s code</h3>
@@ -671,6 +697,16 @@ function TripAccessGroup() {
         <div aria-live="polite" className="sr-only">
           {copied ? 'Device code copied to clipboard' : ''}
         </div>
+        {uidCopyError && (
+          <p
+            role="alert"
+            data-testid="settings-access-uid-copy-error"
+            className="err mt-2 flex items-center gap-2 text-t-body font-medium"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {uidCopyError}
+          </p>
+        )}
       </div>
 
       {/* The roster. */}
@@ -727,16 +763,43 @@ function TripAccessGroup() {
                       </span>
                     </span>
                     {myRole === 'owner' && memberUid !== uid && (
-                      <button
-                        type="button"
-                        onClick={() => remove(memberUid)}
-                        disabled={busy}
-                        data-testid="settings-access-remove"
-                        aria-label={`Remove device ${memberUid.slice(0, 8)}`}
-                        className="btn btn--2 btn--danger min-w-tap px-0"
-                      >
-                        <X className="h-4 w-4" aria-hidden="true" />
-                      </button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={busy || !online}
+                            data-testid="settings-access-remove"
+                            aria-label={`Remove device ${memberUid.slice(0, 8)}`}
+                            className="btn btn--2 btn--danger min-w-tap px-0"
+                          >
+                            <X className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent
+                          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+                          data-testid="settings-access-remove-dialog"
+                        >
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove this device?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-t-body text-ink-mid">
+                              Device {memberUid.slice(0, 8)}&hellip; will no longer be able to open
+                              this trip. This cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel data-testid="settings-access-remove-cancel">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              data-testid="settings-access-remove-confirm"
+                              onClick={() => remove(memberUid)}
+                              className="btn btn--danger"
+                            >
+                              Remove device
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </li>
                 ))}
@@ -763,7 +826,7 @@ function TripAccessGroup() {
                 />
                 <button
                   type="submit"
-                  disabled={!addValue.trim() || busy}
+                  disabled={!addValue.trim() || busy || !online}
                   aria-busy={busy}
                   data-testid="settings-access-add-submit"
                   className="btn btn--2 px-4"
@@ -1006,6 +1069,7 @@ function TripGroup() {
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
   // grandfathered default pack; read client-side like the Trip Token below.
   const [onSharedTrip, setOnSharedTrip] = useState(false);
+  const { copy: copyToClipboard, error: copyError } = useClipboardCopy();
 
   // Read the active trip's remote token + pack identity after mount (client-only; ssr:false island).
   useEffect(() => {
@@ -1022,12 +1086,10 @@ function TripGroup() {
       : '';
 
   const copy = async (text: string, which: 'key' | 'link') => {
-    try {
-      await navigator.clipboard.writeText(text);
+    const ok = await copyToClipboard(text);
+    if (ok) {
       setCopied(which);
       setTimeout(() => setCopied((c) => (c === which ? null : c)), 2000);
-    } catch {
-      /* clipboard blocked (permissions / insecure context) — the value stays visible to select. */
     }
   };
 
@@ -1147,6 +1209,16 @@ function TripGroup() {
         <div aria-live="polite" className="sr-only">
           {copied === 'key' ? 'Trip Token copied to clipboard' : copied === 'link' ? 'Share link copied to clipboard' : ''}
         </div>
+        {copyError && (
+          <p
+            role="alert"
+            data-testid="settings-trip-key-copy-error"
+            className="err mt-2 flex items-center gap-2 text-t-body font-medium"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {copyError}
+          </p>
+        )}
         </>
         )}
       </div>
@@ -1242,6 +1314,7 @@ function SyncGroup() {
   const [code, setCode] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { copy: copyToClipboard, error: copyError } = useClipboardCopy();
 
   useEffect(() => setCode(getSyncCode()), []);
 
@@ -1264,12 +1337,10 @@ function SyncGroup() {
 
   const copy = async () => {
     if (!code) return;
-    try {
-      await navigator.clipboard.writeText(code);
+    const ok = await copyToClipboard(code);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard blocked (permissions / insecure context) — the value stays visible to select. */
     }
   };
 
@@ -1315,6 +1386,16 @@ function SyncGroup() {
         <div aria-live="polite" className="sr-only">
           {copied ? 'Your key copied to clipboard' : ''}
         </div>
+        {copyError && (
+          <p
+            role="alert"
+            data-testid="settings-sync-copy-error"
+            className="err mt-2 flex items-center gap-2 text-t-body font-medium"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {copyError}
+          </p>
+        )}
         <p className="mt-3 max-w-2xl text-t-sm text-ink-mid">
           To use this account on another device, log out there (or open the app fresh) and enter this
           key at the front door.
@@ -1355,20 +1436,14 @@ function CurrencyGroup() {
       {/* Home / display currency toggle */}
       <fieldset className="border-hair border-border bg-surface-raised px-gut py-4">
         <legend className="pr pr--l px-1 text-ink-hi">Show totals in</legend>
-        <div
-          role="radiogroup"
-          aria-label="Home currency for totals"
-          data-testid="budget-currency-toggle"
-          className="mt-2 flex flex-wrap gap-2"
-        >
+        <div data-testid="budget-currency-toggle" className="mt-2 flex flex-wrap gap-2">
           {CURRENCIES.map((cur) => {
             const active = home === cur;
             return (
               <button
                 key={cur}
                 type="button"
-                role="radio"
-                aria-checked={active}
+                aria-pressed={active}
                 onClick={() => setHomeCurrency(cur)}
                 data-testid={`budget-currency-${cur.toLowerCase()}`}
                 className={`chip min-h-tap px-4 ${
@@ -1829,3 +1904,7 @@ function ClearRow({
     </li>
   );
 }
+
+// Named exports for targeted component tests (offline gate, remove-confirm, clipboard fallback,
+// aria-pressed currency toggle) — the default export is the whole `/settings` island.
+export { TripAccessGroup, CurrencyGroup };

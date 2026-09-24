@@ -5766,6 +5766,7 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
 
+**Amendment (issue #572).** Joining a `pack:` token from an unshared pack drops the same slots too, and the paste boxes confirm when any of them is present; otherwise this device's rows merged into the partner's trip. `setDefaultTripShareId` itself still keeps everything on `''` to an id, because the owner's own share button starts sharing through it.
 ### D-565 · (issue #529, 2026-09-23) · Every loaded device heals its account's identity doc, create-only
 
 **Decision.** On load, `runAccountIdentitySync` reads `profile/identity` from the server. If it is missing, the device creates it in a transaction that writes only when the doc is still absent: `{ version: 1, name }`, or a nameless `{ version: 1 }` when the local name is the placeholder. A failed read writes nothing. The Settings rename still overwrites.
@@ -5786,6 +5787,25 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-573 · (issue #561, 2026-09-24) · Expenses merge on first snapshot instead of taking remote verbatim
+
+**Decision.** On the first server snapshot a clean, present leg is merged with local, then local rows absent from remote and older than `DEFAULT_GC_HORIZON_MS` are dropped; unstamped rows stay. If a kept row is missing from remote or newer than it, the leg is pushed right away. Same rule as places (#539).
+
+**Why.** Signed-out adds and backup restores stamp an `hlc` but never reach the outbox, so the verbatim apply wiped them on the first sign-in. A cross-leg move is still safe: the old leg's move tombstone wins the merge, and `dedupeAcrossLegs` covers a peer that never wrote one.
+### D-569 · (issue #541, 2026-09-24) · The done tick merges on its own stamp, apart from the rest of the row
+
+**Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
+
+**Why.** Whole-row LWW let a later notes edit from another device carry the old done state over an offline tick. `doneAt` couldn't be the key: it's wall-clock, only written when a display name is set, cleared on untick, and docs rows don't have it.
+### D-567 · (issue #539, 2026-09-24) · Tombstones live 365 days, and places drops stale unsynced rows on first snapshot
+
+**Decision.** `DEFAULT_GC_HORIZON_MS` goes from 30 to 365 days for every synced domain. `subscribeRemotePlaces` still merges on the first server snapshot, but when the places `'list'` chunk is clean it then drops local rows that are absent from remote and whose `hlc` is older than the horizon. Unstamped rows are kept.
+
+**Why.** A device idle past the horizon still held rows whose tombstones the other devices had already dropped, so its first merge brought deleted places and expenses back. Trips are planned months ahead, so 30 days was well inside a normal idle gap; tombstones are small and places already caps them at 200. Taking remote verbatim would have fixed places too, but it wipes a place added while signed out, which stamps an `hlc` and never reaches the outbox. A row can only resurrect after its tombstone is GC'd, so it must be older than the horizon; anything newer is kept.
+
+**Trade-off.** A place added while signed out and left unsynced for more than 365 days is dropped on the next sign-in.
+
+**Caveat.** Builds from before this change still GC at 30 days. Until every device updates, one of them can still drop a tombstone early and a stale peer can resurrect that row.
 ### D-575 · (issues #570, #573, 2026-09-24) · A synced whole-trip restore must name the shared trip it came from
 
 **Decision.** Backups carry an optional `remoteId` (the shared trip id at export, `''` when unshared). On a synced device a restore is refused unless the file's `remoteId` equals the current shared trip id; a file with none (older backups, legacy itinerary-only exports) is refused there too, and restores only on an unshared copy. Unsynced restores are unchanged. A custom pack's id is its shared id, so an older custom-trip file with no `remoteId` falls back to its `tripId` and still restores. An older default-pack file, or one made before the device started sharing, cannot be restored into the shared trip; that is accepted over risking a cross-trip wipe. Expenses now restore through `restoreExpenses` under sync, the same injected path as my-places.
@@ -5802,3 +5822,10 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** `SyncPort.subscribe` takes an optional `onDead` callback, fired when the dynamic import of the remote module fails and the subscription was not already torn down. `useDomainSync` then drops its handle, and the next `online` or visible `visibilitychange` flushes and reopens it. The handle is cleared only if it is still the one that died, so a late failure from a torn-down subscription cannot clear a newer one. `onDead` only covers a failed dynamic import: an `onSnapshot` error (e.g. permission-denied) still leaves the listener dead and is not reopened; that fix belongs in the `*-remote.ts` modules and is deferred. The captive-portal case (`armOnlineRetry` waiting on an `online` event that never fires) is deferred.
 
 **Why.** Resubscribing on every focus would re-read every doc across five domains on each tab return, against a 50k reads/day free quota. Keeping a healthy subscription costs no extra reads, so only a dead one is reopened.
+### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
+
+**Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
+
+**Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
+
+**Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.
