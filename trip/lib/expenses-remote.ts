@@ -124,7 +124,10 @@ export async function pushChunkMerged(
     }
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstone rows
     // from the MERGED leg before writing — the `pushDayMerged` gc analog over `gcTombstoneRows`.
-    const merged = gcTombstoneRows(mergeItems(remoteRows, rows), realClock.now().getTime());
+    // otherLegRows: a live row in ANOTHER leg (a pre-fix stale copy, or #532's own move) must keep
+    // this leg's tombstone for the same id from aging out, or GC lets the stale copy resurface.
+    const otherLiveIds = new Set(otherLegRows.filter((e) => e.deleted !== true).map((e) => e.id));
+    const merged = gcTombstoneRows(mergeItems(remoteRows, rows), realClock.now().getTime(), undefined, otherLiveIds);
     tx.set(ref, { leg, items: sanitizeRowsForWrite(merged) });
   });
 }
@@ -209,6 +212,15 @@ export function subscribeRemoteExpenses(): () => void {
       const localLeg = local.filter((e) => e.leg === leg);
       const remoteLeg = remoteByLeg.get(leg) ?? [];
       const others = local.filter((e) => e.leg !== leg);
+      // otherLiveIds (#532): a live row this device holds for the SAME id in a sibling leg — from
+      // local or from that leg's own remote snapshot — must keep this leg's tombstone from aging
+      // out, or GC here lets a pre-fix stale copy elsewhere resurface.
+      const otherLiveIds = new Set(
+        LEGS.filter((l) => l !== leg).flatMap((l) => [
+          ...local.filter((e) => e.leg === l && e.deleted !== true).map((e) => e.id),
+          ...(remoteByLeg.get(l) ?? []).filter((e) => e.deleted !== true).map((e) => e.id),
+        ]),
+      );
       if (first && !dirty.has(leg)) {
         if (presentLegs.has(leg)) {
           // A row missing from remote and older than the GC horizon may be one whose tombstone was
@@ -216,9 +228,11 @@ export function subscribeRemoteExpenses(): () => void {
           // (#561), so they stay. Unstamped rows carry no age and stay too.
           const remoteById = new Map(remoteLeg.map((e) => [e.id, e]));
           const cutoff = nowPt - DEFAULT_GC_HORIZON_MS;
-          const kept = gcTombstoneRows(mergeItems(localLeg, remoteLeg), nowPt).filter(
-            (e) => remoteById.has(e.id) || !e.hlc || parse(e.hlc).pt >= cutoff,
-          );
+          // A malformed hlc parses to pt 0 — no real age, so it stays like an unstamped row.
+          const kept = gcTombstoneRows(mergeItems(localLeg, remoteLeg), nowPt, undefined, otherLiveIds).filter((e) => {
+            const pt = e.hlc ? parse(e.hlc).pt : 0;
+            return remoteById.has(e.id) || !e.hlc || pt === 0 || pt >= cutoff;
+          });
           result.push(...kept);
           const newerHere = kept.some((e) => {
             const r = remoteById.get(e.id);
@@ -234,7 +248,7 @@ export function subscribeRemoteExpenses(): () => void {
         // Steady-state (or a dirty leg on first snapshot): item-level merge so an unpushed local
         // edit and a peer's edits both survive. GC BOUNDARY ②: prune
         // past-horizon, unreferenced tombstone rows from the MERGED leg before persist.
-        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), nowPt));
+        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), nowPt, undefined, otherLiveIds));
       }
     }
     persistAndDispatch([...dedupeAcrossLegs(result), ...foreign]);
