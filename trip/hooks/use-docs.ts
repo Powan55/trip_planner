@@ -110,7 +110,11 @@ export function useDocs(): DocsStore {
 
   const toggleItem = useCallback(
     (id: string) => {
-      const stamp = syncEnabled() ? editStamp() : undefined;
+      const edit = syncEnabled() ? editStamp() : undefined;
+      const stamp = edit && ((i: DocItem) => {
+        const s = edit(i);
+        return { ...s, doneHlc: s.hlc };
+      });
       commit((current) => toggleItemCore(current, id, stamp));
     },
     [commit],

@@ -34,6 +34,7 @@ describe('Vault schema drift guard', () => {
       done: true,
       doneBy: true,
       doneAt: true,
+      doneHlc: true,
       lat: true,
       lng: true,
       endDate: true,

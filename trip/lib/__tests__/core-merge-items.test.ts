@@ -275,3 +275,46 @@ describe('resolvePair — equal-HLC tie: the row with the strictly richer key se
     expect(failures).toBe(0);
   });
 });
+
+describe('mergeItems — done state merges apart from the body winner (#541, D-569)', () => {
+  type DoneRow = Row & { done?: boolean; doneBy?: string; doneAt?: string; notes?: string; checked?: boolean; note?: string };
+  const T1 = serialize(H(100, 0, 'A'));
+  const T2 = serialize(H(200, 0, 'B'));
+  const T3 = serialize(H(300, 0, 'A'));
+  const base: DoneRow = { id: 'x', label: 'x', rev: 1, hlc: serialize(H(50, 0, 'A')) };
+  const both = (a: DoneRow, b: DoneRow) => [mergeItems([a], [b])[0], mergeItems([b], [a])[0]];
+
+  it('A ticks at t1, B edits notes at t2 → merged row keeps both', () => {
+    const a: DoneRow = { ...base, hlc: T1, doneHlc: T1, done: true, doneBy: 'A', doneAt: 'iso' };
+    const b: DoneRow = { ...base, hlc: T2, notes: 'gate 4' };
+    for (const m of both(a, b)) {
+      expect(m).toMatchObject({ notes: 'gate 4', done: true, doneBy: 'A', doneAt: 'iso', hlc: T2 });
+    }
+  });
+
+  it('an untick newer than the tick wins and clears the attribution', () => {
+    const tick: DoneRow = { ...base, hlc: T2, doneHlc: T1, done: true, doneBy: 'A', doneAt: 'iso', notes: 'n' };
+    const untick: DoneRow = { ...base, hlc: T3, doneHlc: T3, done: false };
+    for (const m of both(tick, untick)) {
+      expect(m.done).toBe(false);
+      expect('doneBy' in m || 'doneAt' in m).toBe(false);
+    }
+    // untick older than the tick loses even when its row body is newer
+    const staleUntick: DoneRow = { ...base, hlc: T3, doneHlc: serialize(H(90, 0, 'B')), done: false };
+    for (const m of both(tick, staleUntick)) expect(m).toMatchObject({ done: true, doneBy: 'A' });
+  });
+
+  it('a newer tombstone beats both the tick and the notes edit', () => {
+    const a: DoneRow = { ...base, hlc: T1, doneHlc: T1, done: true };
+    const b: DoneRow = { ...base, hlc: T2, notes: 'n' };
+    const tomb: DoneRow = { ...base, hlc: T3, deleted: true };
+    expect(mergeItems(mergeItems([a], [b]), [tomb])[0]).toEqual(tomb);
+    expect(mergeItems([tomb], [a], { deleteWins: 'always' })[0]).toEqual(tomb);
+  });
+
+  it('docs rows: the checked flag joins the same way', () => {
+    const a: DoneRow = { ...base, hlc: T1, doneHlc: T1, checked: true };
+    const b: DoneRow = { ...base, hlc: T2, checked: false, note: 'P123' };
+    for (const m of both(a, b)) expect(m).toMatchObject({ checked: true, note: 'P123' });
+  });
+});

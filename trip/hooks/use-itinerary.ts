@@ -127,7 +127,7 @@ function syncActor(): string {
 // duplicate is byte-for-byte the same fresh-id-copy mechanics as a sync-on move target —
 // always a new id, never the source id.
 export function freshCopyOf(item: ItineraryItem): ItineraryItem {
-  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, ...content } = item;
+  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, doneHlc: _dh, ...content } = item;
   return { ...content, id: generateItemId() } as ItineraryItem;
 }
 
@@ -199,9 +199,9 @@ export function useItinerary(): ItineraryStore {
           // real transition today; if a future writer ever sets `done` idempotently, switch to a
           // prev→next compare inside core.updateItem.
           const attributed = stampDone(stampUpdated(i, getUserName), patch, getUserName);
-          return syncEnabled()
-            ? stampSyncUpdated(attributed, realClock.now().getTime(), syncActor())
-            : attributed;
+          if (!syncEnabled()) return attributed;
+          const synced = stampSyncUpdated(attributed, realClock.now().getTime(), syncActor());
+          return 'done' in patch ? { ...synced, doneHlc: synced.hlc } : synced;
         }),
       );
     },

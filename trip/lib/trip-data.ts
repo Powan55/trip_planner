@@ -85,6 +85,7 @@ export interface ItineraryItem {
   // absent = no completion attribution.
   doneBy?: string;
   doneAt?: string; // ISO timestamp of the completion
+  doneHlc?: string; // HLC of the last done toggle (tick or untick), sync only; merge key for done (D-569)
   // Manual pin-drop ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
   // `done` precedent above). Absent = un-pinned (the item plots, if at all, via the existing
   // sourceId/name-match join in lib/itinerary-map.ts). When BOTH are defined the item plots at

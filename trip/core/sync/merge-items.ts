@@ -31,6 +31,11 @@ export interface SyncedRow {
    * Optional and unused by the domains that have no user-visible order (expenses, docs, places).
    */
   ord?: string;
+  /**
+   * Stamp of the last done/checked toggle, serialized HLC like `ord`. Lets the done state merge
+   * apart from the body winner (D-569). Written on tick AND untick, so an untick can win too.
+   */
+  doneHlc?: string;
   deleted?: boolean;
   /** Legacy HLC seed source when `hlc` is absent (seedHlcFromLegacy). */
   updatedAt?: string;
@@ -78,10 +83,33 @@ function rowHlc(row: SyncedRow): Hlc {
  * itself, so every merge over pre-split data is byte-identical to before.
  */
 export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R {
-  const win = resolveWinner(a, b, policy);
+  const win = mergeDone(resolveWinner(a, b, policy), a, b);
   const ord =
     a.ord === undefined ? b.ord : b.ord === undefined ? a.ord : a.ord > b.ord ? a.ord : b.ord;
   return ord === undefined || ord === win.ord ? win : { ...win, ord };
+}
+
+// Itinerary rows carry done/doneBy/doneAt, docs rows carry checked; a row never has both.
+const DONE_KEYS = ['done', 'doneBy', 'doneAt', 'checked', 'doneHlc'] as const;
+
+/**
+ * Join the done state as one unit, from whichever row has the higher `doneHlc` (#541). Same
+ * reasoning as `ord`: a tick and a later notes edit from another device are independent, so the
+ * body winner must not carry the stale done state over the tick. A tombstone winner is returned
+ * untouched, and a tie or no `doneHlc` on either side keeps the body winner's state.
+ */
+function mergeDone<R extends SyncedRow>(win: R, a: R, b: R): R {
+  if (win.deleted === true) return win;
+  const src =
+    a.doneHlc === undefined ? b : b.doneHlc === undefined ? a : a.doneHlc > b.doneHlc ? a : b;
+  if (src.doneHlc === undefined || src.doneHlc === win.doneHlc) return win;
+  const out = { ...win } as Record<string, unknown>;
+  const from = src as unknown as Record<string, unknown>;
+  for (const k of DONE_KEYS) {
+    if (k in from) out[k] = from[k];
+    else delete out[k];
+  }
+  return out as unknown as R;
 }
 
 /** The per-row CONTENT winner: tombstone policy, then HLC, then the equal-HLC tie-breaks. */
