@@ -5748,3 +5748,9 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 ### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
+
+### D-572 · (issue #544, 2026-09-24) · An outbox ack only clears a chunk nothing re-enqueued since its push
+
+**Decision.** The outbox slot gains an optional `seq` map: a per-domain, per-chunk counter bumped on every enqueue. A push carries the counter captured with its state, and `ack` removes the chunk only if the counter is unchanged. Additive, no `version` bump; a missing counter reads as 0, so slots already on disk ack as before. Counters are never pruned on ack, since a reset would let a stale push match a fresh edit.
+
+**Why.** A stale push from one tab could ack a chunk after another tab's newer edit was enqueued; if that edit's push then failed, the chunk was no longer dirty and the first snapshot overwrote it on reload. An older build in another tab drops `seq` when it writes the slot; the counter then reads 0 and a newer build's in-flight ack no-ops (the chunk stays dirty and retries), which is the safe direction.
