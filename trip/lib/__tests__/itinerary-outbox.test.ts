@@ -194,6 +194,7 @@ describe('end-to-end FU-19: offline edit → dirty slot → reconnect flush push
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.syncOutbox)!)).toEqual({
       version: 1,
       dirty: { itinerary: ['2026-12-09'] },
+      seq: { itinerary: { '2026-12-09': 1 } },
     });
     expect(writeLog).toEqual([]); // nothing reached the server
 

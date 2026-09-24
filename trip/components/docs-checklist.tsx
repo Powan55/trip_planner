@@ -66,10 +66,39 @@ function DocRow({
     if (!focusedRef.current) setDraft(item.note ?? '');
   }, [item.note]);
 
+  // Refs so the flush below (event listeners, unmount) always see the latest draft/note/callback
+  // without re-subscribing on every keystroke.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const savedNoteRef = useRef(item.note ?? '');
+  savedNoteRef.current = item.note ?? '';
+  const onNoteRef = useRef(onNote);
+  onNoteRef.current = onNote;
+
+  const flushDraft = () => {
+    if (draftRef.current.trim() !== savedNoteRef.current) onNoteRef.current(item.id, draftRef.current);
+  };
+
   const commitNote = () => {
     focusedRef.current = false;
-    if (draft.trim() !== (item.note ?? '')) onNote(item.id, draft);
+    flushDraft();
   };
+
+  // #548: onBlur alone loses the note if the tab is closed/backgrounded or the row unmounts while
+  // the field still has focus (nothing fires blur then). Mirror the commit on those exits too.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) flushDraft();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flushDraft);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flushDraft);
+      flushDraft();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id]);
 
   return (
     <li className="border-b-hair border-border last:border-b-0">

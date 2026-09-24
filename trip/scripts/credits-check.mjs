@@ -31,7 +31,8 @@ const SOURCE_EXT = /\.(jpe?g|png)$/i;
 
 // Free-licence allowlist (D-015). Anything else in a licence cell fails, which is what stops a
 // non-free logo or an all-rights-reserved photo from being bundled with a plausible-looking row.
-const FREE_LICENCE = /^(CC0|Public domain|CC BY(-SA)? \d+(\.\d+)?)$/;
+// A two-letter suffix is a CC jurisdiction port (e.g. 'CC BY-SA 3.0 de'), same terms as the unported licence.
+const FREE_LICENCE = /^(CC0|Public domain|CC BY(-SA)? \d+(\.\d+)?( [a-z]{2})?)$/;
 // The only non-Wikimedia rows: screenshots of this app, which no third party holds a right in.
 // Scoped to the directory they live in so a sourced photo cannot be waved through as "Own work".
 const OWN_WORK = new Set(['Own work', 'Own work; basemap ODbL / CC BY']);
@@ -93,7 +94,8 @@ for (const [id, entry] of Object.entries(map)) {
     problems.push(`image-map.json ${id}: path ${entry.path} has no CREDITS.md row`);
     continue;
   }
-  if (entry.artist !== row.author) problems.push(`image-map.json ${id}: artist "${entry.artist}" but CREDITS.md says "${row.author}"`);
+  // fetch-images.mjs writes an empty artist into the table as 'Unknown'.
+  if ((entry.artist || 'Unknown') !== row.author) problems.push(`image-map.json ${id}: artist "${entry.artist}" but CREDITS.md says "${row.author}"`);
   if (entry.license !== label(row.licence)) problems.push(`image-map.json ${id}: licence "${entry.license}" but CREDITS.md says "${label(row.licence)}"`);
 }
 
