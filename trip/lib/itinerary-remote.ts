@@ -469,7 +469,7 @@ export function subscribeRemote(): () => void {
     // GC BOUNDARY ②: the steady-state snapshot apply — prune past-horizon,
     // unreferenced tombstones from each MERGED day before persist (never in the hot merge path).
     // Convergent + conservative: a tombstone one client keeps re-enters via merge until every doc
-    // holding it is rewritten past the 30-day horizon (near-inert at 32-day trip scale).
+    // holding it is rewritten past the 365-day horizon (D-567).
     const nowPt = realClock.now().getTime();
     persistAndDispatch(merged.map((d) => gcTombstones(d, nowPt)));
   };

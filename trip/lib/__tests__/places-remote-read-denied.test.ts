@@ -130,7 +130,7 @@ describe('#345 — a permission-denied READ stream is classified, not endlessly 
   });
 });
 
-describe('#539 — first server snapshot: remote wins unless the places chunk is dirty', () => {
+describe('#539 — first server snapshot drops only local rows the remote could have GC\'d', () => {
   const place = (id: string, pt: number): MyPlace => ({
     id,
     name: id,
@@ -139,15 +139,25 @@ describe('#539 — first server snapshot: remote wins unless the places chunk is
     hlc: `${String(pt).padStart(15, '0')}:000000:phone`,
     rev: 1,
   });
-  const stale = place('deleted-long-ago', Date.UTC(2026, 0, 1));
-  const peer = place('peer', Date.UTC(2026, 8, 1));
+  const DAY = 24 * 60 * 60 * 1000;
+  const stale = place('deleted-long-ago', Date.now() - 400 * DAY);
+  const peer = place('peer', Date.now() - 2 * DAY);
 
-  it('not dirty: the remote list is applied as-is, so a stale local row does not come back', async () => {
+  it('not dirty: a local row older than the horizon and absent from remote does not come back', async () => {
     saveMyPlaces([stale]);
     const unsub = subscribeRemotePlaces();
     await flush();
     fake.emitServerDoc({ version: 1, items: [peer] });
     expect(loadMyPlaces().map((p) => p.id)).toEqual(['peer']);
+    unsub();
+  });
+
+  it('not dirty: a place added while signed out (never enqueued) survives sign-in', async () => {
+    saveMyPlaces([place('added-signed-out', Date.now() - DAY)]);
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id).sort()).toEqual(['added-signed-out', 'peer']);
     unsub();
   });
 
