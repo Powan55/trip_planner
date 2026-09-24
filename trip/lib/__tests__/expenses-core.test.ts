@@ -282,3 +282,17 @@ describe('a FORWARD category (#150) is retained by the sanitizers and excluded f
     expect(spent).toEqual({ byLeg: { nepal: 1000 }, byCategory: { nepal: { food: 1000 } } });
   });
 });
+
+describe('#532 — an edit patches the live row only, never its tombstone in another leg', () => {
+  it('tombstone(A) + live(B), edit with leg B → one live row in B survives', () => {
+    const H = '000000000002000:000000:me';
+    const list: Expense[] = [
+      { id: 'x', leg: 'nepal', category: 'food', amount: 100, createdAt: 't', rev: 2, hlc: H, deleted: true },
+      { id: 'x', leg: 'japan', category: 'food', amount: 100, createdAt: 't', rev: 2, hlc: H },
+    ];
+    const next = updateExpense(list, 'x', { leg: 'japan', amount: 150 }, (e) => ({ ...e, rev: 3, hlc: '000000000003000:000000:me' }));
+    expect(next[0]).toBe(list[0]);
+    const live = next.filter((e) => e.deleted !== true);
+    expect(live).toEqual([expect.objectContaining({ id: 'x', leg: 'japan', amount: 150, rev: 3 })]);
+  });
+});
