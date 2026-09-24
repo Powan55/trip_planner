@@ -5738,6 +5738,8 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
 
+**Amendment (issue #572).** Joining a `pack:` token from an unshared pack drops the same slots too, and the paste boxes confirm when any of them is present; otherwise this device's rows merged into the partner's trip. `setDefaultTripShareId` itself still keeps everything on `''` to an id, because the owner's own share button starts sharing through it.
+
 ### D-564 · (issue #532, 2026-09-23) · An expense id lives in one leg; a leg move tombstones the old chunk
 
 **Decision.** Pushing a leg chunk tombstones any remote live row whose id this device holds in another leg at a newer hlc, stamped with that row's hlc. The snapshot rebuild keeps one row per id across legs: highest hlc wins, and on an exact tie the live row beats the tombstone.
