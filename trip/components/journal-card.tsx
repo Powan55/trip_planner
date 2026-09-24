@@ -38,7 +38,18 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   rough: { glyph: '😮‍💨', label: 'Rough' },
 };
 
-export default function JournalCard({ date, isToday = true }: { date: string; isToday?: boolean }) {
+export default function JournalCard({
+  date,
+  isToday = true,
+  onDone,
+}: {
+  date: string;
+  isToday?: boolean;
+  /** Fired after a user-initiated Save or Cancel closes the editor (not the midnight
+   *  rollover auto-close). `journal-browse.tsx` uses this to swap the row back to its
+   *  read-only summary; the Today-panel caller leaves it unset and keeps this card mounted. */
+  onDone?: () => void;
+}) {
   const { getEntry, saveEntry, hydrated } = useJournal();
   const entry = getEntry(date);
   // `journal-browse.tsx` mounts this same card to edit a PAST day, where every "today" literal was
@@ -119,6 +130,7 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
       highlight: draftHighlight,
     });
     setEditing(false);
+    onDone?.();
   };
 
   const handleCancel = () => {
@@ -133,6 +145,7 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
       });
     }
     setEditing(false);
+    onDone?.();
   };
   onCancelRef.current = handleCancel;
 
