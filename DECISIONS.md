@@ -5755,3 +5755,12 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** On the first server snapshot a clean, present leg is merged with local, then local rows absent from remote and older than `DEFAULT_GC_HORIZON_MS` are dropped; unstamped rows stay. If a kept row is missing from remote or newer than it, the leg is pushed right away. Same rule as places (#539).
 
 **Why.** Signed-out adds and backup restores stamp an `hlc` but never reach the outbox, so the verbatim apply wiped them on the first sign-in. A cross-leg move is still safe: the old leg's move tombstone wins the merge, and `dedupeAcrossLegs` covers a peer that never wrote one.
+### D-567 · (issue #539, 2026-09-24) · Tombstones live 365 days, and places drops stale unsynced rows on first snapshot
+
+**Decision.** `DEFAULT_GC_HORIZON_MS` goes from 30 to 365 days for every synced domain. `subscribeRemotePlaces` still merges on the first server snapshot, but when the places `'list'` chunk is clean it then drops local rows that are absent from remote and whose `hlc` is older than the horizon. Unstamped rows are kept.
+
+**Why.** A device idle past the horizon still held rows whose tombstones the other devices had already dropped, so its first merge brought deleted places and expenses back. Trips are planned months ahead, so 30 days was well inside a normal idle gap; tombstones are small and places already caps them at 200. Taking remote verbatim would have fixed places too, but it wipes a place added while signed out, which stamps an `hlc` and never reaches the outbox. A row can only resurrect after its tombstone is GC'd, so it must be older than the horizon; anything newer is kept.
+
+**Trade-off.** A place added while signed out and left unsynced for more than 365 days is dropped on the next sign-in.
+
+**Caveat.** Builds from before this change still GC at 30 days. Until every device updates, one of them can still drop a tombstone early and a stale peer can resurrect that row.

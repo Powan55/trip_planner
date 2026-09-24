@@ -19,13 +19,24 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
   return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
 });
 
+const outbox = vi.hoisted(() => ({ dirty: [] as string[] }));
+vi.mock('@/core/sync/outbox', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/core/sync/outbox')>();
+  return { ...orig, outboxDirty: () => [...outbox.dirty] };
+});
+
 type DocData = Record<string, unknown>;
 
 class FakeFirestore {
   docs = new Map<string, DocData>();
   errorListeners: Array<(err: unknown) => void> = [];
+  nextListeners: Array<(snap: unknown) => void> = [];
   emitError(err: unknown) {
     for (const cb of this.errorListeners) cb(err);
+  }
+  emitServerDoc(data: DocData) {
+    const snap = { metadata: { hasPendingWrites: false, fromCache: false }, exists: () => true, data: () => data };
+    for (const cb of this.nextListeners) cb(snap);
   }
 }
 const fake = new FakeFirestore();
@@ -54,9 +65,10 @@ vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
   onSnapshot: (
     _ref: unknown,
-    _onNext: (snap: unknown) => void,
+    onNext: (snap: unknown) => void,
     onError?: (e: unknown) => void,
   ) => {
+    fake.nextListeners.push(onNext);
     if (onError) fake.errorListeners.push(onError);
     return () => {
       if (onError) {
@@ -69,6 +81,8 @@ vi.mock('firebase/firestore', () => ({
 
 import { subscribeRemotePlaces } from '@/lib/places-remote';
 import { isReadDenied, setReadDenied } from '@/core/sync/read-denied';
+import { loadMyPlaces, saveMyPlaces } from '@/core/places/storage';
+import type { MyPlace } from '@/core/places/model';
 
 async function flush(): Promise<void> {
   await new Promise((r) => setTimeout(r, 0));
@@ -78,6 +92,9 @@ async function flush(): Promise<void> {
 beforeEach(() => {
   fake.docs.clear();
   fake.errorListeners = [];
+  fake.nextListeners = [];
+  outbox.dirty = [];
+  localStorage.clear();
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -109,6 +126,57 @@ describe('#345 — a permission-denied READ stream is classified, not endlessly 
 
     expect(isReadDenied()).toBe(false);
     expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(true);
+    unsub();
+  });
+});
+
+describe('#539 — first server snapshot drops only local rows the remote could have GC\'d', () => {
+  const place = (id: string, pt: number): MyPlace => ({
+    id,
+    name: id,
+    legId: 'main',
+    addedAt: new Date(pt).toISOString(),
+    hlc: `${String(pt).padStart(15, '0')}:000000:phone`,
+    rev: 1,
+  });
+  const DAY = 24 * 60 * 60 * 1000;
+  const stale = place('deleted-long-ago', Date.now() - 400 * DAY);
+  const peer = place('peer', Date.now() - 2 * DAY);
+
+  it('not dirty: a local row older than the horizon and absent from remote does not come back', async () => {
+    saveMyPlaces([stale]);
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id)).toEqual(['peer']);
+    unsub();
+  });
+
+  it('not dirty: a place added while signed out (never enqueued) survives sign-in', async () => {
+    saveMyPlaces([place('added-signed-out', Date.now() - DAY)]);
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id).sort()).toEqual(['added-signed-out', 'peer']);
+    unsub();
+  });
+
+  it('not dirty: a row whose hlc does not parse is treated as unstamped and kept', async () => {
+    saveMyPlaces([{ ...stale, id: 'bad-stamp', hlc: 'garbage' }]);
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id).sort()).toEqual(['bad-stamp', 'peer']);
+    unsub();
+  });
+
+  it('dirty: an unpushed local row is merged, not dropped', async () => {
+    saveMyPlaces([stale]);
+    outbox.dirty = ['list'];
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id).sort()).toEqual(['deleted-long-ago', 'peer']);
     unsub();
   });
 });
