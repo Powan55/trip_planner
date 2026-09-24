@@ -10,7 +10,7 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
 import { realClock } from '@/lib/trip-now';
 import { nextSyncStamp } from '@/core/sync/stamp';
-import { mergeItems } from '@/core/sync/merge-items';
+import { doneKey, mergeItems } from '@/core/sync/merge-items';
 import {
   toggleItem as toggleItemCore,
   setNote as setNoteCore,
@@ -90,7 +90,7 @@ function editStamp(): DocStamper {
   return (item) => {
     const name = actor();
     const attributed: DocItem = name ? { ...item, updatedBy: name } : item;
-    return { ...attributed, ...nextSyncStamp(item, realClock.now().getTime(), name) };
+    return { ...attributed, ...nextSyncStamp(item, realClock.now().getTime(), name), doneHlc: doneKey(item) };
   };
 }
 
@@ -146,7 +146,7 @@ export function useDocs(): DocsStore {
           if (i.deleted === true || i.updatedBy !== from) return i;
           claimed++;
           const renamed: DocItem = { ...i, updatedBy: to };
-          return sync ? { ...renamed, ...nextSyncStamp(i, now, name) } : renamed;
+          return sync ? { ...renamed, ...nextSyncStamp(i, now, name), doneHlc: doneKey(i) } : renamed;
         });
       });
       return claimed;

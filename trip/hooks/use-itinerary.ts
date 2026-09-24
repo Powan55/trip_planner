@@ -9,6 +9,7 @@ import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { realClock } from '@/lib/trip-now';
 import { stampCreated, stampUpdated, stampDone } from '@/lib/attribution';
 import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted, reorderSyncStamps } from '@/core/sync/stamp';
+import { doneKey } from '@/core/sync/merge-items';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { generateItemId } from '@/lib/item-id';
@@ -201,7 +202,7 @@ export function useItinerary(): ItineraryStore {
           const attributed = stampDone(stampUpdated(i, getUserName), patch, getUserName);
           if (!syncEnabled()) return attributed;
           const synced = stampSyncUpdated(attributed, realClock.now().getTime(), syncActor());
-          return 'done' in patch ? { ...synced, doneHlc: synced.hlc } : synced;
+          return { ...synced, doneHlc: 'done' in patch ? synced.hlc : doneKey(i) };
         }),
       );
     },
@@ -580,7 +581,9 @@ export function useItinerary(): ItineraryStore {
               ...(i.updatedBy === from ? { updatedBy: to } : {}),
               ...(i.doneBy === from ? { doneBy: to } : {}),
             };
-            return sync ? stampSyncUpdated(renamed, realClock.now().getTime(), actor) : renamed;
+            return sync
+              ? { ...stampSyncUpdated(renamed, realClock.now().getTime(), actor), doneHlc: doneKey(i) }
+              : renamed;
           });
         }
       }

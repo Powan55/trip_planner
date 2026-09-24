@@ -286,10 +286,17 @@ describe('mergeItems — done state merges apart from the body winner (#541, D-5
 
   it('A ticks at t1, B edits notes at t2 → merged row keeps both', () => {
     const a: DoneRow = { ...base, hlc: T1, doneHlc: T1, done: true, doneBy: 'A', doneAt: 'iso' };
-    const b: DoneRow = { ...base, hlc: T2, notes: 'gate 4' };
+    // a current build's notes edit freezes doneHlc at the pre-edit key
+    const b: DoneRow = { ...base, hlc: T2, doneHlc: base.hlc, notes: 'gate 4' };
     for (const m of both(a, b)) {
       expect(m).toMatchObject({ notes: 'gate 4', done: true, doneBy: 'A', doneAt: 'iso', hlc: T2 });
     }
+  });
+
+  it('an unstamped row (older build) with a newer hlc wins the done state over an older stamp', () => {
+    const tick: DoneRow = { ...base, hlc: T1, doneHlc: T1, checked: true };
+    const oldBuildUntick: DoneRow = { ...base, hlc: T2, checked: false };
+    for (const m of both(tick, oldBuildUntick)) expect(m.checked).toBe(false);
   });
 
   it('an untick newer than the tick wins and clears the attribution', () => {
@@ -314,7 +321,7 @@ describe('mergeItems — done state merges apart from the body winner (#541, D-5
 
   it('docs rows: the checked flag joins the same way', () => {
     const a: DoneRow = { ...base, hlc: T1, doneHlc: T1, checked: true };
-    const b: DoneRow = { ...base, hlc: T2, checked: false, note: 'P123' };
+    const b: DoneRow = { ...base, hlc: T2, doneHlc: base.hlc, checked: false, note: 'P123' };
     for (const m of both(a, b)) expect(m).toMatchObject({ checked: true, note: 'P123' });
   });
 });

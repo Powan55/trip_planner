@@ -204,6 +204,10 @@ describe('SYNC ON — toggle stamps doneHlc, a note edit does not (#541)', () =>
     await h.run((s) => s.toggleItem('passport-validity'));
     expect(row().checked).toBe(false);
     expect(row().doneHlc).toBe(row().hlc);
+    // a note on a never-toggled template row must not outrank a peer's tick
+    await h.run((s) => s.setNote('japan-entry', 'QR saved'));
+    const noted = h.current.items.find((i) => i.id === 'japan-entry') as DocItem;
+    expect(noted.doneHlc! < ticked.doneHlc!).toBe(true);
     h.unmount();
   });
 });

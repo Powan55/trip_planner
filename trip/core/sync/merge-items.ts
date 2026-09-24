@@ -100,9 +100,11 @@ const DONE_KEYS = ['done', 'doneBy', 'doneAt', 'checked', 'doneHlc'] as const;
  */
 function mergeDone<R extends SyncedRow>(win: R, a: R, b: R): R {
   if (win.deleted === true) return win;
-  const src =
-    a.doneHlc === undefined ? b : b.doneHlc === undefined ? a : a.doneHlc > b.doneHlc ? a : b;
-  if (src.doneHlc === undefined || src.doneHlc === win.doneHlc) return win;
+  const ka = doneKey(a);
+  const kb = doneKey(b);
+  if (ka === kb) return win;
+  const src = ka > kb ? a : b;
+  if (src === win) return win;
   const out = { ...win } as Record<string, unknown>;
   const from = src as unknown as Record<string, unknown>;
   for (const k of DONE_KEYS) {
@@ -110,6 +112,15 @@ function mergeDone<R extends SyncedRow>(win: R, a: R, b: R): R {
     else delete out[k];
   }
   return out as unknown as R;
+}
+
+/**
+ * When the row's done state last changed. A row with no `doneHlc` (written by an older build,
+ * which never stamps it) falls back to its `hlc`, so an old build's untick still beats an older tick.
+ * Current builds write this into `doneHlc` on non-toggle edits so the edit doesn't claim the tick.
+ */
+export function doneKey(row: SyncedRow): string {
+  return row.doneHlc ?? row.hlc ?? seedHlcFromLegacy(row.updatedAt);
 }
 
 /** The per-row CONTENT winner: tombstone policy, then HLC, then the equal-HLC tie-breaks. */

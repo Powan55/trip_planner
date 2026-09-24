@@ -5744,6 +5744,6 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 ### D-569 · (issue #541, 2026-09-24) · The done tick merges on its own stamp, apart from the rest of the row
 
-**Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before.
+**Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
 
 **Why.** Whole-row LWW let a later notes edit from another device carry the old done state over an offline tick. `doneAt` couldn't be the key: it's wall-clock, only written when a display name is set, cleared on untick, and docs rows don't have it.
