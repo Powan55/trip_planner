@@ -544,6 +544,18 @@ export const STORAGE_KEYS = {
    * deliberately NOT on the trip registry: that syncs across devices and drops unknown fields.
    */
   tripsCreatedHere: 'nepal_japan_trips_created_here',
+  /**
+   * localStorage — boolean-as-string, `'true'` when the traveler switched sync off on THIS device
+   * (sync-paused, key 47; D-594). APP-SCOPED and per device: it is never synced, and sign-out
+   * leaves it alone, because it describes the device rather than the person.
+   */
+  syncPaused: 'nepal_japan_sync_paused',
+  /**
+   * localStorage — JSON `{ [field]: { v, hlc } }`, the local mirror of the account's
+   * `trips/{userToken}/profile/prefs` doc (person-prefs, key 48; D-594). Person data, so
+   * `wipeAllTripData` removes it on sign-out. Shape owned by `lib/account-prefs-remote.ts`.
+   */
+  personPrefs: 'nepal_japan_person_prefs',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -870,6 +882,7 @@ export function wipeAllTripData(): void {
   // device straight into that trip. Same reasoning as `syncCode` two lines up.
   removeKey('local', STORAGE_KEYS.defaultTripShare);
   removeKey('local', STORAGE_KEYS.tripsCreatedHere);
+  removeKey('local', STORAGE_KEYS.personPrefs);
 }
 
 /**
@@ -1416,6 +1429,16 @@ export const mapWakeLockPrefs = {
   },
   set(value: boolean): void {
     writeString('local', STORAGE_KEYS.mapWakeLockEnabled, String(value));
+  },
+} as const;
+
+/** "Sync this device" off switch (key 47). Same `String(boolean)` shape; absent reads as not paused. */
+export const syncPausedPrefs = {
+  get(): boolean {
+    return readString('local', STORAGE_KEYS.syncPaused) === 'true';
+  },
+  set(value: boolean): void {
+    writeString('local', STORAGE_KEYS.syncPaused, String(value));
   },
 } as const;
 
