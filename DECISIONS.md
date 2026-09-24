@@ -5737,3 +5737,7 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** `setDefaultTripShareId` clears the default pack's `syncOutbox`, `itinerary`, `expenses`, `budget`, `docsChecklist` and `myPlaces` slots when the share id changes from one non-empty id to another. Starting to share (`''` to an id) and leaving (id to `''`) keep everything. The Settings and trips-hub paste boxes confirm first, with the handshake's copy.
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
+
+### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
+
+**Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
