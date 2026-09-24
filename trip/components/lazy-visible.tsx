@@ -43,48 +43,9 @@
  * `prefers-reduced-motion` it is a static muted block, never a sweep.
  */
 
-import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import SectionSkeleton from '@/components/section-skeleton';
-
-/**
- * Minimal native-`IntersectionObserver` replacement for `react-intersection-observer`'s
- * `useInView`. Single consumer, so
- * it lives inline here rather than in its own module. Preserves the four behaviours the
- * component relied on: the `rootMargin` pre-viewport lead, a `triggerOnce` latch (`inView`
- * goes true once and never back), `skip`-driven detach (once mounted the observer stops),
- * and the `{ ref, inView }` shape (a callback `ref` for the placeholder + a boolean).
- * SSR-safe: no observer is constructed until the ref runs on a real DOM node, and it
- * guards `typeof IntersectionObserver`.
- */
-function useInView({ rootMargin, skip }: { rootMargin: string; skip: boolean }) {
-  const [inView, setInView] = useState(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-
-  const ref = useCallback(
-    (node: Element | null) => {
-      // Detach any prior observer (node swapped / unmounted / now skipped).
-      observerRef.current?.disconnect();
-      observerRef.current = null;
-
-      if (!node || skip || typeof IntersectionObserver === 'undefined') return;
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((e) => e.isIntersecting)) {
-            setInView(true); // triggerOnce: latch true...
-            observer.disconnect(); // ..and stop observing.
-          }
-        },
-        { rootMargin },
-      );
-      observer.observe(node);
-      observerRef.current = observer;
-    },
-    [skip, rootMargin],
-  );
-
-  return { ref, inView };
-}
+import { useInView } from '@/hooks/use-in-view';
 
 interface LazyVisibleProps {
   /**

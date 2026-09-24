@@ -5766,6 +5766,7 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
 
+**Amendment (issue #572).** Joining a `pack:` token from an unshared pack drops the same slots too, and the paste boxes confirm when any of them is present; otherwise this device's rows merged into the partner's trip. `setDefaultTripShareId` itself still keeps everything on `''` to an id, because the owner's own share button starts sharing through it.
 ### D-565 · (issue #529, 2026-09-23) · Every loaded device heals its account's identity doc, create-only
 
 **Decision.** On load, `runAccountIdentitySync` reads `profile/identity` from the server. If it is missing, the device creates it in a transaction that writes only when the doc is still absent: `{ version: 1, name }`, or a nameless `{ version: 1 }` when the local name is the placeholder. A failed read writes nothing. The Settings rename still overwrites.
@@ -5791,6 +5792,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** On the first server snapshot a clean, present leg is merged with local, then local rows absent from remote and older than `DEFAULT_GC_HORIZON_MS` are dropped; unstamped rows stay. If a kept row is missing from remote or newer than it, the leg is pushed right away. Same rule as places (#539).
 
 **Why.** Signed-out adds and backup restores stamp an `hlc` but never reach the outbox, so the verbatim apply wiped them on the first sign-in. A cross-leg move is still safe: the old leg's move tombstone wins the merge, and `dedupeAcrossLegs` covers a peer that never wrote one.
+### D-569 · (issue #541, 2026-09-24) · The done tick merges on its own stamp, apart from the rest of the row
+
+**Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
+
+**Why.** Whole-row LWW let a later notes edit from another device carry the old done state over an offline tick. `doneAt` couldn't be the key: it's wall-clock, only written when a display name is set, cleared on untick, and docs rows don't have it.
 ### D-567 · (issue #539, 2026-09-24) · Tombstones live 365 days, and places drops stale unsynced rows on first snapshot
 
 **Decision.** `DEFAULT_GC_HORIZON_MS` goes from 30 to 365 days for every synced domain. `subscribeRemotePlaces` still merges on the first server snapshot, but when the places `'list'` chunk is clean it then drops local rows that are absent from remote and whose `hlc` is older than the horizon. Unstamped rows are kept.

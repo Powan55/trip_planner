@@ -421,6 +421,7 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
     const hd = renderStore(useDocs);
     await hd.run((s) => s.claimAuthorship(OLD));
     expect(changedKeys(seedDocs()[0], storedDoc('passport-validity') as DocItem)).toEqual([
+      'doneHlc', // pinned to the pre-claim hlc (#541)
       'hlc',
       'rev',
       'updatedBy',
@@ -548,6 +549,14 @@ describe('S408 — the claim SURVIVES a remote merge (run, not asserted)', () =>
 
     expect(local.rev).toBe(2);
     expect((local.hlc ?? '') > SEED_HLC).toBe(true);
+
+    // #541: the claim does not claim the tick. A peer's untick made before the claim landed
+    // (older hlc than the claim) still wins the checked state.
+    const untickAt = serialize({ pt: Date.parse('2026-01-06T09:00:00.000Z'), ct: 0, actor: 'peer-device' });
+    const peerUntick: DocItem = { ...stalePeerDoc(), checked: false, hlc: untickAt, doneHlc: untickAt };
+    for (const m of [mergeItems([local], [peerUntick])[0], mergeItems([peerUntick], [local])[0]]) {
+      expect(m).toMatchObject({ checked: false, updatedBy: ME });
+    }
     h.unmount();
   });
 

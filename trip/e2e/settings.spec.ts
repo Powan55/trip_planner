@@ -444,7 +444,7 @@ test.describe('S146 settings — relocated currency & rates re-express the /plan
 
     await expandGroup(page, 'settings-group-currency');
     await page.getByTestId('budget-currency-jpy').click();
-    await expect(page.getByTestId('budget-currency-jpy')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('budget-currency-jpy')).toHaveAttribute('aria-pressed', 'true');
 
     // Persisted (write path is the unchanged use-budget commit — S143 unaffected).
     await expect
