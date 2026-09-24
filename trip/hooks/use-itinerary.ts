@@ -358,7 +358,7 @@ export function useItinerary(): ItineraryStore {
       const actor = syncActor();
       commit((current) => {
         // (a) Tombstone every live item on every current day (raw base — tombstones already dead
-        // are left as-is; gcTombstones prunes them past the 30-day horizon).
+        // are left as-is; gcTombstones prunes them past the 365-day horizon).
         let next = current;
         for (const day of current) {
           for (const it of day.items) {

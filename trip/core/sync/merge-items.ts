@@ -249,11 +249,13 @@ export function mergeItems<R extends SyncedRow>(
 
 /**
  * Default tombstone GC horizon: a tombstone may drop once its `hlc.pt` is
- * older than 30 days — comfortably past any realistic offline window. Lives here (the id-keyed
+ * older than 365 days. 30 days was shorter than a device can sit idle between trip planning and
+ * the trip itself, and a tombstone GC'd before a stale device syncs lets it resurrect the row
+ * (#539, D-567). Tombstones are tiny and trips are months long. Lives here (the id-keyed
  * layer) so BOTH the itinerary `gcTombstones` (day-shaped) and the expenses `gcTombstoneRows`
  * (chunk-shaped) share ONE horizon; `merge-day.ts` re-exports it for its existing public API.
  */
-export const DEFAULT_GC_HORIZON_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const DEFAULT_GC_HORIZON_MS = 365 * 24 * 60 * 60 * 1000; // 365 days
 
 /**
  * Garbage-collect old, unreferenced tombstones from ONE id-keyed row-set —
