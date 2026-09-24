@@ -130,8 +130,8 @@ describe('ServiceWorkerRegistrar — hadController reload gating', () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it('#531 — a tab that never clicked Refresh does NOT reload on controllerchange; it gets the toast instead', async () => {
-    const sw = makeServiceWorkerContainer({}, makeRegistration());
+  it('#531 — a tab that never clicked Refresh does NOT reload on controllerchange; it gets the toast instead, and Refresh there reloads too', async () => {
+    const sw = makeServiceWorkerContainer(makeWorker(), makeRegistration());
     Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
 
     await mount();
@@ -142,6 +142,15 @@ describe('ServiceWorkerRegistrar — hadController reload gating', () => {
 
     expect(reload).not.toHaveBeenCalled();
     expect(toast).toHaveBeenCalledWith('New version available', expect.any(Object));
+
+    // This (passive) tab's own Refresh click must actually reload — the worker
+    // is already active here, so re-posting SKIP_WAITING to it is a no-op; the
+    // click has to fall through to a plain reload instead.
+    const onClick = (vi.mocked(toast).mock.calls.at(-1)![1] as unknown as { action: { onClick: () => void } })
+      .action.onClick;
+    onClick();
+
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -54,7 +54,11 @@ export function ServiceWorkerRegistrar() {
     const onControllerChange = () => {
       if (!hadController || refreshing) return;
       if (!clickedRefresh) {
-        promptUpdate(navigator.serviceWorker.controller ?? undefined);
+        // No worker ref: the controller here is already the NEW (active) worker,
+        // so passing it would re-post SKIP_WAITING to an already-active worker
+        // (a no-op — no second controllerchange, no reload). Omitting it routes
+        // the click through the `else if (controller)` fallback below instead.
+        promptUpdate();
         return;
       }
       refreshing = true;
