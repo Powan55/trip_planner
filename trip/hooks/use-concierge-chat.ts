@@ -447,7 +447,14 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
 
       const history = historyRef.current;
       const userTurn: ChatTurn = { role: 'user', content: trimmed };
-      setMessages((prev) => [...prev, userTurn, { role: 'assistant', content: '' }]);
+      // #566 — retry() re-sends the same message through this same path, and a prior attempt's
+      // `fail()` leaves the user turn standing (only the in-flight assistant bubble is popped). Skip
+      // re-appending it when it's already the last message, or a retry shows the user's turn twice.
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        const base = last?.role === 'user' && last.content === trimmed ? prev : [...prev, userTurn];
+        return [...base, { role: 'assistant', content: '' }];
+      });
       setStatus('streaming');
       setError(null);
 

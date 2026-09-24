@@ -515,7 +515,9 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     await h.retry();
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(h.status).toBe('idle');
-    // The failed turn left only the user's message; the retry appends a fresh user+assistant pair.
+    // #566 — the failed attempt already left the user's turn standing; retry must reuse it rather
+    // than appending a second copy of the same message.
+    expect(h.messages.filter((m) => m.role === 'user')).toHaveLength(1);
     expect(h.messages.at(-1)!.content).toBe('second time lucky');
     h.unmount();
   });
