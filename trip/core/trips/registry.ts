@@ -16,6 +16,8 @@ import {
   setActiveTripId,
   getDefaultTripShareId,
   setDefaultTripShareId,
+  defaultPackHasSyncedData,
+  dropDefaultPackSyncedData,
   getKnownTripsRaw,
   setKnownTripsRaw,
   getRemovedTripsRaw,
@@ -471,6 +473,8 @@ export function joinTrip(id: string, name?: string): boolean {
   const token = parseTripToken(id);
   if (!token || isOwnAccountToken(id)) return false;
   if (token.kind === 'default') {
+    // #572 — an unshared pack's local rows would otherwise merge into the joined trip.
+    if (getDefaultTripShareId() === '') dropDefaultPackSyncedData();
     setDefaultTripShareId(token.id);
     setActiveTripId(DEFAULT_TRIP_ID);
     return getDefaultTripShareId() === token.id && getActiveTripId() === DEFAULT_TRIP_ID;
@@ -480,14 +484,14 @@ export function joinTrip(id: string, name?: string): boolean {
   return getActiveTripId() === token.id;
 }
 
-/** True when `joinTrip(id)` would move the default pack off one shared trip onto another, which
- * drops this device's copy of the plan (D-561). Paste boxes confirm before that. */
+/** True when `joinTrip(id)` would drop this device's copy of the default pack's plan (D-561):
+ * moving off one shared trip onto another, or joining from an unshared pack that holds data.
+ * Paste boxes confirm before that. */
 export function joinReplacesLocalPlan(id: string): boolean {
   const token = parseTripToken(id);
+  if (token?.kind !== 'default' || isOwnAccountToken(id)) return false;
   const current = getDefaultTripShareId();
-  return (
-    token?.kind === 'default' && current !== '' && current !== token.id && !isOwnAccountToken(id)
-  );
+  return current === '' ? defaultPackHasSyncedData() : current !== token.id;
 }
 
 export const REPLACE_LOCAL_PLAN_COPY =

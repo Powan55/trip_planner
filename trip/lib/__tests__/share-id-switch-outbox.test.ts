@@ -20,7 +20,8 @@ async function load() {
     import('@/core/storage/gateway'),
     import('@/core/sync/outbox'),
   ]);
-  return { ...config, ...gateway, ...outbox };
+  const registry = await import('@/core/trips/registry');
+  return { ...config, ...gateway, ...outbox, ...registry };
 }
 
 describe('#517 — switching the default pack to another shared trip', () => {
@@ -69,5 +70,34 @@ describe('#517 — switching the default pack to another shared trip', () => {
     localStorage.setItem(m.STORAGE_KEYS.itinerary, '[]');
     m.setDefaultTripShareId(Y);
     expect(localStorage.getItem(m.STORAGE_KEYS.itinerary)).toBe('[]');
+  });
+});
+
+describe('#572 — joining from an unshared default pack', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('confirms and drops local expenses before joining', async () => {
+    const m = await load();
+    localStorage.setItem(m.STORAGE_KEYS.expenses, '[{"id":"e1"}]');
+    expect(m.joinReplacesLocalPlan(`pack:${X}`)).toBe(true);
+    expect(m.joinTrip(`pack:${X}`)).toBe(true);
+    expect(localStorage.getItem(m.STORAGE_KEYS.expenses)).toBeNull();
+    expect(m.getTripId()).toBe(X);
+  });
+
+  it('does not confirm when the pack holds nothing', async () => {
+    const m = await load();
+    expect(m.joinReplacesLocalPlan(`pack:${X}`)).toBe(false);
+  });
+
+  it('keeps the owner data when they start sharing their own pack', async () => {
+    const m = await load();
+    localStorage.setItem(m.STORAGE_KEYS.expenses, '[{"id":"e1"}]');
+    m.setDefaultTripShareId(X);
+    expect(localStorage.getItem(m.STORAGE_KEYS.expenses)).toBe('[{"id":"e1"}]');
   });
 });

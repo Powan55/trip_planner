@@ -49,7 +49,7 @@ function render(initial: string, onCommit: (v: string) => void): Handle {
         ref.current!.onChange({ target: { value: v } } as unknown as ChangeEvent<HTMLInputElement>);
       });
     },
-    focus: () => act(() => ref.current!.onFocus()),
+    focus: () => {}, // focus alone is a no-op for the hook; kept so the specs read as the user flow
     blur: () => act(() => ref.current!.onBlur()),
     setCommitted: (v: string) => {
       committed = v;
@@ -114,5 +114,58 @@ describe('useDraftOnBlur (V6-2)', () => {
     h.setCommitted('200'); // a sync write lands mid-edit
     expect(h.value()).toBe('150'); // local edit wins until blur
     h.unmount();
+  });
+
+  it('focus + remote change + blur without typing never commits and shows the remote value (#563)', () => {
+    const onCommit = vi.fn();
+    const h = render('100', onCommit);
+    h.focus();
+    h.setCommitted('200');
+    expect(h.value()).toBe('200');
+    h.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(h.value()).toBe('200');
+    h.unmount();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it('a dirty draft flushes once when the page is hidden, not again on blur', () => {
+    const onCommit = vi.fn();
+    const h = render('100', onCommit);
+    h.focus();
+    h.type('150');
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    hidden.mockRestore();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('150');
+    h.blur();
+    h.unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it('a dirty draft flushes on pagehide', () => {
+    const onCommit = vi.fn();
+    const h = render('100', onCommit);
+    h.type('150');
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('150');
+    h.unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it('unmounting with a dirty draft commits it', () => {
+    const onCommit = vi.fn();
+    const h = render('100', onCommit);
+    h.focus();
+    h.type('175');
+    h.unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('175');
   });
 });

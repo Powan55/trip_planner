@@ -645,6 +645,18 @@ const DEFAULT_SHARE_SYNCED_SLOTS = [
   'myPlaces',
 ] as const satisfies readonly TripScopedSlot[];
 
+/** True when the default pack holds any synced slot a join would replace (D-561). */
+export function defaultPackHasSyncedData(): boolean {
+  return DEFAULT_SHARE_SYNCED_SLOTS.some(
+    (slot) => readString('local', keyForTrip(DEFAULT_TRIP_ID, slot)) !== null,
+  );
+}
+
+/** Drop the default pack's synced slots so a join starts from the remote trip (D-561). */
+export function dropDefaultPackSyncedData(): void {
+  for (const slot of DEFAULT_SHARE_SYNCED_SLOTS) removeKey('local', keyForTrip(DEFAULT_TRIP_ID, slot));
+}
+
 /**
  * Point the default pack at a remote trip id, or clear it with `''`. Write-ONLY — the CALLER
  * performs the full page reload, mirroring `setActiveTripId`. The reload is not optional: the
@@ -655,9 +667,7 @@ export function setDefaultTripShareId(id: string): void {
   // D-561 — the outbox and the synced slots belong to the trip they were edited under, not to the
   // pack. Moving from one shared trip to another would otherwise push them into the new one.
   const prev = getDefaultTripShareId();
-  if (prev !== '' && trimmed !== '' && prev !== trimmed) {
-    for (const slot of DEFAULT_SHARE_SYNCED_SLOTS) removeKey('local', keyForTrip(DEFAULT_TRIP_ID, slot));
-  }
+  if (prev !== '' && trimmed !== '' && prev !== trimmed) dropDefaultPackSyncedData();
   if (trimmed === '') removeKey('local', STORAGE_KEYS.defaultTripShare);
   else writeString('local', STORAGE_KEYS.defaultTripShare, trimmed);
 }
