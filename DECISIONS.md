@@ -5743,3 +5743,7 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** On load, `runAccountIdentitySync` reads `profile/identity` from the server. If it is missing, the device creates it in a transaction that writes only when the doc is still absent: `{ version: 1, name }`, or a nameless `{ version: 1 }` when the local name is the placeholder. A failed read writes nothing. The Settings rename still overwrites.
 
 **Why.** Legacy keys had no identity doc and the door rejects a missing one, so a key that worked on the device holding it was locked out everywhere else (Sushil). Create-only keeps two racing devices, or a doc that appeared mid-read, from being overwritten, and treating a read error as "missing" could have written a local name over a real one.
+
+### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
+
+**Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.

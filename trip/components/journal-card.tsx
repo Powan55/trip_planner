@@ -38,7 +38,30 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   rough: { glyph: '😮‍💨', label: 'Rough' },
 };
 
-export default function JournalCard({ date, isToday = true }: { date: string; isToday?: boolean }) {
+/** The three editable fields, as handed between a discarded draft and its undo. */
+export type JournalDraft = { text: string; mood: Mood | null; highlight: string };
+
+export default function JournalCard({
+  date,
+  isToday = true,
+  onDone,
+  onReopen,
+  initialDraft = null,
+}: {
+  date: string;
+  isToday?: boolean;
+  /** Fired after a user-initiated Save or Cancel closes the editor (not the midnight
+   *  rollover auto-close). `journal-browse.tsx` uses this to swap the row back to its
+   *  read-only summary; the Today-panel caller leaves it unset and keeps this card mounted. */
+  onDone?: () => void;
+  /** When set, a discarded-draft undo calls this with the draft instead of reopening locally —
+   *  `journal-browse.tsx` unmounts this card on close (#530), so the undo has nothing to reopen
+   *  by itself; the parent re-mounts a fresh card and hands the draft back via `initialDraft`. */
+  onReopen?: (draft: JournalDraft) => void;
+  /** Seeds the editor open with this draft on mount, instead of the usual closed/entry-seeded
+   *  start — the other half of `onReopen`. */
+  initialDraft?: JournalDraft | null;
+}) {
   const { getEntry, saveEntry, hydrated } = useJournal();
   const entry = getEntry(date);
   // `journal-browse.tsx` mounts this same card to edit a PAST day, where every "today" literal was
@@ -47,11 +70,12 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
   const dayLabel = isToday ? "Today's journal" : `${formatDateLong(date)} — journal`;
   const editLabel = isToday ? "Edit today's journal entry" : `Edit the journal entry for ${formatDateLong(date)}`;
 
-  // Editor open/closed + its draft fields. Closed by default; opens on Edit / the empty prompt.
-  const [editing, setEditing] = useState(false);
-  const [draftText, setDraftText] = useState('');
-  const [draftMood, setDraftMood] = useState<Mood | null>(null);
-  const [draftHighlight, setDraftHighlight] = useState('');
+  // Editor open/closed + its draft fields. Closed by default (unless a discarded draft is being
+  // handed back in via `initialDraft`); opens on Edit / the empty prompt.
+  const [editing, setEditing] = useState(initialDraft !== null);
+  const [draftText, setDraftText] = useState(initialDraft?.text ?? '');
+  const [draftMood, setDraftMood] = useState<Mood | null>(initialDraft?.mood ?? null);
+  const [draftHighlight, setDraftHighlight] = useState(initialDraft?.highlight ?? '');
 
   // ── focus management ────────────────────────
   // Opening the editor unmounts the trigger (Edit / "Write about today"), which would otherwise
@@ -93,10 +117,19 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
     setEditing(true);
   };
 
+  // Guards the rollover effect below against firing on mount — it must only react to `date`
+  // actually CHANGING under an already-mounted card. Without it, an initial `editing=true` from
+  // `initialDraft` (the undo-reopen path) got closed the instant it opened.
+  const mountedRef = useRef(false);
+
   // If the trip day rolls over (midnight self-correct in the panel) while the editor is open, close
   // it so we never save a stale day's draft onto a new day. This is NOT a user close, so it must not
   // steal/return focus — clear the return target.
   useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
     const from = draftDateRef.current;
     if (editing && draftDiffers(from)) {
       const draft = { text: draftText, mood: draftMood, highlight: draftHighlight };
@@ -119,12 +152,20 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
       highlight: draftHighlight,
     });
     setEditing(false);
+    onDone?.();
   };
 
   const handleCancel = () => {
     if (draftDiffers(date)) {
       const draft = { text: draftText, mood: draftMood, highlight: draftHighlight };
       showUndoToast('Draft discarded', () => {
+        // `onReopen` means `onDone` (below) is about to unmount this instance — there's no local
+        // state left to reopen by the time the toast's undo action fires, so hand the draft to the
+        // parent instead, which re-mounts a fresh card seeded with it via `initialDraft`.
+        if (onReopen) {
+          onReopen(draft);
+          return;
+        }
         setDraftText(draft.text);
         setDraftMood(draft.mood);
         setDraftHighlight(draft.highlight);
@@ -133,6 +174,7 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
       });
     }
     setEditing(false);
+    onDone?.();
   };
   onCancelRef.current = handleCancel;
 
