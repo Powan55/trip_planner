@@ -161,6 +161,15 @@ describe('#539 — first server snapshot drops only local rows the remote could 
     unsub();
   });
 
+  it('not dirty: a row whose hlc does not parse is treated as unstamped and kept', async () => {
+    saveMyPlaces([{ ...stale, id: 'bad-stamp', hlc: 'garbage' }]);
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id).sort()).toEqual(['bad-stamp', 'peer']);
+    unsub();
+  });
+
   it('dirty: an unpushed local row is merged, not dropped', async () => {
     saveMyPlaces([stale]);
     outbox.dirty = ['list'];

@@ -5748,4 +5748,6 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** A device idle past the horizon still held rows whose tombstones the other devices had already dropped, so its first merge brought deleted places and expenses back. Trips are planned months ahead, so 30 days was well inside a normal idle gap; tombstones are small and places already caps them at 200. Taking remote verbatim would have fixed places too, but it wipes a place added while signed out, which stamps an `hlc` and never reaches the outbox. A row can only resurrect after its tombstone is GC'd, so it must be older than the horizon; anything newer is kept.
 
+**Trade-off.** A place added while signed out and left unsynced for more than 365 days is dropped on the next sign-in.
+
 **Caveat.** Builds from before this change still GC at 30 days. Until every device updates, one of them can still drop a tombstone early and a stale peer can resurrect that row.

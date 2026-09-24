@@ -181,10 +181,14 @@ export function subscribeRemotePlaces(): () => void {
               if (first && !outboxDirty('places').includes('list')) {
                 // A row missing from remote and older than the GC horizon may be one whose tombstone
                 // was already dropped there (#539). Newer ones are signed-out adds that never
-                // reached the outbox, so they stay. Unstamped rows carry no age and stay too.
+                // reached the outbox, so they stay. Unstamped or malformed stamps (parse → pt 0)
+                // carry no age and stay too.
                 const remoteIds = new Set(remoteRows.map((p) => p.id));
                 const cutoff = nowPt - DEFAULT_GC_HORIZON_MS;
-                merged = merged.filter((p) => remoteIds.has(p.id) || !p.hlc || parse(p.hlc).pt >= cutoff);
+                merged = merged.filter((p) => {
+                  const pt = p.hlc ? parse(p.hlc).pt : 0;
+                  return remoteIds.has(p.id) || pt === 0 || pt >= cutoff;
+                });
               }
               persistAndDispatch(merged);
             } else if (first) {
