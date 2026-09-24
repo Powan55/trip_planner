@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { keyFor } from '@/core/storage/gateway';
 import { loadJournal, saveJournal, journalStoragePort } from '@/core/journal/storage';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
+import { pushJournalEntry, retainJournalSync } from '@/lib/journal-remote';
 import {
   getEntry as getEntryCore,
   upsertEntry as upsertEntryCore,
@@ -16,9 +17,9 @@ import {
  * Reactive journal store.
  *
  * A THIN React adapter over the framework-free journal core (`core/journal/model.ts`) + the
- * load/save adapter (`core/journal/storage.ts`, gateway key 12). SIMPLE: no sync fan-out, no
- * attribution, no tombstones (the journal is a private, single-user, localStorage-only domain,
- *) — so it wires `createReactiveStore` WITHOUT a `sync` port. The shared
+ * load/save adapter (`core/journal/storage.ts`, gateway key 12). The journal follows its author
+ * to their own devices only (D-596, `lib/journal-remote.ts`). Explicit saves/removes push per
+ * date, so it wires `createReactiveStore` WITHOUT a `sync` port. The shared
  * factory owns the hydrate/listen/commit skeleton ( dual-layer reactivity, fresh-base
  * commit); this file owns only the journal-specific mutators + `getEntry` selector.
  *
@@ -36,8 +37,8 @@ export interface JournalStore {
   /** Upsert the entry for `date` with a patch (mood/highlight `null` clears; empty content removes). */
   saveEntry(date: string, patch: JournalPatch): void;
   removeEntry(date: string): void;
-  /** Clear ALL journal entries. LOCAL-ONLY ( — the journal never syncs; this
-   * store has no sync port, so a wipe of key 12 has no propagation path by construction). */
+  /** Clear ALL journal entries on THIS device. Pushes nothing, so the account copy and the
+   * author's other devices keep theirs. */
   clearAll(): void;
 }
 
@@ -51,6 +52,8 @@ const useJournalStore = createReactiveStore<JournalEntry[]>({
 
 export function useJournal(): JournalStore {
   const { value: entries, hydrated, commit } = useJournalStore();
+
+  useEffect(() => retainJournalSync(), []);
 
   // Read against the freshest persisted state (not a stale closure), so a caller that reads right
   // after a save sees the write; falls back to React state under SSR/pre-hydrate.
@@ -78,20 +81,23 @@ export function useJournal(): JournalStore {
   const saveEntry = useCallback(
     (date: string, patch: JournalPatch) => {
       // timestamp injected HERE.
+      if (!hydrated) return;
       commit((current) => upsertEntryCore(current, date, patch, new Date().toISOString()));
+      void pushJournalEntry(date);
     },
-    [commit],
+    [commit, hydrated],
   );
 
   const removeEntry = useCallback(
     (date: string) => {
+      if (!hydrated) return;
       commit((current) => removeEntryCore(current, date));
+      void pushJournalEntry(date);
     },
-    [commit],
+    [commit, hydrated],
   );
 
-  // LOCAL-ONLY clear: the journal store carries NO sync port, so this plain local wipe of
-  // key 12 can never propagate — privacy-by-design. One commit; stays cleared on reload (key present).
+  // Local only. The key-50 stamps stay, so the account copy doesn't refill what was cleared.
   const clearAll = useCallback(() => {
     commit(() => []);
   }, [commit]);

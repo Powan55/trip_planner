@@ -556,6 +556,12 @@ export const STORAGE_KEYS = {
    * `wipeAllTripData` removes it on sign-out. Shape owned by `lib/account-prefs-remote.ts`.
    */
   personPrefs: 'nepal_japan_person_prefs',
+  /**
+   * localStorage — JSON `{ [date]: { hlc, dirty?, deletedAt? } }`, the per-entry sync stamps for
+   * the journal's account copy (journal-sync, key 50; D-596). TRIP-SCOPED beside key 12. Sync
+   * machinery, not content: the backup leaves it out. Shape owned by `lib/journal-remote.ts`.
+   */
+  journalSync: 'nepal_japan_journal_sync',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -758,7 +764,8 @@ export type TripScopedSlot =
   | 'myPlaces'
   | 'expensesCorrupt'
   | 'backupPromptLeg'
-  | 'conciergeChat';
+  | 'conciergeChat'
+  | 'journalSync';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -787,6 +794,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'expensesCorrupt',
   'backupPromptLeg',
   'conciergeChat',
+  'journalSync',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
