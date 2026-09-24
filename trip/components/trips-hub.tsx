@@ -346,7 +346,12 @@ export default function TripsHub() {
       updatedAt: 0, // setTripConfig stamps its own updatedAt
     };
     markTripCreatedHere(id);
-    joinTrip(id, name);
+    // D-546 — same result check as join()/switchTo(): a minted uuid should always land, but
+    // if it doesn't, surface the create error instead of pushing config for a trip nothing switched to.
+    if (!joinTrip(id, name)) {
+      setCreateError('Could not create the trip. Please try again.');
+      return;
+    }
     setTripConfig(id, config);
     // — the trip is registered locally above; the remote meta doc is what a JOINER reads to
     // learn the trip's dates/destinations. Navigating without awaiting the push aborted it in

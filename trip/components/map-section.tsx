@@ -337,9 +337,11 @@ export default function MapSection() {
   const visibleMarkers = useMemo(() => {
     let list =
       filter === 'All' ? curated : curated.filter((mk) => mk.category === filter);
-    if (savedOnly) list = list.filter((mk) => favorites.includes(mk.id));
+    // #564: savedOnly can outlive the last unsaved favorite (the chip that
+    // toggles it off disappears with savedCount), so gate on savedCount too.
+    if (savedOnly && savedCount > 0) list = list.filter((mk) => favorites.includes(mk.id));
     return list;
-  }, [curated, filter, savedOnly, favorites]);
+  }, [curated, filter, savedOnly, savedCount, favorites]);
 
   // Issue #31 — the visited wash. Read ONCE per mount, deliberately: #30's autocount writes the
   // visit record on boot, before this island's chunk has loaded, and nothing else on `/map` can
