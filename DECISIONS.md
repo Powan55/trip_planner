@@ -5787,6 +5787,16 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-573 · (issue #561, 2026-09-24) · Expenses merge on first snapshot instead of taking remote verbatim
+
+**Decision.** On the first server snapshot a clean, present leg is merged with local, then local rows absent from remote and older than `DEFAULT_GC_HORIZON_MS` are dropped; unstamped rows stay. If a kept row is missing from remote or newer than it, the leg is pushed right away. Same rule as places (#539).
+
+**Why.** Signed-out adds and backup restores stamp an `hlc` but never reach the outbox, so the verbatim apply wiped them on the first sign-in. A cross-leg move is still safe: the old leg's move tombstone wins the merge, and `dedupeAcrossLegs` covers a peer that never wrote one.
+### D-569 · (issue #541, 2026-09-24) · The done tick merges on its own stamp, apart from the rest of the row
+
+**Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
+
+**Why.** Whole-row LWW let a later notes edit from another device carry the old done state over an offline tick. `doneAt` couldn't be the key: it's wall-clock, only written when a display name is set, cleared on untick, and docs rows don't have it.
 ### D-567 · (issue #539, 2026-09-24) · Tombstones live 365 days, and places drops stale unsynced rows on first snapshot
 
 **Decision.** `DEFAULT_GC_HORIZON_MS` goes from 30 to 365 days for every synced domain. `subscribeRemotePlaces` still merges on the first server snapshot, but when the places `'list'` chunk is clean it then drops local rows that are absent from remote and whose `hlc` is older than the horizon. Unstamped rows are kept.
@@ -5812,3 +5822,10 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** `useCrossTabReload` reloads the tab on a `storage` event for the active-trip pointer, the default share, a token going to or from null (sign-in/out), or `localStorage.clear()`. A token rename keeps it non-null and does not reload. While reloading, the tab is marked retiring, and both draft flushes (`useDraftOnBlur` and the docs checklist note) skip their pagehide/unmount commit.
 
 **Why.** An unreloaded tab keeps its snapshot listeners on the old trip while `keyFor` resolves to the new one, so peer edits and local drafts landed in the wrong trip, and after sign-out were written back onto a wiped device. Without the guard on both flushes, the reload's own pagehide would commit the old draft into the new slots. A snapshot landing between the event and unload can still persist; closing that needs the remote adapters to check the trip they subscribed for.
+### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
+
+**Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
+
+**Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
+
+**Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.

@@ -52,8 +52,23 @@ describe('groupItemsByPhase — D-142 compatible (never re-sorts timed items)', 
     expect(result.map((r) => r.item.id)).toEqual(['late', 'early', 'mid']);
     // late=900min=15:00 -> afternoon; early=480min=8:00 -> morning; mid=720min=12:00 -> afternoon.
     expect(result.map((r) => r.phase)).toEqual(['afternoon', 'morning', 'afternoon']);
-    // Every item differs in phase from its predecessor here, so each gets a header.
-    expect(result.map((r) => r.isNewPhase)).toEqual([true, true, true]);
+    // afternoon(late) heads; morning(early) ranks lower so no repeat header; afternoon(mid)
+    // ranks equal to the last-headed rank, also no repeat (#589 — no header thrash on a
+    // manually reordered day).
+    expect(result.map((r) => r.isNewPhase)).toEqual([true, false, false]);
+  });
+
+  it('a day crossing timezones forward (earlier local phase after later) gets no repeated header (#589)', () => {
+    // Jan 9: morning, afternoon, evening, then an afternoon- and evening-phase item again
+    // (e.g. an eastbound flight landing the same local day earlier in the clock).
+    const m = mk('m', { startMinutes: 6 * 60 }); // morning
+    const a1 = mk('a1', { startMinutes: 13 * 60 }); // afternoon
+    const e1 = mk('e1', { startMinutes: 18 * 60 }); // evening
+    const a2 = mk('a2', { startMinutes: 14 * 60 }); // afternoon
+    const e2 = mk('e2', { startMinutes: 20 * 60 }); // evening
+    const result = groupItemsByPhase([m, a1, e1, a2, e2]);
+    expect(result.map((r) => r.item.id)).toEqual(['m', 'a1', 'e1', 'a2', 'e2']);
+    expect(result.map((r) => r.isNewPhase)).toEqual([true, true, true, false, false]);
   });
 
   it('untimed items move to a single trailing run, preserving their own relative order', () => {
