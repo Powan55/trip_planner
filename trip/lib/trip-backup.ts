@@ -52,7 +52,8 @@ import { budgetSyncPort, budgetStoragePort } from '@/lib/budget-ports';
 import { docsSyncPort, docsStoragePort } from '@/lib/docs-ports';
 import { placesSyncPort, myPlacesStoragePort } from '@/lib/places-ports';
 import { sanitizeEntries } from '@/core/journal/model';
-import { sanitizeExpenses } from '@/core/budget/expenses';
+import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
+import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
 import { normalizeModel } from '@/core/budget/model';
 import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
@@ -102,6 +103,10 @@ export type CommitMyPlaces = (places: MyPlace[]) => void;
  */
 export type CommitDocsChecklist = (items: DocItem[]) => void;
 
+/** How the expenses domain is committed on import — same shape and idea as `CommitMyPlaces`; the UI
+ * injects `restoreExpenses` (tombstone-replace) under sync. Absent ⇒ generic bare write + merge. */
+export type CommitExpenses = (expenses: Expense[]) => void;
+
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
 /** Container version, read on import: anything HIGHER is refused (see `importTripBackup`). Bump it
@@ -118,6 +123,10 @@ export interface TripBackup {
   version: number;
   exportedAt: string;
   tripId: string;
+  /** The shared (remote) trip id at export, '' when unshared. `tripId` is the local pack id, which
+   *  every shared copy of the default pack has in common, so it cannot tell two shared trips apart.
+   *  Optional: files from before it existed lack it, and older builds ignore it. */
+  remoteId?: string;
   domains: Record<string, unknown>;
   photos: { meta: PhotoMeta[]; blobs: Record<string, string> };
 }
@@ -168,15 +177,15 @@ type DomainSpec = {
  * KNOWN CEILING: merge, not tombstone-replace, for whichever domain has no restore-shaped commit
  * injected. A row the backup DROPPED (present remotely, absent in the file) survives the merge,
  * where the itinerary's `restorePlans` would tombstone it. Fixing that needs a restore-shaped
- * commit on each domain — expenses (`restoreExpenses`), myPlaces (`restoreMyPlaces`, injected via
- * `CommitMyPlaces`) and docsChecklist (`restoreDocsChecklist`, injected via `CommitDocsChecklist`,
+ * commit on each domain — expenses (`restoreExpenses`, injected via `CommitExpenses`), myPlaces
+ * (`restoreMyPlaces`, injected via `CommitMyPlaces`) and docsChecklist (`restoreDocsChecklist`, injected via `CommitDocsChecklist`,
  * issue #295) all have one now. docsChecklist's is NOT a tombstone-replace: its 18 ids are a FIXED
  * template with no add/remove path, so the restore-shaped commit there is a same-id UPSERT
  * (`mergeItems(current, backup)` — whichever side's stamp is newer wins per id) rather than a
  * tombstone + fresh-id re-add. budget's field-level LWW model remains the one domain still on the
  * generic merge path; it needs its own restore design, not a copy of either shape here. Upgrade
  * path for a domain that DOES fit one of the two existing shapes: inject its restore fn the way
- * `commitItinerary`/`commitMyPlaces`/`commitDocsChecklist` are injected.
+ * `commitItinerary`/`commitExpenses`/`commitMyPlaces`/`commitDocsChecklist` are injected.
  */
 function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => void {
   return (cleaned) => void port.push(storage.load(), cleaned as T);
@@ -341,6 +350,7 @@ export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobSto
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     tripId: getActiveTripId(),
+    remoteId: getTripId(),
     domains,
     photos: { meta, blobs },
   };
@@ -397,7 +407,17 @@ export async function importTripBackup(
   commitItinerary: CommitItinerary = savePlans,
   commitMyPlaces?: CommitMyPlaces,
   commitDocsChecklist?: CommitDocsChecklist,
+  commitExpenses?: CommitExpenses,
 ): Promise<ImportBackupResult> {
+  // #570: under sync a restore tombstones every live row and pushes, so it must be tied to THIS
+  // shared trip. The pack id can't do that (all shared copies of the default pack share it); the
+  // remote id can. A file without one can't prove where it came from, so it only restores unshared.
+  const synced = isTripRemoteConfigured();
+  const UNMATCHED: ImportBackupResult = {
+    ok: false,
+    error:
+      "This backup isn't tied to this shared trip (it was made before trip matching, or on an unshared copy), so restoring it here could overwrite everyone's data. Restore it on an unshared copy instead. No changes were made to your trip.",
+  };
   let text: string;
   try {
     text = await decompressBlobOrText(file);
@@ -419,6 +439,7 @@ export async function importTripBackup(
   if (!isTripBackup(parsed)) {
     const pr = parseBackup(text);
     if (!pr.ok) return { ok: false, error: pr.error };
+    if (synced) return UNMATCHED;
     // A-5 on the COMMIT, not on the envelope field. The legacy itinerary-only envelope
     // (`{schemaVersion, updatedAt, payload}`) carries no trip identity at all, so it used to sail
     // past the `env.tripId` check three lines below and replace whatever trip happened to be
@@ -463,6 +484,18 @@ export async function importTripBackup(
       ok: false,
       error: 'This backup is from a different trip. Switch to that trip, then restore it there.',
     };
+  }
+
+  if (synced) {
+    const remoteId = typeof env.remoteId === 'string' ? env.remoteId : '';
+    if (!remoteId) return UNMATCHED;
+    if (remoteId !== getTripId()) {
+      return {
+        ok: false,
+        error:
+          'This backup is from a different shared trip. Switch to that trip, then restore it there. No changes were made to your trip.',
+      };
+    }
   }
 
   // ── Phase A — parse everything into memory, ZERO domain writes ──
@@ -542,6 +575,11 @@ export async function importTripBackup(
     // UI passes the store's `restoreMyPlaces` under sync), route through it INSTEAD of the bare
     // write + generic merge enqueue — same idea as `commitItinerary`, one domain narrower. Absent
     // ⇒ unchanged default behavior below.
+    if (slot === 'expenses' && commitExpenses) {
+      commitExpenses(cleaned as Expense[]);
+      restored.push(slot);
+      continue;
+    }
     if (slot === 'myPlaces' && commitMyPlaces) {
       commitMyPlaces(cleaned as MyPlace[]);
       restored.push(slot);

@@ -5748,3 +5748,9 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 ### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
+
+### D-575 · (issues #570, #573, 2026-09-24) · A synced whole-trip restore must name the shared trip it came from
+
+**Decision.** Backups carry an optional `remoteId` (the shared trip id at export, `''` when unshared). On a synced device a restore is refused unless the file's `remoteId` equals the current shared trip id; a file with none (older backups, legacy itinerary-only exports) is refused there too, and restores only on an unshared copy. Unsynced restores are unchanged. Expenses now restore through `restoreExpenses` under sync, the same injected path as my-places.
+
+**Why.** `tripId` is the local pack id, which every shared copy of the default pack has in common, and a synced restore tombstones every live row and pushes. So a backup from one shared trip could wipe another. Expenses were documented as replaced but fell to the merge path, so rows added after the backup survived.

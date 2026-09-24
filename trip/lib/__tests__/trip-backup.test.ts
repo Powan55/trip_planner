@@ -22,14 +22,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 const gate = vi.hoisted(() => ({
   remoteOn: false,
   traveler: null as { name: string } | null,
+  tripId: 'nepal-japan-2026',
 }));
 vi.mock('@/lib/firebase-config', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/firebase-config')>();
   return {
     ...orig,
     isRemoteConfigured: () => gate.remoteOn,
-    isTripRemoteConfigured: () => gate.remoteOn,
-    getTripId: () => 'nepal-japan-2026',
+    isTripRemoteConfigured: () => gate.remoteOn && gate.tripId !== '',
+    getTripId: () => gate.tripId,
   };
 });
 vi.mock('@/lib/token-auth', async (importOriginal) => {
@@ -45,7 +46,7 @@ vi.mock('@/lib/places-remote', () => ({ pushPlacesChunk: () => Promise.reject(ne
 
 import { exportTripBackup, importTripBackup, BACKUP_VERSION } from '@/lib/trip-backup';
 import { outboxDirty } from '@/core/sync/outbox';
-import { supportsCompression } from '@/core/vault/compression';
+import { supportsCompression, decompressBlobOrText } from '@/core/vault/compression';
 import { makeInMemoryBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import {
   journalStore,
@@ -170,6 +171,7 @@ beforeEach(() => {
 afterEach(() => {
   gate.remoteOn = false;
   gate.traveler = null;
+  gate.tripId = 'nepal-japan-2026';
 });
 
 describe('S273 — case 1: whole-trip round-trip survives a device wipe (the P2 guarantee)', () => {
@@ -870,5 +872,106 @@ describe('an all-empty backup is refused pre-write, not committed and reported a
     expect(savePhotosSpy).not.toHaveBeenCalled();
     expect(domainSnapshot()).toEqual(before);
     savePhotosSpy.mockRestore();
+  });
+});
+
+// ── #570: two shared copies of the default pack share a pack id, so match on the remote id ─────────
+describe('#570 — a synced restore must come from the same shared trip', () => {
+  const syncOn = (tripId: string) => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+    gate.tripId = tripId;
+  };
+  async function backupFromSharedTrip(tripId: string): Promise<Blob> {
+    gate.tripId = tripId;
+    await seedAll(makeInMemoryBlobStore());
+    return exportTripBackup(makeInMemoryBlobStore());
+  }
+  const X_JOURNAL = sanitizeEntries([{ date: '2026-12-12', text: 'Trip X', createdAt: '', updatedAt: '' }]);
+
+  it('refuses a backup from shared trip Y restored into shared trip X, and writes nothing', async () => {
+    const file = await backupFromSharedTrip('share-Y');
+    localStorage.clear();
+    journalStore.set(X_JOURNAL);
+    const before = domainSnapshot();
+    syncOn('share-X');
+    const commit = vi.fn();
+    const commitExpenses = vi.fn();
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore(), commit, vi.fn(), vi.fn(), commitExpenses);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/different shared trip/);
+    expect(commit).not.toHaveBeenCalled();
+    expect(commitExpenses).not.toHaveBeenCalled();
+    expect(domainSnapshot()).toEqual(before);
+  });
+
+  it('allows a backup from the same shared trip', async () => {
+    const file = await backupFromSharedTrip('share-X');
+    localStorage.clear();
+    syncOn('share-X');
+    const commit = vi.fn();
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+    expect(res.ok).toBe(true);
+    expect(commit).toHaveBeenCalledWith(SEED_PLANS);
+  });
+
+  it('refuses a full backup with no remoteId (older file) on a synced device', async () => {
+    const file = await backupFromSharedTrip('share-X');
+    const env = JSON.parse(await decompressBlobOrText(file));
+    delete env.remoteId;
+    localStorage.clear();
+    syncOn('share-X');
+    const commit = vi.fn();
+
+    const res = await importTripBackup(new Blob([JSON.stringify(env)]), makeInMemoryBlobStore(), commit);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/unshared copy/);
+    expect(commit).not.toHaveBeenCalled();
+  });
+
+  it('refuses a legacy itinerary-only file on a synced device', async () => {
+    savePlans(SEED_PLANS);
+    const legacyText = exportItinerary();
+    syncOn('share-X');
+    const commit = vi.fn();
+
+    const res = await importTripBackup(new Blob([legacyText]), makeInMemoryBlobStore(), commit);
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/unshared copy/);
+    expect(commit).not.toHaveBeenCalled();
+  });
+
+  it('still restores into an unsynced trip, whatever shared trip the file came from', async () => {
+    const file = await backupFromSharedTrip('share-Y');
+    localStorage.clear();
+    gate.tripId = '';
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+
+    expect(res.ok).toBe(true);
+    expect(journalStore.get<unknown>(null)).toEqual(SEED_JOURNAL);
+  });
+});
+
+describe('#573 — expenses commit uses the injected restore-shaped path when supplied', () => {
+  it('routes the expenses commit through the supplied function instead of the generic bare write', async () => {
+    await seedAll(makeInMemoryBlobStore());
+    const file = await exportTripBackup(makeInMemoryBlobStore());
+
+    localStorage.clear();
+    const restoreSpy = vi.fn();
+    const res = await importTripBackup(file, makeInMemoryBlobStore(), savePlans, undefined, undefined, restoreSpy);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('expenses');
+    expect(restoreSpy).toHaveBeenCalledWith(SEED_EXPENSES);
+    expect(expensesStore.get<unknown>(null)).toBeNull();
   });
 });
