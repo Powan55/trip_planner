@@ -465,4 +465,19 @@ describe('#561 — the first snapshot merges instead of taking remote verbatim',
     expect(rows.filter((e) => e.deleted !== true).map((e) => [e.id, e.leg])).toEqual([['X', 'japan']]);
     expect(writeLog).toEqual([]);
   });
+
+  it('keeps a row with a malformed hlc', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(DAY) })] });
+    saveExpenses([exp('BAD', { hlc: 'garbage' })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['BAD', 'R']);
+  });
+
+  it('a tombstone past the horizon survives while the same id is live in another leg', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('X', { deleted: true, rev: 2, hlc: ago(400 * DAY) })] });
+    fake.setDocData(JAPAN, { leg: 'japan', items: [exp('X', { leg: 'japan', hlc: ago(401 * DAY) })] });
+
+    const rows = await firstSnapshot();
+    expect(rows.map((e) => [e.id, e.leg, e.deleted])).toEqual([['X', 'nepal', true]]);
+  });
 });
