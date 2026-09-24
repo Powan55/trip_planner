@@ -385,4 +385,31 @@ describe('#532 — moving an expense to another leg leaves one row, not two', ()
     await pushExpenseChunk(rows, 'nepal');
     expect(items(NEPAL).every((e) => e.deleted === true)).toBe(true);
   });
+
+  it('device A moves X to japan while device B, offline, edits X in nepal at an older hlc: exactly one live X survives, newest hlc wins, nepal stays tombstoned', async () => {
+    const stale = exp('X', { leg: 'nepal', hlc: h(1) });
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [stale] });
+
+    // Device A's move syncs first.
+    const moved = { ...stale, leg: 'japan', rev: 2, hlc: h(3) };
+    await expensesSyncPort.push([stale], [moved]);
+    await flush();
+    expect(items(NEPAL)).toEqual([expect.objectContaining({ id: 'X', deleted: true, hlc: moved.hlc })]);
+
+    // Device B never learned of the move (offline since before it) and pushes its own older edit to
+    // the leg it still thinks X lives in. It has no japan row locally.
+    const bEdit = { ...stale, amount: 250, rev: 2, hlc: h(2) };
+    await pushChunkMerged(fake as unknown as Firestore, fs, 'nepal', [bEdit]);
+
+    // The tombstone's hlc (h3) beats B's stale edit (h2) — tombstone-wins-by-hlc — so nepal stays
+    // deleted and japan is untouched.
+    expect(items(NEPAL)).toEqual([expect.objectContaining({ id: 'X', deleted: true, hlc: moved.hlc })]);
+    expect(items(JAPAN)).toEqual([expect.objectContaining({ id: 'X', leg: 'japan' })]);
+
+    saveExpenses([moved]);
+    const rows = await reload();
+    const live = rows.filter((r) => r.deleted !== true);
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({ id: 'X', leg: 'japan' });
+  });
 });
