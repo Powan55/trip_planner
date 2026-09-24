@@ -19,13 +19,24 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
   return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
 });
 
+const outbox = vi.hoisted(() => ({ dirty: [] as string[] }));
+vi.mock('@/core/sync/outbox', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/core/sync/outbox')>();
+  return { ...orig, outboxDirty: () => [...outbox.dirty] };
+});
+
 type DocData = Record<string, unknown>;
 
 class FakeFirestore {
   docs = new Map<string, DocData>();
   errorListeners: Array<(err: unknown) => void> = [];
+  nextListeners: Array<(snap: unknown) => void> = [];
   emitError(err: unknown) {
     for (const cb of this.errorListeners) cb(err);
+  }
+  emitServerDoc(data: DocData) {
+    const snap = { metadata: { hasPendingWrites: false, fromCache: false }, exists: () => true, data: () => data };
+    for (const cb of this.nextListeners) cb(snap);
   }
 }
 const fake = new FakeFirestore();
@@ -54,9 +65,10 @@ vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
   onSnapshot: (
     _ref: unknown,
-    _onNext: (snap: unknown) => void,
+    onNext: (snap: unknown) => void,
     onError?: (e: unknown) => void,
   ) => {
+    fake.nextListeners.push(onNext);
     if (onError) fake.errorListeners.push(onError);
     return () => {
       if (onError) {
@@ -69,6 +81,8 @@ vi.mock('firebase/firestore', () => ({
 
 import { subscribeRemotePlaces } from '@/lib/places-remote';
 import { isReadDenied, setReadDenied } from '@/core/sync/read-denied';
+import { loadMyPlaces, saveMyPlaces } from '@/core/places/storage';
+import type { MyPlace } from '@/core/places/model';
 
 async function flush(): Promise<void> {
   await new Promise((r) => setTimeout(r, 0));
@@ -78,6 +92,9 @@ async function flush(): Promise<void> {
 beforeEach(() => {
   fake.docs.clear();
   fake.errorListeners = [];
+  fake.nextListeners = [];
+  outbox.dirty = [];
+  localStorage.clear();
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -109,6 +126,38 @@ describe('#345 — a permission-denied READ stream is classified, not endlessly 
 
     expect(isReadDenied()).toBe(false);
     expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(true);
+    unsub();
+  });
+});
+
+describe('#539 — first server snapshot: remote wins unless the places chunk is dirty', () => {
+  const place = (id: string, pt: number): MyPlace => ({
+    id,
+    name: id,
+    legId: 'main',
+    addedAt: new Date(pt).toISOString(),
+    hlc: `${String(pt).padStart(15, '0')}:000000:phone`,
+    rev: 1,
+  });
+  const stale = place('deleted-long-ago', Date.UTC(2026, 0, 1));
+  const peer = place('peer', Date.UTC(2026, 8, 1));
+
+  it('not dirty: the remote list is applied as-is, so a stale local row does not come back', async () => {
+    saveMyPlaces([stale]);
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id)).toEqual(['peer']);
+    unsub();
+  });
+
+  it('dirty: an unpushed local row is merged, not dropped', async () => {
+    saveMyPlaces([stale]);
+    outbox.dirty = ['list'];
+    const unsub = subscribeRemotePlaces();
+    await flush();
+    fake.emitServerDoc({ version: 1, items: [peer] });
+    expect(loadMyPlaces().map((p) => p.id).sort()).toEqual(['deleted-long-ago', 'peer']);
     unsub();
   });
 });

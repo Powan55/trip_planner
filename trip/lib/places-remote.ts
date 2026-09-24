@@ -13,7 +13,8 @@
 // read→merge→set of the one doc. Invoked ONLY from the outbox decorator. MUST REJECT on failure so
 // the outbox keeps the `'list'` chunk dirty (the decorator swallows).
 // READ (remote → local): `subscribeRemotePlaces` opens `onSnapshot` on the single doc.
-// PRESENT ⇒ `mergePlaces(local, remote)`; ABSENT on the first snapshot ⇒ seed from local (push up;
+// PRESENT ⇒ remote verbatim on the first server snapshot unless the `'list'` chunk is dirty, else
+// `mergePlaces(local, remote)`; ABSENT on the first snapshot ⇒ seed from local (push up;
 // local untouched). Applied via `saveMyPlaces()` + the `myplaces:changed` CustomEvent DIRECTLY,
 // never through the store's `commit()`, so the snapshot path can never re-push.
 //
@@ -36,6 +37,7 @@ import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './firebase-remote';
 import { realClock } from './trip-now';
 import { isPermissionDenied } from '@/core/sync/denied';
+import { outboxDirty } from '@/core/sync/outbox';
 import { setReadDenied } from '@/core/sync/read-denied';
 
 /**
@@ -104,9 +106,11 @@ export async function pushPlacesChunk(current: MyPlace[], chunk: string): Promis
 
 /**
  * Subscribe to remote places changes (remote → local). Opens ONE `onSnapshot` on the singleton doc
- * `trips/{tripId}/places/list`. PRESENT ⇒ `mergePlaces(local, remote)` (always merge — the merge
- * preserves an unpushed local import AND an unpushed local tombstone, so no separate dirty-chunk
- * exception is needed); ABSENT on first snapshot ⇒ seed from local. Applied DIRECTLY via
+ * `trips/{tripId}/places/list`. PRESENT on the first server snapshot with the `'list'` chunk NOT
+ * dirty ⇒ remote verbatim (#539, same rule as `subscribeRemoteExpenses`: a device idle past the
+ * tombstone horizon would otherwise merge a long-deleted place back in). Otherwise PRESENT ⇒
+ * `mergePlaces(local, remote)`, which keeps an unpushed local import or tombstone. ABSENT on first
+ * snapshot ⇒ seed from local. Applied DIRECTLY via
  * `saveMyPlaces()`+dispatch (never `commit()`) so it can never re-push. Gated + lazy +
  * self-degrading: no-op unsubscribe when dormant or on the default pack; any failure → local-only
  * via console.warn, never throws. Mirrors `subscribeRemoteDocs`.
@@ -170,7 +174,11 @@ export function subscribeRemotePlaces(): () => void {
             const local = loadMyPlaces();
             if (snap.exists()) {
               const remoteRows = docToPlaceRows(snap.data() as Record<string, unknown>);
-              persistAndDispatch(mergePlaces(local, remoteRows, realClock.now().getTime(), { keepUnknownKeys: true }));
+              persistAndDispatch(
+                first && !outboxDirty('places').includes('list')
+                  ? remoteRows
+                  : mergePlaces(local, remoteRows, realClock.now().getTime(), { keepUnknownKeys: true }),
+              );
             } else if (first) {
               // Never synced → seed the doc from local. Best-effort; a failure stays local-only
               // (local is untouched, so nothing is lost).

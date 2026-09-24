@@ -91,7 +91,7 @@ export function mergeDays(local: DayPlan[], remote: DayPlan[], policy: MergePoli
  *
  * Drop a tombstone iff BOTH:
  * - its `hlc.pt` is older than `nowPt - horizonMs` (comfortably past any realistic offline
- * window — default 30 days), AND
+ * window — default 365 days), AND
  * - no LIVE item on this day shares its `id` (nothing references/supersedes it).
  * Because the merge is deterministic and runs on every client, all clients GC the same
  * tombstone at the same logical point ⇒ convergent. Conservative: when in doubt, keep it
