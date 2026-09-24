@@ -27,6 +27,7 @@ vi.mock('@/components/itinerary-provider', () => ({
 }));
 vi.mock('@/hooks/use-my-places', () => ({ useMyPlaces: () => ({ restoreMyPlaces: vi.fn() }) }));
 vi.mock('@/hooks/use-docs', () => ({ useDocs: () => ({ restoreDocsChecklist: vi.fn() }) }));
+vi.mock('@/hooks/use-expenses', () => ({ useExpenses: () => ({ restoreExpenses: vi.fn() }) }));
 vi.mock('@/lib/firebase-config', () => ({ isTripRemoteConfigured: () => false }));
 vi.mock('@/lib/token-auth', () => ({ getActiveTraveler: () => null }));
 vi.mock('@/lib/itinerary-storage', () => ({ savePlans: vi.fn() }));
