@@ -5787,6 +5787,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-576 · (issue #571, 2026-09-24) · Sign-out clears the Firestore cache; Forget this device also drops the anonymous session
+
+**Decision.** `<SignOutConfirm>` calls `clearRemoteCache()` before `signOut()`. A started instance is terminated and its IndexedDB persistence cleared, and the cached handle is reset. If Firebase never started on this page load, the leftover `firestore/[DEFAULT]/<projectId>/main` database is deleted by name instead. Forget this device also signs out of Firebase Auth (or deletes `firebaseLocalStorageDb`), so the next sign-in mints a new anonymous uid. A plain sign-out keeps the uid, as #10 requires.
+
+**Why.** The wipe cleared web storage only, so the previous traveller's trip docs and the account key path stayed in the Firestore cache on a shared device. The clear is best-effort and gives up after 3 s with a warning: sign-out must finish even when another tab holds the database open or the SDK hangs.
 ### D-573 · (issue #561, 2026-09-24) · Expenses merge on first snapshot instead of taking remote verbatim
 
 **Decision.** On the first server snapshot a clean, present leg is merged with local, then local rows absent from remote and older than `DEFAULT_GC_HORIZON_MS` are dropped; unstamped rows stay. If a kept row is missing from remote or newer than it, the leg is pushed right away. Same rule as places (#539).
