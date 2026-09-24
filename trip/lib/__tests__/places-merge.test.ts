@@ -77,18 +77,29 @@ describe('CRUX 1 — a delete STAYS deleted (the resurrection test)', () => {
     expect(merged[0].deleted).toBeUndefined();
   });
 
-  it('an ancient tombstone is garbage-collected past the 30-day horizon; a recent one is kept', () => {
-    const ancient = [{ ...original, deleted: true, rev: 2, hlc: hlcAt(NOW - 40 * DAY, 'phoneA') }];
+  it('an ancient tombstone is garbage-collected past the 365-day horizon; a recent one is kept', () => {
+    const ancient = [{ ...original, deleted: true, rev: 2, hlc: hlcAt(NOW - 400 * DAY, 'phoneA') }];
     expect(mergePlaces(ancient, [], NOW)).toEqual([]);
     expect(mergePlaces(tombstoned, [], NOW)).toHaveLength(1);
   });
 
+  it.each([31, 200, 364])('#539: a device idle %i days does not bring back a place deleted while it slept', (age) => {
+    const x = place('boudhanath', { rev: 1, hlc: hlcAt(NOW - (age + 5) * DAY, 'phoneA') });
+    const kept = place('fushimi', { rev: 1, hlc: hlcAt(NOW, 'phoneA') }); // anchors the GC cap at NOW
+    // Phone A deleted X `age` days ago and has been syncing since; this is what the server holds now.
+    const server = mergePlaces([kept, { ...x, deleted: true, rev: 2, hlc: hlcAt(NOW - age * DAY, 'phoneA') }], [], NOW);
+    expect(dead(server)).toHaveLength(1);
+    // Phone B was idle the whole time and still holds X live.
+    const merged = mergePlaces([x], server, NOW);
+    expect(ids(live(merged))).toEqual(['fushimi']);
+  });
+
   it('#238: a fast device clock (nowPt run far ahead) does not GC a tombstone the list\'s own newest stamp still calls recent', () => {
-    const fastNowPt = NOW + 60 * DAY; // this device's clock reads ~60 days ahead of reality
+    const fastNowPt = NOW + 400 * DAY; // this device's clock reads ~400 days ahead of reality
     const anchor = [place('fushimi', { hlc: hlcAt(NOW - 1 * DAY, 'phoneB') })]; // the list's own newest stamp
     const recentGhost = [place('gone', { deleted: true, rev: 2, hlc: hlcAt(NOW - 2 * DAY, 'phoneA') })];
-    // Naive `fastNowPt - 30d` blows the cutoff open to `NOW + 30d` and drops `gone` anyway;
-    // capped to the list's own newest stamp (`NOW - 1d`), it is still within the 30-day horizon.
+    // Naive `fastNowPt - 365d` blows the cutoff open to `NOW + 35d` and drops `gone` anyway;
+    // capped to the list's own newest stamp (`NOW - 1d`), it is still within the horizon.
     const merged = mergePlaces(anchor, recentGhost, fastNowPt);
     expect(ids(merged).sort()).toEqual(['fushimi', 'gone']);
   });

@@ -5786,6 +5786,15 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-567 · (issue #539, 2026-09-24) · Tombstones live 365 days, and places drops stale unsynced rows on first snapshot
+
+**Decision.** `DEFAULT_GC_HORIZON_MS` goes from 30 to 365 days for every synced domain. `subscribeRemotePlaces` still merges on the first server snapshot, but when the places `'list'` chunk is clean it then drops local rows that are absent from remote and whose `hlc` is older than the horizon. Unstamped rows are kept.
+
+**Why.** A device idle past the horizon still held rows whose tombstones the other devices had already dropped, so its first merge brought deleted places and expenses back. Trips are planned months ahead, so 30 days was well inside a normal idle gap; tombstones are small and places already caps them at 200. Taking remote verbatim would have fixed places too, but it wipes a place added while signed out, which stamps an `hlc` and never reaches the outbox. A row can only resurrect after its tombstone is GC'd, so it must be older than the horizon; anything newer is kept.
+
+**Trade-off.** A place added while signed out and left unsynced for more than 365 days is dropped on the next sign-in.
+
+**Caveat.** Builds from before this change still GC at 30 days. Until every device updates, one of them can still drop a tombstone early and a stale peer can resurrect that row.
 ### D-575 · (issues #570, #573, 2026-09-24) · A synced whole-trip restore must name the shared trip it came from
 
 **Decision.** Backups carry an optional `remoteId` (the shared trip id at export, `''` when unshared). On a synced device a restore is refused unless the file's `remoteId` equals the current shared trip id; a file with none (older backups, legacy itinerary-only exports) is refused there too, and restores only on an unshared copy. Unsynced restores are unchanged. A custom pack's id is its shared id, so an older custom-trip file with no `remoteId` falls back to its `tripId` and still restores. An older default-pack file, or one made before the device started sharing, cannot be restored into the shared trip; that is accepted over risking a cross-trip wipe. Expenses now restore through `restoreExpenses` under sync, the same injected path as my-places.
