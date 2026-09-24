@@ -42,6 +42,7 @@ import {
   dayAnchorStore,
   shareInboxStore,
   getActiveTripId,
+  DEFAULT_TRIP_ID,
   type TripScopedSlot,
 } from '@/core/storage/gateway';
 import { myPlacesStore } from '@/core/storage/my-places-store';
@@ -487,7 +488,9 @@ export async function importTripBackup(
   }
 
   if (synced) {
-    const remoteId = typeof env.remoteId === 'string' ? env.remoteId : '';
+    // A custom pack's id IS its shared id, so an older custom-trip file is already proven by tripId.
+    const remoteId =
+      typeof env.remoteId === 'string' ? env.remoteId : env.tripId !== DEFAULT_TRIP_ID ? env.tripId : '';
     if (!remoteId) return UNMATCHED;
     if (remoteId !== getTripId()) {
       return {

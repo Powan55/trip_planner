@@ -934,6 +934,22 @@ describe('#570 — a synced restore must come from the same shared trip', () => 
     expect(commit).not.toHaveBeenCalled();
   });
 
+  it('restores an older custom-trip backup (no remoteId) on the same synced custom trip', async () => {
+    setActiveTripId('custom-x');
+    await seedAll(makeInMemoryBlobStore());
+    const env = JSON.parse(await decompressBlobOrText(await exportTripBackup(makeInMemoryBlobStore())));
+    delete env.remoteId;
+    localStorage.clear();
+    setActiveTripId('custom-x');
+    syncOn('custom-x'); // a custom pack's shared id is its pack id
+    const commit = vi.fn();
+
+    const res = await importTripBackup(new Blob([JSON.stringify(env)]), makeInMemoryBlobStore(), commit);
+
+    expect(res.ok).toBe(true);
+    expect(commit).toHaveBeenCalledWith(SEED_PLANS);
+  });
+
   it('refuses a legacy itinerary-only file on a synced device', async () => {
     savePlans(SEED_PLANS);
     const legacyText = exportItinerary();
