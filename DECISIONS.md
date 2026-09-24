@@ -5737,3 +5737,9 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** `setDefaultTripShareId` clears the default pack's `syncOutbox`, `itinerary`, `expenses`, `budget`, `docsChecklist` and `myPlaces` slots when the share id changes from one non-empty id to another. Starting to share (`''` to an id) and leaving (id to `''`) keep everything. The Settings and trips-hub paste boxes confirm first, with the handshake's copy.
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
+
+### D-565 · (issue #529, 2026-09-23) · Every loaded device heals its account's identity doc, create-only
+
+**Decision.** On load, `runAccountIdentitySync` reads `profile/identity` from the server. If it is missing, the device creates it in a transaction that writes only when the doc is still absent: `{ version: 1, name }`, or a nameless `{ version: 1 }` when the local name is the placeholder. A failed read writes nothing. The Settings rename still overwrites.
+
+**Why.** Legacy keys had no identity doc and the door rejects a missing one, so a key that worked on the device holding it was locked out everywhere else (Sushil). Create-only keeps two racing devices, or a doc that appeared mid-read, from being overwritten, and treating a read error as "missing" could have written a local name over a real one.

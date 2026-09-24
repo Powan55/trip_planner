@@ -5,8 +5,9 @@
 // Pins the reconciler `runAccountIdentitySync` in components/itinerary-provider: a one-shot read of
 // `trips/{userToken}/profile/identity` on provider mount, with D-277's ordered rule
 //   1. remote present ∧ ≠ local ⇒ ADOPT via signIn(remoteName)   (REMOTE WINS on conflict)
-//   2. remote absent ∧ local is not the placeholder ⇒ BACKFILL
-//   3. remote absent ∧ local IS the placeholder ⇒ do nothing, and NEVER publish 'Traveler'
+//   2. remote doc missing ⇒ create-only HEAL (D-565), and NEVER publish 'Traveler'
+//   3. remote doc exists, nameless ∧ local is a real name ⇒ BACKFILL the name
+//   4. read error ⇒ write nothing
 // plus D-277's sign-out safety re-check and the now-conditional "signed in as Traveler" nudge.
 //
 // ⚠ WHY THE ASSERTIONS COUNT MOCK CALLS AND NOT ONLY OUTCOMES: two concurrent first-time dynamic
@@ -32,15 +33,22 @@ vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: {},
 }));
 
-const fetchAccountIdentityMock = vi.fn<(code: string) => Promise<string | undefined>>(
-  async () => undefined,
+type IdentityRead = import('@/lib/trips-remote').AccountIdentityRead;
+const MISSING: IdentityRead = { status: 'missing' };
+const POWAN: IdentityRead = { status: 'exists', name: 'Powan' };
+const fetchAccountIdentityMock = vi.fn<(code: string) => Promise<IdentityRead>>(
+  async () => MISSING,
 );
 const pushAccountIdentityMock = vi.fn<(code: string, name: string) => Promise<void>>(
+  async () => {},
+);
+const healAccountIdentityMock = vi.fn<(code: string, name?: string) => Promise<void>>(
   async () => {},
 );
 vi.mock('@/lib/trips-remote', () => ({
   fetchAccountIdentity: (code: string) => fetchAccountIdentityMock(code),
   pushAccountIdentity: (code: string, name: string) => pushAccountIdentityMock(code, name),
+  healAccountIdentity: (code: string, name?: string) => healAccountIdentityMock(code, name),
   subscribeTripList: () => () => {},
 }));
 
@@ -66,9 +74,11 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   fetchAccountIdentityMock.mockReset();
-  fetchAccountIdentityMock.mockResolvedValue(undefined);
+  fetchAccountIdentityMock.mockResolvedValue(MISSING);
   pushAccountIdentityMock.mockReset();
   pushAccountIdentityMock.mockResolvedValue(undefined);
+  healAccountIdentityMock.mockReset();
+  healAccountIdentityMock.mockResolvedValue(undefined);
   toastMock.mockClear();
 });
 afterEach(() => {
@@ -79,7 +89,7 @@ describe('S378 branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
   it("THE DEFECT: a device that logged in as the placeholder adopts the account's real name", async () => {
     setSyncCode(CODE);
     signIn(DEFAULT_TRAVELER_NAME); // exactly what token-gate's handleLogin leaves behind
-    fetchAccountIdentityMock.mockResolvedValue('Powan');
+    fetchAccountIdentityMock.mockResolvedValue(POWAN);
 
     const cleanup = runAccountIdentitySync();
     await flush();
@@ -99,7 +109,7 @@ describe('S378 branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
   it('CONFLICT: device holds "Sora", remote says "Powan" ⇒ remote wins', async () => {
     setSyncCode(CODE);
     signIn('Sora');
-    fetchAccountIdentityMock.mockResolvedValue('Powan');
+    fetchAccountIdentityMock.mockResolvedValue(POWAN);
 
     const cleanup = runAccountIdentitySync();
     await flush();
@@ -114,7 +124,7 @@ describe('S378 branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
   it('remote === local ⇒ no write, no identity churn', async () => {
     setSyncCode(CODE);
     signIn('Powan');
-    fetchAccountIdentityMock.mockResolvedValue('Powan');
+    fetchAccountIdentityMock.mockResolvedValue(POWAN);
     const identityEvents = vi.fn();
     window.addEventListener('identity:changed', identityEvents);
 
@@ -130,8 +140,8 @@ describe('S378 branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
   });
 });
 
-describe('S378 branch 2 — remote absent ∧ local is a real name ⇒ BACKFILL', () => {
-  it('publishes the local name once and leaves both slots alone', async () => {
+describe('S378 branch 2 — remote doc missing ⇒ create-only HEAL (D-565)', () => {
+  it('heals with the local real name and leaves both slots alone', async () => {
     setSyncCode(CODE);
     signIn('Sora');
 
@@ -140,15 +150,14 @@ describe('S378 branch 2 — remote absent ∧ local is a real name ⇒ BACKFILL'
     cleanup();
 
     expect(fetchAccountIdentityMock).toHaveBeenCalledTimes(1);
-    expect(pushAccountIdentityMock).toHaveBeenCalledTimes(1);
-    expect(pushAccountIdentityMock).toHaveBeenCalledWith(CODE, 'Sora');
+    expect(healAccountIdentityMock).toHaveBeenCalledTimes(1);
+    expect(healAccountIdentityMock).toHaveBeenCalledWith(CODE, 'Sora');
+    expect(pushAccountIdentityMock).not.toHaveBeenCalled(); // never the overwriting writer
     expect(getUserName()).toBe('Sora');
     expect(getActiveTraveler()?.name).toBe('Sora');
   });
-});
 
-describe('S378 branch 3 — remote absent ∧ local IS the placeholder ⇒ publish NOTHING', () => {
-  it('never publishes "Traveler" to the account (the migration must not re-create the defect)', async () => {
+  it('placeholder device still heals, but through the create-only writer that drops the name', async () => {
     setSyncCode(CODE);
     signIn(DEFAULT_TRAVELER_NAME);
 
@@ -159,8 +168,55 @@ describe('S378 branch 3 — remote absent ∧ local IS the placeholder ⇒ publi
     // The fetch count proves the mocked module is the one that ran — so the zero below is a
     // measurement, not a mock that was silently bypassed (whose swallowed failure looks identical).
     expect(fetchAccountIdentityMock).toHaveBeenCalledTimes(1);
+    expect(healAccountIdentityMock).toHaveBeenCalledTimes(1);
     expect(pushAccountIdentityMock).toHaveBeenCalledTimes(0);
     expect(getUserName()).toBe(DEFAULT_TRAVELER_NAME);
+  });
+});
+
+describe('S378 branch 3 — doc exists with no name', () => {
+  it('backfills a real local name', async () => {
+    setSyncCode(CODE);
+    signIn('Sora');
+    fetchAccountIdentityMock.mockResolvedValue({ status: 'exists' });
+
+    const cleanup = runAccountIdentitySync();
+    await flush();
+    cleanup();
+
+    expect(pushAccountIdentityMock).toHaveBeenCalledWith(CODE, 'Sora');
+    expect(healAccountIdentityMock).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing for the placeholder', async () => {
+    setSyncCode(CODE);
+    signIn(DEFAULT_TRAVELER_NAME);
+    fetchAccountIdentityMock.mockResolvedValue({ status: 'exists' });
+
+    const cleanup = runAccountIdentitySync();
+    await flush();
+    cleanup();
+
+    expect(fetchAccountIdentityMock).toHaveBeenCalledTimes(1);
+    expect(pushAccountIdentityMock).not.toHaveBeenCalled();
+    expect(healAccountIdentityMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('S378 branch 4 — read ERROR ⇒ write nothing', () => {
+  it.each(['Sora', DEFAULT_TRAVELER_NAME])('local %s: no heal, no push', async (name) => {
+    setSyncCode(CODE);
+    signIn(name);
+    fetchAccountIdentityMock.mockResolvedValue({ status: 'error' });
+
+    const cleanup = runAccountIdentitySync();
+    await flush();
+    cleanup();
+
+    expect(fetchAccountIdentityMock).toHaveBeenCalledTimes(1);
+    expect(pushAccountIdentityMock).not.toHaveBeenCalled();
+    expect(healAccountIdentityMock).not.toHaveBeenCalled();
+    expect(getUserName()).toBe(name);
   });
 });
 
@@ -168,10 +224,10 @@ describe('S378 sign-out safety (trap 4 — D-240s bug class)', () => {
   it('a late resolve landing after signOut() does NOT resurrect the session', async () => {
     setSyncCode(CODE);
     signIn('Sora');
-    let resolveFetch: (v: string | undefined) => void = () => {};
+    let resolveFetch: (v: IdentityRead) => void = () => {};
     fetchAccountIdentityMock.mockImplementation(
       () =>
-        new Promise<string | undefined>((r) => {
+        new Promise<IdentityRead>((r) => {
           resolveFetch = r;
         }),
     );
@@ -182,7 +238,7 @@ describe('S378 sign-out safety (trap 4 — D-240s bug class)', () => {
     signOut(); // the user signs out mid-read
     expect(getActiveTraveler()).toBeNull();
 
-    resolveFetch('Powan'); // the read lands late, for an identity that no longer exists
+    resolveFetch(POWAN); // the read lands late, for an identity that no longer exists
     await flush();
     cleanup();
 
@@ -194,10 +250,10 @@ describe('S378 sign-out safety (trap 4 — D-240s bug class)', () => {
   it('a resolve after the effect cleanup does not write either', async () => {
     setSyncCode(CODE);
     signIn('Sora');
-    let resolveFetch: (v: string | undefined) => void = () => {};
+    let resolveFetch: (v: IdentityRead) => void = () => {};
     fetchAccountIdentityMock.mockImplementation(
       () =>
-        new Promise<string | undefined>((r) => {
+        new Promise<IdentityRead>((r) => {
           resolveFetch = r;
         }),
     );
@@ -206,7 +262,7 @@ describe('S378 sign-out safety (trap 4 — D-240s bug class)', () => {
     await flush();
     cleanup(); // provider unmounted
 
-    resolveFetch('Powan');
+    resolveFetch(POWAN);
     await flush();
 
     expect(getUserName()).toBe('Sora'); // unchanged — the late adopt was cancelled
@@ -219,7 +275,7 @@ describe('S378 — the "signed in as Traveler" nudge is now CONDITIONAL', () => 
     setSyncCode(CODE);
     signIn(DEFAULT_TRAVELER_NAME);
     sessionStorage.setItem('name-hint', '1');
-    fetchAccountIdentityMock.mockResolvedValue('Powan');
+    fetchAccountIdentityMock.mockResolvedValue(POWAN);
 
     const cleanup = runAccountIdentitySync();
     await flush();

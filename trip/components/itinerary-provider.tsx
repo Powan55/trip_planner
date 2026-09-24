@@ -81,7 +81,7 @@ export function consumeNameHint(): void {
  * private window or a second device and you were "Traveler" again. Nothing read a remote name
  * because nothing wrote one.
  *
- * A ONE-SHOT `getDoc` on provider mount (not a subscribe — nobody asked for a name to change live
+ * A ONE-SHOT server read on provider mount (not a subscribe — nobody asked for a name to change live
  * on a second device mid-session), same gates / lazy import / `cancelled` shape as
  * `runTripMetaSelfHeal` above.'s ordered rule:
  * 1. remote present ∧ ≠ local ⇒ ADOPT via `signIn(remote)`. REMOTE WINS on conflict — the account
@@ -91,10 +91,12 @@ export function consumeNameHint(): void {
  * only because `signIn` writes both. Writing one alone displays one name and stamps another.
  * (A naive "local wins if set" rule would instead be VACUOUS: `handleLogin` always writes a
  * name into the local slot before its reload, so the slot is never empty when this runs.)
- * 2. remote absent ∧ local is not the placeholder ⇒ BACKFILL (the once-per-account migration).
- * 3. remote absent ∧ local IS the placeholder ⇒ DO NOTHING. Never publish "Traveler": two devices
- * with no doc yet race, and a device already showing the placeholder would publish it TO THE
- * ACCOUNT for the other to adopt — re-creating the defect and making it sticky.
+ * 2. remote doc missing ⇒ HEAL, create-only (D-565): write `{ version: 1, name }`, or a nameless
+ * `{ version: 1 }` when local is the placeholder. Never publish "Traveler" — a device showing the
+ * placeholder would publish it TO THE ACCOUNT for others to adopt. The doc must exist regardless:
+ * legacy keys had none and the door rejects a missing one on every new device.
+ * 3. remote doc exists with no name ∧ local is not the placeholder ⇒ BACKFILL the name.
+ * 4. the read ERRORED ⇒ write nothing; an unseen doc is not an absent one.
  *
  * 🔴 SIGN-OUT SAFETY: the `.then` re-checks the account AND the traveler are
  * unchanged and the effect was not cleaned up before calling `signIn` — a late resolve landing
@@ -106,8 +108,8 @@ export function consumeNameHint(): void {
  *
  * THE NUDGE RIDES ALONG. `consumeNameHint`'s toast used to fire from its own mount effect, i.e.
  * BEFORE this read lands — post-fix it would tell a user their name is Traveler moments before it
- * becomes Powan. It now fires only where the placeholder really is the final answer: branch 3, or
- * the gates being shut (dormant / no account / signed out), where no account layer exists to
+ * becomes Powan. It now fires only where the placeholder really is the final answer: no account
+ * name to adopt, or the gates being shut (dormant / no account / signed out), where no account layer exists to
  * correct it. Accepted: a read still in flight when the tab is closed leaves the one-shot flag for
  * the next load, which is the same behaviour it already had across a reload.
  *
@@ -128,7 +130,7 @@ export function runAccountIdentitySync(): () => void {
 
   let cancelled = false;
   void import('@/lib/trips-remote')
-    .then(({ fetchAccountIdentity, pushAccountIdentity }) =>
+    .then(({ fetchAccountIdentity, pushAccountIdentity, healAccountIdentity }) =>
       fetchAccountIdentity(code).then((remote) => {
         if (cancelled) return;
         // Re-read, don't trust the closure: a sign-out (or a sign-in as someone else) may have
@@ -136,15 +138,14 @@ export function runAccountIdentitySync(): () => void {
         const now = getActiveTraveler();
         if (!now || now.token !== local.token || getSyncCode() !== code) return;
 
-        if (remote) {
-          if (remote !== now.name) signIn(remote); // 1 — adopt (both slots, one primitive)
+        if (remote.status === 'exists' && remote.name) {
+          if (remote.name !== now.name) signIn(remote.name); // 1 — adopt (both slots, one primitive)
           return;
         }
-        if (now.name !== DEFAULT_TRAVELER_NAME) {
-          void pushAccountIdentity(code, now.name); // 2 — backfill this device's real name
-          return;
-        }
-        consumeNameHint(); // 3 — the placeholder is the answer; never publish it
+        const real = now.name !== DEFAULT_TRAVELER_NAME;
+        if (remote.status === 'missing') void healAccountIdentity(code, now.name); // 2
+        else if (remote.status === 'exists' && real) void pushAccountIdentity(code, now.name); // 3
+        if (!real) consumeNameHint(); // the placeholder is the answer
       }),
     )
     .catch((err) => {
