@@ -33,7 +33,6 @@ export function useDraftOnBlur(committed: string, onCommit: (value: string) => v
       window.removeEventListener('pagehide', flush);
       flush();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
