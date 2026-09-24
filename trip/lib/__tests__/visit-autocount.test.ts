@@ -23,8 +23,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  * `core/dates`, `lib/leg-label` and `lib/trip-now` all capture their world ONCE (the active trip at
  * module load; the `?today=` override at first read, cached in a module var). So each case seeds
  * storage FIRST, then `vi.resetModules()` + dynamic import, exactly as `trip-cities-scoped.test.ts`
- * does. The clock is always driven through the `?today=` override rather than the real one: a test
- * whose meaning changes when December 2026 actually arrives is not a test.
+ * does.
+ *
+ * The clock is driven with `vi.setSystemTime`, NOT the `?today=` override: #590 made
+ * `runVisitAutocount` refuse to write while that override is active, so a suite that drove every
+ * case through it would pass on a no-op. `load()` fakes the REAL clock instead, leaving
+ * `isClockOverridden()` false, same as a device that never demoed the countdown. The one case that
+ * still sets the override directly (below) is the one proving the guard fires.
  */
 
 const VISITS_KEY = 'tripPlannerLifetimeVisits';
@@ -38,14 +43,17 @@ const KATHMANDU = { latitude: 27.7172, longitude: 85.324 };
 
 /**
  * Seed the world, then load a fresh module graph on top of it.
- * `today` drives the `?today=` clock override; `signedIn` gates the front door.
+ * `today` fakes the real clock (`vi.setSystemTime`), never the `?today=` override; `signedIn`
+ * gates the front door.
  */
 async function load({ today, signedIn = true }: { today: string; signedIn?: boolean }) {
   if (signedIn) {
     window.localStorage.setItem('tripPlannerToken', 'Powan');
     window.localStorage.setItem('tripPlannerUserName', 'Powan');
   }
-  window.sessionStorage.setItem(TODAY_KEY, today);
+  window.sessionStorage.removeItem(TODAY_KEY); // no `?today=` override — the real (faked) clock
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(`${today}T06:00:00Z`)); // early UTC so every trip leg's +offset stays same-day
   vi.resetModules();
   const autocount = await import('@/lib/visit-autocount');
   const visited = await import('@/core/places/visited');
@@ -110,6 +118,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -185,6 +194,19 @@ describe('day-arrival counting — the itinerary credits a city once its day has
     // storage key, and CI runs at whatever date it runs at.
     const { runVisitAutocount } = await load({ today: '2026-11-01' });
     runVisitAutocount();
+    expect(window.localStorage.getItem(VISITS_KEY)).toBeNull();
+    expect(window.localStorage.getItem(CONFIRM_KEY)).toBeNull();
+  });
+
+  it('a `?today=` demo override writes nothing to the lifetime visit set (#590)', async () => {
+    window.localStorage.setItem('tripPlannerToken', 'Powan');
+    window.localStorage.setItem('tripPlannerUserName', 'Powan');
+    window.sessionStorage.setItem(TODAY_KEY, '2026-12-20'); // the real override path, not a faked clock
+    vi.resetModules();
+    const { runVisitAutocount } = await import('@/lib/visit-autocount');
+
+    runVisitAutocount();
+
     expect(window.localStorage.getItem(VISITS_KEY)).toBeNull();
     expect(window.localStorage.getItem(CONFIRM_KEY)).toBeNull();
   });
