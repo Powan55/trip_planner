@@ -12,7 +12,8 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { setDefaultTripShareId } from '@/core/storage/gateway';
+import { markTripCreatedHere, setDefaultTripShareId } from '@/core/storage/gateway';
+import { parseTripToken } from '@/core/trips/registry';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { withBasePath } from '@/lib/base-path';
 
@@ -62,6 +63,7 @@ export function ShareDefaultTripDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [mode, setMode] = useState<'choose' | 'join'>('choose');
   // Identity is read on mount, never during render: `getActiveTraveler()` reads localStorage, which
   // is absent server-side, and a render-time read would hydrate-mismatch.
@@ -94,10 +96,23 @@ export function ShareDefaultTripDialog({
     window.location.assign(withBasePath('/'));
   };
 
-  const startSharing = () => applyShareId(crypto.randomUUID());
+  const startSharing = () => {
+    const id = crypto.randomUUID();
+    markTripCreatedHere(id);
+    applyShareId(id);
+  };
+  /**
+   * D-546 — this box's subject IS the default pack, so a bare code and a `pack:`-prefixed one both
+   * mean the same thing here; the prefix is stripped rather than written into a Firestore path.
+   * A code that can never compose a path is refused instead of half-applied (#476).
+   */
   const joinShared = () => {
-    const trimmed = code.trim();
-    if (trimmed) applyShareId(trimmed);
+    const parsed = parseTripToken(code);
+    if (!parsed) {
+      setCodeError('That code can’t be used. Check it was copied whole.');
+      return;
+    }
+    applyShareId(parsed.id);
   };
 
   return (
@@ -156,13 +171,28 @@ export function ShareDefaultTripDialog({
               id="share-default-trip-code"
               type="text"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => {
+                setCode(e.target.value);
+                setCodeError(null);
+              }}
               autoComplete="off"
               spellCheck={false}
               placeholder="paste the code here"
+              aria-invalid={codeError !== null || undefined}
+              aria-describedby={codeError ? 'share-default-trip-code-error' : undefined}
               data-testid="share-default-trip-code"
               className="border-hair border-border bg-surface-low px-3 py-2 font-machine text-t-body text-ink-hi"
             />
+            {codeError && (
+              <p
+                id="share-default-trip-code-error"
+                role="alert"
+                data-testid="share-default-trip-code-error"
+                className="text-t-body text-amber-300"
+              >
+                {codeError}
+              </p>
+            )}
           </div>
         )}
 

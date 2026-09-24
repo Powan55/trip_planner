@@ -43,6 +43,7 @@ import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/
 import { isDefaultTrip } from '@/core/trips';
 import { normalizePath, routeLabel } from '@/lib/nav-items';
 import { prefersReducedMotion } from '@/lib/motion';
+import { markPaletteMounted, consumePendingPaletteOpen } from '@/lib/palette-open';
 
 /**
  * ⌘K / Ctrl+K command palette.
@@ -274,10 +275,9 @@ export default function CommandPalette() {
   const [plansSnapshot, setPlansSnapshot] = React.useState<DayPlan[]>([]);
   const [query, setQuery] = React.useState('');
 
-  // (Plan D10): CommandPalette is imported directly into the root layout (a Server
-  // Component), so — unlike Navbar/BottomTabBar — it DOES render server-side. SSR always
-  // resolves the default pack (`core/trips/index.ts`), so the un-mounted render below must
-  // keep the full SECTIONS list to match; after mount we re-evaluate against the real
+  // (#505): mounted via `dynamic(..., {ssr:false})` in chrome-islands.tsx, so this never
+  // renders server-side. The mounted-gate below still applies: the un-mounted render must
+  // keep the full SECTIONS list, then after mount we re-evaluate against the real
   // active-trip pointer and drop the N×J-specific entries on a custom trip.
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -377,6 +377,17 @@ export default function CommandPalette() {
     };
     window.addEventListener('palette:open', onPaletteOpen);
     return () => window.removeEventListener('palette:open', onPaletteOpen);
+  }, [snapshotTrigger]);
+
+  // (#505): mark mounted, then drain any `openPalette()` call that fired
+  // before this lazy chunk attached the listener above — otherwise that
+  // first click is silently lost.
+  React.useEffect(() => {
+    markPaletteMounted();
+    if (consumePendingPaletteOpen()) {
+      snapshotTrigger();
+      setOpen(true);
+    }
   }, [snapshotTrigger]);
 
   const handleOpenChange = React.useCallback((next: boolean) => {

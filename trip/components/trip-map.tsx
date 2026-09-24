@@ -33,10 +33,12 @@ import {
 import { type MapMarker, type MarkerCategory } from '@/lib/map-data';
 import { buildMapStyle, CATEGORY_COLOR, BRAND } from '@/lib/map-style';
 import { buildMapsDirectionsUrl } from '@/lib/maps-link';
+import { placeColor } from '@/lib/city-palette';
 import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
 import { footprintsToGeoJSON, type CountryFootprint } from '@/lib/visited-footprint';
 import { MAP_PIN_DND_TYPE } from '@/lib/day-anchor';
 import { prefersReducedMotion } from '@/lib/motion';
+import { withBasePath } from '@/lib/base-path';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -190,7 +192,11 @@ function MarkerPopupContent({
   const Icon = style.icon;
   const favorited = isFavorite(marker.id);
   return (
-    <div className="plate w-[248px] max-w-[80vw]" data-leg={marker.country === 'Japan' ? 'japan' : 'nepal'}>
+    <div
+      className="plate w-[248px] max-w-[80vw]"
+      data-leg={marker.country === 'Japan' ? 'japan' : 'nepal'}
+      style={{ ['--now' as string]: placeColor(marker.country, marker.area) }}
+    >
       {/* DOM chrome only — the ratio lives on the frame as `--plate-ar`, which is what the
           recipe reads, and the grid is what gives the ramp a row to span. */}
       {marker.image && !imgError && (
@@ -228,7 +234,7 @@ function MarkerPopupContent({
               scanned the popup with content OPEN for the first time (the earlier
               /map axe pack never opens a popup, so this was never exercised). */}
           <p className="pr pr--lo flex items-center gap-1 mb-1.5">
-            <MapPin className="w-3 h-3" aria-hidden="true" />
+            <MapPin className="w-3 h-3 text-now" aria-hidden="true" />
             {marker.area} · {marker.country}
           </p>
         </div>
@@ -548,6 +554,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   ref,
 ) {
   const [mapReady, setMapReady] = useState(false);
+  // Issue #502 — set when the WebGL2 context can't be created; renders the
+  // unavailable message in place of the canvas instead of leaving it blank.
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   // The marker whose popup is currently open — drives the React portal content.
   const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
   // The DOM node inside the open popup that we portal React content into.
@@ -684,15 +693,30 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       if (cancelled || !containerRef.current) return;
       mapLibreRef.current = maplibregl;
 
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: buildMapStyle() as never,
-        bounds: ALL_BOUNDS,
-        fitBoundsOptions: { padding: 48 },
-        attributionControl: false, // added explicitly below (compact)
-        maxZoom: 17,
-        minZoom: 2,
-      });
+      // Issue #503 — the worker path is versioned by the installed engine's own
+      // version (copy-maplibre-worker.mjs copies into the same path), so a
+      // maplibre-only bump can never run against a stale cached worker.
+      maplibregl.setWorkerUrl(
+        withBasePath(`/maplibre/${maplibregl.getVersion()}/maplibre-gl-worker.mjs`),
+      );
+      // Issue #502 — `new Map` throws synchronously when the browser can't give it a
+      // WebGL2 context (old device, disabled GPU, too many contexts already open).
+      // Uncaught here it would just leave the panel blank forever post-mount.
+      try {
+        map = new maplibregl.Map({
+          container: containerRef.current,
+          style: buildMapStyle() as never,
+          bounds: ALL_BOUNDS,
+          fitBoundsOptions: { padding: 48 },
+          attributionControl: false, // added explicitly below (compact)
+          maxZoom: 17,
+          minZoom: 2,
+        });
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setMapUnavailable(true);
+        return;
+      }
       mapRef.current = map;
 
       map.addControl(
@@ -1191,8 +1215,25 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         role="region"
       />
 
+      {/* Issue #502 — WebGL2 unavailable. `role="status"` since this fires post-mount
+          (unlike MapIslandBoundary's chunk-load case, there's nothing static about it —
+          the rest of the page already rendered around a map that then failed). No motion. */}
+      {mapUnavailable && (
+        <div
+          data-testid="map-unavailable"
+          role="status"
+          className="empty-frame absolute inset-0 mx-auto flex max-w-md flex-col items-center justify-center p-gut py-6 text-center"
+        >
+          <p className="pr pr--l err mb-2">Map unavailable on this device</p>
+          <p className="empty">
+            This device or browser can&apos;t create the map engine&apos;s WebGL2
+            context. Everything else on this page still works.
+          </p>
+        </div>
+      )}
+
       {/* Loading skeleton until the GL canvas is ready. */}
-      {!mapReady && (
+      {!mapUnavailable && !mapReady && (
         // The word is a real text node, not a `content:` string — a static block is
         // indistinguishable from an empty one, and generated content is not reliably
         // announced. The pulse goes with it: the word carries the state.

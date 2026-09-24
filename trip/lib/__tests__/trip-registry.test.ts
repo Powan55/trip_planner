@@ -17,6 +17,8 @@ import {
   DEFAULT_TRIP_ID,
   setActiveTripId,
   getActiveTripId,
+  getDefaultTripShareId,
+  setSyncCode,
 } from '@/core/storage/gateway';
 import {
   listKnownTrips,
@@ -25,6 +27,10 @@ import {
   joinTrip,
   removeKnownTrip,
   listRemovedTrips,
+  mergeTripLists,
+  importRemoteTrips,
+  DEFAULT_SHARE_PREFIX,
+  isOwnAccountToken,
 } from '@/core/trips/registry';
 
 /**
@@ -171,6 +177,76 @@ describe('trip registry (S238)', () => {
     expect(listKnownTrips().find((t) => t.id === 'abc-123')?.name).toBe('Named once');
   });
 
+  // ── joinTrip is the trust boundary for the Firestore path segment (#476) ───
+  describe('joinTrip refuses a token that cannot compose the path it claims (#476)', () => {
+    const UUID = '3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+
+    it.each([
+      ['a separator — trips/A/B/days/{d} is matched by the rules as tripId A', 'A/B'],
+      ['the auth-only carve-out', 'V/profile'],
+      // The D-546 prefix is stripped BEFORE the id becomes a path, so the guard has to run on
+      // the post-strip value or a prefixed token walks straight past it.
+      ['a separator hiding behind the wire prefix', 'pack:A/B'],
+      ['a relative segment', '..'],
+      ['whitespace that would compose a neighbouring empty trip', 'has space'],
+      ['a control byte', 'tab\there'],
+      ['a Firestore-reserved id', '__proto__'],
+      ['nothing at all', ''],
+    ])('rejects %s', (_why, raw) => {
+      expect(joinTrip(raw, 'Shared trip')).toBe(false);
+      expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBeNull();
+      expect(getDefaultTripShareId()).toBe('');
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it('a minted uuid — what the share flow actually produces — still joins', () => {
+      expect(joinTrip(UUID, 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe(UUID);
+    });
+
+    // #393 / D-504 — the account key is a credential, not a trip capability.
+    it.each([
+      ['as a custom trip', (k: string) => k],
+      ['behind the pack: prefix, which would make it the share id', (k: string) => `pack:${k}`],
+      ['in capitals with padding', (k: string) => `  ${k.toUpperCase()} `],
+    ])('refuses this device\'s own account key %s', (_why, wrap) => {
+      setSyncCode(UUID);
+      expect(isOwnAccountToken(wrap(UUID))).toBe(true);
+      expect(joinTrip(wrap(UUID), 'Shared trip')).toBe(false);
+      expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBeNull();
+      expect(getDefaultTripShareId()).toBe('');
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it('a different token still joins while an account key is stored', () => {
+      setSyncCode('aaaa1111-bbbb-4222-8333-cccc4444dddd');
+      expect(isOwnAccountToken(UUID)).toBe(false);
+      expect(joinTrip(UUID, 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe(UUID);
+    });
+
+    it('a legitimately prefixed share id still joins, with the prefix stripped (D-546)', () => {
+      expect(joinTrip(`${DEFAULT_SHARE_PREFIX}${UUID}`, 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID);
+      expect(getDefaultTripShareId()).toBe(UUID); // the path segment, prefix gone
+    });
+
+    // The other door into the same invariant: an entry can arrive in the known-trips list WITHOUT
+    // passing through joinTrip (a Sync-Code merge), and `ensureKnownTripMemberships` then writes a
+    // members map at `doc(db, 'trips', <that id>)`. An even segment count is a valid ref that does
+    // not throw, so `A/B/C` would land under a document the rules authorize against trip `A`.
+    it('sanitize drops a multi-slash id on BOTH doors — the stored parse and the remote merge', () => {
+      const poison = { id: 'A/B/C', name: 'Merged in', joinedAt: 1 };
+      const good = { id: UUID, name: 'Real trip', joinedAt: 2 };
+
+      window.localStorage.setItem(KEY, JSON.stringify([poison, good]));
+      expect(listKnownTrips().map((t) => t.id)).toEqual([DEFAULT_TRIP_ID, UUID]);
+
+      const { merged } = mergeTripLists([], [poison, good]);
+      expect(merged.map((t) => t.id)).toEqual([UUID]);
+    });
+  });
+
   // ── removeKnownTrip sweeps the trip's local data (A-10 / #100) ─────────────
   describe('removeKnownTrip — wipes the forgotten trip\'s trip:{id}:* data (A-10)', () => {
     it('a forgotten trip\'s scoped slots are gone; another known trip\'s data is untouched', () => {
@@ -214,6 +290,48 @@ describe('trip registry (S238)', () => {
       removeKnownTrip('gone');
 
       await vi.waitFor(async () => expect(await defaultBlobStore.list()).toEqual(['ph-kept-1']));
+    });
+  });
+
+  // ── #518: a tombstone dropped through importRemoteTrips wipes the trip's data too ─────────
+  describe('importRemoteTrips — a tombstone that drops a locally-known trip wipes its data (#518)', () => {
+    it('wipes trip:{id}:* and the photo blobs for an id the incoming tombstone drops', async () => {
+      await defaultBlobStore.putWithId('ph-gone-1', new Blob(['a']));
+      await defaultBlobStore.putWithId('ph-kept-1', new Blob(['c']));
+      window.localStorage.setItem(
+        'trip:gone:photos',
+        JSON.stringify([
+          { id: 'ph-gone-1', owner: { kind: 'journal', date: '2026-12-10' }, altText: 'a', createdAt: '2026-12-10T00:00:00.000Z' },
+        ]),
+      );
+      window.localStorage.setItem('trip:gone:budget', 'x');
+      window.localStorage.setItem('trip:kept:budget', 'keep-me');
+
+      joinTrip('gone', 'Going away'); // this device knows 'gone' locally, with real data
+      joinTrip(DEFAULT_TRIP_ID);
+
+      importRemoteTrips([], [{ id: 'gone', removedAt: Date.now() + 60_000 }]); // peer forgot it
+
+      expect(window.localStorage.getItem('trip:gone:budget')).toBeNull();
+      expect(window.localStorage.getItem('trip:kept:budget')).toBe('keep-me');
+      await vi.waitFor(async () => expect(await defaultBlobStore.list()).toEqual(['ph-kept-1']));
+    });
+
+    it('does NOT wipe an id the tombstone drops but the same merge re-adds (re-join beats a stale tombstone)', () => {
+      joinTrip('t1', 'One');
+      joinTrip(DEFAULT_TRIP_ID);
+      window.localStorage.setItem('trip:t1:budget', 'still-here');
+      const removedAt = Date.now() - 1000; // stale: older than the entry's own recency below
+
+      importRemoteTrips([{ id: 't1', name: 'Re-joined', joinedAt: Date.now() }], [{ id: 't1', removedAt }]);
+
+      expect(window.localStorage.getItem('trip:t1:budget')).toBe('still-here');
+    });
+
+    it('never wipes the default pack even if a (refused) tombstone named it', () => {
+      window.localStorage.setItem(STORAGE_KEYS.budget, 'default-pack-data');
+      importRemoteTrips([], [{ id: DEFAULT_TRIP_ID, removedAt: Date.now() }]);
+      expect(window.localStorage.getItem(STORAGE_KEYS.budget)).toBe('default-pack-data');
     });
   });
 

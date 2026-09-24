@@ -36,7 +36,14 @@ import {
   identityStore,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
-import { joinTrip } from '@/core/trips/registry';
+import {
+  joinTrip,
+  formatShareToken,
+  isOwnAccountToken,
+  OWN_ACCOUNT_TOKEN_COPY,
+  joinReplacesLocalPlan,
+  replaceLocalPlanCopy,
+} from '@/core/trips/registry';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
@@ -309,13 +316,15 @@ function IdentityGroup({ name }: { name: string | null }) {
       {/* (Q3) — claim the items you stamped under a name you used to go by. */}
       {name && <ClaimOldName current={name} />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
-          deletes every locally-stored photo (IndexedDB, app-scoped). Gated on `name` like Rename
+          deletes every locally-stored photo (IndexedDB, app-scoped) and the lifetime travel
+          history (D-503). Gated on `name` like Rename
           above (meaningless when not signed in). */}
       {name && (
         <div className="border-hair border-border bg-surface-raised px-gut py-4">
           <h3 className="pr pr--l text-ink-hi">Forget this device</h3>
           <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
-            Signs out and permanently deletes every photo stored on this device. Use this before
+            Signs out and permanently deletes every photo and your travel history (visited places
+            and passport stamps) stored on this device. Use this before
             handing the device to someone else or giving it away.
           </p>
           <SignOutConfirm testId="settings-forget-device" forgetDevice>
@@ -518,13 +527,27 @@ function LinkGoogleIdentity() {
  * refusal rather than pretending it worked.
  *
  * A trip with NO roster is the grandfathered case (it predates the lock): everyone holding the
- * Trip Token can open it, and saying so is more honest than showing an empty list. Simply opening
- * such a trip enrols this device as its owner, so the empty state is short-lived.
+ * Trip Token can open it, and saying so is more honest than showing an empty list. That state is
+ * permanent, not short-lived — #477 stopped the client minting a roster for such a trip on page
+ * load — so the add form is hidden there: the rules refuse any roster that names no owner
+ * (`rosterIsWellFormed`), so "Add device" could only ever fail.
+ *
+ * ⚠ THREE ROSTER STATES, NOT TWO, and the third is why `undefined` is not `null` here. "No roster"
+ * and "I could not find out" were one value until #477 made the difference load-bearing: the add
+ * form is hidden on the first and MUST NOT be on the second. `fetchTripMembers` reads through
+ * `getDocFromServer`, which REJECTS offline rather than serving the cache, so a perfectly normal
+ * member-gated trip opened on a dead connection answers `'unknown'` — and collapsing that to "no
+ * roster" would tell its owner their trip predates per-device access and take the control away.
+ * A control is never hidden on a guess; unknown renders exactly what shipped before.
  */
 function TripAccessGroup() {
   const [uid, setUid] = useState<string | null>(null);
   const [tripKey, setTripKey] = useState<string | null>(null);
-  const [members, setMembers] = useState<Record<string, string> | null>(null);
+  // `undefined` = not established (still loading, or the read failed); `null` = a SUCCESSFUL read
+  // that found no roster; `'absent'` = no trip doc yet (#501); an object = the roster.
+  const [members, setMembers] = useState<Record<string, string> | null | 'absent' | undefined>(
+    undefined,
+  );
   const [copied, setCopied] = useState(false);
   const [addValue, setAddValue] = useState('');
   const [busy, setBusy] = useState(false);
@@ -535,8 +558,11 @@ function TripAccessGroup() {
     const id = getTripId();
     if (!id) return;
     const { fetchTripMembers } = await import('@/lib/trips-remote');
-    const roster = await fetchTripMembers(id);
-    setMembers(roster ?? null);
+    const read = await fetchTripMembers(id);
+    if (read.state === 'roster') setMembers(read.members);
+    else if (read.state === 'open') setMembers(null);
+    else if (read.state === 'absent') setMembers('absent');
+    else setMembers(undefined);
   };
 
   useEffect(() => {
@@ -558,7 +584,7 @@ function TripAccessGroup() {
     };
   }, []);
 
-  const myRole = uid && members ? members[uid] : undefined;
+  const myRole = uid && typeof members === 'object' && members ? members[uid] : undefined;
 
   const copyUid = async () => {
     if (!uid) return;
@@ -657,15 +683,31 @@ function TripAccessGroup() {
           </p>
         ) : (
           <>
-            {members === null ? (
+            {members === 'absent' ? (
+              <p
+                data-testid="settings-access-absent"
+                className="mt-1 max-w-2xl text-t-body text-ink-mid"
+              >
+                This trip hasn&rsquo;t synced yet &mdash; whoever created it needs to open it with a
+                connection once. Then you can add devices here.
+              </p>
+            ) : members === null ? (
               <p
                 data-testid="settings-access-open"
                 className="mt-1 flex max-w-2xl items-start gap-1.5 text-t-body text-ink-mid"
               >
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                Anyone holding this trip&rsquo;s Trip Token can open it. Once this device has
-                finished syncing, it becomes the trip&rsquo;s owner and you can add the others by
-                their device codes.
+                Anyone holding this trip&rsquo;s Trip Token can open it. This trip was made before
+                per-device access existed, so there is no list to manage &mdash; share the Trip
+                Token with the people you want in, and nobody else.
+              </p>
+            ) : members === undefined ? (
+              <p
+                data-testid="settings-access-unknown"
+                className="mt-1 max-w-2xl text-t-body text-ink-mid"
+              >
+                Who can open this trip isn&rsquo;t available right now &mdash; it needs a
+                connection. You can still add a device by its code.
               </p>
             ) : (
               <ul data-testid="settings-access-list" className="mt-3 flex flex-col gap-2">
@@ -701,32 +743,36 @@ function TripAccessGroup() {
               </ul>
             )}
 
-            <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <label htmlFor="settings-access-add" className="sr-only">
-                Device code to add
-              </label>
-              <input
-                id="settings-access-add"
-                value={addValue}
-                onChange={(e) => setAddValue(e.target.value)}
-                placeholder="Paste a device code"
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                data-testid="settings-access-add-input"
-                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              />
-              <button
-                type="submit"
-                disabled={!addValue.trim() || busy}
-                aria-busy={busy}
-                data-testid="settings-access-add-submit"
-                className="btn btn--2 px-4"
-              >
-                <UserPlus className="h-4 w-4" aria-hidden="true" />
-                Add device
-              </button>
-            </form>
+            {/* Hidden ONLY on a confirmed-rosterless trip, where the rules can never accept the
+                write. `undefined` (unknown) keeps it, exactly as it shipped before #477. */}
+            {members !== null && members !== 'absent' && (
+              <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="settings-access-add" className="sr-only">
+                  Device code to add
+                </label>
+                <input
+                  id="settings-access-add"
+                  value={addValue}
+                  onChange={(e) => setAddValue(e.target.value)}
+                  placeholder="Paste a device code"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  data-testid="settings-access-add-input"
+                  className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                />
+                <button
+                  type="submit"
+                  disabled={!addValue.trim() || busy}
+                  aria-busy={busy}
+                  data-testid="settings-access-add-submit"
+                  className="btn btn--2 px-4"
+                >
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  Add device
+                </button>
+              </form>
+            )}
           </>
         )}
         <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
@@ -946,7 +992,15 @@ function ClaimOldName({ current }: { current: string }) {
  */
 function TripGroup() {
   const [tripKey, setTripKey] = useState<string | null>(null);
+  /**
+   * D-546 — the WIRE form of `tripKey`: what actually goes on the clipboard and into the link.
+   * On the default pack a bare share id is indistinguishable from a custom trip's pack id, and
+   * whoever received it landed in a single-leg trip with no Nepal/Japan offsets and no guides.
+   * `formatShareToken` prefixes it so the receiving end knows which namespace it is.
+   */
+  const [shareToken, setShareToken] = useState<string>('');
   const [joinValue, setJoinValue] = useState('');
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState<'key' | 'link' | null>(null);
   // True once mounted iff the browser is on a non-default (shared/created) pack — drives the
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
@@ -955,13 +1009,16 @@ function TripGroup() {
 
   // Read the active trip's remote token + pack identity after mount (client-only; ssr:false island).
   useEffect(() => {
-    setTripKey(getTripId());
-    setOnSharedTrip(getActiveTripId() !== DEFAULT_TRIP_ID);
+    const active = getActiveTripId();
+    const remote = getTripId();
+    setTripKey(remote);
+    setShareToken(formatShareToken(active, remote));
+    setOnSharedTrip(active !== DEFAULT_TRIP_ID);
   }, []);
 
   const shareLink =
-    tripKey !== null && typeof window !== 'undefined'
-      ? `${window.location.origin}${withBasePath('/')}?trip=${encodeURIComponent(tripKey)}`
+    shareToken !== '' && typeof window !== 'undefined'
+      ? `${window.location.origin}${withBasePath('/')}?trip=${encodeURIComponent(shareToken)}`
       : '';
 
   const copy = async (text: string, which: 'key' | 'link') => {
@@ -977,8 +1034,19 @@ function TripGroup() {
   const join = (e: React.FormEvent) => {
     e.preventDefault();
     const id = joinValue.trim();
-    if (!id) return; // non-empty is the only possible/needed validation
-    joinTrip(id, 'Shared trip');
+    if (!id) return;
+    if (joinReplacesLocalPlan(id) && !window.confirm(replaceLocalPlanCopy())) return;
+    // D-546 — `joinTrip` refuses a token it cannot use and reports whether the pointer landed
+    // (storage writes are swallowed by contract). Reloading regardless used to look like the
+    // paste had worked while leaving the browser exactly where it was.
+    if (!joinTrip(id, 'Shared trip')) {
+      setJoinError(
+        isOwnAccountToken(id)
+          ? OWN_ACCOUNT_TOKEN_COPY
+          : 'That code can’t be used. Check it was copied whole — chat apps often cut long codes short.',
+      );
+      return;
+    }
     window.location.reload();
   };
 
@@ -1043,13 +1111,13 @@ function TripGroup() {
             data-testid="settings-trip-key"
             className="min-h-tap min-w-0 flex-1 truncate rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body leading-[1.6] text-ink-hi"
           >
-            {tripKey ?? '…'}
+            {shareToken || '…'}
           </code>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => tripKey && copy(tripKey, 'key')}
-              disabled={!tripKey}
+              onClick={() => shareToken && copy(shareToken, 'key')}
+              disabled={!shareToken}
               data-testid="settings-trip-key-copy"
               className="btn btn--2 px-4"
             >
@@ -1100,7 +1168,12 @@ function TripGroup() {
           <input
             id="settings-trip-join"
             value={joinValue}
-            onChange={(e) => setJoinValue(e.target.value)}
+            onChange={(e) => {
+              setJoinValue(e.target.value);
+              setJoinError(null);
+            }}
+            aria-invalid={joinError !== null || undefined}
+            aria-describedby={joinError ? 'settings-trip-join-error' : undefined}
             placeholder="Paste a Trip Token"
             autoComplete="off"
             autoCapitalize="off"
@@ -1117,6 +1190,16 @@ function TripGroup() {
             Add trip
           </button>
         </div>
+        {joinError && (
+          <p
+            id="settings-trip-join-error"
+            role="alert"
+            data-testid="settings-trip-join-error"
+            className="mt-2 max-w-2xl text-t-body text-amber-300"
+          >
+            {joinError}
+          </p>
+        )}
       </form>
 
       {/* Settings stays the secondary surface — the full list/rename/switch UX lives on

@@ -71,6 +71,34 @@ describe('mergeBudget — a stamped null CLEARS a field (no tombstone list)', ()
   });
 });
 
+describe('mergeBudget — a prototype-named field path does not throw (#485)', () => {
+  it('a "constructor" path present only on remote merges in, no TypeError', () => {
+    const local: BudgetFields = { homeCurrency: { v: 'USD', hlc: hlc(1000) } };
+    const remote: BudgetFields = { constructor: { v: 'JPY', hlc: hlc(2000) } };
+    expect(() => mergeBudget(local, remote)).not.toThrow();
+    const merged = mergeBudget(local, remote);
+    expect(merged.constructor).toEqual({ v: 'JPY', hlc: hlc(2000) });
+    expect(merged.homeCurrency.v).toBe('USD');
+  });
+
+  it('a "__proto__" path present only on local merges in, no TypeError', () => {
+    // JSON.parse (the shape a real Firestore/wire doc arrives as) creates a genuine OWN
+    // property named "__proto__", unlike `{ __proto__: ... }` object-literal syntax.
+    const local: BudgetFields = JSON.parse(
+      `{"__proto__":{"v":5,"hlc":"${hlc(1000)}"}}`,
+    );
+    expect(Object.prototype.hasOwnProperty.call(local, '__proto__')).toBe(true);
+    const remote: BudgetFields = { homeCurrency: { v: 'NPR', hlc: hlc(2000) } };
+    expect(() => mergeBudget(local, remote)).not.toThrow();
+    const merged = mergeBudget(local, remote);
+    expect(merged.homeCurrency.v).toBe('NPR');
+    // Own-key presence is the only discriminating assertion: on a plain `{}`,
+    // `out.__proto__ = value` sets the prototype, and `merged.__proto__` reads it back.
+    expect(Object.keys(merged)).toContain('__proto__');
+    expect(JSON.parse(JSON.stringify(merged)).__proto__).toEqual({ v: 5, hlc: hlc(1000) });
+  });
+});
+
 describe('mergeBudget — commutative + idempotent (lattice join)', () => {
   const x: BudgetFields = {
     homeCurrency: { v: 'USD', hlc: hlc(1000, 'A') },

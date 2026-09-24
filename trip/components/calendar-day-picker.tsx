@@ -13,6 +13,8 @@ import {
   TRIP_DATES, getCountryForDate, formatDate, formatDateLong, DayPlan,
 } from '@/lib/trip-data';
 import { legCurrency, formatMoney } from '@/core/budget/model';
+import { dayShade, cellPaint, shadeLabel } from '@/lib/city-palette';
+import CityLegend from '@/components/city-legend';
 
 interface CalendarDayPickerProps {
   selectedDate: string;
@@ -63,6 +65,7 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
           {weeks.flat().map((date, i) => {
             if (!date) return <div key={`empty-${i}`} className="min-w-0 aspect-square" />;
             const country = getCountryForDate(date);
+            const shade = dayShade(date);
             const dayPlan = getDayPlan(date);
             const hasItems = (dayPlan.items?.length ?? 0) > 0;
             const isSelected = date === selectedDate;
@@ -82,25 +85,31 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                 key={date}
                 onClick={() => onSelectDate(date)}
                 aria-pressed={isSelected}
-                aria-label={`${formatDateLong(date)}${hasItems ? `, ${dayPlan.items?.length ?? 0} activities planned` : ', no activities planned'}${spendLabel}`}
+                aria-label={`${formatDateLong(date)}${hasItems ? `, ${dayPlan.items?.length ?? 0} activities planned` : ', no activities planned'}${spendLabel}${shadeLabel(shade)}`}
                 data-testid={`calendar-day-${date}`}
+                data-city={shade.ownCity}
+                data-transit={shade.transit ? '' : undefined}
+                style={isSelected ? undefined : cellPaint(shade, { planned: hasItems })}
                 className={`num min-w-0 aspect-square rounded-r1 flex flex-col items-center justify-center text-t-body transition-colors relative outline-none border-hair focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${isToday ? 'animate-today-pulse ' : ''}${
                   isSelected
                     ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi border-[color:hsl(var(--accent))] shadow-[inset_0_-3px_0_hsl(var(--accent))]'
                     : hasItems
-                      ? country === 'nepal'
-                        ? 'bg-himalaya-500/10 text-himalaya-400 border-himalaya-500/60 hover:bg-himalaya-500/20'
-                        : 'bg-sakura-400/10 text-sakura-400 border-sakura-400/60 hover:bg-sakura-400/20'
-                      : 'text-ink-lo border-dashed border-[color:var(--border-ui)] hover:bg-white/5'
+                      ? 'hover:brightness-125'
+                      : 'text-ink-lo border-dashed hover:bg-white/5'
                 }`}
               >
                 {new Date(date + 'T12:00:00').getDate()}
                 {hasItems && (
                   <div className="absolute bottom-1 flex gap-0.5">
                     {(dayPlan.items ?? []).slice(0, 3).map((_, j: number) => (
-                      <div key={j} className={`w-1 h-1 ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
+                      <div key={j} className="w-1 h-1" style={{ background: shade.color }} />
                     ))}
                   </div>
+                )}
+                {/* Non-colour cues: a day trip gets a top-left diamond, a travel day is the
+                    split fill. aria-hidden, the label above says both in words. */}
+                {shade.satellite && (
+                  <span aria-hidden="true" data-testid={`calendar-day-${date}-daytrip`} className="absolute left-1 top-1 h-1.5 w-1.5 rotate-45" style={{ background: shade.color }} />
                 )}
                 {/* a subtle "has spend" marker (top-right), sized to fit the cramped cell — a
                     small gold dot, NOT a currency figure (that lives in the single-day readout +
@@ -116,6 +125,7 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
             );
           })}
         </div>
+        <CityLegend />
       </div>
     );
   };
@@ -148,7 +158,8 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className={`mk ${hasItems ? `mk--struck ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}` : 'mk--hollow'}`}
+                    className={`mk ${hasItems ? 'mk--struck' : 'mk--hollow'}`}
+                    style={hasItems ? { background: dayShade(date).color } : undefined}
                   />
                   <span className="num text-t-sm">{formatDate(date)}</span>
                 </div>

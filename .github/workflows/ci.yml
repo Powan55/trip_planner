@@ -57,6 +57,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: trip/package-lock.json
+
       # Before the scan, because a green scan from a broken pattern set is worse
       # than a red one: --self-test asserts PATTERNS and MUST_CATCH still line up
       # one-to-one and that every rule still matches its own case, so a deleted,
@@ -109,11 +115,12 @@ jobs:
           node scripts/fetch-images.mjs --credits
           git diff --exit-code -- public/images/CREDITS.md
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: trip/package-lock.json
+      # Sixth dependency-free check. The unit suite checks image refs against
+      # lib/image-manifest.json and never reads CREDITS.md or scripts/image-map.json, so an
+      # uncredited raster or a non-free licence was invisible to every gate (#458). Offline by
+      # design: it compares the committed files to each other rather than re-fetching upstream.
+      - name: Image attribution
+        run: node scripts/credits-check.mjs
 
       # --legacy-peer-deps is required, not optional: @types/node is pinned at
       # 20.6.2 and vite@8 (via vitest) wants ^20.19.0 || >=22.12.0.
@@ -139,6 +146,10 @@ jobs:
       - name: Lint root scripts/
         working-directory: .
         run: ./trip/node_modules/.bin/eslint --no-config-lookup --config scripts/eslint.config.mjs scripts/*.mjs
+
+      - name: Roster inspector self-test
+        working-directory: .
+        run: node scripts/roster-inspect.mjs --self-test
 
       - name: Unit tests
         run: npm test
@@ -216,15 +227,20 @@ jobs:
       # The `|| true` is part of the same fix, not sloppiness: steps run under `bash -e`, so the
       # exit 2 we are deliberately ignoring would abort the step before the sentinel is tested.
       #
-      # firebase-tools is pinned to an EXACT version, matching deploy.yml's publish step: a range
-      # lets `npx --yes` resolve a whole unreviewed transitive tree on every run, and the same
-      # command runs in the job that holds the service-account key. Bump both together, and read
-      # the changelog first — v15 changes `emulators:exec` semantics. The Firestore emulator jar
-      # needs Java; the ubuntu runner image ships one, and if that ever changes the fix is
-      # actions/setup-java, not dropping this job.
+      # firebase-tools version comes from tools/package.json (#478), matching deploy.yml's
+      # publish step — installed from the committed lockfile with --ignore-scripts, not
+      # `npx --yes`, so Dependabot bumps one place and this job and the publish step never
+      # drift apart. Bump both together, and read the changelog first — v15 changes
+      # `emulators:exec` semantics. The Firestore emulator jar needs Java; the ubuntu runner
+      # image ships one, and if that ever changes the fix is actions/setup-java, not dropping
+      # this job.
+      - name: Install the pinned firebase-tools toolchain
+        working-directory: tools
+        run: npm ci --ignore-scripts
+
       - name: Validate firestore.rules against the emulator
         run: |
-          npx --yes firebase-tools@14.27.0 emulators:exec --only firestore,auth --project demo-rules \
+          ./tools/node_modules/.bin/firebase emulators:exec --only firestore,auth --project demo-rules \
             "node scripts/rules-check.mjs && touch \"$RUNNER_TEMP/rules-ok\"" || true
           test -f "$RUNNER_TEMP/rules-ok"
 

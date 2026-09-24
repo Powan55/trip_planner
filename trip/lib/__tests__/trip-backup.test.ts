@@ -43,7 +43,7 @@ vi.mock('@/lib/budget-remote', () => ({ pushBudgetChunk: () => Promise.reject(ne
 vi.mock('@/lib/docs-remote', () => ({ pushDocsChunk: () => Promise.reject(new Error('offline')) }));
 vi.mock('@/lib/places-remote', () => ({ pushPlacesChunk: () => Promise.reject(new Error('offline')) }));
 
-import { exportTripBackup, importTripBackup } from '@/lib/trip-backup';
+import { exportTripBackup, importTripBackup, BACKUP_VERSION } from '@/lib/trip-backup';
 import { outboxDirty } from '@/core/sync/outbox';
 import { supportsCompression } from '@/core/vault/compression';
 import { makeInMemoryBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
@@ -384,7 +384,7 @@ describe('#344 — restoring a photo-meta subset deletes the dropped blobs (no o
 });
 
 describe('never-destroy applies to photos too: a malformed photos.meta is dropped, not committed', () => {
-  it('leaves the live photo index AND its blobs intact when meta is not an array', async () => {
+  it('leaves the live photo index AND its blobs intact when meta is not an array, and refuses (nothing else in the backup)', async () => {
     const store = makeInMemoryBlobStore();
     await seedAll(store, 2); // ph-seed-0, ph-seed-1 live on this device
 
@@ -400,9 +400,9 @@ describe('never-destroy applies to photos too: a malformed photos.meta is droppe
 
     const res = await importTripBackup(file, store);
 
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.restored).not.toContain('photos');
+    // Nothing else in this envelope validated either, so the pre-write refusal fires — see the
+    // "all-empty backup is refused pre-write" describe block below.
+    expect(res.ok).toBe(false);
     // Index untouched — NOT rewritten to [].
     const metas = JSON.parse(localStorage.getItem(STORAGE_KEYS.photos)!) as PhotoMeta[];
     expect(metas.map((m) => m.id).sort()).toEqual(['ph-seed-0', 'ph-seed-1']);
@@ -411,7 +411,13 @@ describe('never-destroy applies to photos too: a malformed photos.meta is droppe
     expect(await store.get('ph-seed-1')).not.toBeNull();
   });
 
-  it('an empty ARRAY still tombstone-replaces (the guard is not overbroad)', async () => {
+  // Corrected (see D-517's addendum): this used to assert that an explicit `meta: []` with
+  // nothing else in the backup still tombstone-replaces to `ok:true`. That is the exact shape of
+  // the data-loss bug it claims to guard against — `savePhotos([])` ran and wiped the live index
+  // and every blob, while the caller reported `restored: []`, i.e. "nothing happened". An empty
+  // array alongside OTHER real domain data is still a legitimate wipe-this-domain instruction
+  // (see the container-version describe block's "journal" case); alone, it is refused pre-write.
+  it('an empty ARRAY with nothing else in the backup is refused, not committed', async () => {
     const store = makeInMemoryBlobStore();
     await seedAll(store, 1); // ph-seed-0
 
@@ -427,9 +433,11 @@ describe('never-destroy applies to photos too: a malformed photos.meta is droppe
 
     const res = await importTripBackup(file, store);
 
-    expect(res.ok).toBe(true);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.photos)!)).toEqual([]);
-    expect(await store.get('ph-seed-0')).toBeNull();
+    expect(res.ok).toBe(false);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.photos)!).map((m: PhotoMeta) => m.id)).toEqual([
+      'ph-seed-0',
+    ]);
+    expect(await store.get('ph-seed-0')).not.toBeNull();
   });
 
   it('a meta whose data URL will not decode is counted as a skipped photo', async () => {
@@ -575,9 +583,9 @@ describe('A-9 — myPlaces round-trips through backup → sign-out wipe → rest
     expect(loadMyPlaces()).toEqual(beforePlaces);
   });
 
-  it('a malformed myPlaces domain is dropped (never-destroy), not wiped to []', async () => {
+  it('a malformed myPlaces domain is dropped (never-destroy); with nothing else valid in the backup, the whole restore is refused pre-write', async () => {
     const store = makeInMemoryBlobStore();
-    await seedAll(store);
+    const photoBytes = await seedAll(store); // also seeds 2 live photos
     saveMyPlaces(SEED_PLACES); // ensure the on-disk value matches SEED_PLACES exactly
 
     const env = {
@@ -591,10 +599,13 @@ describe('A-9 — myPlaces round-trips through backup → sign-out wipe → rest
     const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
     const res = await importTripBackup(file, store);
 
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.restored).not.toContain('myPlaces');
+    expect(res.ok).toBe(false);
     expect(loadMyPlaces()).toEqual(SEED_PLACES); // untouched, not cleared
+    // The malformed myPlaces domain being the only content is also the shape that used to let
+    // this envelope's `photos: { meta: [] }` silently wipe the live photos seeded above.
+    for (const id of photoBytes.keys()) {
+      expect(await store.get(id)).not.toBeNull();
+    }
   });
 });
 
@@ -757,5 +768,107 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(outboxDirty('budget')).toEqual(['model']);
     expect(outboxDirty('docs')).toEqual(['checklist']);
     expect(outboxDirty('places')).toEqual(['list']);
+  });
+});
+
+// ── The container version is READ, not just stamped ─────────────────────────────────────────────
+describe('a backup from a newer container version is refused, not read as if it were this one', () => {
+  /** The exact envelope `exportTripBackup` writes, with `version` swapped. Domains carry real,
+   *  sanitized data, so a silent accept would visibly overwrite the live trip. */
+  function containerAtVersion(version: number, tripId = 'nepal-japan-2026') {
+    return new Blob(
+      [
+        JSON.stringify({
+          format: 'nepal-japan-trip-backup',
+          version,
+          exportedAt: '2026-07-10T00:00:00.000Z',
+          tripId,
+          domains: { journal: sanitizeEntries([{ date: '2026-12-11', text: 'From the future', createdAt: '', updatedAt: '' }]) },
+          photos: { meta: [], blobs: {} },
+        }),
+      ],
+      { type: 'application/json' },
+    );
+  }
+
+  it('refuses version > BACKUP_VERSION and writes nothing', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const beforeJournal = localStorage.getItem(STORAGE_KEYS.journal);
+
+    const res = await importTripBackup(containerAtVersion(BACKUP_VERSION + 1), store);
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    // NEWER, not corrupt: the two send the user hunting different things and only one exists.
+    expect(res.error).toMatch(/newer version/i);
+    expect(res.error).not.toMatch(/corrupt|malformed|not a recognized/i);
+    // Zero writes have happened at this point, so the copy can promise this and does.
+    expect(res.error).toMatch(/no changes were made/i);
+    expect(localStorage.getItem(STORAGE_KEYS.journal)).toBe(beforeJournal);
+    expect(loadPlans()).toEqual(SEED_PLANS);
+  });
+
+  it('the SAME container at the current version still imports (the gate is `>`, not a blanket refusal)', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+
+    const res = await importTripBackup(containerAtVersion(BACKUP_VERSION), store);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('journal');
+  });
+
+  it('reports the VERSION, not the trip, when a newer container is also from another trip', async () => {
+    // Ordering is deliberate: a format this build cannot claim to understand is not one whose
+    // `tripId` it should be reading, and "wrong trip" would be a wrong diagnosis.
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+
+    const res = await importTripBackup(containerAtVersion(BACKUP_VERSION + 1, 'some-other-trip'), store);
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/newer version/i);
+    expect(res.error).not.toMatch(/different trip/i);
+  });
+});
+
+// ── A restore that would find nothing is refused BEFORE Phase B writes anything ─────────────────
+describe('an all-empty backup is refused pre-write, not committed and reported as restored: []', () => {
+  /** A container carrying only `photos: { meta: [], blobs: {} }` and no other domain. */
+  function emptyPhotosOnlyContainer(tripId = 'nepal-japan-2026') {
+    return new Blob(
+      [
+        JSON.stringify({
+          format: 'nepal-japan-trip-backup',
+          version: BACKUP_VERSION,
+          exportedAt: '2026-07-10T00:00:00.000Z',
+          tripId,
+          domains: {},
+          photos: { meta: [], blobs: {} },
+        }),
+      ],
+      { type: 'application/json' },
+    );
+  }
+
+  it('refuses and never calls savePhotos — a photos.meta:[] envelope used to wipe the live index', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const before = domainSnapshot();
+
+    const savePhotosSpy = vi.spyOn(await import('@/core/photos/storage'), 'savePhotos');
+
+    const res = await importTripBackup(emptyPhotosOnlyContainer(), store);
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/nothing in that file could be restored/i);
+    expect(res.error).toMatch(/no changes were made/i);
+    expect(savePhotosSpy).not.toHaveBeenCalled();
+    expect(domainSnapshot()).toEqual(before);
+    savePhotosSpy.mockRestore();
   });
 });

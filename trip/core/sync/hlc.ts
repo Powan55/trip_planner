@@ -99,6 +99,7 @@ export function serialize(hlc: Hlc): string {
  * keeps parse total and lossless).
  */
 export function parse(serialized: string): Hlc {
+  if (typeof serialized !== 'string') return { pt: 0, ct: 0, actor: '' };
   const first = serialized.indexOf(':');
   const second = serialized.indexOf(':', first + 1);
   if (first === -1 || second === -1) {

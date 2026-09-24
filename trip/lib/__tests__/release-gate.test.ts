@@ -110,3 +110,125 @@ describe('release heading matching is shared by the gate and notes extractor (#4
     expect(runNotes(heading)).toBe(`${heading}\n\nWhat shipped.\n`);
   });
 });
+
+/**
+ * Runs the real gate against a throwaway tree that IS a git repository, so the tag
+ * assertions have something to read. `runGate` above deliberately does not, which is why
+ * it cannot reach the preamble comparison at all.
+ */
+function runGateInRepo(opts: {
+  version: string;
+  tags: string[];
+  preamble?: string;
+  heading?: string;
+}): string {
+  const dir = mkdtempSync(join(tmpdir(), 'release-gate-repo-'));
+  const git = (...args: string[]) =>
+    execFileSync('git', args, { cwd: dir, stdio: ['ignore', 'ignore', 'ignore'] });
+  try {
+    mkdirSync(join(dir, 'trip', 'docs'), { recursive: true });
+    writeFileSync(join(dir, 'trip', 'package.json'), JSON.stringify({ version: opts.version }));
+    const live = opts.preamble ? `The newest live app is \`v${opts.preamble}\`, deployed today.` : '';
+    const heading = opts.heading ?? `## v${opts.version} (app) · 2026-09-20`;
+    writeFileSync(
+      join(dir, 'trip', 'docs', 'RELEASES.md'),
+      `# Releases\n\n${live}\n\n---\n\n${heading}\n\nWhat shipped.\n`,
+    );
+    git('init', '-q', '.');
+    git('-c', 'user.email=t@example.test', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'x');
+    for (const t of opts.tags) git('tag', t);
+    try {
+      return execFileSync(process.execPath, [SCRIPT], {
+        cwd: dir,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string };
+      return `${e.stdout ?? ''}${e.stderr ?? ''}`;
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// The preamble comparison was coupled to the version-ordering verdict: `newestTag` was
+// assigned only inside the "version went up" branch, so every other outcome left it null,
+// skipped the comparison, and still printed "and preamble is current." on a preamble the
+// gate had not looked at. That is the failure mode RELEASES.md's own preamble records
+// three times over, on the check written to catch it.
+describe('release-gate checks the preamble independently of the version ordering', () => {
+  const CURRENT = 'and preamble is current';
+
+  it('reports a stale preamble even when the version is NOT above the newest tag', () => {
+    const out = runGateInRepo({ version: '7.3.0', tags: ['v7.3.0'], preamble: '7.2.0' });
+    expect(out).toContain('::error::trip/docs/RELEASES.md preamble says the newest live app is v7.2.0');
+    expect(out).toContain('the newest deploy tag is v7.3.0');
+    expect(out).not.toContain(CURRENT);
+  });
+
+  it('still reports a stale preamble when the version IS above the newest tag', () => {
+    const out = runGateInRepo({ version: '7.4.0', tags: ['v7.3.0'], preamble: '7.2.0' });
+    expect(out).toContain('::error::trip/docs/RELEASES.md preamble says the newest live app is v7.2.0');
+    expect(out).not.toContain(CURRENT);
+  });
+
+  it('passes a current preamble, and orders tags numerically while it does', () => {
+    // v7.9.2 over v7.14.0 is the string-order trap the ordering helper exists for; the
+    // preamble comparison reads the same value, so it inherits the trap.
+    const out = runGateInRepo({ version: '7.15.0', tags: ['v7.9.2', 'v7.14.0'], preamble: '7.14.0' });
+    expect(out).toContain(`ok   trip/docs/RELEASES.md documents v7.15.0 with no hold marker, ${CURRENT}`);
+    expect(out).toContain('release-gate: v7.15.0 is clear to ship.');
+  });
+
+  it('says the preamble check was SKIPPED when no tag is visible, never that it is current', () => {
+    const out = runGateInRepo({ version: '7.4.0', tags: [], preamble: '7.2.0' });
+    expect(out).toContain('preamble check skipped');
+    expect(out).not.toContain(CURRENT);
+    // And the state that makes it unanswerable is itself a failure, so nothing goes green.
+    expect(out).toContain('::error::No v*.*.* tags are visible');
+  });
+});
+
+// The heading verdict and the preamble verdict share no input, so a held or missing heading
+// must not suppress the preamble check — that used to be an if / else-if chain, which meant
+// fixing the heading and re-pushing was the only way to discover the preamble was also stale.
+describe('release-gate checks the preamble even when the heading itself fails (#429)', () => {
+  it('still flags a stale preamble when the heading is held', () => {
+    const out = runGateInRepo({
+      version: '7.4.0',
+      tags: ['v7.3.0'],
+      preamble: '7.2.0',
+      heading: '## v7.4.0 (app) · **NOT DEPLOYED**',
+    });
+    expect(out).toContain('::error::trip/docs/RELEASES.md marks v7.4.0 as held');
+    expect(out).toContain('::error::trip/docs/RELEASES.md preamble says the newest live app is v7.2.0');
+  });
+
+  it('still flags a stale preamble when there is no heading at all', () => {
+    const out = runGateInRepo({
+      version: '7.4.0',
+      tags: ['v7.3.0'],
+      preamble: '7.2.0',
+      heading: '## v7.4.01 (app) · 2026-09-20',
+    });
+    expect(out).toContain('::error::trip/docs/RELEASES.md has no "## v7.4.0" heading');
+    expect(out).toContain('::error::trip/docs/RELEASES.md preamble says the newest live app is v7.2.0');
+  });
+});
+
+// Same shape, assertion 1: `git rev-parse` throws both when the tag is absent and when the
+// directory is not a repository, and the catch read every throw as "absent" — so the check
+// that refuses an already-deployed version announced a pass it had not made.
+describe('release-gate does not claim a tag is absent when it could not look', () => {
+  it('refuses to answer outside a git checkout', () => {
+    const out = runGate('## v6.0.0 (app) · 2026-08-16');
+    expect(out).not.toContain('has no deploy tag yet');
+    expect(out).toContain('::error::git could not be asked whether tag v6.0.0 exists');
+  });
+
+  it('still passes a genuinely absent tag inside a repository', () => {
+    const out = runGateInRepo({ version: '7.4.0', tags: ['v7.3.0'], preamble: '7.3.0' });
+    expect(out).toContain('ok   7.4.0 has no deploy tag yet (v7.4.0 absent).');
+  });
+});

@@ -40,17 +40,24 @@ export { DEFAULT_GC_HORIZON_MS } from './merge-items';
  * the date and never a conflict source in practice.
  *
  * Day metadata is a UNION with local precedence (#42), not a local-only copy: a key present
- * on ONE side only survives from whichever side has it, and a key on BOTH still resolves to
- * local exactly as before (so `date`/`city`/`country`/`countryLabel` behave identically).
- * The union is what makes a NEW per-day field reach the wire at all: `pushDayMerged` calls
- * `mergeDay(remoteNow, localDay)`, so with a local-only copy any day-level field the remote
- * doc did not already carry was dropped before the write. That is the write-side twin of the
- * mapper narrowing fixed in `docToDayPlan`. It also lets a peer's new field land locally on a
- * steady-state snapshot instead of only after a reload.
+ * on ONE side only survives from whichever side has it, and a key on BOTH resolves to the
+ * FIRST argument. The union is what makes a NEW per-day field reach the wire at all — with a
+ * local-only copy any day-level field the remote doc did not already carry was dropped before
+ * the write. That is the write-side twin of the mapper narrowing fixed in `docToDayPlan`. It
+ * also lets a peer's new field land locally on a steady-state snapshot instead of only after a
+ * reload.
+ * ALL THREE call sites in `lib/itinerary-remote.ts` pass the LOCAL day first — the push
+ * (`mergeDay(localDay, remoteNow)`), the first-snapshot reconcile of a dirty date
+ * (`mergeDay(localDay, remoteDay)`) and the steady-state apply (`mergeDays(loadPlans(), …)`).
+ * They must stay that way: passing remote first on one of them makes day metadata write-once
+ * on both sides, so neither copy can ever correct the other and they diverge permanently.
  * KNOWN CEILING: the union cannot express UNSETTING a day-level key. Local's absence loses to
  * remote's value. Nothing unsets one today (`clearDay` empties items and keeps the day). A
  * feature that needs to unset one should stamp a null like `merge-budget.ts` does, rather
  * than change the rule here.
+ * KNOWN CEILING: metadata precedence is positional, not stamped — two devices that genuinely
+ * disagree take turns overwriting the remote doc. Per-field HLCs (`merge-budget.ts`) are the
+ * upgrade path if a surface ever lets a user edit a day-level field.
  *
  * Result `items` INCLUDE tombstones. The
  * UI-exposed selector filters `deleted` out downstream — the MERGE sees tombstones;

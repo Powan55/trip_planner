@@ -88,6 +88,11 @@ vi.mock('firebase/firestore', () => ({
   },
   // `pushTripList` is transactional, so `seedAccountDocs` needs this to write anything at all.
   // One in-memory attempt, no contention — enough to prove which paths get written.
+  updateDoc: async (ref: { path: string }, data: DocData) => {
+    if (fake.failWrites) throw new Error('transport down');
+    writeLog.push({ path: ref.path, data });
+  },
+  deleteField: () => '__deleteField__',
   runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<void>) => {
     await fn({
       get: async (ref: { path: string }) => {
@@ -108,6 +113,7 @@ import {
   fetchTripMeta,
   probeAccountIdentity,
   seedAccountDocs,
+  addTripMember,
 } from '@/lib/trips-remote';
 import { DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 
@@ -237,6 +243,11 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
     expect(getDocFromServerCalls).toBe(2);
   });
 
+  it("a key that is not one path segment ⇒ 'missing' with no read (#476)", async () => {
+    expect(await probeAccountIdentity('A/B/C')).toEqual({ verdict: 'missing' });
+    expect(getDocFromServerCalls).toBe(0);
+  });
+
   it("read rejects ⇒ 'unavailable' (offline/error must admit, never lock a real user out)", async () => {
     serverRead.impl = async () => {
       throw new Error('network down');
@@ -353,6 +364,19 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
         vi.useRealTimers();
       }
     });
+  });
+});
+
+// ── #516 — a dotted/slashed uid must never reach a field-path write ─────────────────────────────
+describe('addTripMember — rejects a uid outside the Firebase uid alphabet', () => {
+  it('a dotted uid is refused before updateDoc, never nests into the members map', async () => {
+    expect(await addTripMember(TRIP_ID, 'foo.bar')).toBe('failed');
+    expect(writeLog).toHaveLength(0);
+  });
+
+  it('a plain uid still writes the flat field path', async () => {
+    expect(await addTripMember(TRIP_ID, 'abc123_-XYZ')).toBe('ok');
+    expect(writeLog).toEqual([{ path: `trips/${TRIP_ID}`, data: { 'members.abc123_-XYZ': 'member' } }]);
   });
 });
 

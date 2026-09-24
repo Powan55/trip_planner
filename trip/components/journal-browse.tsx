@@ -1,11 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Camera, ImageOff, Pencil, Search, Sparkles, X } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
 import type { Mood, JournalEntry } from '@/core/journal/model';
 import { formatDateLong } from '@/lib/trip-data';
-import JournalCard from '@/components/journal-card';
+import JournalCard, { type JournalDraft } from '@/components/journal-card';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
 import PhotoLightbox from '@/components/photo-lightbox';
@@ -84,6 +84,21 @@ export default function JournalBrowse() {
   const { photosFor, hydrated: photosHydrated } = usePhotos();
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  // A discarded draft, handed back by JournalCard's undo toast (#530 follow-up) — the card that
+  // wrote it is already gone (browse unmounts it on close), so the parent re-mounts a fresh one
+  // for the same date and seeds it with this via `initialDraft`.
+  const [reopenDraft, setReopenDraft] = useState<{ date: string; draft: JournalDraft } | null>(null);
+  // Return focus to the row's own Edit button once JournalCard swaps back out on Save/Cancel
+  // (#530) — tracked via a ref rather than in the close handler itself, since the row's button
+  // only exists again after the next render.
+  const prevEditingDateRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevEditingDateRef.current;
+    if (prev && editingDate === null) {
+      document.querySelector<HTMLButtonElement>(`[data-testid="journal-browse-edit-${prev}"]`)?.focus();
+    }
+    prevEditingDateRef.current = editingDate;
+  }, [editingDate]);
 
   // Before hydration, render a stable "loading" shell — never a flash of the empty state.
   if (!hydrated || !photosHydrated) {
@@ -173,7 +188,19 @@ export default function JournalBrowse() {
           {datesDesc.map((date) => (
             <li key={date}>
               {editingDate === date ? (
-                <JournalCard date={date} isToday={false} />
+                <JournalCard
+                  date={date}
+                  isToday={false}
+                  onDone={() => {
+                    setEditingDate(null);
+                    setReopenDraft(null);
+                  }}
+                  onReopen={(draft) => {
+                    setReopenDraft({ date, draft });
+                    setEditingDate(date);
+                  }}
+                  initialDraft={reopenDraft?.date === date ? reopenDraft.draft : null}
+                />
               ) : (
                 <JournalRow
                   date={date}

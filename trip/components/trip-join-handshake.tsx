@@ -1,8 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { joinTrip } from '@/core/trips/registry';
-import { getActiveTripId } from '@/core/storage/gateway';
+import {
+  joinTrip,
+  parseTripToken,
+  isOwnAccountToken,
+  OWN_ACCOUNT_TOKEN_COPY,
+  DEFAULT_SHARE_PREFIX,
+  type TripToken,
+} from '@/core/trips/registry';
+import { getActiveTripId, getDefaultTripShareId, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
 import { withBasePath } from '@/lib/utils';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import {
@@ -30,11 +37,20 @@ import {
  * - "Cancel" (button, Esc, or outside-click via Radix) = strip the param via `history.replaceState`
  * and stay on the current trip — no switch, no reload.
  *
- * "Already on this trip?" is decided against `getActiveTripId()` (the LOCAL pack id). #10 made
- * this the right comparison everywhere: a custom trip's local id IS its capability token, and the
- * default pack no longer has a remote token at all (`getTripId()` returns '' for it — comparing
- * against that would wrongly prompt a self-join for a `?trip=nepal-japan-2026` link on the
- * default pack).
+ * TWO KINDS OF INVITATION (D-546). `parseTripToken` decides which the link carries before
+ * anything is written. A `pack:`-prefixed token is the DEFAULT pack's share id: joining it keeps
+ * the browser on Nepal × Japan — its two legs, NPT +345 / JST +540 and all its guide content —
+ * and only points the pack at the sharer's remote id. Everything else is a custom trip's
+ * capability token and switches packs as before. Before this, both resolved as a pack id, so a
+ * share link silently converted the joiner to a single-leg, `utcOffsetMin: 0`, `contentRef:
+ * 'empty'` trip and their clocks and guides were gone.
+ *
+ * "Already here?" is decided per kind: the SHARE ID for a default-pack invitation (its pack id
+ * never changes, so comparing that would suppress every prompt) and `getActiveTripId()` for a
+ * custom one — a custom trip's local id IS its capability token (#10).
+ *
+ * A token that can never be used (path-unsafe, reserved, empty after the prefix) draws a stated
+ * refusal instead of prompting. Nothing is written on that path.
  *
  * THE THREE STATES ARE ALL DRAWN, and none of them is a lighter tint of another. Waiting says
  * SWITCHING in words on a disabled control; the failure states its condition as a sentence in the
@@ -47,8 +63,10 @@ import {
  * (nothing mounts) on every normal load, so it costs nothing unless a `?trip=` link is opened.
  */
 export default function TripJoinHandshake() {
-  const [token, setToken] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'joining' | 'error'>('idle');
+  const [token, setToken] = useState<TripToken | null>(null);
+  const [status, setStatus] = useState<'idle' | 'joining' | 'error' | 'unusable' | 'own-key'>(
+    'idle',
+  );
   const { traveler } = useActiveTraveler();
   // Depend on the BOOLEAN, not the traveler object: `useActiveTraveler` re-resolves a fresh object
   // on every identity:changed, which would re-run this effect for no reason.
@@ -64,8 +82,29 @@ export default function TripJoinHandshake() {
     if (!identified) return;
     const raw = new URLSearchParams(window.location.search).get('trip');
     const t = raw?.trim();
-    // Prompt only for a non-empty token that is NOT the trip we are already on.
-    if (t && t !== getActiveTripId()) setToken(t);
+    if (!t) return;
+    // D-546 — resolve WHICH namespace the link carries before anything is written. A token that
+    // can never be used (empty, path-unsafe, reserved) stops here with a stated refusal rather
+    // than being pasted into a Firestore path and opening a silently-empty trip.
+    const parsed = parseTripToken(t);
+    if (!parsed) {
+      setStatus('unusable');
+      return;
+    }
+    // D-504 — a link carrying this device's own account key. `joinTrip` would refuse it anyway;
+    // saying so up front beats a confirm whose only outcome is the storage-failure sentence.
+    if (isOwnAccountToken(t)) {
+      setStatus('own-key');
+      return;
+    }
+    // Prompt only when this is NOT where the browser already is. For a default-pack invitation
+    // that is the SHARE ID, not the pack id — the pack id never changes, so comparing it would
+    // suppress every such prompt.
+    const alreadyHere =
+      parsed.kind === 'default'
+        ? getActiveTripId() === DEFAULT_TRIP_ID && getDefaultTripShareId() === parsed.id
+        : getActiveTripId() === parsed.id;
+    if (!alreadyHere) setToken(parsed);
   }, [identified]);
 
   const stripParam = () => {
@@ -77,15 +116,17 @@ export default function TripJoinHandshake() {
   const handleCancel = () => {
     stripParam();
     setToken(null);
+    setStatus('idle');
   };
 
   const handleJoin = () => {
     if (!token) return;
     setStatus('joining');
-    joinTrip(token, 'Shared trip'); // register + write the pointer...
-    // ...but the write is best-effort, so read the pointer back before navigating. If it did not
-    // stick, the reload would land on the OLD trip and look like the token was wrong.
-    if (getActiveTripId() !== token) {
+    // `joinTrip` writes the pointer AND reads it back (D-546): the storage layer SWALLOWS a denied
+    // or full write, so a browser with storage blocked would otherwise reload straight back onto
+    // the old trip with nothing said.
+    const wire = token.kind === 'default' ? `${DEFAULT_SHARE_PREFIX}${token.id}` : token.id;
+    if (!joinTrip(wire, 'Shared trip')) {
       setStatus('error');
       return;
     }
@@ -94,12 +135,44 @@ export default function TripJoinHandshake() {
     window.location.replace(withBasePath('/'));
   };
 
+  // D-546 — a link whose token can never be used. Drawn rather than ignored: an invitee who was
+  // sent a mangled link must be told to ask for another, not left on a page where nothing happens.
+  if (status === 'unusable' || status === 'own-key') {
+    return (
+      <AlertDialog open onOpenChange={(open) => !open && handleCancel()}>
+        <AlertDialogContent
+          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+          data-testid="trip-join-dialog"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>This link can&rsquo;t be opened</AlertDialogTitle>
+            <AlertDialogDescription className="text-t-body text-ink-mid">
+              {status === 'own-key' ? (
+                OWN_ACCOUNT_TOKEN_COPY
+              ) : (
+                <>
+                  The trip code in this link is incomplete, so nothing has been changed on this
+                  device. Links are often cut short by chat apps &mdash; ask whoever sent it to share
+                  the code itself instead, and paste it in Settings, under Trip access.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="trip-join-cancel">Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
   if (!token) return null;
 
   const joining = status === 'joining';
+  const isDefaultPack = token.kind === 'default';
   // Show a shortened form of the (secret) token in copy — enough to recognise the link, not the
   // whole key spilled into a dialog.
-  const shortToken = token.length > 12 ? `${token.slice(0, 8)}…` : token;
+  const shortToken = token.id.length > 12 ? `${token.id.slice(0, 8)}…` : token.id;
 
   return (
     <AlertDialog
@@ -113,11 +186,28 @@ export default function TripJoinHandshake() {
         data-testid="trip-join-dialog"
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>Add this trip?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {isDefaultPack ? 'Open this shared plan?' : 'Add this trip?'}
+          </AlertDialogTitle>
+          {/* The two invitations have different consequences, so they get different sentences.
+              A default-pack invitation keeps you on Nepal × Japan and joins you to someone else's
+              copy of it — which REPLACES the plan on this device, the documented first-snapshot
+              semantic (D-542). Saying "nothing is deleted" there would be false. */}
           <AlertDialogDescription className="text-t-body text-ink-mid">
-            A Trip Token is one trip&rsquo;s key &mdash; anyone holding it opens the same plan.
-            Adding this one switches this browser to that trip; your current view is replaced and
-            nothing you already have is deleted. Switch back any time from your Trips page.
+            {isDefaultPack ? (
+              <>
+                This opens someone else&rsquo;s Nepal &times; Japan plan on this device, and keeps
+                the two in step from now on. Their plan{' '}
+                <strong className="font-semibold text-ink-hi">replaces the one you have here</strong>
+                , so back yours up first if you have edits worth keeping.
+              </>
+            ) : (
+              <>
+                A Trip Token is one trip&rsquo;s key &mdash; anyone holding it opens the same plan.
+                Adding this one switches this browser to that trip; your current view is replaced
+                and nothing you already have is deleted. Switch back any time from your Trips page.
+              </>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -127,13 +217,14 @@ export default function TripJoinHandshake() {
           data-testid="trip-join-token"
           className="border-hair border-[color:hsl(var(--border))] bg-surface-raised px-gut py-2"
         >
-          <span className="pr block">Trip Token</span>
+          <span className="pr block">{isDefaultPack ? 'Shared plan code' : 'Trip Token'}</span>
           <span className="num block text-n-sm text-ink-hi">{shortToken}</span>
         </div>
 
         <p className="text-t-sm text-ink-lo">
-          A Trip Token can&rsquo;t be checked before it is used. If the trip opens empty, it may be
-          mistyped, or the trip is brand new.
+          {isDefaultPack
+            ? 'A shared plan code can’t be checked before it is used. If the plan opens as your own, nobody has uploaded to it yet.'
+            : 'A Trip Token can’t be checked before it is used. If the trip opens empty, it may be mistyped, or the trip is brand new.'}
         </p>
 
         {status === 'error' && (
@@ -162,7 +253,13 @@ export default function TripJoinHandshake() {
             }}
             disabled={joining}
           >
-            {joining ? 'Switching…' : status === 'error' ? 'Try again' : 'Add trip'}
+            {joining
+              ? 'Switching…'
+              : status === 'error'
+                ? 'Try again'
+                : isDefaultPack
+                  ? 'Open shared plan'
+                  : 'Add trip'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

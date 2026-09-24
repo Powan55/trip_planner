@@ -26,8 +26,8 @@
 // module browser and never executes a nomodule script. Net: 112KB less shipped
 // and precached per installed client. See stripPolyfills() below.
 
-import { fileURLToPath } from 'node:url';
-import { dirname, join, relative, sep, posix } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join, relative, resolve, sep, posix } from 'node:path';
 import { readdir, readFile, writeFile, stat, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
@@ -95,26 +95,28 @@ async function walk(dir) {
 // in buildPrecacheList. The backfill argument above does NOT rescue the root
 // layout: a cold install that goes offline before browsing has backfilled nothing,
 // and a missing root-layout chunk is a crash, not a degraded route.
-async function eagerStaticAssets(htmlFiles) {
+async function eagerStaticAssets(htmlFiles, baseDir = OUT_DIR) {
   const REF = /_next\/static\/[A-Za-z0-9._\/-]+/g;
   const set = new Set();
   for (const rel of htmlFiles) {
-    const html = await readFile(join(OUT_DIR, rel), 'utf8');
-    for (const ref of html.match(REF) ?? []) set.add(ref);
+    const html = await readFile(join(baseDir, rel), 'utf8');
+    const refs = html.match(REF) ?? [];
+    // Per-route floor, not aggregate (#489): a generateStaticParams route emitting N
+    // pages off one shared chunk used to add N to an aggregate denominator against ~1
+    // unique ref, false-redding a healthy build. Each route HTML must scrape at least
+    // one ref itself; a REF shape change still fails loud, just on the file it broke on.
+    if (refs.length === 0) {
+      throw new Error(
+        `gen-sw: route HTML ${rel} scraped zero _next/static reference(s); the ` +
+          '_next/static reference shape may have changed.'
+      );
+    }
+    for (const ref of refs) set.add(ref);
   }
   for (const rel of [...set]) {
     if (!rel.endsWith('.css')) continue;
-    const css = await readFile(join(OUT_DIR, rel), 'utf8');
+    const css = await readFile(join(baseDir, rel), 'utf8');
     for (const ref of css.match(REF) ?? []) set.add(ref);
-  }
-  // Fail-LOUD floor (mirrors stripPolyfills' WARN): if a future Next output
-  // shape stops matching REF, this silently drops the whole shell from the
-  // precache and offline rendering degrades with a still-green build.
-  if (set.size < 5) {
-    console.warn(
-      `gen-sw: WARNING — only ${set.size} eager asset(s) scraped from route HTML; ` +
-        'the _next/static reference shape may have changed.'
-    );
   }
   return set;
 }
@@ -186,12 +188,8 @@ async function eagerStaticAssets(htmlFiles) {
 // map labels are blank on a cold-offline first open. The ENGINE comes back on the first
 // online /map visit — it is a same-origin, non-image, non-navigate GET, so it lands on
 // the last branch of the fetch listener and cacheFirst() writes it into PRECACHE.
-// The GLYPHS take the same branch IF the worker sees them: maplibre requests them from
-// a BLOB-URL web worker, and a blob worker inherits its creator's controller, so the SW
-// should intercept — spec-and-implementation reasoning, NOT measured on this tree. If it
-// does not hold, the glyphs are never cached and offline map LABELS stay blank
-// permanently. Blank labels on a route D-274 already refuses to promise offline is a
-// degradation, not a crash; measure it before promising otherwise.
+// So do the worker scripts under /maplibre/ and the GLYPHS it requests: the worker loads
+// same-origin from inside the SW scope, so the SW sees its fetches (offline not yet measured).
 //
 // 🔴 THE BOUNDARY IS REQUIRED, MORE THAN UNDER ②. A missing dynamic() chunk THROWS
 // out to app/error.tsx and takes the whole route down, and the chunk is now missing
@@ -701,11 +699,26 @@ const HERO_PRECACHE = /^images\/hero\/[^/]+\.avif$/;
 // for — the router only reaches it when the segment cache misses.
 const SEGMENT_PAYLOAD = /(^|\/)__next\.(?!_full\.txt$)[^/]*\.txt$/;
 
+// The ROOT-LAYOUT segment payload. The exporter writes a full segment tree under every
+// route, so `__next._index.txt` — the root layout, of which there is exactly one — is emitted
+// once per route: 20 files, one md5, 21,989 B each. Precaching all 20 spends 408.0 KiB raw /
+// 57.3 KiB gzipped on 19 redundant bodies, on every install and again on every deploy (the
+// precache is content-hashed). Only the root copy is listed; the SW's cacheKey() rewrites the
+// other 19 URLs onto it. Distinct from the sibling `__next._tree.txt` / `__next._full.txt`,
+// which are per-route and all 20 differ. Issue #417.
+const ROOT_INDEX_PAYLOAD = '__next._index.txt';
+
 // Route dirs holding a byte-identical copy of 404.html. Verified by md5 on a real
 // build: out/404.html, out/404/index.html and out/_not-found/index.html are the same
 // bytes. Only 404.html is precached (the nav handler serves it as NAV_FALLBACK); the
 // other two would each add another copy of the same page to every install.
 const NOT_FOUND_DUPLICATES = new Set(['404/index.html', '_not-found/index.html']);
+
+// Pure predicate pulled out of buildPrecacheList so #417's dedup is testable without a
+// real `.next`/`out` build (islandAssets() below needs both).
+function isDedupedSegmentPayload(rel) {
+  return SEGMENT_PAYLOAD.test(rel) && !rel.endsWith('/' + ROOT_INDEX_PAYLOAD);
+}
 
 async function buildPrecacheList(allFiles) {
   const set = new Set();
@@ -739,7 +752,8 @@ async function buildPrecacheList(allFiles) {
     // links to /_not-found/), so the runtime cache never deposits it. Root route
     // included: its payload is out/index.txt, which has no directory to end with.
     else if (rel === 'index.txt' || rel.endsWith('/index.txt')) set.add(rel);
-    else if (SEGMENT_PAYLOAD.test(rel)) set.add(rel);
+    // The 19 non-root copies are omitted; cacheKey() rewrites their URLs onto the root entry.
+    else if (isDedupedSegmentPayload(rel)) set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs
@@ -751,11 +765,9 @@ async function buildPrecacheList(allFiles) {
     // while the glyphs were cross-origin the SW's first fetch-handler line returned
     // them untouched and nothing could ever cache them. Self-hosted, they are
     // same-origin non-image GETs, so the static cacheFirst handler should pick them up
-    // on the first online map visit — with the caveat named in islandAssets: maplibre
-    // requests glyphs from a BLOB-URL worker, and that interception is reasoned, not
-    // measured. The named regression: map labels are blank on a COLD-offline first
-    // open of /map, and possibly on every offline open if the worker is not
-    // intercepted. Labels on /map is a promise D-274 does not make.
+    // on the first online map visit (the worker requesting them loads from same-origin
+    // /maplibre/, so the SW sees its fetches). The named regression: map labels are
+    // blank on a COLD-offline first open of /map. Labels on /map is a promise D-274 does not make.
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
     // NOTE: images/** is deliberately excluded (runtime cache) EXCEPT the hero
@@ -1069,9 +1081,19 @@ async function cacheMatch(request, options) {
 // Scoped to .txt DELIBERATELY: this is only sound because a static export's payload
 // is prerendered per ROUTE and cannot vary by query. For any other asset a param can
 // select the bytes, so dropping the search globally would be wrong.
+//
+// A route's __next._index.txt is the ROOT-LAYOUT segment, and there is one root layout, so
+// all 20 the export emits are the same bytes. Only the root copy is precached; every other
+// route's URL is rewritten onto it here rather than storing 19 more copies of it. Issue #417.
+const ROOT_INDEX_PAYLOAD_PATH = ${JSON.stringify(withBase('/__next._index.txt'))};
 function cacheKey(request) {
   const url = new URL(request.url);
   if (url.pathname.endsWith('.txt')) {
+    if (url.pathname.endsWith('/__next._index.txt')) {
+      url.pathname = ROOT_INDEX_PAYLOAD_PATH;
+      url.search = '';
+      return url.href;
+    }
     if (!url.search) return request;
     url.search = '';
     return url.href;
@@ -1340,7 +1362,12 @@ async function main() {
   for (const u of precacheUrls.slice(0, 4)) console.log('   ', u);
 }
 
-main().catch((err) => {
-  console.error('gen-sw FAILED:', err);
-  process.exit(1);
-});
+// argv[1] is cwd-relative under npm; compare as resolved file URLs.
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((err) => {
+    console.error('gen-sw FAILED:', err);
+    process.exit(1);
+  });
+}
+
+export { eagerStaticAssets, isDedupedSegmentPayload };

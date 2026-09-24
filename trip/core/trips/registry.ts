@@ -14,14 +14,19 @@ import {
   DEFAULT_TRIP_ID,
   getActiveTripId,
   setActiveTripId,
+  getDefaultTripShareId,
+  setDefaultTripShareId,
   getKnownTripsRaw,
   setKnownTripsRaw,
   getRemovedTripsRaw,
   setRemovedTripsRaw,
+  getSyncCode,
   wipeTripData,
   keyForTrip,
   readJson,
+  isSafeTripSegment,
 } from '@/core/storage/gateway';
+import { outboxDirty, type SyncDomain } from '@/core/sync/outbox';
 // Type only — `lib/city-coords.ts` is a leaf module (no imports of its own), so this does not
 // pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
 // the trip's own record, never written into that shared table.
@@ -139,7 +144,13 @@ export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
 
 /** Validate a raw `cityCoords` map: drop any entry whose key is empty or whose coordinate isn't a
  *  finite, in-range lat/lng. `undefined` when nothing survives, so an empty/malformed map never
- *  adds a bare `{}` to the sanitized block. TOTAL, never throws. */
+ *  adds a bare `{}` to the sanitized block. TOTAL, never throws.
+ *
+ *  The bounds arithmetic is the same as `ranged` (core/vault/item-schema.ts), but the RULE is not,
+ *  and merging them would be a bug: `ranged` blanks ONE OPTIONAL field and keeps its row, whereas
+ *  `CityCoord` has no optional half — blanking a latitude here hands `lib/weather.ts` a coordinate
+ *  with one side missing. So a bad number takes its whole city entry with it, and the other cities
+ *  survive. */
 function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const out: Record<string, CityCoord> = {};
@@ -175,13 +186,26 @@ export const SHARED_NAME = 'Shared trip';
  * Base entry is byte-identical to pre- (3 keys). The additive fields (`updatedAt`, `config`) are
  * attached ONLY when valid/present, so a config-less trip serializes to the exact same 3-key object
  * as before. Shared by the local-store parse below AND the remote-list merge (`mergeTripLists`).
+ *
+ * #476 — that sharing is why the id is shape-checked HERE and not only at the join: a synced list
+ * is a trust boundary of its own. An entry merged in with an id like `A/B/C` never passes through
+ * `joinTrip` or `getTripId()`, but `ensureKnownTripMemberships` maps it straight to
+ * `doc(db, 'trips', 'A/B/C')` — an even segment count, so a VALID ref that does not throw — and the
+ * members map then lands under a document the rules authorize against trip `A`. Dropping the entry
+ * also retires the chip such a trip would otherwise draw in the hub, which no join could honour.
  */
-export function sanitizeTripMetaEntry(e: unknown): TripMeta | undefined {
+/** Read-boundary option, same shape/intent as `core/places/model.ts`'s (D-374): retain keys this
+ *  build does not declare, so a merge-and-write-back never strips a newer client's field. */
+export interface SanitizeOptions {
+  keepUnknownKeys?: boolean;
+}
+
+export function sanitizeTripMetaEntry(e: unknown, opts: SanitizeOptions = {}): TripMeta | undefined {
   if (
     typeof e !== 'object' ||
     e === null ||
     typeof (e as TripMeta).id !== 'string' ||
-    (e as TripMeta).id.length === 0 ||
+    !isSafeTripSegment((e as TripMeta).id) || // subsumes the old `.length === 0` check
     typeof (e as TripMeta).name !== 'string' ||
     (e as TripMeta).name.length === 0 ||
     typeof (e as TripMeta).joinedAt !== 'number' ||
@@ -190,11 +214,18 @@ export function sanitizeTripMetaEntry(e: unknown): TripMeta | undefined {
     return undefined;
   }
   const { id, name, joinedAt } = e as TripMeta;
-  const entry: TripMeta = { id, name, joinedAt };
+  const entry: TripMeta = {
+    ...(opts.keepUnknownKeys ? (e as TripMeta) : ({} as Partial<TripMeta>)),
+    id,
+    name,
+    joinedAt,
+  };
   const rawUpdatedAt = (e as TripMeta).updatedAt;
   if (typeof rawUpdatedAt === 'number' && Number.isFinite(rawUpdatedAt)) entry.updatedAt = rawUpdatedAt;
+  else delete entry.updatedAt; // a malformed stamp must not survive the keepUnknownKeys spread — entryRecency compares it
   const config = sanitizeTripConfig((e as TripMeta).config);
   if (config) entry.config = config;
+  else delete entry.config; // ditto: a junk config must not survive the spread
   return entry;
 }
 
@@ -364,13 +395,113 @@ export function renameKnownTrip(id: string, name: string): void {
 }
 
 /**
- * THE shared switch primitive: register the trip, then write the active-trip pointer.
- * Does NOT reload — the caller performs the full page reload.
+ * D-546 — the WIRE form of a default-pack share id. A share id and a pack id are both bare uuids,
+ * so a token on its own cannot say which namespace it belongs to; every entrance resolved the
+ * ambiguity the same wrong way, sending a `?trip=<shareId>` joiner through `joinTrip` into a
+ * single-leg custom trip (`utcOffsetMin: 0` ⇒ `tripOffsetMinFor` null ⇒ NPT +345 / JST +540 lost,
+ * `contentRef: 'empty'` ⇒ every guide gone). The prefix is transport only: it is stripped here and
+ * never reaches a Firestore path.
  */
-export function joinTrip(id: string, name?: string): void {
-  if (!id) return;
-  upsertKnownTrip(id, name);
-  setActiveTripId(id);
+export const DEFAULT_SHARE_PREFIX = 'pack:';
+
+/** What a pasted/linked token turns out to be. */
+export type TripToken =
+  | { kind: 'default'; id: string }
+  | { kind: 'custom'; id: string };
+
+/**
+ * Resolve a raw token (pasted, or off a `?trip=` link) into the namespace it names, or `null` when
+ * it can never be used. Pure and total — callers branch on `null` to refuse rather than writing
+ * half of a join.
+ */
+export function parseTripToken(raw: string): TripToken | null {
+  const trimmed = (raw ?? '').trim();
+  if (trimmed.startsWith(DEFAULT_SHARE_PREFIX)) {
+    const id = trimmed.slice(DEFAULT_SHARE_PREFIX.length).trim();
+    return isSafeTripSegment(id) ? { kind: 'default', id } : null;
+  }
+  if (!isSafeTripSegment(trimmed)) return null;
+  return { kind: 'custom', id: trimmed };
+}
+
+/**
+ * The inverse: the copyable/linkable form of a pack's remote token. `''` when the pack has no
+ * remote path yet (the default pack before D-542's opt-in), which is what every share affordance
+ * already disables itself on.
+ */
+export function formatShareToken(packId: string, remoteId: string): string {
+  if (!remoteId) return '';
+  return packId === DEFAULT_TRIP_ID ? `${DEFAULT_SHARE_PREFIX}${remoteId}` : remoteId;
+}
+
+/**
+ * D-504 — true when `raw` names this device's own account key (`getSyncCode()`, the User Token).
+ * That key is an account credential, never a trip capability (D-239), so `joinTrip` refuses it:
+ * joined as a custom trip it would become a registry row and a Firestore path segment, and joined
+ * as a `pack:` share id every share link would then print it. Compared on the PARSED id, so the
+ * `pack:` prefix cannot smuggle it past, and case-folded, because a uuid pasted in capitals is
+ * still the same key to whoever reads it. Callers that refuse on a `false` from `joinTrip` use
+ * this to say which refusal it was: "your own key" is a different sentence from "unusable".
+ */
+export function isOwnAccountToken(raw: string): boolean {
+  const account = getSyncCode();
+  const id = parseTripToken(raw)?.id;
+  return !!account && !!id && id.toLowerCase() === account.trim().toLowerCase();
+}
+
+/** What a paste field says when `isOwnAccountToken` is why the join was refused. */
+export const OWN_ACCOUNT_TOKEN_COPY =
+  'That’s your own key. It signs you in and can’t be added as a trip. Ask whoever owns the trip for its Trip Token.';
+
+/**
+ * THE shared switch primitive: resolve the token, then write the pointer it names.
+ * Does NOT reload — the caller performs the full page reload.
+ *
+ * D-546 — a default-pack token sets the share id (D-542's mechanism, the same one the code-paste
+ * dialog uses) and points the browser at the pack, instead of registering the share id as a trip
+ * of its own. Every entrance routes through here, so the `?trip=` link, the front door's held
+ * invitation, the handshake and both paste boxes agree by construction.
+ *
+ * RETURNS whether the switch actually landed. The gateway swallows a blocked/full-storage write by
+ * contract, so a call returning is not evidence anything was stored; the pointer is read back
+ * here rather than at each call site, where three of the five forgot to. It also returns `false`,
+ * writing nothing, for an unusable token or this device's own account key (`isOwnAccountToken`).
+ */
+export function joinTrip(id: string, name?: string): boolean {
+  const token = parseTripToken(id);
+  if (!token || isOwnAccountToken(id)) return false;
+  if (token.kind === 'default') {
+    setDefaultTripShareId(token.id);
+    setActiveTripId(DEFAULT_TRIP_ID);
+    return getDefaultTripShareId() === token.id && getActiveTripId() === DEFAULT_TRIP_ID;
+  }
+  upsertKnownTrip(token.id, name);
+  setActiveTripId(token.id);
+  return getActiveTripId() === token.id;
+}
+
+/** True when `joinTrip(id)` would move the default pack off one shared trip onto another, which
+ * drops this device's copy of the plan (D-561). Paste boxes confirm before that. */
+export function joinReplacesLocalPlan(id: string): boolean {
+  const token = parseTripToken(id);
+  const current = getDefaultTripShareId();
+  return (
+    token?.kind === 'default' && current !== '' && current !== token.id && !isOwnAccountToken(id)
+  );
+}
+
+export const REPLACE_LOCAL_PLAN_COPY =
+  'Their plan replaces the one you have here. Back yours up first if you have edits worth keeping.';
+
+const SYNC_DOMAINS: readonly SyncDomain[] = ['itinerary', 'expenses', 'budget', 'docs', 'places'];
+
+/** Confirm copy for `joinReplacesLocalPlan`, naming how many queued-but-unsynced edits the
+ * default pack's outbox would drop (issue #526). Reads the default pack's own slot, not the
+ * active trip's — the join box is reachable while a custom trip is active. */
+export function replaceLocalPlanCopy(): string {
+  const n = SYNC_DOMAINS.reduce((sum, d) => sum + outboxDirty(d, DEFAULT_TRIP_ID).length, 0);
+  if (n === 0) return REPLACE_LOCAL_PLAN_COPY;
+  return `${REPLACE_LOCAL_PLAN_COPY} ${n} unsynced ${n === 1 ? 'edit' : 'edits'} on this device will be lost.`;
 }
 
 /**
@@ -406,6 +537,17 @@ export function removeKnownTrip(id: string): void {
   writeStored(readStored().filter((t) => t.id !== id));
   const removed = [{ id, removedAt: Date.now() }, ...readRemoved().filter((r) => r.id !== id)];
   writeRemoved(removed.slice(0, REMOVED_TRIPS_CAP)); // newest-first, drop-oldest cap
+  wipeForgottenTripData(id);
+}
+
+/**
+ * The wipe half of forgetting a trip — `trip:{id}:*` (`wipeTripData`) plus its photo BYTES —
+ * shared by `removeKnownTrip` (a local forget) and `importRemoteTrips` (#518: a tombstone arriving
+ * from another device dropped the entry from the list but left this exact data on disk forever,
+ * because only the local-forget path ran it). Never call for `DEFAULT_TRIP_ID` — see
+ * `removeKnownTrip`'s docblock for why the pack is never wiped.
+ */
+function wipeForgottenTripData(id: string): void {
   const photoMeta = readJson<unknown>('local', keyForTrip(id, 'photos'), null);
   wipeTripData(id);
   if (photoMeta !== null) {
@@ -442,16 +584,17 @@ export function mergeTripLists(
   remote: TripMeta[],
   localRemoved: RemovedTrip[] = [],
   remoteRemoved: RemovedTrip[] = [],
+  opts: SanitizeOptions = {},
 ): { merged: TripMeta[]; localHadExtras: boolean; removed: RemovedTrip[] } {
   const tombstones = mergeRemovedSets(localRemoved, remoteRemoved);
   const merged = new Map<string, TripMeta>();
   for (const raw of local) {
-    const e = sanitizeTripMetaEntry(raw);
+    const e = sanitizeTripMetaEntry(raw, opts);
     if (e && e.id !== DEFAULT_TRIP_ID && !merged.has(e.id)) merged.set(e.id, e);
   }
   const remoteIds = new Set<string>();
   for (const raw of remote) {
-    const e = sanitizeTripMetaEntry(raw);
+    const e = sanitizeTripMetaEntry(raw, opts);
     if (!e || e.id === DEFAULT_TRIP_ID) continue;
     remoteIds.add(e.id);
     const existing = merged.get(e.id);
@@ -459,6 +602,15 @@ export function mergeTripLists(
       merged.set(e.id, e); // remote-only trip → appears locally (the cross-device fix)
     } else if ((e.updatedAt ?? 0) > (existing.updatedAt ?? 0)) {
       merged.set(e.id, { ...e, joinedAt: existing.joinedAt }); // remote newer → take name/config, keep local joinedAt
+    } else if (opts.keepUnknownKeys) {
+      // Local wins (newer or a tie) on the DECLARED fields, but `local` is the strict-parsed
+      // read of local storage (#519 - the common case): without this, the remote's undeclared
+      // keys are dropped here even though the caller asked to retain them for the write-back.
+      // `id`/`name`/`joinedAt`/`updatedAt`/`config` are stripped off `e` first — those are
+      // DECLARED fields local already won on, so a remote value (e.g. a config local lacks)
+      // must not fill in behind the winner's back.
+      const { id: _id, name: _name, joinedAt: _joinedAt, updatedAt: _updatedAt, config: _config, ...unknown } = e;
+      merged.set(e.id, { ...unknown, ...existing });
     }
   }
   // Apply tombstones: drop the forgotten trip unless it was re-joined/renamed AFTER the forget.
@@ -497,10 +649,24 @@ export function importRemoteTrips(
 ): { localHadExtras: boolean } {
   const stored = readStored();
   const defaultEntry = stored.find((t) => t.id === DEFAULT_TRIP_ID);
-  const { merged, localHadExtras, removed } = mergeTripLists(stored, remote, readRemoved(), remoteRemoved);
+  const { merged, localHadExtras, removed } = mergeTripLists(
+    stored,
+    remote,
+    readRemoved(),
+    remoteRemoved,
+    { keepUnknownKeys: true },
+  );
   writeStored(defaultEntry ? [defaultEntry, ...merged] : merged);
   writeRemoved(removed);
   const active = getActiveTripId();
   if (removed.some((r) => r.id === active)) setActiveTripId(DEFAULT_TRIP_ID);
+  // #518 — a tombstone that arrived through THIS merge (not one already dropped before it) wipes
+  // the id's local data, same as a local forget. Scoped to ids that (a) actually had data here —
+  // `stored`, never the whole `merged` universe — and (b) are still gone AFTER the merge, so an id
+  // re-added in the same merge (a race-losing re-join) is never wiped.
+  const mergedIds = new Set(merged.map((t) => t.id));
+  for (const t of stored) {
+    if (t.id !== DEFAULT_TRIP_ID && !mergedIds.has(t.id)) wipeForgottenTripData(t.id);
+  }
   return { localHadExtras };
 }

@@ -68,9 +68,10 @@
  *
  *   OPEN         no trip doc, no `members` key, or a roster naming no owner. `isOpen()` is true,
  *                so `isMember()` is true for anyone signed in who holds the trip id — the
- *                grandfathered capability model. Publishing changes NOTHING here. For the
- *                malformed-roster shapes the note names the shape: the first device to open one
- *                self-enrols as owner (`ensureMembership`), which gates it from then on.
+ *                grandfathered capability model. Publishing changes NOTHING here, and this bucket
+ *                is now PERMANENT: #477 stopped `ensureMembership` writing anything to a trip with
+ *                no usable roster, so no trip in here heals itself into a gated one. For the
+ *                malformed-roster shapes the note names the shape.
  *
  *   GATED_OK     an effective roster at least as large as the set of distinct human names
  *                observed in the trip. Publishing narrows this trip to its roster, and the roster
@@ -124,12 +125,15 @@
  * trip. Upgrade path: none available client-side. A real proof needs the roster to carry the
  * display name alongside the role at write time, which is a data-model change, not a script.
  *
- * One more reason the count is soft in the safe direction: `ensureMembership`
- * (lib/trips-remote.ts:332) self-enrols the current device on every trip load
- * (components/itinerary-provider.tsx:308), and under the CURRENT permissive live rules that write
- * succeeds for anyone. Rosters have therefore been self-healing since 2026-08-10. The real
- * exposure is exactly the set of devices that have NOT opened the app since then, which is why
- * the durable attribution sources matter far more here than the live presence ones.
+ * ⚠ THE SELF-HEALING MITIGATION IS GONE (#477, 2026-09-22). `ensureMembership` used to add the
+ * current device to the roster on every trip load, taking `owner` when the trip had none, so a
+ * roster grew itself every time somebody opened the app and this count was soft in the SAFE
+ * direction. It no longer writes anything when the trip has no usable roster: on a forwarded
+ * `?trip=` link that behaviour handed the trip permanently to whoever tapped it first, and
+ * `'member'` is not available in its place because `rosterIsWellFormed()` refuses any update
+ * leaving the map naming no owner. Read the numbers below accordingly — a roster grows only when
+ * a member adds a device code by hand, and the set of people a publish would lock out does NOT
+ * shrink on its own between this run and the next.
  *
  * ── SAFETY ─────────────────────────────────────────────────────────────────────────────────────
  * The service-account key, its private_key, and the bearer token are never printed — not on the
@@ -150,7 +154,7 @@
 
 import { createSign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import assert from 'node:assert';
+import nodeAssert from 'node:assert';
 
 const TOKEN_URI = 'https://oauth2.googleapis.com/token';
 const FIRESTORE_API = 'https://firestore.googleapis.com/v1';
@@ -258,9 +262,10 @@ function classifyTrip(doc, names) {
   if (membersRaw === undefined) return { ...base, bucket: 'OPEN', note: 'no members key' };
 
   // The last two arms of isOpen(): a roster that is not a map, or names no owner, reads open.
-  const heals = ' — reads open; the first device to open it self-enrols as owner';
+  // #477: no client repairs this any more — the shape is permanent until someone edits the doc.
+  const stays = ' — reads open, and stays open: no client will mint an owner onto it';
   if (!membersRaw.mapValue) {
-    return { ...base, bucket: 'OPEN', note: `members is not a map${heals}` };
+    return { ...base, bucket: 'OPEN', note: `members is not a map${stays}` };
   }
   const roster = decodeFields(membersRaw.mapValue.fields);
   const uids = Object.keys(roster);
@@ -276,7 +281,7 @@ function classifyTrip(doc, names) {
 
   if (!uids.some((uid) => roster[uid] === 'owner')) {
     const shape = uids.length ? `${uids.length} entries, none 'owner'` : 'members is an empty map';
-    return { ...full, bucket: 'OPEN', note: `${shape}${heals}` };
+    return { ...full, bucket: 'OPEN', note: `${shape}${stays}` };
   }
   if (observed.length > effective.length) {
     return {
@@ -599,6 +604,19 @@ async function main(keyPath) {
 // ── self-test: classification + decoding, against inline fixtures. No network, no credential. ──
 
 function selfTest() {
+  // Count assertions so a gutted body (e.g. every call replaced by a no-op) can't pass silent.
+  let assertionCount = 0;
+  const assert = new Proxy(nodeAssert, {
+    get(target, prop) {
+      const fn = target[prop];
+      if (typeof fn !== 'function') return fn;
+      return (...args) => {
+        assertionCount += 1;
+        return fn.apply(target, args);
+      };
+    },
+  });
+
   // The decoder, one case per branch that this script actually depends on.
   assert.equal(decode({ stringValue: 'Ana' }), 'Ana');
   assert.equal(decode({ integerValue: '42' }), 42, 'REST sends int64 as a string');
@@ -689,7 +707,7 @@ function selfTest() {
     const r = classifyTrip(trip({ members: raw }), nameSet('Ana', 'Ben'));
     assert.equal(r.bucket, 'OPEN', why);
     assert.match(r.note, shape);
-    assert.match(r.note, /self-enrols as owner/);
+    assert.match(r.note, /stays open/);
   }
   const viewers = classifyTrip(trip(members({ 'uid-a': 'viewer', 'uid-b': 'viewer' })),
     nameSet('Ana'));
@@ -759,7 +777,7 @@ function selfTest() {
   );
   assert.equal(missingIsOpenGuards('function isMember() { return true; }'), null);
 
-  console.log('roster-inspect self-test: all assertions passed');
+  console.log(`roster-inspect self-test: ${assertionCount} assertions passed`);
 }
 
 if (process.argv.includes('--self-test')) {

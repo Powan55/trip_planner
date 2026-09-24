@@ -50,7 +50,12 @@ import {
   type TripMeta,
   type RemovedTrip,
 } from '@/core/trips/registry';
-import { DEFAULT_TRIP_ID, getActiveTripId } from '@/core/storage/gateway';
+import {
+  DEFAULT_TRIP_ID,
+  getActiveTripId,
+  isSafeTripSegment,
+  wasTripCreatedHere,
+} from '@/core/storage/gateway';
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
@@ -67,7 +72,7 @@ export type TripMetaPayload = { name: string; config?: TripConfigBlock };
  * that is about to unload the page must await it under a timeout.
  */
 export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promise<void> {
-  if (!isRemoteConfigured() || !tripId) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return;
   try {
     const { db, fs } = await getRemote();
     const { doc, setDoc } = fs;
@@ -89,7 +94,7 @@ export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promi
  * than failing the whole fetch.
  */
 export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | undefined> {
-  if (!isRemoteConfigured() || !tripId) return undefined;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return undefined;
   try {
     const { db, fs } = await getRemote();
     const { doc, getDoc } = fs;
@@ -140,7 +145,7 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
  * legitimately set any name the user actually typed, including that one. Intent is the discriminator.
  */
 export async function pushAccountIdentity(code: string, name: string): Promise<void> {
-  if (!isRemoteConfigured() || !code) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
   const trimmed = name.trim().slice(0, 24);
   if (!trimmed) return;
   try {
@@ -185,7 +190,7 @@ async function writeIdentityDoc(code: string, name?: string): Promise<void> {
  * swallowed, and the next login's fallback backfills it anyway.
  */
 export async function seedAccountDocs(code: string, name?: string | null): Promise<void> {
-  if (!isRemoteConfigured() || !code) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
   const trimmed = name?.trim().slice(0, 24);
   const publishable = trimmed && trimmed !== DEFAULT_TRAVELER_NAME ? trimmed : undefined;
   await Promise.all([
@@ -206,7 +211,7 @@ export async function seedAccountDocs(code: string, name?: string | null): Promi
  * single read. This serves the provider's post-load reconciler, which has no probe to ride on.
  */
 export async function fetchAccountIdentity(code: string): Promise<string | undefined> {
-  if (!isRemoteConfigured() || !code) return undefined;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return undefined;
   try {
     const { db, fs } = await getRemote();
     const { doc, getDoc } = fs;
@@ -264,6 +269,7 @@ function readIdentityName(data: Record<string, unknown> | undefined): string | u
  */
 export async function probeAccountIdentity(code: string): Promise<AccountProbeResult> {
   if (!isRemoteConfigured() || !code) return { verdict: 'unavailable' };
+  if (!isSafeTripSegment(code)) return { verdict: 'missing' };
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
@@ -375,7 +381,7 @@ function readMembers(data: Record<string, unknown> | undefined): Record<string, 
  * `trips-hub`'s create awaits this inside its existing navigation budget, ahead of the meta push.
  */
 export async function createTripDoc(tripId: string): Promise<void> {
-  if (!isRemoteConfigured() || !tripId) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return;
   try {
     const { db, fs, uid } = await getRemote();
     const { doc, setDoc, serverTimestamp } = fs;
@@ -399,11 +405,16 @@ export async function createTripDoc(tripId: string): Promise<void> {
  * - already in `members` ⇒ return, with no write at all. This is the common case on every load
  *   after the first, so it must cost one read and nothing else.
  * - members map ABSENT (a grandfathered capability trip), or one the rules read as open because
- *   it names no owner (`readMembers`) ⇒ the first device to enrol takes `'owner'`. Somebody has
- *   to be able to manage the roster, and on a members-less trip the rules let any signed-in
- *   holder of the tripId write one — so the first mover is the only available
- *   answer. It is also the right one: the first device to open a trip it created before the lock
- *   existed is overwhelmingly the creator's.
+ *   it names no owner (`readMembers`) ⇒ return, with no write at all. #477: this branch used to
+ *   take `'owner'`, on the theory that the first device to open a pre-lock trip is overwhelmingly
+ *   its creator. It is not — a `?trip=` link forwarded into a group chat makes whoever taps it
+ *   first the sole owner and locks the real creator out for good, with no self-service route back.
+ *   Nothing local distinguishes the creator from a tapper (the registry records `joinedAt` for
+ *   both), and `'member'` is not the safer answer either: `rosterIsWellFormed()` refuses any
+ *   update leaving the map naming no owner, so it would be denied and raise access-pending on a
+ *   trip this device can in fact read and write. So: no write. An owner-less trip stays OPEN to
+ *   every token holder, which is the grandfather contract (D-540/#453), and a roster is minted
+ *   only where the creator is actually known — `createTripDoc` and the first-snapshot seed.
  * - anyone else ⇒ `'member'`.
  *
  * The explicit target is intentional: the normal page-load caller passes the active trip, while
@@ -420,18 +431,29 @@ export async function createTripDoc(tripId: string): Promise<void> {
 export async function ensureMembership(tripId: string): Promise<void> {
   // This function also repairs every known trip after Google-account adoption, when the
   // active pack may be the local-only sample. Gate the explicit target, not the active pack.
-  if (!isRemoteConfigured() || !tripId || tripId === DEFAULT_TRIP_ID) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId) || tripId === DEFAULT_TRIP_ID) return;
   try {
     const { db, fs, uid } = await getRemote();
     const { doc, getDocFromServer, updateDoc } = fs;
     const ref = doc(db, 'trips', tripId);
-    // SERVER read: a cached copy can be stale in both directions — an absent members map that has
-    // since been written (we would try to self-enrol as owner and be denied) or a stale roster.
+    // SERVER read: a cached copy can be stale in both directions, and BOTH are silent.
+    // - absent members map that has since been written ⇒ we read the trip as still open and skip
+    //   the enrolment the rules now require, with no access-pending toast to explain the denials
+    //   that follow.
+    // - stale roster missing this uid where the server already has it as `'owner'` ⇒ the write
+    //   below is `members.<uid> = 'member'`, and the rules evaluate `isOwner()` against the STORED
+    //   doc, so it is ALLOWED: the owner silently demotes itself.
     const snap = await getDocFromServer(ref);
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
-    if (members && uid in members) return; // already enrolled — no write
-    await updateDoc(ref, { [`members.${uid}`]: members ? 'member' : 'owner' });
+    if (!members) {
+      // Open trip — no roster to invent (#477), unless this device created it and a joiner's
+      // seed landed first (#501): the creator reclaims owner.
+      if (wasTripCreatedHere(tripId)) await updateDoc(ref, { [`members.${uid}`]: 'owner' });
+      return;
+    }
+    if (uid in members) return; // already enrolled — no write
+    await updateDoc(ref, { [`members.${uid}`]: 'member' });
   } catch (err) {
     if (isPermissionDenied(err)) {
       if (typeof window !== 'undefined') {
@@ -453,23 +475,42 @@ export async function ensureKnownTripMemberships(): Promise<void> {
 }
 
 /**
- * The trip's roster, or `undefined` when there is none to show — dormant, unreachable, no trip
- * doc, or a doc with no members map (a grandfathered capability trip, where "everyone holding the
- * link" is the honest answer and a list would be a lie). TOTAL, never throws.
+ * What a roster read could establish. The three states were ONE `undefined` until #477, and
+ * collapsing them is now a user-visible bug rather than a tidy simplification: since the UI hides
+ * the add-device control on `'open'`, "this trip has no roster" and "I could not find out" must
+ * not be the same answer. `getDocFromServer` REJECTS offline rather than serving the cache, so
+ * `'unknown'` is a routine state for an ordinary member-gated trip, not an exotic one.
  */
-export async function fetchTripMembers(
-  tripId: string,
-): Promise<Record<string, TripRole> | undefined> {
-  if (!isTripRemoteConfigured() || !tripId) return undefined;
+export type TripRosterRead =
+  /** A read that came back with a roster the rules will actually gate on. */
+  | { state: 'roster'; members: Record<string, TripRole> }
+  /** A read that SUCCEEDED and found no usable roster: no members map, or one
+   *  `readMembers`/`isOpen()` read as open. Everyone holding the trip id can open it. */
+  | { state: 'open' }
+  /** A read that SUCCEEDED and found no trip doc: the creator's first sync has not landed (#501). */
+  | { state: 'absent' }
+  /** Nothing was established — dormant, offline, unreachable, or refused. */
+  | { state: 'unknown' };
+
+/**
+ * The trip's roster. TOTAL, never throws — every failure answers `{ state: 'unknown' }`, which the
+ * caller must render differently from `'open'` (a grandfathered capability trip, where "everyone
+ * holding the link" is the honest answer and a list would be a lie).
+ */
+export async function fetchTripMembers(tripId: string): Promise<TripRosterRead> {
+  if (!isTripRemoteConfigured() || !isSafeTripSegment(tripId)) return { state: 'unknown' };
   try {
     const { db, fs } = await getRemote();
     const { doc, getDocFromServer } = fs;
     const snap = await getDocFromServer(doc(db, 'trips', tripId));
-    if (!snap.exists()) return undefined;
-    return readMembers(snap.data() as Record<string, unknown>) as Record<string, TripRole> | undefined;
+    if (!snap.exists()) return { state: 'absent' };
+    const members = readMembers(snap.data() as Record<string, unknown>) as
+      | Record<string, TripRole>
+      | undefined;
+    return members ? { state: 'roster', members } : { state: 'open' };
   } catch (err) {
     console.warn('[trips-remote] members fetch failed:', err);
-    return undefined;
+    return { state: 'unknown' };
   }
 }
 
@@ -496,13 +537,16 @@ export async function removeTripMember(tripId: string, uid: string): Promise<Mem
   return writeMemberField(tripId, uid, null);
 }
 
+const FIREBASE_UID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
 /** One field-path write against the members map — `null` value ⇒ delete that entry. */
 async function writeMemberField(
   tripId: string,
   uid: string,
   role: TripRole | null,
 ): Promise<MemberWriteResult> {
-  if (!isTripRemoteConfigured() || !tripId || !uid) return 'failed';
+  if (!isTripRemoteConfigured() || !isSafeTripSegment(tripId) || !uid) return 'failed';
+  if (!FIREBASE_UID_RE.test(uid)) return 'failed';
   try {
     const { db, fs } = await getRemote();
     const { doc, updateDoc, deleteField } = fs;
@@ -540,7 +584,7 @@ function docToRemoved(data: Record<string, unknown>): RemovedTrip[] {
  * re-merges instead.
  */
 export async function pushTripList(code: string): Promise<void> {
-  if (!isRemoteConfigured() || !code) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
   try {
     const { db, fs } = await getRemote();
     const { doc, runTransaction } = fs;
@@ -553,6 +597,7 @@ export async function pushTripList(code: string): Promise<void> {
         docToTrips(data),
         listRemovedTrips(),
         docToRemoved(data),
+        { keepUnknownKeys: true }, // #519: this merge is written straight back to the doc below
       );
       tx.set(ref, {
         version: 1,
@@ -585,7 +630,7 @@ export function subscribeTripList(
   code: string,
   onMerge?: (activeTripChanged: boolean) => void,
 ): () => void {
-  if (!isRemoteConfigured() || !code) return () => {};
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return () => {};
 
   let cancelled = false;
   let firestoreUnsub: (() => void) | null = null;

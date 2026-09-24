@@ -212,6 +212,21 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
     expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBe(badRaw); // preserved
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before); // main untouched
   });
+
+  it('a pre-v5 bare array with un-migratable rows is rejected, not accepted on the survivors (#475)', () => {
+    savePlans(REAL_PLANS);
+    const before = localStorage.getItem(ITINERARY_STORAGE_KEY);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // v2 shape, so the migration chain actually runs — that is where the rows used to disappear
+    // (filtered out before the strict parser could see them) and the import reported success.
+    const raw = JSON.stringify([REAL_PLANS[0], null, { ...REAL_PLANS[1], items: 5 }]);
+    const result = parseBackup(raw);
+
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
+    expect(loadPlans()).toEqual(REAL_PLANS);
+  });
 });
 
 describe('S92 migration on import — a v2-era export upgrades to v3 (D-095/D-098)', () => {

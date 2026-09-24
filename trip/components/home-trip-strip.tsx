@@ -11,7 +11,7 @@ import { useActiveTraveler } from '@/hooks/use-active-traveler';
  * Home "Your trips" chip strip — makes Home recognizably multi-trip on first paint:
  * a compact horizontal chip row above the hero. Current trip highlighted (non-interactive,
  * `aria-current`); any other known trip is one tap away via the switch primitive
- * VERBATIM — `joinTrip(id)` then a full reload (we're already on the landing target, so
+ * — `joinTrip(id)`, then a full reload only if it reports the switch landed (we're already on the landing target, so
  * `location.reload()` IS the full navigation); `+ New` links to the `/trips/` hub for
  * everything beyond switching.
  *
@@ -47,7 +47,8 @@ export default function HomeTripStrip() {
   // switch = register + write the active-trip pointer, then a FULL reload
   // so the whole pack re-hydrates against the new trip.
   const switchTo = (id: string) => {
-    joinTrip(id);
+    // No reload unless the pointer moved: a refused row would just repaint the same trip.
+    if (!joinTrip(id)) return;
     window.location.reload();
   };
 

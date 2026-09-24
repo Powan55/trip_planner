@@ -53,6 +53,7 @@ import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
 import { describeItemTime } from '@/lib/item-time-display';
 import { dayPlaceLabel, legLabel } from '@/lib/leg-label';
+import { dayShade, swatchFill } from '@/lib/city-palette';
 import { clashingItemIds, describeClash, firstClashWith, timeFootprintChanged } from '@/lib/sort-items-by-time';
 import TimePicker, { DurationField } from '@/components/time-picker';
 import PlanSearch from '@/components/plan-search';
@@ -1296,6 +1297,7 @@ export default function CalendarPlanner() {
           role="group"
           aria-label="Day summary"
           data-leg={currentPlan.country}
+          style={{ ['--now' as string]: dayShade(selectedDate).color }}
         >
           <div className="f">
             <span className="k">Day</span>
@@ -1505,13 +1507,19 @@ export default function CalendarPlanner() {
               map is open on lg+ they sit side-by-side at xl and stack at lg. */}
           <div className={`min-w-0 ${showMap && isDesktop ? 'grid grid-cols-1 xl:grid-cols-[1fr_minmax(300px,360px)] gap-6 items-start' : ''}`}>
           {/* Right: Day Detail with DnD */}
-          <div className="min-w-0 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] p-4 sm:p-6" data-leg={currentPlan.country}>
+          <div className="min-w-0 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] p-4 sm:p-6" data-leg={currentPlan.country} style={{ ['--now' as string]: dayShade(selectedDate).color }}>
             {/* Day Header */}
             <div className="flex items-center justify-between gap-1 mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 hover:bg-white/5 text-ink-mid disabled:text-ink-lo disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
                 <h3 className="num text-n-sm uppercase text-ink-hi sm:text-n-md">{formatDateLong(selectedDate)}</h3>
                 <p className="pr pr--lo mt-0.5">
+                  <span
+                    aria-hidden="true"
+                    data-testid="calendar-day-swatch"
+                    className={`mr-1.5 inline-block h-2 w-2 align-middle ${dayShade(selectedDate).satellite ? 'rotate-45' : 'rounded-full'}`}
+                    style={{ background: swatchFill(dayShade(selectedDate)) }}
+                  />
                   Day {currentIdx + 1} · {dayPlaceLabel(currentPlan)}
                 </p>
                 {/* day-at-a-glance pill row — composes the existing spend pill +

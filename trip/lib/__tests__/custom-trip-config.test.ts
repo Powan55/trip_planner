@@ -339,16 +339,38 @@ describe('getTripConfig — prototype-pollution-shaped ids never leak a function
       expect(cfg).toBe(NEPAL_JAPAN_2026); // unregistered id ⇒ same as any other unknown id
     });
 
-    it(`getTripConfig('${poison}') after joinTrip('${poison}') ⇒ the config-less placeholder, never a crash`, () => {
-      // The reachable path: pasting the poison string into "Add a trip by Trip Token" (or
-      // `?trip=${poison}`) calls joinTrip, which registers it with NO config block — exactly
-      // the A-2 config-less state, now on a prototype-key id.
-      joinTrip(poison);
+    it(`getTripConfig('${poison}') once it is on disk ⇒ the config-less placeholder, never a crash`, () => {
+      // Pasting the poison string into "Add a trip by Trip Token" (or `?trip=${poison}`) calls
+      // joinTrip, which registers it with NO config block — exactly the A-2 config-less state,
+      // now on a prototype-key id.
+      //
+      // D-546 narrowed which of these are still reachable that way: `joinTrip` refuses a
+      // Firestore-reserved `__x__` id outright, so `__proto__` can no longer be pasted in. It can
+      // still be ON DISK — from before that change, or from any other write of the pointer — and
+      // `getTripConfig` is what has to stay total against it either way, so the state is set up
+      // directly here rather than the case being dropped.
+      if (poison === '__proto__') {
+        expect(joinTrip(poison)).toBe(false);
+        upsertKnownTrip(poison);
+        setActiveTripId(poison);
+      } else {
+        expect(joinTrip(poison)).toBe(true);
+      }
       const cfg = getTripConfig(poison);
       // was TRIP_PACKS[poison] === the Object constructor (typeof 'function') pre-fix.
       expect(typeof cfg).not.toBe('function');
       expect(Array.isArray(cfg.legs)).toBe(true);
-      expect(cfg.legs[0].id).toBe('main'); // the placeholder, not NEPAL_JAPAN_2026's 'nepal'/'japan'
+      if (poison === '__proto__') {
+        // #476 moved the reserved-id check into `sanitizeTripMetaEntry`, which runs when the list
+        // is READ — so forcing the entry onto disk no longer registers it and this case collapses
+        // onto the never-joined one above. A-4's property (total, never a function, never a crash)
+        // is what this test is for and it is unchanged. Nor does the wider fallback leak anywhere:
+        // `getTripId()` is '' for a pointer of this shape, so the pack's day shells cannot be
+        // pushed to Firestore under it.
+        expect(cfg).toBe(NEPAL_JAPAN_2026);
+      } else {
+        expect(cfg.legs[0].id).toBe('main'); // the placeholder, not NEPAL_JAPAN_2026's 'nepal'/'japan'
+      }
       // The old bug crashed HERE: `activeTrip.legs.find(...)` at module load
       // (core/dates/trip-dates.ts:33) on a `.legs === undefined` config. Prove it no longer throws.
       expect(() => cfg.legs.find((l) => l.id === 'nepal')).not.toThrow();

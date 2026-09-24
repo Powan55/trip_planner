@@ -35,7 +35,7 @@
 // at runtime — the dependency direction is an accepted, existing pattern for the sync seam.)
 
 import type { StoragePort, SyncPort } from '@/core/ports';
-import { keyFor, readJson, writeJson, removeKey } from '@/core/storage/gateway';
+import { keyFor, keyForTrip, readJson, writeJson, removeKey } from '@/core/storage/gateway';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
@@ -85,8 +85,9 @@ function notifyChanged(): void {
 // SSR-safe / never-throw / corrupt-slot→empty are inherited from the gateway primitives; the
 // shape guard below folds a structurally-bad slot to empty too. ──────────────────────────────
 
-function loadSlot(): OutboxSlot {
-  const raw = readJson<OutboxSlot | null>('local', keyFor('syncOutbox'), null);
+function loadSlot(tripId?: string): OutboxSlot {
+  const key = tripId !== undefined ? keyForTrip(tripId, 'syncOutbox') : keyFor('syncOutbox');
+  const raw = readJson<OutboxSlot | null>('local', key, null);
   if (!raw || typeof raw !== 'object') return { version: 1, dirty: {} };
   // A version we do not understand is discarded rather than guessed at, but it is NOT discarded
   // silently (#439): dropping every pending chunk is exactly the kind of data-shaped event that
@@ -145,9 +146,11 @@ function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string): void {
 }
 
 /** The dirty chunk keys currently recorded for a domain (a copy; empty when none). Read by the
- * first-snapshot dirty-chunk merge exception (subscribeRemote) —. */
-export function outboxDirty(domain: SyncDomain): string[] {
-  return [...(loadSlot().dirty[domain] ?? [])];
+ * first-snapshot dirty-chunk merge exception (subscribeRemote) —. `tripId` reads another pack's
+ * slot directly (D-561's confirm count needs the default pack's slot even when it is not the
+ * active trip) instead of the current-trip default. */
+export function outboxDirty(domain: SyncDomain, tripId?: string): string[] {
+  return [...(loadSlot(tripId).dirty[domain] ?? [])];
 }
 
 // ── The gate. Both enqueue and flush re-check it, so a traveler who signs out with

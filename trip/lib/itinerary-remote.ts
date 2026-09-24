@@ -52,6 +52,7 @@ import { outboxDirty } from '@/core/sync/outbox';
 import { itinerarySyncPort } from './itinerary-ports';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { setReadDenied } from '@/core/sync/read-denied';
+import { wasTripCreatedHere } from '@/core/storage/gateway';
 import { realClock } from './trip-now';
 import { getRemote, type FirestoreMod } from './firebase-remote';
 
@@ -192,7 +193,7 @@ export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boole
  * changed day is written inside a `runTransaction`:
  * 1. read the CURRENT remote day-doc,
  * 2. default its v1 items on read (`docToDayPlan`) so it is a valid mergeable DayPlan,
- * 3. `mergeDay(remoteNow, localDay)` — item-level merge inside the day,
+ * 3. `mergeDay(localDay, remoteNow)` — item-level merge inside the day,
  * 4. write the merged doc.
  * A concurrent peer write to the same doc between the transaction's read and write forces
  * Firestore to RETRY the transaction, which re-reads the peer's now-committed state and
@@ -271,17 +272,21 @@ export async function pushDayMerged(
     const remoteNow: DayPlan = snap.exists()
       ? defaultDayForMerge(docToDayPlan(localDay.date, snap.data() as Record<string, unknown>))
       // was a four-field literal that silently dropped every day-level field it did not
-      // name — including the new `countryLabel`, which `mergeDay(remoteNow, localDay)` then took
-      // from THIS object (mergeDay's day-level fields come from its FIRST argument), so the
-      // label was erased on the very first push against an absent remote doc. Spreading the
-      // local day is the same value for the four named fields and cannot drift again.
+      // name — including the new `countryLabel`. Spreading the local day is the same value for
+      // the four named fields and cannot drift again.
       : { ...localDay, items: [] };
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstones from the
     // MERGED result before writing — never in the hot merge path, never as its own write (the
     // GC'd doc ships on THIS genuine edit). Structurally cannot drop a live or recent-tombstone
     // item (gcTombstones' first guard). `nowPt` via `realClock` — the `?today=` override would set
     // the horizon months ahead and drop live-elsewhere tombstones out of a doc we then write back.
-    const merged = gcTombstones(mergeDay(remoteNow, localDay), realClock.now().getTime());
+    // LOCAL FIRST, matching the snapshot path's `mergeDays(loadPlans(), remoteDays)`. `mergeDay`
+    // resolves day metadata to its first argument, so passing `remoteNow` there made the two
+    // directions disagree: local's `date`/`city`/`country`/`countryLabel` could never be
+    // overwritten by remote on either path, and remote's could never be overwritten by local on
+    // the push — write-once on both sides, and free to disagree forever. Items are unaffected:
+    // the `mergeItems` join is commutative, so only the metadata precedence moves.
+    const merged = gcTombstones(mergeDay(localDay, remoteNow), realClock.now().getTime());
     tx.set(ref, sanitizeDayForWrite(merged));
   });
 }
@@ -634,7 +639,8 @@ async function reconcileFirstSnapshot(
   applyRemote: (plans: DayPlan[]) => boolean,
 ): Promise<void> {
   const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid } = ctx;
-  const tripRef = doc(db, 'trips', getTripId());
+  const tripId = getTripId();
+  const tripRef = doc(db, 'trips', tripId);
 
   // The trip-doc marker is the "has this group ever synced" signal. Read it from
   // the SERVER so a fresh client doesn't see a stale/absent cached value as authoritative
@@ -705,14 +711,14 @@ async function reconcileFirstSnapshot(
     // already there (the create-path doc, #10) — rewriting it would clobber a `members` entry a
     // peer added between the create and this first snapshot.
     // #10: the marker carries the same `members` map `createTripDoc` writes, so a trip seeded
-    // through THIS legacy path is member-gated from birth too (parity — otherwise the two ways a
-    // trip doc can come into existence would disagree about whether the lock is on).
+    // through THIS legacy path is member-gated from birth too. #501: but only on the device that
+    // created the trip — otherwise a joiner arriving before the creator's doc landed would own it.
     if (!tripExists) {
       await setDoc(tripRef, {
         schemaVersion: 1,
         createdAt: serverTimestamp(),
         seededFrom: localIsUserData ? 'local-edits' : 'sample',
-        members: { [uid]: 'owner' },
+        ...(wasTripCreatedHere(tripId) ? { members: { [uid]: 'owner' } } : {}),
       });
     }
 

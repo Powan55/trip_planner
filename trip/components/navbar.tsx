@@ -17,6 +17,7 @@ import { isDefaultTrip } from '@/core/trips';
 import { isConciergeAllowedForActiveTrip } from '@/lib/concierge-config';
 import { listKnownTrips } from '@/core/trips/registry';
 import { getActiveTripId } from '@/core/storage/gateway';
+import { openPalette } from '@/lib/palette-open';
 
 // the AI concierge trigger + panel. A separate chunk (Radix Dialog + the chat hook), lazy
 // client-only — it self-gates to `null` (dormant/guest) so most builds/sessions never even
@@ -302,7 +303,7 @@ export default function Navbar() {
                           data-testid="navbar-more-search"
                           onClick={() => {
                             closeMore();
-                            window.dispatchEvent(new CustomEvent('palette:open'));
+                            openPalette();
                           }}
                           className="flex w-full min-h-tap items-center justify-between gap-2.5 px-3 py-2 text-t-body text-[color:var(--text-mid)] transition-all outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
