@@ -21,7 +21,7 @@ const ensureMembershipMock = vi.fn<(tripId: string) => Promise<void>>(async () =
 vi.mock('@/lib/trips-remote', () => ({
   ensureMembership: (tripId: string) => ensureMembershipMock(tripId),
   // The provider's other effects reach for these; they are never exercised here.
-  fetchAccountIdentity: async () => undefined,
+  fetchAccountIdentity: async () => ({ status: 'error' }),
   pushAccountIdentity: async () => {},
   subscribeTripList: () => () => {},
   fetchTripMeta: async () => undefined,

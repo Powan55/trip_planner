@@ -88,6 +88,18 @@ describe('gcTombstoneRows — the id-keyed GC analog for expenses (S145, D-153):
     expect(gcTombstoneRows([], now)).toEqual([]);
   });
 
+  it('#532: KEEPS an old tombstone referenced only by a LIVE row in a sibling chunk (otherLiveIds)', () => {
+    const oldPt = now - DEFAULT_GC_HORIZON_MS - 1;
+    const rows = [row('MOVED', H(oldPt, 0, 'a'), { deleted: true })]; // this chunk's own set has no live row for it
+    expect(gcTombstoneRows(rows, now, DEFAULT_GC_HORIZON_MS, new Set(['MOVED']))).toHaveLength(1);
+  });
+
+  it('#532: still drops an old tombstone whose id is live in NEITHER this chunk NOR otherLiveIds', () => {
+    const oldPt = now - DEFAULT_GC_HORIZON_MS - 1;
+    const rows = [row('GONE', H(oldPt, 0, 'a'), { deleted: true })];
+    expect(gcTombstoneRows(rows, now, DEFAULT_GC_HORIZON_MS, new Set(['OTHER']))).toEqual([]);
+  });
+
   it('#238: a fast device clock (nowPt run far ahead) does NOT prune a tombstone the document\'s own newest stamp still calls recent', () => {
     const fastNowPt = now + DEFAULT_GC_HORIZON_MS * 2; // device clock reads ~60 days ahead of reality
     const recentPt = now - 1000; // 1s before the document's own newest real stamp

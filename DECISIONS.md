@@ -5653,6 +5653,34 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Cost.** No new Firestore read or write on the happy path — the same one read plus one write per changed day, inside the transaction that already existed. A failed seed now retries on later flush triggers, bounded by the day count (~32 docs), which is the cost profile of any other dirty chunk and well inside Spark's 50k reads / 20k writes per day.
 
 **Changes if:** whole-day removal becomes user-reachable (editable trip dates that delete day docs). Then zero docs stops being unambiguous and the seed needs an explicit completion marker rather than an inference.
+
+### D-548 · Amends the D-281 alias rules · (2026-09-21) · A marker's name is its match key: matching is word-bounded, the item's TITLE outranks its `location`, and the longest alias wins within each
+
+**Decision.** `matchMarker`'s rung 2 tests each alias with a `\b`-anchored, metacharacter-escaped regex instead of `hay.includes(k)`, runs against the item's `title` alone before falling back to `title + location`, and within each pass picks the longest matching alias across all markers rather than the first hit in `MAP_MARKERS` order. Rung 1, the `sourceId` exact join, is untouched and still takes precedence. The alias GENERATION rules — the strip list, `length >= 4`, the containing-city guard — are unchanged.
+
+**Three defect classes, all of which array order or field-blindness was hiding.** Substring: `Asan Bazaar` strips to the alias `asan`, which clears the discriminating-alias guard (4 chars, and not its own city `kathmandu`) and is a substring of `Basantapur` — the `location` on Kathmandu Durbar Square, a different site ~450 m away. Shadowing: `np-thamel` has a single-segment `area`, so `containingCity` returns null and the guard is structurally unable to drop the alias `thamel` — and every venue inside Thamel carries "Thamel" in its `location`, so the venues resolved to the district. Cross-field ranking: with both fields in one haystack, alias LENGTH decides across them, so "Breakfast at OR2K Restaurant" / `location: 'Thamel'` lost `or2k` (4) to `thamel` (6) and the dinner plotted at the district. What an item calls itself beats where it says it is, whatever the two names happen to measure.
+
+**Measured against the owner's canonical seed, not asserted.** 164 seed items, 27 markers before and 156 after. Placement is identical for 134 items, 18 gain an exact pin where they previously fell back to a city or area centroid, 3 move from a district pin to the specific venue named in their title (`np-thamel` → `np-roadhouse-thamel`, `np-or2k` ×2), 9 improve from city-centroid to area-level approximation, and **0 lose a pin**. No marker id was removed, so no `sourceId` join changes. The title-first pass on its own accounts for exactly 2 of those 3 moves and changes nothing else.
+
+**The conditional boundary is load-bearing.** The `\b` is applied per side only when that side's own edge character is a word character. Several aliases end in `)` or `'` — `le sherpa & farmers'`, `kinkaku-ji (golden pavilion)` — and an unconditional trailing `\b` demands a following word character, which would kill them at end of string. No alias starts with a non-word character, so the leading side is always anchored.
+
+**The gate is derived, not hand-written.** `itinerary-map.test.ts` asserts that any seed item whose TITLE contains a marker's name resolves to that marker, built from the data so a new place is covered the moment it is added. It is keyed on the title alone and not `location` deliberately: `location` is the field the shadowing came through, so including it would let the defect define the expectation. 37 of 164 items are covered today; the floor asserts 30 so ordinary content edits do not trip it.
+
+**Changes if:** a marker is added whose name is a strict prefix of another's, where longest-wins stops being obviously right; or the strip list gains a term that shortens an alias below the length of a locality alias containing it.
+
+### D-549 · (2026-09-21) · Asset bytes are measured by a dependency-free CI step with ceilings, and the image credits file is generated, never hand-edited
+
+**Decision.** `trip/scripts/asset-budget.mjs` (`npm run budget-check`) runs in CI's dependency-free block and fails the build over three ceilings: the precached hero rasters, the rest of the precache out of `public/`, and the image tree as a whole. `trip/scripts/fetch-images.mjs --credits` regenerates `public/images/CREDITS.md` from `scripts/image-map.json` with no network access, and CI re-runs it and diffs, so a credits file that drifts from the manifest fails.
+
+**Why.** Nothing in CI measured bytes. The one size-adjacent guard was `expect(imageEntries).toHaveLength(6)` in `e2e/pwa.spec.ts` — the COUNT is asserted and the bytes are not, so re-encoding a hero at 2 MB keeps it green while every install pays for it. That spec also runs on pull requests only, so it is absent from the path a direct push takes.
+
+**Source tree only, and that is a real limit.** The step runs before `npm ci` and long before a build, so `out/` does not exist and the install payload's JS/HTML half is NOT covered. A check that silently skipped itself when `out/` was missing would report green having measured nothing, which is the failure mode the file exists to prevent — so it measures what it can reach and says so rather than papering over it.
+
+**Ceilings, not pins.** Each number is a measured baseline plus 5%, so an ordinary re-encode does not fail the build and a doubling does. Raise one only with a reason; when a cleanup drops a measured total well under its ceiling, bring the ceiling down in the same commit or it stops meaning anything. **A ceiling authored to fit the drop that is landing alongside it cannot catch that drop** — it establishes the baseline for the next one. That is the case for the image-tree row as recorded here.
+
+**KNOWN CEILING:** `--credits` writes LF, and a Windows checkout holds CRLF, so the file hashes differ locally while `git diff --exit-code` — what CI actually runs — is clean. Compare with git, not `sha256sum`.
+
+**Changes if:** the build artifact becomes reachable this early, at which point the JS/HTML half of the install payload should get its own row rather than the whole check moving after `npm ci`.
 ### D-546 · Amends D-542 · (2026-09-21) · A share link names its namespace, so the default pack's link keeps the pack
 
 **Decision.** A default-pack share id travels as `pack:<id>`. `core/trips/registry.ts` gains `parseTripToken` (wire form → `{ kind: 'default' | 'custom', id }`, or `null`) and `formatShareToken` (the inverse); `joinTrip` resolves through the first of those and, for a default-pack token, calls `setDefaultTripShareId` and points at `DEFAULT_TRIP_ID` instead of registering the id as a trip of its own. It now returns whether the switch actually landed. `settings-panel.tsx` emits the wire form in both the Trip Token card and the `?trip=` link.
@@ -5738,6 +5766,22 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
 
+### D-565 · (issue #529, 2026-09-23) · Every loaded device heals its account's identity doc, create-only
+
+**Decision.** On load, `runAccountIdentitySync` reads `profile/identity` from the server. If it is missing, the device creates it in a transaction that writes only when the doc is still absent: `{ version: 1, name }`, or a nameless `{ version: 1 }` when the local name is the placeholder. A failed read writes nothing. The Settings rename still overwrites.
+
+**Why.** Legacy keys had no identity doc and the door rejects a missing one, so a key that worked on the device holding it was locked out everywhere else (Sushil). Create-only keeps two racing devices, or a doc that appeared mid-read, from being overwritten, and treating a read error as "missing" could have written a local name over a real one.
+
+**Amendment (2026-09-24).** The door's own probe (`#10`) fails OPEN on a timeout or offline read, so a mistyped or invented key can be admitted while offline. Left ungated, this heal would then mint a *permanent* identity doc for that key the next time the device is online (identity docs are never deleted — D-341), turning a typo into a standing account. The heal now requires positive evidence the key is a real, previously-synced account before it writes: this device already lists it as a known trip, or the server's `profile/tripList` doc exists. Neither present ⇒ no write; the device stays admitted for the session but heals nothing.
+
+### D-564 · (issue #532, 2026-09-23) · An expense id lives in one leg; a leg move tombstones the old chunk
+
+**Decision.** Pushing a leg chunk tombstones any remote live row whose id this device holds in another leg at a newer hlc, stamped with that row's hlc. The snapshot rebuild keeps one row per id across legs: highest hlc wins, and on an exact tie the live row beats the tombstone.
+
+**Why.** The old leg's push merged its remote copy back in, so a moved expense stayed live in both legs and counted twice. The tie rule exists because the move tombstone reuses the moved row's stamp. Already-duplicated data reads correctly on the next snapshot and the stale leg is tombstoned the next time it is pushed.
+
+**Addendum.** An edit patches only the live row for an id, never its tombstone. Two live rows sharing an id (pre-fix data) collapse to the newest-hlc one before the patch applies. The per-chunk tombstone GC also checks the OTHER legs' live rows before dropping a tombstone, so a sibling chunk's still-live copy of the same id can't resurface once the horizon passes.
+
 ### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
@@ -5747,3 +5791,13 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
 
 **Why.** Whole-row LWW let a later notes edit from another device carry the old done state over an offline tick. `doneAt` couldn't be the key: it's wall-clock, only written when a display name is set, cleared on untick, and docs rows don't have it.
+### D-575 · (issues #570, #573, 2026-09-24) · A synced whole-trip restore must name the shared trip it came from
+
+**Decision.** Backups carry an optional `remoteId` (the shared trip id at export, `''` when unshared). On a synced device a restore is refused unless the file's `remoteId` equals the current shared trip id; a file with none (older backups, legacy itinerary-only exports) is refused there too, and restores only on an unshared copy. Unsynced restores are unchanged. A custom pack's id is its shared id, so an older custom-trip file with no `remoteId` falls back to its `tripId` and still restores. An older default-pack file, or one made before the device started sharing, cannot be restored into the shared trip; that is accepted over risking a cross-trip wipe. Expenses now restore through `restoreExpenses` under sync, the same injected path as my-places.
+
+**Why.** `tripId` is the local pack id, which every shared copy of the default pack has in common, and a synced restore tombstones every live row and pushes. So a backup from one shared trip could wipe another. Expenses were documented as replaced but fell to the merge path, so rows added after the backup survived.
+### D-572 · (issue #544, 2026-09-24) · An outbox ack only clears a chunk nothing re-enqueued since its push
+
+**Decision.** The outbox slot gains an optional `seq` map: a per-domain, per-chunk counter bumped on every enqueue. A push carries the counter captured with its state, and `ack` removes the chunk only if the counter is unchanged. Additive, no `version` bump; a missing counter reads as 0, so slots already on disk ack as before. Counters are never pruned on ack, since a reset would let a stale push match a fresh edit.
+
+**Why.** A stale push from one tab could ack a chunk after another tab's newer edit was enqueued; if that edit's push then failed, the chunk was no longer dirty and the first snapshot overwrote it on reload. An older build in another tab drops `seq` when it writes the slot; the counter then reads 0 and a newer build's in-flight ack no-ops (the chunk stays dirty and retries), which is the safe direction.

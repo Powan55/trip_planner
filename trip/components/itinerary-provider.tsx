@@ -58,6 +58,18 @@ const TravelModeMounts = dynamic(() => import('@/components/travel-mode-mounts')
 const ItineraryContext = createContext<ItineraryStore | null>(null);
 
 /**
+ * Per-page-load cache of the last account code seen to have a real `profile/identity` doc, so
+ * `watchAccountIdentity`'s repeated `online` events stop re-issuing the server read once presence
+ * is confirmed. Resets on reload; a sign-out/sign-in as a different code is a different key anyway.
+ */
+let identityConfirmedFor: string | null = null;
+
+/** Test-only: modules stay loaded across cases in the same file, unlike a real page load. */
+export function __resetIdentityCacheForTests(): void {
+  identityConfirmedFor = null;
+}
+
+/**
  * A5: consume the one-shot `name-hint` flag that `token-gate`'s token-only login leaves
  * when the display name silently defaulted to "Traveler". Cleared BEFORE the toast so a reload
  * can never double-fire. Exported so the behavior has a runnable unit check without mounting the
@@ -81,7 +93,7 @@ export function consumeNameHint(): void {
  * private window or a second device and you were "Traveler" again. Nothing read a remote name
  * because nothing wrote one.
  *
- * A ONE-SHOT `getDoc` on provider mount (not a subscribe — nobody asked for a name to change live
+ * A ONE-SHOT server read on provider mount (not a subscribe — nobody asked for a name to change live
  * on a second device mid-session), same gates / lazy import / `cancelled` shape as
  * `runTripMetaSelfHeal` above.'s ordered rule:
  * 1. remote present ∧ ≠ local ⇒ ADOPT via `signIn(remote)`. REMOTE WINS on conflict — the account
@@ -91,10 +103,12 @@ export function consumeNameHint(): void {
  * only because `signIn` writes both. Writing one alone displays one name and stamps another.
  * (A naive "local wins if set" rule would instead be VACUOUS: `handleLogin` always writes a
  * name into the local slot before its reload, so the slot is never empty when this runs.)
- * 2. remote absent ∧ local is not the placeholder ⇒ BACKFILL (the once-per-account migration).
- * 3. remote absent ∧ local IS the placeholder ⇒ DO NOTHING. Never publish "Traveler": two devices
- * with no doc yet race, and a device already showing the placeholder would publish it TO THE
- * ACCOUNT for the other to adopt — re-creating the defect and making it sticky.
+ * 2. remote doc missing ⇒ HEAL, create-only (D-565): write `{ version: 1, name }`, or a nameless
+ * `{ version: 1 }` when local is the placeholder. Never publish "Traveler" — a device showing the
+ * placeholder would publish it TO THE ACCOUNT for others to adopt. The doc must exist regardless:
+ * legacy keys had none and the door rejects a missing one on every new device.
+ * 3. remote doc exists with no name ∧ local is not the placeholder ⇒ BACKFILL the name.
+ * 4. the read ERRORED ⇒ write nothing; an unseen doc is not an absent one.
  *
  * 🔴 SIGN-OUT SAFETY: the `.then` re-checks the account AND the traveler are
  * unchanged and the effect was not cleaned up before calling `signIn` — a late resolve landing
@@ -106,14 +120,23 @@ export function consumeNameHint(): void {
  *
  * THE NUDGE RIDES ALONG. `consumeNameHint`'s toast used to fire from its own mount effect, i.e.
  * BEFORE this read lands — post-fix it would tell a user their name is Traveler moments before it
- * becomes Powan. It now fires only where the placeholder really is the final answer: branch 3, or
- * the gates being shut (dormant / no account / signed out), where no account layer exists to
+ * becomes Powan. It now fires only where the placeholder really is the final answer: no account
+ * name to adopt, or the gates being shut (dormant / no account / signed out), where no account layer exists to
  * correct it. Accepted: a read still in flight when the tab is closed leaves the one-shot flag for
  * the next load, which is the same behaviour it already had across a reload.
  *
  * Cold-start flash: the local name paints first and swaps when the read lands. Self-limiting — the
  * adopt writes through to localStorage, so it happens at most once per device, on the first load
  * after a fresh login.
+ *
+ * D-565: `remote.status === 'missing'` does NOT heal on its own. The door's probe (#10) fails OPEN
+ * on a timeout/offline read, so a mistyped/invented key can be admitted while offline; if this
+ * device then comes online, `fetchAccountIdentity` above correctly reports that key's doc as
+ * `'missing'` — and healing it would mint a PERMANENT account for a value nobody ever meant to
+ * create (identity docs are never deleted, D-341). Heal only with positive evidence the key is a
+ * real, previously-synced account: this device already lists it as a known trip, or the server's
+ * `profile/tripList` doc exists (`hasRemoteTripList` — the same positive-evidence test the door's
+ * legacy fallback already trusts).
  */
 export function runAccountIdentitySync(): () => void {
   const noop = () => {};
@@ -125,34 +148,61 @@ export function runAccountIdentitySync(): () => void {
     consumeNameHint();
     return noop;
   }
+  // The doc's existence never reverses once seen, so a later `online` event has nothing left to
+  // learn from re-reading it — skip the server round trip entirely for the rest of this page load.
+  if (identityConfirmedFor === code) return noop;
 
   let cancelled = false;
-  void import('@/lib/trips-remote')
-    .then(({ fetchAccountIdentity, pushAccountIdentity }) =>
-      fetchAccountIdentity(code).then((remote) => {
-        if (cancelled) return;
-        // Re-read, don't trust the closure: a sign-out (or a sign-in as someone else) may have
-        // landed while the read was in flight.
-        const now = getActiveTraveler();
-        if (!now || now.token !== local.token || getSyncCode() !== code) return;
+  void (async () => {
+    const { fetchAccountIdentity, pushAccountIdentity, healAccountIdentity, hasRemoteTripList } =
+      await import('@/lib/trips-remote');
+    const remote = await fetchAccountIdentity(code);
+    if (cancelled) return;
+    // Re-read, don't trust the closure: a sign-out (or a sign-in as someone else) may have
+    // landed while the read was in flight.
+    const now = getActiveTraveler();
+    if (!now || now.token !== local.token || getSyncCode() !== code) return;
 
-        if (remote) {
-          if (remote !== now.name) signIn(remote); // 1 — adopt (both slots, one primitive)
-          return;
-        }
-        if (now.name !== DEFAULT_TRAVELER_NAME) {
-          void pushAccountIdentity(code, now.name); // 2 — backfill this device's real name
-          return;
-        }
-        consumeNameHint(); // 3 — the placeholder is the answer; never publish it
-      }),
-    )
-    .catch((err) => {
-      console.warn('[itinerary-provider] account identity sync unavailable:', err);
-    });
+    if (remote.status === 'exists') {
+      identityConfirmedFor = code;
+      if (remote.name) {
+        if (remote.name !== now.name) signIn(remote.name); // 1 — adopt (both slots, one primitive)
+        return;
+      }
+    }
+    const real = now.name !== DEFAULT_TRAVELER_NAME;
+    if (remote.status === 'missing') {
+      const evidence = !!getKnownTrip(code) || (await hasRemoteTripList(code));
+      if (cancelled) return;
+      const stillCurrent = getActiveTraveler()?.token === now.token && getSyncCode() === code;
+      if (evidence && stillCurrent) void healAccountIdentity(code, now.name); // 2
+    } else if (remote.status === 'exists' && real) {
+      void pushAccountIdentity(code, now.name); // 3
+    }
+    if (!real) consumeNameHint(); // the placeholder is the answer
+  })().catch((err) => {
+    console.warn('[itinerary-provider] account identity sync unavailable:', err);
+  });
 
   return () => {
     cancelled = true;
+  };
+}
+
+/**
+ * Runs the sync on mount and again on every `online` event, so a device that booted offline
+ * heals without a reload. A new run cancels the one before it, so only one can ever act.
+ */
+export function watchAccountIdentity(): () => void {
+  let stop = runAccountIdentitySync();
+  const onOnline = () => {
+    stop();
+    stop = runAccountIdentitySync();
+  };
+  window.addEventListener('online', onOnline);
+  return () => {
+    window.removeEventListener('online', onOnline);
+    stop();
   };
 }
 
@@ -380,7 +430,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // ACCOUNT IDENTITY — adopt/backfill the account's display name, and consume the
   // post-login "Traveler" nudge only where the placeholder is the final answer. See
   // `runAccountIdentitySync`; it owns the (previously unconditional) `consumeNameHint` call.
-  useEffect(() => runAccountIdentitySync(), []);
+  useEffect(() => watchAccountIdentity(), []);
 
   // Gated presence HEARTBEAT. Mirrors the remote-subscribe effect above and
   // its dormant/guest gate: start the per-traveler heartbeat ONLY when

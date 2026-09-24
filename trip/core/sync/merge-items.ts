@@ -262,10 +262,13 @@ export const DEFAULT_GC_HORIZON_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
  * merge boundaries only (never in the hot merge path, never as its own write). PURE: `nowPt` is
  * INJECTED.
  *
- * Drop a row iff BOTH:
+ * Drop a row iff ALL:
  * - it is a tombstone (`deleted === true`), AND
  * - its `hlc.pt` is older than `cutoff = min(nowPt, dataNow) - horizonMs`, AND
- * - no LIVE row shares its `id` (nothing references/supersedes it).
+ * - no LIVE row shares its `id` in `rows` OR in `otherLiveIds` (#532: a chunked domain runs GC
+ *   per-chunk, so a tombstone for an id a SIBLING chunk still holds live — e.g. an expense moved
+ *   to another leg after this leg's copy predates the move fix — must survive here too, or the
+ *   stale live row in the other chunk resurfaces once this chunk's tombstone ages out).
  * Structurally unable to drop a live row (the first guard returns it untouched) or a recent
  * tombstone (still inside the horizon). Conservative + convergent: every client GCs the same row
  * at the same logical point; cross-client `nowPt` skew only delays a drop, never loses data.
@@ -288,6 +291,7 @@ export function gcTombstoneRows<R extends SyncedRow>(
   rows: readonly R[],
   nowPt: number,
   horizonMs: number = DEFAULT_GC_HORIZON_MS,
+  otherLiveIds?: ReadonlySet<string>,
 ): R[] {
   const liveRows = (rows ?? []).filter((r) => r.deleted !== true);
   const liveIds = new Set(liveRows.map((r) => r.id));
@@ -296,7 +300,8 @@ export function gcTombstoneRows<R extends SyncedRow>(
   return (rows ?? []).filter((r) => {
     if (r.deleted !== true) return true; // never drop a live row
     const tooOld = rowHlc(r).pt < cutoff;
-    const referenced = liveIds.has(r.id); // a live row resurrected this id → keep the ghost paired
+    // a live row resurrected this id — here or in a sibling chunk (#532) — keeps the ghost paired
+    const referenced = liveIds.has(r.id) || (otherLiveIds?.has(r.id) ?? false);
     return !(tooOld && !referenced);
   });
 }

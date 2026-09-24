@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
+import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { isConciergeConfigured } from '@/lib/concierge-config';
 import { FADE_FLOOR } from '@/lib/motion';
 import { useOnline } from '@/hooks/use-online';
@@ -244,11 +245,17 @@ export function renderAssistantContent(text: string): ReactNode[] {
 const PRIVACY_NOTE_ID = 'concierge-privacy-note';
 
 // Starter prompts — three real, tappable suggestions so a first-time user has something to
-// press instead of staring at an empty input.
-const STARTER_PROMPTS = [
+// press instead of staring at an empty input. #567: the default pack's prompts name places on
+// that itinerary, which read as broken on a custom trip — those get generic, still-tappable ones.
+const DEFAULT_STARTER_PROMPTS = [
   "What's the plan for tomorrow?",
   'Best clubs in Shibuya?',
   'Add ramen to the 20th',
+];
+const CUSTOM_STARTER_PROMPTS = [
+  'What should we do tomorrow?',
+  'Find a good dinner spot near our hotel',
+  "What's on the plan today?",
 ];
 
 /**
@@ -329,6 +336,10 @@ function dropMessage(code: DropCode): string {
  */
 export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' }) {
   const { traveler } = useActiveTraveler();
+  // #567 — the default pack's copy names Nepal/Japan by name; a custom trip gets its own label
+  // (or a neutral "your trip" when the pack has none) instead of somebody else's itinerary.
+  const defaultTrip = isDefaultTrip();
+  const tripLabel = defaultTrip ? '' : getActiveTrip().label;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const { messages, status, error, send, retry, reset, provider, setProvider } = useConciergeChat();
@@ -456,7 +467,8 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
           </div>
           {/* Names both providers the Worker can use (D-535) and where the thread is kept (D-536). */}
           <SheetDescription className="text-t-sm">
-            Ask about the Nepal &amp; Japan itinerary. Your messages and trip details go to a
+            Ask about {defaultTrip ? 'the Nepal & Japan itinerary' : tripLabel ? `the ${tripLabel} itinerary` : 'your trip'}. Your
+            messages and trip details go to a
             third-party AI provider (Groq; picking Kimi sends them to NVIDIA first, with Groq as the
             fallback) that may retain and review them on free plans; the model that answers is
             named under each reply. Chats are saved on this
@@ -524,7 +536,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
                 changes to the plan — it never applies one until you press Apply.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {STARTER_PROMPTS.map((prompt) => (
+                {(defaultTrip ? DEFAULT_STARTER_PROMPTS : CUSTOM_STARTER_PROMPTS).map((prompt) => (
                   <button
                     key={prompt}
                     type="button"

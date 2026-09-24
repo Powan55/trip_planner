@@ -243,10 +243,19 @@ function subsequenceScore(target: string, q: string): number {
 // How long typing has to settle before the converter goes to the network.
 const CONVERSION_DEBOUNCE_MS = 400;
 
-// Trims a converted amount to a readable 2-decimal-max display (no new dependency —
-// Intl.NumberFormat is a native platform feature).
-function formatConvertedAmount(n: number): string {
-  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+// Trims a converted amount to a readable display, capped at the currency's own decimal
+// convention (JPY has none) rather than a hardcoded 2 — Intl already knows this per currency.
+function formatConvertedAmount(n: number, currency: string): string {
+  let maximumFractionDigits = 2;
+  try {
+    maximumFractionDigits = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).resolvedOptions().maximumFractionDigits;
+  } catch {
+    // unrecognized currency code — fall back to 2
+  }
+  return n.toLocaleString('en-US', { maximumFractionDigits });
 }
 
 // Issue #24: the local copy of the media-query read is gone — `prefersReducedMotion`
@@ -635,7 +644,8 @@ export default function CommandPalette() {
                       <h3 role="presentation" className="num truncate">
                         {conversionResult.source === 'reference' ? '≈ ' : ''}
                         {parsedConversion.amount} {parsedConversion.from} ={' '}
-                        {formatConvertedAmount(conversionResult.converted)} {parsedConversion.to}
+                        {formatConvertedAmount(conversionResult.converted, parsedConversion.to)}{' '}
+                        {parsedConversion.to}
                       </h3>
                       {conversionResult.source === 'reference' ? (
                         <span className="mt">
