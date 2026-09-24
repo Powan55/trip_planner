@@ -63,6 +63,29 @@ describe('sanitizePlaces — dedupe, cap, empty', () => {
     expect(sanitizePlaces('not-array')).toEqual([]);
     expect(sanitizePlaces([{ bad: 1 }, null])).toEqual([]);
   });
+
+  it('caps tombstones by deletion hlc, not import order (#533)', () => {
+    // 240 tombstones, oldest-imported (lowest addedAt/index) stamped as most-recently DELETED
+    // (highest hlc). The cap must keep those — evicting by addedAt/array-position would drop
+    // them instead and let a peer who missed those deletes resurrect the places.
+    const count = PLACES_CAP + 40;
+    const dead: MyPlace[] = Array.from({ length: count }, (_, i) => ({
+      ...base,
+      id: `dead-${i}`,
+      addedAt: new Date(2026, 0, 1 + i).toISOString(),
+      deleted: true,
+      // hlc DESCENDS as i increases, so the oldest-imported rows (low i) carry the newest
+      // deletion stamps — the opposite order from addedAt.
+      hlc: `${String(9_000_000_000_000 - i).padStart(15, '0')}:000000:actor`,
+    }));
+    const out = sanitizePlaces(dead);
+    expect(out).toHaveLength(PLACES_CAP);
+    // The most-recently-deleted 200 are ids 0..199 (highest hlc); ids 200..239 were evicted.
+    const indices = out.map((p) => Number(p.id.replace('dead-', ''))).sort((a, b) => a - b);
+    expect(indices[0]).toBe(0);
+    expect(indices[indices.length - 1]).toBe(PLACES_CAP - 1);
+    expect(out.some((p) => p.id === 'dead-239')).toBe(false);
+  });
 });
 
 describe('addPlace / removePlace — pure mutators', () => {

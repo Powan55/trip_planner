@@ -168,14 +168,25 @@ export function sanitizePlace(value: unknown, opts: SanitizeOptions = {}): MyPla
  * Apply `PLACES_CAP` to LIVE rows and to TOMBSTONES INDEPENDENTLY, so a tombstone can never
  * evict a real place (and the stored value still can't grow unbounded — it is bounded by 2×cap).
  * Under the cap on both counts the input array is returned VERBATIM, so the local-only path —
- * which never produces a tombstone — is byte-for-byte unchanged. Order is otherwise preserved;
- * both halves are already newest-first by the time they get here (`addPlace` prepends,
- * `mergePlaces` sorts), so slicing keeps the NEWEST. TOTAL.
+ * which never produces a tombstone — is byte-for-byte unchanged. Live rows are already
+ * newest-by-import-order by the time they get here (`addPlace` prepends, `mergePlaces` sorts), so
+ * slicing keeps the newest import. TOMBSTONES instead keep the most-recently-DELETED (issue #533):
+ * a delete stamps `hlc` at deletion time (`nextSyncStamp`, `hooks/use-my-places.ts`), which is a
+ * fixed-width string so `>` compares correctly — sorting by it before slicing evicts the STALEST
+ * deletions instead of the oldest-imported ones, so a peer who was offline for the evicted delete
+ * can't resurrect a place someone deleted more recently. A tombstone with no `hlc` (pre-#17 legacy
+ * row) falls back to `addedAt`, the same legacy-seed convention `mergePlaces` already uses. TOTAL.
  */
+function deletionStamp(p: MyPlace): string {
+  return p.hlc ?? p.addedAt;
+}
+
 function capPlaces(rows: MyPlace[]): MyPlace[] {
   const live = rows.filter((p) => p.deleted !== true);
   if (live.length <= PLACES_CAP && rows.length === live.length) return rows;
-  const dead = rows.filter((p) => p.deleted === true);
+  const dead = rows
+    .filter((p) => p.deleted === true)
+    .sort((a, b) => (deletionStamp(a) > deletionStamp(b) ? -1 : deletionStamp(a) < deletionStamp(b) ? 1 : 0));
   return [...live.slice(0, PLACES_CAP), ...dead.slice(0, PLACES_CAP)];
 }
 
