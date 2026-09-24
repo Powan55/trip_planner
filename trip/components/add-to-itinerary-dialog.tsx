@@ -113,7 +113,7 @@ export default function AddToItineraryDialog({
 }: AddToItineraryDialogProps) {
   // D-316: `getDayPlan` is the overlap guard's comparison set — zero new props, the store
   // this dialog already reads and writes through.
-  const { addItem, updateItem, removeItem, restoreItem, getDayPlan } = useItineraryContext();
+  const { addItem, updateItem, removeItem, restoreItem, getDayPlan, moveItem } = useItineraryContext();
   const isCustom = mode === 'custom';
 
   // The date the form initializes to. Custom mode honors `presetDate` (the FAB's
@@ -361,8 +361,8 @@ export default function AddToItineraryDialog({
       if (hasSourceId && editingPlacementId) {
         const original = existingPlacements.find((p) => p.item.id === editingPlacementId);
         if (original && original.date !== selectedDate) {
-          removeItem(original.date, editingPlacementId);
-          addItem(selectedDate, { ...patch, id: generateItemId() });
+          const landedId = moveItem(editingPlacementId, original.date, selectedDate);
+          if (landedId) updateItem(selectedDate, landedId, patch);
           toast.success(`Moved “${title}” to ${formatDate(selectedDate)}`);
         } else {
           updateItem(selectedDate, editingPlacementId, patch);
@@ -396,8 +396,8 @@ export default function AddToItineraryDialog({
       // the new one (an item lives inside a single DayPlan, keyed by date).
       const original = existingPlacements.find((p) => p.item.id === editingPlacementId);
       if (original && original.date !== selectedDate) {
-        removeItem(original.date, editingPlacementId);
-        addItem(selectedDate, { ...patch, id: generateItemId() });
+        const landedId = moveItem(editingPlacementId, original.date, selectedDate);
+        if (landedId) updateItem(selectedDate, landedId, patch);
         toast.success(`Moved “${draft.title}” to ${formatDate(selectedDate)}`);
       } else {
         updateItem(selectedDate, editingPlacementId, patch);
