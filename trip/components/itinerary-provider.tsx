@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useItinerary, type ItineraryStore } from '@/hooks/use-itinerary';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { useDomainSync } from '@/hooks/use-domain-sync';
+import { useCrossTabReload } from '@/hooks/use-cross-tab-reload';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import {
   getActiveTraveler,
@@ -394,6 +395,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   useDomainSync(budgetOutboxSync, budgetStoragePort, budgetSyncPort);
   useDomainSync(docsOutboxSync, docsStoragePort, docsSyncPort);
   useDomainSync(placesOutboxSync, myPlacesStoragePort, placesSyncPort);
+  useCrossTabReload();
 
   // TRIP-META SELF-HEAL — see `runTripMetaSelfHeal` (extracted so it has a runnable unit check
   // without mounting the whole provider tree, same as `createSyncCodeTripListSync` above).

@@ -5806,3 +5806,9 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** The outbox slot gains an optional `seq` map: a per-domain, per-chunk counter bumped on every enqueue. A push carries the counter captured with its state, and `ack` removes the chunk only if the counter is unchanged. Additive, no `version` bump; a missing counter reads as 0, so slots already on disk ack as before. Counters are never pruned on ack, since a reset would let a stale push match a fresh edit.
 
 **Why.** A stale push from one tab could ack a chunk after another tab's newer edit was enqueued; if that edit's push then failed, the chunk was no longer dirty and the first snapshot overwrote it on reload. An older build in another tab drops `seq` when it writes the slot; the counter then reads 0 and a newer build's in-flight ack no-ops (the chunk stays dirty and retries), which is the safe direction.
+
+### D-590 · (issues #581, #582, 2026-09-24) · Reload a tab when another tab changes the active trip or identity
+
+**Decision.** `useCrossTabReload` reloads the tab on a `storage` event for the active-trip pointer, the default share, a token going to or from null (sign-in/out), or `localStorage.clear()`. A token rename keeps it non-null and does not reload. While reloading, the tab is marked retiring, and both draft flushes (`useDraftOnBlur` and the docs checklist note) skip their pagehide/unmount commit.
+
+**Why.** An unreloaded tab keeps its snapshot listeners on the old trip while `keyFor` resolves to the new one, so peer edits and local drafts landed in the wrong trip, and after sign-out were written back onto a wiped device. Without the guard on both flushes, the reload's own pagehide would commit the old draft into the new slots. A snapshot landing between the event and unload can still persist; closing that needs the remote adapters to check the trip they subscribed for.
