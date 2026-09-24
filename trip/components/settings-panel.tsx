@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
 import { useOnline } from '@/hooks/use-online';
@@ -36,6 +36,7 @@ import {
   getSyncCode,
   setSyncCode,
   identityStore,
+  syncPausedPrefs,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
 import {
@@ -542,6 +543,60 @@ function LinkGoogleIdentity() {
  * roster" would tell its owner their trip predates per-device access and take the control away.
  * A control is never hidden on a guess; unknown renders exactly what shipped before.
  */
+/**
+ * #600: per-device sync off switch. The pause is enforced in `getRemote()`; the outbox keeps
+ * queuing, so edits made while off upload after it is turned back on. Reloads because every
+ * listener was armed under the old state.
+ */
+export function SyncThisDevice() {
+  const [on, setOn] = useState<boolean | null>(null);
+  const labelId = useId();
+  const helpId = useId();
+  useEffect(() => setOn(!syncPausedPrefs.get()), []);
+
+  const toggle = () => {
+    if (on === null) return;
+    syncPausedPrefs.set(on);
+    setOn(!on);
+    window.location.reload();
+  };
+
+  return (
+    <div className="flex items-start justify-between gap-4 border-hair border-border bg-surface-raised px-gut py-4">
+      <div className="min-w-0">
+        <h3 id={labelId} className="pr pr--l text-ink-hi">
+          Sync this device
+        </h3>
+        <p id={helpId} className="mt-1 max-w-2xl text-t-body text-ink-mid">
+          Off: changes stay on this device until you turn it back on.
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on ?? true}
+        aria-labelledby={labelId}
+        aria-describedby={helpId}
+        disabled={on === null}
+        onClick={toggle}
+        data-testid="settings-sync-toggle"
+        className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-r1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+      >
+        <span
+          aria-hidden="true"
+          className={`flex h-6 w-11 items-center rounded-full border-2 p-0.5 ${
+            on === false ? 'justify-start border-ink-lo' : 'justify-end border-ink-hi bg-ink-hi'
+          }`}
+        >
+          <span
+            className={`h-4 w-4 rounded-full ${on === false ? 'bg-ink-lo' : 'bg-surface-low'}`}
+          />
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function TripAccessGroup() {
   const [uid, setUid] = useState<string | null>(null);
   const [tripKey, setTripKey] = useState<string | null>(null);
@@ -556,6 +611,8 @@ function TripAccessGroup() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const online = useOnline();
+  // Only mounts once identified (client-side), and toggling reloads, so one read is enough.
+  const [paused] = useState(() => syncPausedPrefs.get());
   const { copy: copyToClipboard, error: uidCopyError } = useClipboardCopy();
 
   const loadMembers = async () => {
@@ -602,7 +659,7 @@ function TripAccessGroup() {
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = addValue.trim();
-    if (!code || busy || !tripKey) return;
+    if (!code || busy || !tripKey || paused) return;
     if (!online) {
       setError('You’re offline. Adding a device needs a connection.');
       return;
@@ -628,7 +685,7 @@ function TripAccessGroup() {
   };
 
   const remove = async (memberUid: string) => {
-    if (busy || !tripKey) return;
+    if (busy || !tripKey || paused) return;
     if (!online) {
       setError('You’re offline. Removing a device needs a connection.');
       return;
@@ -654,7 +711,16 @@ function TripAccessGroup() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="settings-access-card">
-      {!online && (
+      <SyncThisDevice />
+      {paused && (
+        <p
+          data-testid="settings-access-paused"
+          className="flex items-center gap-2 border-hair border-border bg-surface-raised px-gut py-3 text-t-body text-ink-mid"
+        >
+          Sync is off on this device. Turn it back on to add or remove a device.
+        </p>
+      )}
+      {!paused && !online && (
         <p
           role="alert"
           data-testid="settings-access-offline"
@@ -767,7 +833,7 @@ function TripAccessGroup() {
                         <AlertDialogTrigger asChild>
                           <button
                             type="button"
-                            disabled={busy || !online}
+                            disabled={busy || !online || paused}
                             data-testid="settings-access-remove"
                             aria-label={`Remove device ${memberUid.slice(0, 8)}`}
                             className="btn btn--2 btn--danger min-w-tap px-0"
@@ -826,7 +892,7 @@ function TripAccessGroup() {
                 />
                 <button
                   type="submit"
-                  disabled={!addValue.trim() || busy || !online}
+                  disabled={!addValue.trim() || busy || !online || paused}
                   aria-busy={busy}
                   data-testid="settings-access-add-submit"
                   className="btn btn--2 px-4"
