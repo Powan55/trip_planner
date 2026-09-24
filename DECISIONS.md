@@ -5738,6 +5738,14 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
 
+### D-565 · (issue #529, 2026-09-23) · Every loaded device heals its account's identity doc, create-only
+
+**Decision.** On load, `runAccountIdentitySync` reads `profile/identity` from the server. If it is missing, the device creates it in a transaction that writes only when the doc is still absent: `{ version: 1, name }`, or a nameless `{ version: 1 }` when the local name is the placeholder. A failed read writes nothing. The Settings rename still overwrites.
+
+**Why.** Legacy keys had no identity doc and the door rejects a missing one, so a key that worked on the device holding it was locked out everywhere else (Sushil). Create-only keeps two racing devices, or a doc that appeared mid-read, from being overwritten, and treating a read error as "missing" could have written a local name over a real one.
+
+**Amendment (2026-09-24).** The door's own probe (`#10`) fails OPEN on a timeout or offline read, so a mistyped or invented key can be admitted while offline. Left ungated, this heal would then mint a *permanent* identity doc for that key the next time the device is online (identity docs are never deleted — D-341), turning a typo into a standing account. The heal now requires positive evidence the key is a real, previously-synced account before it writes: this device already lists it as a known trip, or the server's `profile/tripList` doc exists. Neither present ⇒ no write; the device stays admitted for the session but heals nothing.
+
 ### D-564 · (issue #532, 2026-09-23) · An expense id lives in one leg; a leg move tombstones the old chunk
 
 **Decision.** Pushing a leg chunk tombstones any remote live row whose id this device holds in another leg at a newer hlc, stamped with that row's hlc. The snapshot rebuild keeps one row per id across legs: highest hlc wins, and on an exact tie the live row beats the tombstone.
