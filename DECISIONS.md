@@ -5787,6 +5787,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-569 · (issue #541, 2026-09-24) · The done tick merges on its own stamp, apart from the rest of the row
+
+**Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
+
+**Why.** Whole-row LWW let a later notes edit from another device carry the old done state over an offline tick. `doneAt` couldn't be the key: it's wall-clock, only written when a display name is set, cleared on untick, and docs rows don't have it.
 ### D-567 · (issue #539, 2026-09-24) · Tombstones live 365 days, and places drops stale unsynced rows on first snapshot
 
 **Decision.** `DEFAULT_GC_HORIZON_MS` goes from 30 to 365 days for every synced domain. `subscribeRemotePlaces` still merges on the first server snapshot, but when the places `'list'` chunk is clean it then drops local rows that are absent from remote and whose `hlc` is older than the horizon. Unstamped rows are kept.
