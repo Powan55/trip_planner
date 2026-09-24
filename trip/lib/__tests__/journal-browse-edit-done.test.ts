@@ -45,6 +45,15 @@ vi.mock('@/hooks/use-photos', () => ({
 
 vi.mock('@/components/photo-attach', () => ({ __esModule: true, default: () => null }));
 
+// Captures the undo action rather than rendering a real sonner toast — the test drives it
+// directly, the same way clicking the toast's "Undo" button would.
+const undo = vi.hoisted(() => ({ onUndo: null as (() => void) | null }));
+vi.mock('@/lib/undo-toast', () => ({
+  showUndoToast: (_message: string, onUndo: () => void) => {
+    undo.onUndo = onUndo;
+  },
+}));
+
 import JournalBrowse from '@/components/journal-browse';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -98,6 +107,35 @@ describe('JournalBrowse — Save/Cancel return the row to its summary (#530)', (
     expect(r.container.querySelector('[data-testid="journal-card"]')).toBeNull();
     expect(r.container.querySelector(`[data-testid="journal-browse-row-${DATE}"]`)).not.toBeNull();
     expect(document.activeElement).toBe(editButton(r.container));
+
+    r.unmount();
+  });
+
+  it('undoing a Cancel reopens the editor with the discarded draft text', () => {
+    const r = render(createElement(JournalBrowse));
+
+    act(() => editButton(r.container)!.click());
+    act(() => r.container.querySelector<HTMLButtonElement>('[data-testid="journal-edit"]')!.click());
+
+    const textarea = r.container.querySelector<HTMLTextAreaElement>('[data-testid="journal-text-input"]')!;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    act(() => {
+      nativeSetter.call(textarea, 'A late addition, typed then cancelled.');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const cancel = r.container.querySelector<HTMLButtonElement>('[data-testid="journal-cancel"]');
+    act(() => cancel!.click());
+
+    // The card unmounted (row back to summary) and the discarded-draft undo was captured.
+    expect(r.container.querySelector('[data-testid="journal-card"]')).toBeNull();
+    expect(undo.onUndo).not.toBeNull();
+
+    act(() => undo.onUndo!());
+
+    const reopened = r.container.querySelector<HTMLTextAreaElement>('[data-testid="journal-text-input"]');
+    expect(reopened).not.toBeNull();
+    expect(reopened!.value).toBe('A late addition, typed then cancelled.');
 
     r.unmount();
   });
