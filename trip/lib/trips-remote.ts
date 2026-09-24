@@ -81,7 +81,12 @@ export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promi
     // JSON round-trip both clones and strips `undefined`-valued optional fields (`currency`),
     // which Firestore's setDoc rejects — same defensive move as docs-remote's sanitizeRowsForWrite.
     if (meta.config) payload.config = JSON.parse(JSON.stringify(meta.config));
-    await setDoc(ref, payload);
+    // merge:true ONLY when config is absent — a joiner's device has no local `config`
+    // (getKnownTrip returns none), so its rename must not blow away the creator's synced
+    // config field (#543). But merge:true deep-merges nested maps, so a caller that DOES
+    // have a config (the creator, editing it) must send a plain overwrite, or a key the
+    // creator just deleted inside config would survive merged in from the old doc.
+    await setDoc(ref, payload, meta.config ? {} : { merge: true });
   } catch (err) {
     console.warn('[trips-remote] trip meta push failed, staying local-only:', err);
   }
