@@ -337,7 +337,9 @@ export function updateExpense(
   stamp: ExpenseStamper = noStamp,
 ): Expense[] {
   return expenses.map((e) => {
-    if (e.id !== id) return e;
+    // #532: a leg move can leave this id's tombstone in the old leg; patching it too would tie the
+    // live row's hlc and the tombstone would win.
+    if (e.id !== id || e.deleted === true) return e;
     const merged = sanitizeExpense({ ...e, ...patch, id: e.id, createdAt: e.createdAt });
     return merged ? stamp(merged) : e;
   });

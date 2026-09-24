@@ -5738,6 +5738,13 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** The outbox is keyed by pack, not by remote trip, and the push path reads `getTripId()` only when it sends, so edits queued under trip Y were pushed into trip X after a join. Clearing the outbox alone is not enough: budget and places always merge local into remote, and expenses seeds any leg the remote lacks, so Y's rows still landed in X. Dropping the synced slots makes the join do what D-542 and the join copy already promise, that their plan replaces the one on this device.
 
+### D-564 · (issue #532, 2026-09-23) · An expense id lives in one leg; a leg move tombstones the old chunk
+
+**Decision.** Pushing a leg chunk tombstones any remote live row whose id this device holds in another leg at a newer hlc, stamped with that row's hlc. The snapshot rebuild keeps one row per id across legs: highest hlc wins, and on an exact tie the live row beats the tombstone.
+
+**Why.** The old leg's push merged its remote copy back in, so a moved expense stayed live in both legs and counted twice. The tie rule exists because the move tombstone reuses the moved row's stamp. Already-duplicated data reads correctly on the next snapshot and the stale leg is tombstoned the next time it is pushed.
+
+**Addendum.** An edit patches only the live row for an id, never its tombstone.
 ### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
