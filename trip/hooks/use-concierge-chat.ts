@@ -292,7 +292,7 @@ export function buildTripDigest(): string {
         .filter((l): l is string => l !== null),
     ].join('\n');
 
-  // ponytail: O(days²) re-assembly, fine at 32 trip days; revisit only if TRIP_DATES grows a lot.
+  // KNOWN CEILING: O(days²) re-assembly, fine at 32 trip days; revisit only if TRIP_DATES grows a lot.
   for (let i = 0; i < days.length && assemble().length > DIGEST_CAP; i++) {
     if (days[i].date < now.date) dropped.add(i); // already-happened day: drop it whole
   }
