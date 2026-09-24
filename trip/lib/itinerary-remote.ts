@@ -360,6 +360,9 @@ export function subscribeRemote(): () => void {
 
   // First-snapshot reconciliation runs exactly once; later snapshots are steady-state.
   let firstSnapshotHandled = false;
+  // Days from the most recent applied snapshot. The first reconcile awaits the marker read, and a
+  // snapshot landing during that await must not be overwritten by the older first-load days (#542).
+  let latestRemoteDays: DayPlan[] = [];
 
   // One-shot `online` retry plumbing. If the INITIAL
   // setup fails while offline (e.g. anonymous sign-in can't reach the network, so no
@@ -519,6 +522,7 @@ export function subscribeRemote(): () => void {
               const remoteDays: DayPlan[] = snapshot.docs.map((d) =>
                 docToDayPlan(d.id, d.data() as Record<string, unknown>),
               );
+              latestRemoteDays = remoteDays;
 
               if (!firstSnapshotHandled) {
                 firstSnapshotHandled = true;
@@ -533,7 +537,9 @@ export function subscribeRemote(): () => void {
                   // Answers "handled — do not fall through to the seed" (D-544). A CANCELLED
                   // reconcile is handled by definition: it must write nothing AND seed nothing,
                   // so it answers true without applying.
-                  (plans) => (cancelled ? true : applyRemoteAuthoritative(plans)),
+                  // Applies the NEWEST snapshot, not `plans`: one that arrived during the await
+                  // was already merged in, and writing the older first-load days would undo it.
+                  () => (cancelled ? true : applyRemoteAuthoritative(latestRemoteDays)),
                 );
                 return;
               }

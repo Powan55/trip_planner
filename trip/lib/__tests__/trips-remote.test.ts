@@ -34,7 +34,7 @@ class FakeFirestore {
   }
 }
 const fake = new FakeFirestore();
-const writeLog: { path: string; data: DocData }[] = [];
+const writeLog: { path: string; data: DocData; opts?: { merge?: boolean } }[] = [];
 let getDocCalls = 0;
 let getDocFromServerCalls = 0;
 // Per-test override for the SERVER read (probeAccountIdentity, #10): null = read fake.docs like
@@ -70,9 +70,9 @@ vi.mock('firebase/firestore', () => ({
   initializeFirestore: () => fake,
   persistentLocalCache: () => ({}),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
-  setDoc: async (ref: { path: string }, data: DocData) => {
+  setDoc: async (ref: { path: string }, data: DocData, opts?: { merge?: boolean }) => {
     if (fake.failWrites) throw new Error('transport down');
-    writeLog.push({ path: ref.path, data });
+    writeLog.push({ path: ref.path, data, opts });
     fake.setDocData(ref.path, data);
   },
   getDoc: async (ref: { path: string }) => {
@@ -152,6 +152,17 @@ describe('pushTripMeta — writes trips/{tripId}/meta/info', () => {
     await pushTripMeta(TRIP_ID, { name: 'K', config: config({ currency: undefined }) });
     const written = writeLog[0].data.config as Record<string, unknown>;
     expect('currency' in written).toBe(false);
+  });
+
+  it('merges rather than overwriting, so a joiner renaming with no local config cannot wipe the creator\'s (#543)', async () => {
+    await pushTripMeta(TRIP_ID, { name: 'Renamed by joiner' });
+    expect(writeLog[0].opts).toEqual({ merge: true });
+    expect('config' in writeLog[0].data).toBe(false);
+  });
+
+  it('does NOT merge when config is present, so a deleted nested key does not survive (#543)', async () => {
+    await pushTripMeta(TRIP_ID, { name: 'Creator edit', config: config() });
+    expect(writeLog[0].opts).toEqual({});
   });
 
   it('no-ops (no Firestore call) when dormant', async () => {

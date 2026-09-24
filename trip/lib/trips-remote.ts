@@ -81,7 +81,12 @@ export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promi
     // JSON round-trip both clones and strips `undefined`-valued optional fields (`currency`),
     // which Firestore's setDoc rejects — same defensive move as docs-remote's sanitizeRowsForWrite.
     if (meta.config) payload.config = JSON.parse(JSON.stringify(meta.config));
-    await setDoc(ref, payload);
+    // merge:true ONLY when config is absent — a joiner's device has no local `config`
+    // (getKnownTrip returns none), so its rename must not blow away the creator's synced
+    // config field (#543). But merge:true deep-merges nested maps, so a caller that DOES
+    // have a config (the creator, editing it) must send a plain overwrite, or a key the
+    // creator just deleted inside config would survive merged in from the old doc.
+    await setDoc(ref, payload, meta.config ? {} : { merge: true });
   } catch (err) {
     console.warn('[trips-remote] trip meta push failed, staying local-only:', err);
   }
@@ -141,7 +146,7 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
  * provider's reconciler retries it on the next page load — the cheap equivalent of a retry queue).
  *
  * 🔴 Callers MUST NOT publish the transient login placeholder (`DEFAULT_TRAVELER_NAME`) — see
- * `runAccountIdentitySync`'s branch 3. This function does not police that: the Settings rename may
+ * `runAccountIdentitySync`'s branch 2. This function does not police that: the Settings rename may
  * legitimately set any name the user actually typed, including that one. Intent is the discriminator.
  */
 export async function pushAccountIdentity(code: string, name: string): Promise<void> {
@@ -201,26 +206,82 @@ export async function seedAccountDocs(code: string, name?: string | null): Promi
   ]);
 }
 
+/** The reconciler's read of `profile/identity`. `error` covers dormant, unreachable and denied. */
+export type AccountIdentityRead =
+  | { status: 'exists'; name?: string }
+  | { status: 'missing' }
+  | { status: 'error' };
+
 /**
- * One-shot fetch of an account's display name. Returns `undefined` when dormant, unreachable, the
- * doc doesn't exist, or `name` is missing/non-string/blank — TOTAL, never throws, so the caller's
- * "remote absent" branch covers every failure identically. Sanitised to `trim().slice(0, 24)`, the
- * cap the rename input already enforces.
+ * One-shot SERVER read of an account's identity doc, for the provider's post-load reconciler.
+ * Three-way and total: an error must never read as "missing", or the reconciler would write this
+ * device's name over a real one it simply failed to see. `getDocFromServer` for the same reason:
+ * a cold cache reports absence. `name` is sanitised to `trim().slice(0, 24)`.
  *
  * The DOOR does not call this — its login path gets the same name off `probeAccountIdentity`'s
- * single read. This serves the provider's post-load reconciler, which has no probe to ride on.
+ * single read.
  */
-export async function fetchAccountIdentity(code: string): Promise<string | undefined> {
-  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return undefined;
+export async function fetchAccountIdentity(code: string): Promise<AccountIdentityRead> {
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return { status: 'error' };
   try {
     const { db, fs } = await getRemote();
-    const { doc, getDoc } = fs;
-    const snap = await getDoc(doc(db, 'trips', code, 'profile', 'identity'));
-    if (!snap.exists()) return undefined;
-    return readIdentityName(snap.data() as Record<string, unknown> | undefined);
+    const { doc, getDocFromServer } = fs;
+    const snap = await getDocFromServer(doc(db, 'trips', code, 'profile', 'identity'));
+    if (!snap.exists()) return { status: 'missing' };
+    return {
+      status: 'exists',
+      name: readIdentityName(snap.data() as Record<string, unknown> | undefined),
+    };
   } catch (err) {
     console.warn('[trips-remote] account identity fetch failed:', err);
-    return undefined;
+    return { status: 'error' };
+  }
+}
+
+/**
+ * D-565's gate: does ANY evidence say `code` is a real, previously-synced account rather than a
+ * key someone just typed? `#10`'s door probe fails OPEN on a timeout/offline read (`'unavailable'`
+ * admits), so a typo'd/invented key can reach the app; if that device is later online when this
+ * reconciler runs and the identity doc is genuinely `'missing'`, `healAccountIdentity` must not
+ * mint a permanent doc for it (identity docs are never deleted — see the profile/identity comment
+ * block above). A `profile/tripList` doc is written only by a deliberate account action
+ * (`seedAccountDocs`/`pushTripList`), so its presence is the same positive-evidence test
+ * `readAccountVerdict`'s legacy fallback already relies on. Total — dormant/unsafe/error read
+ * `false`, never throws.
+ */
+export async function hasRemoteTripList(code: string): Promise<boolean> {
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return false;
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, getDocFromServer } = fs;
+    const snap = await getDocFromServer(doc(db, 'trips', code, 'profile', 'tripList'));
+    return snap.exists();
+  } catch (err) {
+    console.warn('[trips-remote] trip-list evidence read failed:', err);
+    return false;
+  }
+}
+
+/**
+ * CREATE-ONLY write of the identity doc, for a device holding a key whose account has none
+ * (legacy keys minted before `seedAccountDocs`; the door rejects those on every other device).
+ * A transaction, so a doc another device created meanwhile is never overwritten. The placeholder
+ * is filtered here: a nameless `{ version: 1 }` still makes the account exist. Never rejects.
+ */
+export async function healAccountIdentity(code: string, name?: string): Promise<void> {
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
+  const trimmed = name?.trim().slice(0, 24);
+  const publishable = trimmed && trimmed !== DEFAULT_TRAVELER_NAME ? trimmed : undefined;
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, runTransaction } = fs;
+    const ref = doc(db, 'trips', code, 'profile', 'identity');
+    await runTransaction(db, async (tx) => {
+      if ((await tx.get(ref)).exists()) return;
+      tx.set(ref, publishable ? { version: 1, name: publishable } : { version: 1 });
+    });
+  } catch (err) {
+    console.warn('[trips-remote] account identity heal failed, retries next load:', err);
   }
 }
 

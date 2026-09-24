@@ -101,7 +101,21 @@ jobs:
       - name: Token wrapper audit
         run: node scripts/token-wrappers.mjs
 
-      # Fifth dependency-free check. The unit suite checks image refs against
+      # Fifth dependency-free check. Nothing here measured bytes: the only size-adjacent
+      # guard was a COUNT of the six precached hero images in e2e/pwa.spec.ts, so a hero
+      # re-encoded at 2 MB kept it green — and that spec runs on pull requests only. Source
+      # tree only, deliberately: out/ does not exist this early, and a check that skipped
+      # itself when it was missing would report green having measured nothing.
+      - name: Asset byte budgets
+        run: node scripts/asset-budget.mjs
+
+      # --credits is offline: it only regenerates CREDITS.md from scripts/image-map.json.
+      - name: Image credits
+        run: |
+          node scripts/fetch-images.mjs --credits
+          git diff --exit-code -- public/images/CREDITS.md
+
+      # Sixth dependency-free check. The unit suite checks image refs against
       # lib/image-manifest.json and never reads CREDITS.md or scripts/image-map.json, so an
       # uncredited raster or a non-free licence was invisible to every gate (#458). Offline by
       # design: it compares the committed files to each other rather than re-fetching upstream.
