@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
 import { downloadTripBackup } from '@/lib/trip-backup';
+import { clearRemoteCache } from '@/lib/firebase-remote';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import UserTokenShowOnce from '@/components/user-token-show-once';
@@ -91,6 +92,7 @@ export default function SignOutConfirm({
         removeKey('local', STORAGE_KEYS.visitConfirmations);
         removeKey('local', STORAGE_KEYS.passportStamps);
       }
+      await clearRemoteCache({ signOutAuth: forgetDevice });
       signOut();
       // Reload after teardown (Ruling 3) — every mounted local store re-hydrates fresh; precedent.
       window.location.reload();

@@ -5748,3 +5748,9 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 ### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
+
+### D-576 · (issue #571, 2026-09-24) · Sign-out clears the Firestore cache; Forget this device also drops the anonymous session
+
+**Decision.** `<SignOutConfirm>` calls `clearRemoteCache()` before `signOut()`. A started instance is terminated and its IndexedDB persistence cleared, and the cached handle is reset. If Firebase never started on this page load, the leftover `firestore/[DEFAULT]/<projectId>/main` database is deleted by name instead. Forget this device also signs out of Firebase Auth (or deletes `firebaseLocalStorageDb`), so the next sign-in mints a new anonymous uid. A plain sign-out keeps the uid, as #10 requires.
+
+**Why.** The wipe cleared web storage only, so the previous traveller's trip docs and the account key path stayed in the Firestore cache on a shared device. The clear is best-effort and gives up after 3 s with a warning: sign-out must finish even when another tab holds the database open or the SDK hangs.

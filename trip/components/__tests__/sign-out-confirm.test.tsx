@@ -20,6 +20,9 @@ vi.mock('@/core/photos/blob-store', async (importOriginal) => {
   return { ...orig, defaultBlobStore: orig.makeInMemoryBlobStore() };
 });
 
+const clearRemoteCache = vi.hoisted(() => vi.fn(async (_opts?: { signOutAuth?: boolean }) => {}));
+vi.mock('@/lib/firebase-remote', () => ({ clearRemoteCache }));
+
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const SYNC_KEY = 'tripPlannerSyncCode';
@@ -160,6 +163,21 @@ describe('SignOutConfirm — no key stored', () => {
     await click('t-confirm');
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
     for (const k of LIFETIME) expect(window.localStorage.getItem(k)).toBe('[]');
+  });
+
+  // #571 — the Firestore cache goes too; only Forget this device drops the anonymous session.
+  it('clears the remote cache, signing auth out only for Forget this device', async () => {
+    clearRemoteCache.mockClear();
+    await mount();
+    await click('t-confirm');
+    expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: false });
+    act(() => root.unmount());
+    container.remove();
+
+    await mount({ forgetDevice: true });
+    await click('t-confirm');
+    expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: true });
+    expect(clearRemoteCache).toHaveBeenCalledTimes(2);
   });
 
   it('and the copy stops promising a key that is not there', async () => {
