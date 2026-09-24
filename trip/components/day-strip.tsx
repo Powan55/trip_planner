@@ -47,6 +47,23 @@ function parseDay(dateStr: string): { weekday: string; dayNum: number; long: str
   };
 }
 
+// Center a given chip in the scroller via manual scrollLeft math (not scrollIntoView) so a
+// horizontal centering never nudges the vertical page position (scrollIntoView can scroll
+// ancestors). Reduced-motion -> instant jump; otherwise smooth. Shared by the selection
+// auto-center effect and by keyboard/focus navigation (Tab), which can land on a chip
+// scrolled off-screen. Module-level (not a closure) so it needs no dep array: it takes every
+// value it reads as a parameter.
+function centerChip(
+  scroller: HTMLDivElement | null,
+  chip: HTMLButtonElement | null,
+  prefersReducedMotion: boolean | null,
+) {
+  if (!scroller || !chip) return;
+  const target = chip.offsetLeft - scroller.clientWidth / 2 + chip.clientWidth / 2;
+  const left = Math.max(0, target);
+  scroller.scrollTo({ left, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+}
+
 export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDate }: DayStripProps) {
   const prefersReducedMotion = useReducedMotion();
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -54,22 +71,9 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
 
   const metaByDate = new Map(meta.map((m) => [m.date, m]));
 
-  // Center a given chip in the scroller via manual scrollLeft math (not
-  // scrollIntoView) so a horizontal centering never nudges the vertical page
-  // position (scrollIntoView can scroll ancestors). Reduced-motion → instant jump;
-  // otherwise smooth. Shared by the selection auto-center effect below and by
-  // keyboard/focus navigation (Tab), which can land on a chip scrolled off-screen.
-  const centerChip = (chip: HTMLButtonElement | null) => {
-    const scroller = scrollerRef.current;
-    if (!scroller || !chip) return;
-    const target = chip.offsetLeft - scroller.clientWidth / 2 + chip.clientWidth / 2;
-    const left = Math.max(0, target);
-    scroller.scrollTo({ left, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
-  };
-
   // Auto-center the selected chip on mount and whenever the selection changes.
   useEffect(() => {
-    centerChip(selectedRef.current);
+    centerChip(scrollerRef.current, selectedRef.current, prefersReducedMotion);
   }, [selectedDate, prefersReducedMotion]);
 
   return (
@@ -102,7 +106,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             ref={isSelected ? selectedRef : undefined}
             type="button"
             onClick={() => onSelect(date)}
-            onFocus={(e) => centerChip(e.currentTarget)}
+            onFocus={(e) => centerChip(scrollerRef.current, e.currentTarget, prefersReducedMotion)}
             aria-pressed={isSelected}
             aria-label={`${long}${todayLabel}${activityLabel}${shadeLabel(shade)}`}
             data-testid={`day-strip-${date}`}
