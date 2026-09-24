@@ -231,11 +231,25 @@ export function buildTripDigest(): string {
   const plans = itineraryStoragePort.load();
   const byDate = new Map(plans.map((d) => [d.date, d]));
 
-  for (const date of TRIP_DATES) {
-    const day = byDate.get(date);
-    const items = (day?.items ?? []).filter((i) => i.deleted !== true);
-    if (items.length === 0) continue; // omit unplanned days (frame already covers them)
-    const city = day?.city ?? getCityForDate(date);
+  // #546 fix: a fully-planned trip's per-day lines can exceed DIGEST_CAP on their own (the
+  // 164-item sample runs to ~10.1K), and the old single `slice(0, CAP)` fallback below always
+  // cut the TAIL — the trip's LAST days — regardless of which days the traveller still needs.
+  // Instead of tail-cutting first, degrade in two passes that both prefer to keep future days
+  // whole: (1) drop already-past day lines entirely, earliest first — nobody needs an itinerary
+  // for a day that already happened; (2) if that alone isn't enough (no past days exist yet, e.g.
+  // browsing before the trip starts), condense the remaining days' items by dropping the
+  // `category` token, farthest-out day first — the days nearest "today" stay uncondensed since
+  // those are what the traveller is most likely asking about — which keeps every item's
+  // time/title/#id but shortens the line. The hard slice+ellipsis at the bottom still exists as
+  // the last resort so the cap is
+  // never actually exceeded.
+  interface DigestDay {
+    date: string;
+    full: string;
+    condensed: string;
+  }
+
+  const renderDay = (date: string, city: string, items: (typeof plans)[number]['items'], condense: boolean) => {
     const entries = items
       .map((i) => {
         // `effectiveStartMinutes`, not a raw `i.startMinutes` read: it is the ONE range-validation
@@ -252,13 +266,43 @@ export function buildTripDigest(): string {
         const time = minutes === undefined ? '' : `${formatTimeAmPm(minutes)} `;
         // Every field of a stored item is a bare `z.string()` at the read boundary (permissive on
         // read, deliberately), so `category` and `id` reach this line as freely as `title` does.
-        return `${time}${oneLine(i.category)} ${oneLine(i.title)} #${oneLine(i.id)}`;
+        const category = condense ? '' : `${oneLine(i.category)} `;
+        return `${time}${category}${oneLine(i.title)} #${oneLine(i.id)}`;
       })
       .join('; ');
-    lines.push(`${date} ${oneLine(city)}: ${entries}`);
+    return `${date} ${oneLine(city)}: ${entries}`;
+  };
+
+  const days: DigestDay[] = [];
+  for (const date of TRIP_DATES) {
+    const day = byDate.get(date);
+    const items = (day?.items ?? []).filter((i) => i.deleted !== true);
+    if (items.length === 0) continue; // omit unplanned days (frame already covers them)
+    const city = day?.city ?? getCityForDate(date);
+    days.push({ date, full: renderDay(date, city, items, false), condensed: renderDay(date, city, items, true) });
   }
 
-  const digest = lines.join('\n');
+  const dropped = new Set<number>();
+  const condensed = new Set<number>();
+  const assemble = () =>
+    [
+      ...lines,
+      ...days
+        .map((d, i) => (dropped.has(i) ? null : condensed.has(i) ? d.condensed : d.full))
+        .filter((l): l is string => l !== null),
+    ].join('\n');
+
+  // KNOWN CEILING: O(days²) re-assembly, fine at 32 trip days; revisit only if TRIP_DATES grows a lot.
+  for (let i = 0; i < days.length && assemble().length > DIGEST_CAP; i++) {
+    if (days[i].date < now.date) dropped.add(i); // already-happened day: drop it whole
+  }
+  // Still over budget: condense from the FARTHEST-out remaining day backward, so the days
+  // nearest to "today" (the ones a traveller is most likely asking about) stay uncondensed.
+  for (let i = days.length - 1; i >= 0 && assemble().length > DIGEST_CAP; i--) {
+    if (!dropped.has(i)) condensed.add(i);
+  }
+
+  const digest = assemble();
   return digest.length > DIGEST_CAP ? `${digest.slice(0, DIGEST_CAP - 1)}…` : digest;
 }
 
