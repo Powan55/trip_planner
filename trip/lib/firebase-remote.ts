@@ -127,6 +127,7 @@ export async function getAuthIdToken(): Promise<string | null> {
 }
 
 const CLEAR_CACHE_TIMEOUT_MS = 3000;
+const FLUSH_WAIT_MS = 1500;
 
 function deleteDatabase(name: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -153,6 +154,11 @@ export async function clearRemoteCache({ signOutAuth = false } = {}): Promise<vo
   const work = (async () => {
     const handle = pending ? await pending.catch(() => null) : null;
     if (handle) {
+      // Give queued offline writes a short chance to reach the server before they are dropped.
+      await Promise.race([
+        handle.fs.waitForPendingWrites(handle.db).catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, FLUSH_WAIT_MS)),
+      ]);
       if (signOutAuth) await handle.auth.signOut();
       await handle.fs.terminate(handle.db);
       await handle.fs.clearIndexedDbPersistence(handle.db);

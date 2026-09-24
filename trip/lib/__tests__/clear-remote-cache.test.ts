@@ -14,6 +14,7 @@ vi.mock('@/lib/firebase-config', () => ({
 const ctl = vi.hoisted(() => ({
   calls: [] as string[],
   terminateHangs: false,
+  flushHangs: false,
 }));
 
 vi.mock('firebase/app', () => ({
@@ -27,6 +28,10 @@ vi.mock('firebase/firestore', () => ({
     return {};
   },
   persistentLocalCache: () => ({}),
+  waitForPendingWrites: () => {
+    ctl.calls.push('flush');
+    return ctl.flushHangs ? new Promise(() => {}) : Promise.resolve();
+  },
   terminate: () => {
     ctl.calls.push('terminate');
     return ctl.terminateHangs ? new Promise(() => {}) : Promise.resolve();
@@ -57,6 +62,7 @@ beforeEach(() => {
   gate.on = true;
   ctl.calls = [];
   ctl.terminateHangs = false;
+  ctl.flushHangs = false;
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
@@ -71,7 +77,7 @@ describe('clearRemoteCache', () => {
     const m = await fresh();
     await m.getRemote();
     await m.clearRemoteCache();
-    expect(ctl.calls).toEqual(['init', 'terminate', 'clear']);
+    expect(ctl.calls).toEqual(['init', 'flush', 'terminate', 'clear']);
     await m.getRemote();
     expect(ctl.calls.filter((c) => c === 'init')).toHaveLength(2);
   });
@@ -80,7 +86,21 @@ describe('clearRemoteCache', () => {
     const m = await fresh();
     await m.getRemote();
     await m.clearRemoteCache({ signOutAuth: true });
-    expect(ctl.calls).toEqual(['init', 'authSignOut', 'terminate', 'clear']);
+    expect(ctl.calls).toEqual(['init', 'flush', 'authSignOut', 'terminate', 'clear']);
+  });
+
+  it('waits for queued writes, but only briefly, before clearing', async () => {
+    const m = await fresh();
+    await m.getRemote();
+    ctl.flushHangs = true;
+    vi.useFakeTimers();
+    const done = m.clearRemoteCache();
+    await vi.advanceTimersByTimeAsync(1400);
+    expect(ctl.calls).toEqual(['init', 'flush']);
+    await vi.advanceTimersByTimeAsync(100);
+    await done;
+    expect(ctl.calls).toEqual(['init', 'flush', 'terminate', 'clear']);
+    expect(console.warn).not.toHaveBeenCalled();
   });
 
   it('gives up after the timeout instead of blocking sign-out', async () => {

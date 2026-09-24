@@ -21,7 +21,12 @@ vi.mock('@/core/photos/blob-store', async (importOriginal) => {
 });
 
 const clearRemoteCache = vi.hoisted(() => vi.fn(async (_opts?: { signOutAuth?: boolean }) => {}));
+const remoteGate = vi.hoisted(() => ({ on: true }));
 vi.mock('@/lib/firebase-remote', () => ({ clearRemoteCache }));
+vi.mock('@/lib/firebase-config', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/firebase-config')>()),
+  isRemoteConfigured: () => remoteGate.on,
+}));
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -178,6 +183,37 @@ describe('SignOutConfirm — no key stored', () => {
     await click('t-confirm');
     expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: true });
     expect(clearRemoteCache).toHaveBeenCalledTimes(2);
+  });
+
+  it('never loads the remote module when remote is not configured', async () => {
+    clearRemoteCache.mockClear();
+    remoteGate.on = false;
+    try {
+      await mount();
+      await click('t-confirm');
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+      expect(clearRemoteCache).not.toHaveBeenCalled();
+    } finally {
+      remoteGate.on = true;
+    }
+  });
+
+  it('stays busy while the clear runs and ignores a second click', async () => {
+    clearRemoteCache.mockClear();
+    let release!: () => void;
+    clearRemoteCache.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    await mount();
+    await click('t-confirm');
+    const btn = at<HTMLButtonElement>('t-confirm')!;
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute('aria-busy')).toBe('true');
+    await act(async () => {
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(clearRemoteCache).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    await act(async () => release());
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 
   it('and the copy stops promising a key that is not there', async () => {
