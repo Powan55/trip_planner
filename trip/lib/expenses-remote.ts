@@ -41,6 +41,25 @@ import { outboxDirty } from '@/core/sync/outbox';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { setReadDenied } from '@/core/sync/read-denied';
 import { realClock } from './trip-now';
+import { compareHlc, parse, seedHlcFromLegacy } from '@/core/sync/hlc';
+
+const hlcOf = (e: Expense) => parse(e.hlc ?? seedHlcFromLegacy());
+
+/**
+ * One row per id across legs (#532). A leg change used to leave the old leg's remote copy live, so
+ * the per-leg rebuild kept both. Highest hlc wins; on an exact tie the live row wins, because the
+ * only cross-leg tie is a move tombstone carrying the moved row's own stamp.
+ */
+export function dedupeAcrossLegs(rows: Expense[]): Expense[] {
+  const byId = new Map<string, Expense>();
+  for (const e of rows) {
+    const cur = byId.get(e.id);
+    if (!cur) { byId.set(e.id, e); continue; }
+    const cmp = compareHlc(hlcOf(e), hlcOf(cur));
+    if (cmp > 0 || (cmp === 0 && cur.deleted === true && e.deleted !== true)) byId.set(e.id, e);
+  }
+  return rows.filter((e) => byId.get(e.id) === e);
+}
 
 /**
  * Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc).
@@ -86,15 +105,26 @@ export async function pushChunkMerged(
   fs: Pick<FirestoreMod, 'doc' | 'runTransaction'>,
   leg: Leg,
   localRows: Expense[],
+  otherLegRows: Expense[] = [],
 ): Promise<void> {
   const { doc, runTransaction } = fs;
   const ref = doc(db, 'trips', getTripId(), 'expenses', leg);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const remoteRows: Expense[] = snap.exists() ? chunkDocToRows(snap.data() as Record<string, unknown>) : [];
+    // #532: a remote live row this device holds in ANOTHER leg at a newer hlc was moved out of this
+    // leg — tombstone it here at the move's stamp, or the old leg keeps it live forever.
+    const rows = [...localRows];
+    const elsewhere = new Map(otherLegRows.map((e) => [e.id, e]));
+    for (const r of remoteRows) {
+      const moved = elsewhere.get(r.id);
+      if (moved && r.deleted !== true && compareHlc(hlcOf(moved), hlcOf(r)) > 0) {
+        rows.push({ ...r, deleted: true, rev: moved.rev, hlc: moved.hlc });
+      }
+    }
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstone rows
     // from the MERGED leg before writing — the `pushDayMerged` gc analog over `gcTombstoneRows`.
-    const merged = gcTombstoneRows(mergeItems(remoteRows, localRows), realClock.now().getTime());
+    const merged = gcTombstoneRows(mergeItems(remoteRows, rows), realClock.now().getTime());
     tx.set(ref, { leg, items: sanitizeRowsForWrite(merged) });
   });
 }
@@ -110,7 +140,7 @@ export async function pushExpenseChunk(current: Expense[], leg: string): Promise
   if (!LEGS.includes(leg)) return; // not a chunk of the ACTIVE pack → ack (never a bad write)
   const legRows = current.filter((e) => e.leg === leg);
   const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
-  await pushChunkMerged(db, fs, leg, legRows); // rejects on transport error → stays dirty
+  await pushChunkMerged(db, fs, leg, legRows, current.filter((e) => e.leg !== leg)); // rejects on transport error → stays dirty
 }
 
 /**
@@ -192,7 +222,7 @@ export function subscribeRemoteExpenses(): () => void {
         result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), realClock.now().getTime()));
       }
     }
-    persistAndDispatch([...result, ...foreign]);
+    persistAndDispatch([...dedupeAcrossLegs(result), ...foreign]);
   };
 
   const attemptSetup = async () => {
