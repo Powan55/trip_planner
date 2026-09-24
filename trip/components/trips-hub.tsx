@@ -134,6 +134,9 @@ export default function TripsHub() {
   const [renameValue, setRenameValue] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
+  /** #547 — clipboard write can reject (insecure origin / denied permission); when it does, show
+   * the raw value as selectable text instead of silently doing nothing. */
+  const [copyFailure, setCopyFailure] = useState<{ id: string; value: string } | null>(null);
   /**: a grandfathered traveler signed in before accounts existed — no User Token yet. */
   const [needsAccount, setNeedsAccount] = useState(false);
   const [mintedUserToken, setMintedUserToken] = useState<string | null>(null);
@@ -241,9 +244,11 @@ export default function TripsHub() {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(id);
+      setCopyFailure(null);
       setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 2000);
     } catch {
-      /* clipboard blocked (permissions / insecure context) — non-fatal, no state change. */
+      // clipboard blocked (permissions / insecure context) — fall back to selectable text.
+      setCopyFailure({ id, value: url });
     }
   };
 
@@ -257,9 +262,11 @@ export default function TripsHub() {
     try {
       await navigator.clipboard.writeText(token);
       setCopiedTokenId(id);
+      setCopyFailure(null);
       setTimeout(() => setCopiedTokenId((c) => (c === id ? null : c)), 2000);
     } catch {
-      /* clipboard blocked (permissions / insecure context) — non-fatal, no state change. */
+      // clipboard blocked (permissions / insecure context) — fall back to selectable text.
+      setCopyFailure({ id, value: token });
     }
   };
 
@@ -551,6 +558,21 @@ export default function TripsHub() {
                             {copiedId === t.id ? 'Copied' : 'Copy link'}
                           </button>
                         </>
+                      )}
+                      {copyFailure?.id === t.id && (
+                        <div className="flex w-full flex-col gap-1.5 pt-1">
+                          <p role="alert" data-testid={`trips-hub-copy-error-${i}`} className="err text-t-sm">
+                            Couldn&rsquo;t copy automatically. Select the value below and copy it by hand.
+                          </p>
+                          <input
+                            readOnly
+                            value={copyFailure.value}
+                            onFocus={(e) => e.currentTarget.select()}
+                            aria-label={`Value to copy for ${t.name}`}
+                            data-testid={`trips-hub-copy-fallback-${i}`}
+                            className="min-h-tap w-full min-w-0 break-all rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-sm text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                          />
+                        </div>
                       )}
                       {canManage && t.id !== DEFAULT_TRIP_ID && (
                         <button
