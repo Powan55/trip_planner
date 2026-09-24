@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 /**
  * Minimal native-`IntersectionObserver` hook shared by `LazyVisible` (below-the-fold section
