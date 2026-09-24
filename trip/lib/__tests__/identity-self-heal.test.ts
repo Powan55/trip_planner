@@ -14,9 +14,10 @@ vi.mock('@/lib/firebase-config', () => ({
 
 type Ref = { path: string };
 const store = new Map<string, Record<string, unknown>>();
-const hooks: { readFails: boolean; beforeCommit: (() => void) | null } = {
+const hooks: { readFails: boolean; beforeCommit: (() => void) | null; txCount: number } = {
   readFails: false,
   beforeCommit: null,
+  txCount: 0,
 };
 const snap = (path: string) => ({ exists: () => store.has(path), data: () => store.get(path) });
 
@@ -41,6 +42,7 @@ vi.mock('@/lib/firebase-remote', () => ({
           set: (r: Ref, d: Record<string, unknown>) => void;
         }) => Promise<void>,
       ) => {
+        hooks.txCount++;
         for (let attempt = 0; attempt < 5; attempt++) {
           const seen = new Map<string, unknown>();
           const writes: [string, Record<string, unknown>][] = [];
@@ -71,7 +73,7 @@ import {
   healAccountIdentity,
   probeAccountIdentity,
 } from '@/lib/trips-remote';
-import { runAccountIdentitySync } from '@/components/itinerary-provider';
+import { runAccountIdentitySync, watchAccountIdentity } from '@/components/itinerary-provider';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { setSyncCode } from '@/core/storage/gateway';
 
@@ -86,6 +88,7 @@ beforeEach(() => {
   store.clear();
   hooks.readFails = false;
   hooks.beforeCommit = null;
+  hooks.txCount = 0;
   window.localStorage.clear();
   window.sessionStorage.clear();
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -146,6 +149,37 @@ describe('reconciler over the real module', () => {
     runAccountIdentitySync();
     await flush();
     expect(store.size).toBe(0);
+  });
+
+  it('boots offline, heals on the online event, stops listening after cleanup', async () => {
+    hooks.readFails = true;
+    setSyncCode(KEY);
+    signIn('Sora');
+    const stop = watchAccountIdentity();
+    await flush();
+    expect(store.size).toBe(0);
+
+    hooks.readFails = false;
+    window.dispatchEvent(new Event('online'));
+    await flush();
+    expect(store.get(PATH)).toEqual({ version: 1, name: 'Sora' });
+
+    stop();
+    store.clear();
+    window.dispatchEvent(new Event('online'));
+    await flush();
+    expect(store.size).toBe(0);
+  });
+
+  it('online while a read is in flight: only the newer run writes', async () => {
+    setSyncCode(KEY);
+    signIn('Sora');
+    const stop = watchAccountIdentity();
+    window.dispatchEvent(new Event('online')); // before the first run's read lands
+    await flush();
+    stop();
+    expect(store.get(PATH)).toEqual({ version: 1, name: 'Sora' });
+    expect(hooks.txCount).toBe(1);
   });
 
   it('door: key held on device A, no server docs; after A reconciles, the probe says exists', async () => {

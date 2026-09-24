@@ -158,6 +158,23 @@ export function runAccountIdentitySync(): () => void {
 }
 
 /**
+ * Runs the sync on mount and again on every `online` event, so a device that booted offline
+ * heals without a reload. A new run cancels the one before it, so only one can ever act.
+ */
+export function watchAccountIdentity(): () => void {
+  let stop = runAccountIdentitySync();
+  const onOnline = () => {
+    stop();
+    stop = runAccountIdentitySync();
+  };
+  window.addEventListener('online', onOnline);
+  return () => {
+    window.removeEventListener('online', onOnline);
+    stop();
+  };
+}
+
+/**
  * the sync-code trip-list subscription lifecycle, extracted so its
  * identity-change teardown/re-arm has a runnable unit check without mounting the whole provider.
  * Returns `{ activate, teardown }`; the provider effect wires them to mount + `identity:changed`,
@@ -381,7 +398,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // ACCOUNT IDENTITY — adopt/backfill the account's display name, and consume the
   // post-login "Traveler" nudge only where the placeholder is the final answer. See
   // `runAccountIdentitySync`; it owns the (previously unconditional) `consumeNameHint` call.
-  useEffect(() => runAccountIdentitySync(), []);
+  useEffect(() => watchAccountIdentity(), []);
 
   // Gated presence HEARTBEAT. Mirrors the remote-subscribe effect above and
   // its dormant/guest gate: start the per-traveler heartbeat ONLY when
