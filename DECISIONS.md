@@ -5806,3 +5806,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** The outbox slot gains an optional `seq` map: a per-domain, per-chunk counter bumped on every enqueue. A push carries the counter captured with its state, and `ack` removes the chunk only if the counter is unchanged. Additive, no `version` bump; a missing counter reads as 0, so slots already on disk ack as before. Counters are never pruned on ack, since a reset would let a stale push match a fresh edit.
 
 **Why.** A stale push from one tab could ack a chunk after another tab's newer edit was enqueued; if that edit's push then failed, the chunk was no longer dirty and the first snapshot overwrote it on reload. An older build in another tab drops `seq` when it writes the slot; the counter then reads 0 and a newer build's in-flight ack no-ops (the chunk stays dirty and retries), which is the safe direction.
+
+### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
+
+**Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
+
+**Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
+
+**Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.
