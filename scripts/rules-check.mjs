@@ -623,7 +623,7 @@ await expect('authed deletes a planted trips/{acct}/profile/identity/deep/doc', 
 // D-565: every loaded device creates a missing identity doc, create-only in a transaction. If the
 // rules stop allowing this, legacy keys get locked out at the door again with nothing failing.
 console.log('\n  -- 9d. the identity self-heal (D-565): any anonymous device can create a missing doc --');
-const healKeys = ['a1', 'a2', 'a3', 'a4'].map((p) => `${p}a1a1a1-0000-4000-8000-000000000529`);
+const healKeys = ['a1', 'a2', 'a3', 'a4', 'a5'].map((p) => `${p}a1a1a1-0000-4000-8000-000000000529`);
 const healRef = (i) => doc(dbS, 'trips', healKeys[i], 'profile', 'identity');
 const heal = (i, data) => runTransaction(dbS, async (tx) => {
   if ((await tx.get(healRef(i))).exists()) throw new Error('fixture: heal target must be absent');
@@ -636,6 +636,11 @@ await expect('anon S creates identity {version:1}', 'ALLOWED', () => setDoc(heal
 await expect("anon S creates identity {version:1,name:'X'}", 'ALLOWED', () => setDoc(healRef(1), { version: 1, name: 'X' }));
 await expect('anon S heals {version:1} inside a transaction', 'ALLOWED', () => heal(2, { version: 1 }));
 await expect("anon S heals {version:1,name:'X'} inside a transaction", 'ALLOWED', () => heal(3, { version: 1, name: 'X' }));
+// D-565's client-side heal gate (any evidence of a real account) is app code, not a rule — the
+// auth floor is the only backstop Firestore itself can enforce, so pin it here: a signed-out
+// device must not be able to mint an identity doc for a key it merely typed, gated app or not.
+await expect('UNAUTH creates a missing identity doc -> DENIED (no client heal gate can substitute for the auth floor)', 'DENIED',
+  () => setDoc(doc(dbU, 'trips', healKeys[4], 'profile', 'identity'), { version: 1 }));
 const phase9 = flush('PHASE 9 (the door + the account path)');
 
 // ── 10. NEGATIVE CONTROL for membership ──────────────────────────────────────

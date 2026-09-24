@@ -5744,6 +5744,8 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** Legacy keys had no identity doc and the door rejects a missing one, so a key that worked on the device holding it was locked out everywhere else (Sushil). Create-only keeps two racing devices, or a doc that appeared mid-read, from being overwritten, and treating a read error as "missing" could have written a local name over a real one.
 
+**Amendment (2026-09-24).** The door's own probe (`#10`) fails OPEN on a timeout or offline read, so a mistyped or invented key can be admitted while offline. Left ungated, this heal would then mint a *permanent* identity doc for that key the next time the device is online (identity docs are never deleted — D-341), turning a typo into a standing account. The heal now requires positive evidence the key is a real, previously-synced account before it writes: this device already lists it as a known trip, or the server's `profile/tripList` doc exists. Neither present ⇒ no write; the device stays admitted for the session but heals nothing.
+
 ### D-566 · (issue #531, 2026-09-23) · Only the tab that clicked Refresh reloads on a SW update
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.

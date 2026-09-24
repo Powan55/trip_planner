@@ -58,6 +58,18 @@ const TravelModeMounts = dynamic(() => import('@/components/travel-mode-mounts')
 const ItineraryContext = createContext<ItineraryStore | null>(null);
 
 /**
+ * Per-page-load cache of the last account code seen to have a real `profile/identity` doc, so
+ * `watchAccountIdentity`'s repeated `online` events stop re-issuing the server read once presence
+ * is confirmed. Resets on reload; a sign-out/sign-in as a different code is a different key anyway.
+ */
+let identityConfirmedFor: string | null = null;
+
+/** Test-only: modules stay loaded across cases in the same file, unlike a real page load. */
+export function __resetIdentityCacheForTests(): void {
+  identityConfirmedFor = null;
+}
+
+/**
  * A5: consume the one-shot `name-hint` flag that `token-gate`'s token-only login leaves
  * when the display name silently defaulted to "Traveler". Cleared BEFORE the toast so a reload
  * can never double-fire. Exported so the behavior has a runnable unit check without mounting the
@@ -116,6 +128,15 @@ export function consumeNameHint(): void {
  * Cold-start flash: the local name paints first and swaps when the read lands. Self-limiting — the
  * adopt writes through to localStorage, so it happens at most once per device, on the first load
  * after a fresh login.
+ *
+ * D-565: `remote.status === 'missing'` does NOT heal on its own. The door's probe (#10) fails OPEN
+ * on a timeout/offline read, so a mistyped/invented key can be admitted while offline; if this
+ * device then comes online, `fetchAccountIdentity` above correctly reports that key's doc as
+ * `'missing'` — and healing it would mint a PERMANENT account for a value nobody ever meant to
+ * create (identity docs are never deleted, D-341). Heal only with positive evidence the key is a
+ * real, previously-synced account: this device already lists it as a known trip, or the server's
+ * `profile/tripList` doc exists (`hasRemoteTripList` — the same positive-evidence test the door's
+ * legacy fallback already trusts).
  */
 export function runAccountIdentitySync(): () => void {
   const noop = () => {};
@@ -127,30 +148,41 @@ export function runAccountIdentitySync(): () => void {
     consumeNameHint();
     return noop;
   }
+  // The doc's existence never reverses once seen, so a later `online` event has nothing left to
+  // learn from re-reading it — skip the server round trip entirely for the rest of this page load.
+  if (identityConfirmedFor === code) return noop;
 
   let cancelled = false;
-  void import('@/lib/trips-remote')
-    .then(({ fetchAccountIdentity, pushAccountIdentity, healAccountIdentity }) =>
-      fetchAccountIdentity(code).then((remote) => {
-        if (cancelled) return;
-        // Re-read, don't trust the closure: a sign-out (or a sign-in as someone else) may have
-        // landed while the read was in flight.
-        const now = getActiveTraveler();
-        if (!now || now.token !== local.token || getSyncCode() !== code) return;
+  void (async () => {
+    const { fetchAccountIdentity, pushAccountIdentity, healAccountIdentity, hasRemoteTripList } =
+      await import('@/lib/trips-remote');
+    const remote = await fetchAccountIdentity(code);
+    if (cancelled) return;
+    // Re-read, don't trust the closure: a sign-out (or a sign-in as someone else) may have
+    // landed while the read was in flight.
+    const now = getActiveTraveler();
+    if (!now || now.token !== local.token || getSyncCode() !== code) return;
 
-        if (remote.status === 'exists' && remote.name) {
-          if (remote.name !== now.name) signIn(remote.name); // 1 — adopt (both slots, one primitive)
-          return;
-        }
-        const real = now.name !== DEFAULT_TRAVELER_NAME;
-        if (remote.status === 'missing') void healAccountIdentity(code, now.name); // 2
-        else if (remote.status === 'exists' && real) void pushAccountIdentity(code, now.name); // 3
-        if (!real) consumeNameHint(); // the placeholder is the answer
-      }),
-    )
-    .catch((err) => {
-      console.warn('[itinerary-provider] account identity sync unavailable:', err);
-    });
+    if (remote.status === 'exists') {
+      identityConfirmedFor = code;
+      if (remote.name) {
+        if (remote.name !== now.name) signIn(remote.name); // 1 — adopt (both slots, one primitive)
+        return;
+      }
+    }
+    const real = now.name !== DEFAULT_TRAVELER_NAME;
+    if (remote.status === 'missing') {
+      const evidence = !!getKnownTrip(code) || (await hasRemoteTripList(code));
+      if (cancelled) return;
+      const stillCurrent = getActiveTraveler()?.token === now.token && getSyncCode() === code;
+      if (evidence && stillCurrent) void healAccountIdentity(code, now.name); // 2
+    } else if (remote.status === 'exists' && real) {
+      void pushAccountIdentity(code, now.name); // 3
+    }
+    if (!real) consumeNameHint(); // the placeholder is the answer
+  })().catch((err) => {
+    console.warn('[itinerary-provider] account identity sync unavailable:', err);
+  });
 
   return () => {
     cancelled = true;

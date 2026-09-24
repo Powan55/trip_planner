@@ -45,17 +45,25 @@ const pushAccountIdentityMock = vi.fn<(code: string, name: string) => Promise<vo
 const healAccountIdentityMock = vi.fn<(code: string, name?: string) => Promise<void>>(
   async () => {},
 );
+// D-565's heal gate: this file exercises the reconciler's branch logic, not the evidence test
+// (that lives in identity-self-heal.test.ts), so every "missing" case here is a legacy account —
+// resolve `true` to keep the existing heal assertions meaningful.
+const hasRemoteTripListMock = vi.fn<(code: string) => Promise<boolean>>(async () => true);
 vi.mock('@/lib/trips-remote', () => ({
   fetchAccountIdentity: (code: string) => fetchAccountIdentityMock(code),
   pushAccountIdentity: (code: string, name: string) => pushAccountIdentityMock(code, name),
   healAccountIdentity: (code: string, name?: string) => healAccountIdentityMock(code, name),
+  hasRemoteTripList: (code: string) => hasRemoteTripListMock(code),
   subscribeTripList: () => () => {},
 }));
 
 const toastMock = vi.fn();
 vi.mock('sonner', () => ({ toast: (...args: unknown[]) => toastMock(...args) }));
 
-import { runAccountIdentitySync } from '@/components/itinerary-provider';
+import {
+  runAccountIdentitySync,
+  __resetIdentityCacheForTests,
+} from '@/components/itinerary-provider';
 import { signIn, signOut, getActiveTraveler, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
 import { setSyncCode } from '@/core/storage/gateway';
@@ -79,7 +87,10 @@ beforeEach(() => {
   pushAccountIdentityMock.mockResolvedValue(undefined);
   healAccountIdentityMock.mockReset();
   healAccountIdentityMock.mockResolvedValue(undefined);
+  hasRemoteTripListMock.mockReset();
+  hasRemoteTripListMock.mockResolvedValue(true);
   toastMock.mockClear();
+  __resetIdentityCacheForTests();
 });
 afterEach(() => {
   vi.restoreAllMocks();

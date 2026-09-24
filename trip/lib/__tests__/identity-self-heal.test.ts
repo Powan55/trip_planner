@@ -73,12 +73,22 @@ import {
   healAccountIdentity,
   probeAccountIdentity,
 } from '@/lib/trips-remote';
-import { runAccountIdentitySync, watchAccountIdentity } from '@/components/itinerary-provider';
+import {
+  runAccountIdentitySync,
+  watchAccountIdentity,
+  __resetIdentityCacheForTests,
+} from '@/components/itinerary-provider';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { setSyncCode } from '@/core/storage/gateway';
+import { upsertKnownTrip } from '@/core/trips/registry';
 
 const KEY = '11111111-2222-3333-4444-555555555555';
 const PATH = `trips/${KEY}/profile/identity`;
+const TRIPLIST_PATH = `trips/${KEY}/profile/tripList`;
+// D-565: the heal gate requires positive evidence the key is a real account. Every pre-existing
+// test below heals a "legacy key" by design, so it needs that evidence seeded — a bare identity
+// doc absence is no longer enough (that is the reject case, covered separately below).
+const seedTripListEvidence = () => store.set(TRIPLIST_PATH, { version: 1, trips: [] });
 
 async function flush() {
   for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
@@ -91,6 +101,7 @@ beforeEach(() => {
   hooks.txCount = 0;
   window.localStorage.clear();
   window.sessionStorage.clear();
+  __resetIdentityCacheForTests();
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
@@ -125,6 +136,7 @@ describe('healAccountIdentity is create-only', () => {
 
 describe('reconciler over the real module', () => {
   it('placeholder + no server doc ⇒ exactly { version: 1 }', async () => {
+    seedTripListEvidence();
     setSyncCode(KEY);
     signIn(DEFAULT_TRAVELER_NAME);
     runAccountIdentitySync();
@@ -152,12 +164,13 @@ describe('reconciler over the real module', () => {
   });
 
   it('boots offline, heals on the online event, stops listening after cleanup', async () => {
+    seedTripListEvidence();
     hooks.readFails = true;
     setSyncCode(KEY);
     signIn('Sora');
     const stop = watchAccountIdentity();
     await flush();
-    expect(store.size).toBe(0);
+    expect(store.get(PATH)).toBeUndefined();
 
     hooks.readFails = false;
     window.dispatchEvent(new Event('online'));
@@ -172,6 +185,7 @@ describe('reconciler over the real module', () => {
   });
 
   it('online while a read is in flight: only the newer run writes', async () => {
+    seedTripListEvidence();
     setSyncCode(KEY);
     signIn('Sora');
     const stop = watchAccountIdentity();
@@ -184,10 +198,42 @@ describe('reconciler over the real module', () => {
 
   it('door: key held on device A, no server docs; after A reconciles, the probe says exists', async () => {
     expect((await probeAccountIdentity(KEY)).verdict).toBe('missing');
+    // probeAccountIdentity's own legacy fallback writes the tripList doc it finds — mirror that
+    // here since this test bypasses the probe's write path entirely.
+    seedTripListEvidence();
     setSyncCode(KEY);
     signIn(DEFAULT_TRAVELER_NAME);
     runAccountIdentitySync();
     await flush();
     expect((await probeAccountIdentity(KEY)).verdict).toBe('exists');
+  });
+});
+
+describe('D-565: heal only fires on positive evidence of a real account', () => {
+  it('typo key, no tripList doc, no local trips ⇒ no write', async () => {
+    setSyncCode(KEY);
+    signIn(DEFAULT_TRAVELER_NAME);
+    runAccountIdentitySync();
+    await flush();
+    expect(store.size).toBe(0);
+  });
+
+  it('legacy key with a server tripList doc ⇒ heals', async () => {
+    seedTripListEvidence();
+    setSyncCode(KEY);
+    signIn(DEFAULT_TRAVELER_NAME);
+    runAccountIdentitySync();
+    await flush();
+    expect(store.get(PATH)).toEqual({ version: 1 });
+  });
+
+  it('key already known locally as a trip ⇒ heals without a tripList read', async () => {
+    upsertKnownTrip(KEY, 'Shared trip');
+    setSyncCode(KEY);
+    signIn(DEFAULT_TRAVELER_NAME);
+    runAccountIdentitySync();
+    await flush();
+    expect(store.get(PATH)).toEqual({ version: 1 });
+    expect(store.has(TRIPLIST_PATH)).toBe(false); // no server evidence needed or fetched
   });
 });

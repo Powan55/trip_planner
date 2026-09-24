@@ -234,6 +234,30 @@ export async function fetchAccountIdentity(code: string): Promise<AccountIdentit
 }
 
 /**
+ * D-565's gate: does ANY evidence say `code` is a real, previously-synced account rather than a
+ * key someone just typed? `#10`'s door probe fails OPEN on a timeout/offline read (`'unavailable'`
+ * admits), so a typo'd/invented key can reach the app; if that device is later online when this
+ * reconciler runs and the identity doc is genuinely `'missing'`, `healAccountIdentity` must not
+ * mint a permanent doc for it (identity docs are never deleted — see the profile/identity comment
+ * block above). A `profile/tripList` doc is written only by a deliberate account action
+ * (`seedAccountDocs`/`pushTripList`), so its presence is the same positive-evidence test
+ * `readAccountVerdict`'s legacy fallback already relies on. Total — dormant/unsafe/error read
+ * `false`, never throws.
+ */
+export async function hasRemoteTripList(code: string): Promise<boolean> {
+  if (!isRemoteConfigured() || !isSafeTripSegment(code)) return false;
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, getDocFromServer } = fs;
+    const snap = await getDocFromServer(doc(db, 'trips', code, 'profile', 'tripList'));
+    return snap.exists();
+  } catch (err) {
+    console.warn('[trips-remote] trip-list evidence read failed:', err);
+    return false;
+  }
+}
+
+/**
  * CREATE-ONLY write of the identity doc, for a device holding a key whose account has none
  * (legacy keys minted before `seedAccountDocs`; the door rejects those on every other device).
  * A transaction, so a doc another device created meanwhile is never overwritten. The placeholder
