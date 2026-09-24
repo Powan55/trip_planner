@@ -54,17 +54,22 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
 
   const metaByDate = new Map(meta.map((m) => [m.date, m]));
 
-  // Auto-center the selected chip on mount and whenever the selection changes. We
-  // scroll the SCROLLER (not the page) via manual scrollLeft math so a horizontal
-  // centering never nudges the vertical page position (scrollIntoView can scroll
-  // ancestors). Reduced-motion → instant jump; otherwise smooth.
-  useEffect(() => {
+  // Center a given chip in the scroller via manual scrollLeft math (not
+  // scrollIntoView) so a horizontal centering never nudges the vertical page
+  // position (scrollIntoView can scroll ancestors). Reduced-motion → instant jump;
+  // otherwise smooth. Shared by the selection auto-center effect below and by
+  // keyboard/focus navigation (Tab), which can land on a chip scrolled off-screen.
+  const centerChip = (chip: HTMLButtonElement | null) => {
     const scroller = scrollerRef.current;
-    const chip = selectedRef.current;
     if (!scroller || !chip) return;
     const target = chip.offsetLeft - scroller.clientWidth / 2 + chip.clientWidth / 2;
     const left = Math.max(0, target);
     scroller.scrollTo({ left, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  };
+
+  // Auto-center the selected chip on mount and whenever the selection changes.
+  useEffect(() => {
+    centerChip(selectedRef.current);
   }, [selectedDate, prefersReducedMotion]);
 
   return (
@@ -97,6 +102,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             ref={isSelected ? selectedRef : undefined}
             type="button"
             onClick={() => onSelect(date)}
+            onFocus={(e) => centerChip(e.currentTarget)}
             aria-pressed={isSelected}
             aria-label={`${long}${todayLabel}${activityLabel}${shadeLabel(shade)}`}
             data-testid={`day-strip-${date}`}
