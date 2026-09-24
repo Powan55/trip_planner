@@ -15,6 +15,7 @@ import { legCurrency, formatMoney, LEGS, isLeg, type Leg } from '@/core/budget/m
 import { legLabel } from '@/lib/leg-label';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
+import { useInView } from '@/hooks/use-in-view';
 import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta } from '@/core/photos/model';
 import SectionSkeleton from '@/components/section-skeleton';
@@ -414,10 +415,12 @@ export function StoryPhotos({
  * only opens the full-size lightbox (#225).
  */
 function StoryPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => void }) {
-  const { url, missing } = usePhotoObjectUrl(meta.id);
+  const { ref, inView } = useInView({ rootMargin: '200px', skip: false });
+  const { url, missing } = usePhotoObjectUrl(meta.id, { skip: !inView });
 
   return (
     <li
+      ref={ref}
       data-testid={`story-photo-${meta.id}`}
       data-missing={missing ? 'true' : 'false'}
       className="relative aspect-square w-20 flex-shrink-0 overflow-hidden border-hair border-border bg-surface-low sm:w-24"

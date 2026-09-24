@@ -98,6 +98,9 @@ test.describe('S161 story-mode photos — a captured day shows them, an uncaptur
     await expect(strip).toBeVisible();
     const thumb = page.getByTestId(`story-photo-${photoId}`);
     await expect(thumb).toBeVisible();
+    // Photos decode lazily on scroll-into-view (#545) — CAPTURE_DAY sits well below the fold in
+    // the full chronological story, so bring the thumb's placeholder into view before asserting.
+    await thumb.scrollIntoViewIfNeeded();
     await expect(thumb).toHaveAttribute('data-missing', 'false');
     const img = thumb.locator('img');
     await expect(img).toHaveAttribute('alt', 'Prayer flags over Boudhanath stupa');
@@ -113,6 +116,7 @@ test.describe('S161 story-mode photos — a captured day shows them, an uncaptur
     // ── Survives a reload (blob in IndexedDB, meta in key 16 — same client-side hard guarantee) ───
     await page.reload({ waitUntil: 'domcontentloaded' });
     await settleStory(page);
+    await page.getByTestId(`story-photo-${photoId}`).scrollIntoViewIfNeeded();
     await expect(page.getByTestId(`story-photo-${photoId}`).locator('img')).toHaveAttribute(
       'alt',
       'Prayer flags over Boudhanath stupa',
