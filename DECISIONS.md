@@ -5787,6 +5787,16 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-576 · (issue #571, 2026-09-24) · Sign-out clears the Firestore cache; Forget this device also drops the anonymous session
+
+**Decision.** `<SignOutConfirm>` calls `clearRemoteCache()` before `signOut()`. A started instance is terminated and its IndexedDB persistence cleared, and the cached handle is reset. If Firebase never started on this page load, the leftover `firestore/[DEFAULT]/<projectId>/main` database is deleted by name instead. Forget this device also signs out of Firebase Auth (or deletes `firebaseLocalStorageDb`), so the next sign-in mints a new anonymous uid. A plain sign-out keeps the uid, as #10 requires.
+
+**Why.** The wipe cleared web storage only, so the previous traveller's trip docs and the account key path stayed in the Firestore cache on a shared device. The clear is best-effort and gives up after 3 s with a warning: sign-out must finish even when another tab holds the database open or the SDK hangs.
+### D-573 · (issue #561, 2026-09-24) · Expenses merge on first snapshot instead of taking remote verbatim
+
+**Decision.** On the first server snapshot a clean, present leg is merged with local, then local rows absent from remote and older than `DEFAULT_GC_HORIZON_MS` are dropped; unstamped rows stay. If a kept row is missing from remote or newer than it, the leg is pushed right away. Same rule as places (#539).
+
+**Why.** Signed-out adds and backup restores stamp an `hlc` but never reach the outbox, so the verbatim apply wiped them on the first sign-in. A cross-leg move is still safe: the old leg's move tombstone wins the merge, and `dedupeAcrossLegs` covers a peer that never wrote one.
 ### D-569 · (issue #541, 2026-09-24) · The done tick merges on its own stamp, apart from the rest of the row
 
 **Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
@@ -5817,3 +5827,10 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** Settings that follow a person across devices go in `trips/{code}/profile/prefs` as `{ [field]: { v, hlc } }`, where `code` is the account's User Token (storage key 28, `getSyncCode()`), not the display-name slot (key 4). The doc is mirrored locally in storage key 48, which is wiped on sign-out, and a response that lands after sign-out or an account switch is dropped. Each field is last-write-wins on its own HLC. An explicit `setPref` stamps past both the local and the stored stamp inside its transaction, so an edit always wins by commit order; stale stamps only lose when an older value is read back. Writes update only their own field, and `claimField` is a create-if-absent transaction that returns whichever value the account ends up with. The rules' `boundedWrite` caps a doc at 32 top-level fields, so this doc holds at most 32 prefs. Key 47 (`syncPaused`) is a per-device switch and is not synced.
 
 **Why.** `pushTripList` rewrites `profile/tripList` whole with `tx.set` of `{version, trips, removed}`, so any new field there would be erased by older clients. A whole-doc LWW on the new doc would let one device's edit to one setting revert another device's edit to a different one.
+### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
+
+**Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
+
+**Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
+
+**Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.
