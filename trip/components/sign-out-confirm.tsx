@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
 import { downloadTripBackup } from '@/lib/trip-backup';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import UserTokenShowOnce from '@/components/user-token-show-once';
@@ -71,6 +72,8 @@ export default function SignOutConfirm({
   // Read post-open, never at mount: this is a client-only storage read, and the key can be minted
   // (Settings, /trips) while the page is still up.
   const [code, setCode] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
 
   const handleBackup = async () => {
     try {
@@ -82,6 +85,9 @@ export default function SignOutConfirm({
   };
 
   const handleConfirm = () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
     void (async () => {
       if (forgetDevice) {
         await defaultBlobStore.clear();
@@ -90,6 +96,14 @@ export default function SignOutConfirm({
         removeKey('local', STORAGE_KEYS.lifetimeVisits);
         removeKey('local', STORAGE_KEYS.visitConfirmations);
         removeKey('local', STORAGE_KEYS.passportStamps);
+      }
+      if (isRemoteConfigured()) {
+        try {
+          const { clearRemoteCache } = await import('@/lib/firebase-remote');
+          await clearRemoteCache({ signOutAuth: forgetDevice });
+        } catch {
+          // a failed chunk load must not block sign-out
+        }
       }
       signOut();
       // Reload after teardown (Ruling 3) — every mounted local store re-hydrates fresh; precedent.
@@ -140,6 +154,7 @@ export default function SignOutConfirm({
               confirmLabel={forgetDevice ? 'Forget this device' : 'Sign out'}
               testIdPrefix={`${testId}-key`}
               onConfirm={handleConfirm}
+              busy={busy}
             />
             <AlertDialogFooter>
               <AlertDialogCancel data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
@@ -174,10 +189,13 @@ export default function SignOutConfirm({
               <AlertDialogAction
                 data-testid={`${testId}-confirm`}
                 // `preventDefault` keeps Radix from closing the dialog: with a key stored, this
-                // button advances to the show-once step rather than tearing down.
+                // button advances to the show-once step; without one, the dialog stays up (busy)
+                // until the teardown reloads the page.
+                disabled={busy}
+                aria-busy={busy || undefined}
                 onClick={(e) => {
-                  if (!code) return handleConfirm();
                   e.preventDefault();
+                  if (!code) return handleConfirm();
                   setStep('key');
                 }}
                 className="btn btn--danger"

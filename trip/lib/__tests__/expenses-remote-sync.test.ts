@@ -127,6 +127,7 @@ import type { Firestore } from 'firebase/firestore';
 import * as fs from 'firebase/firestore';
 import { saveExpenses, loadExpenses } from '@/core/budget/storage';
 import { expensesToSpent } from '@/core/budget/expenses';
+import { keyFor } from '@/core/storage/gateway';
 
 function exp(id: string, over: Partial<Expense> = {}): Expense {
   return { id, leg: 'nepal', category: 'food', amount: 1000, createdAt: 't', rev: 1, hlc: `000000000001000:000000:${id}`, ...over };
@@ -411,5 +412,72 @@ describe('#532 — moving an expense to another leg leaves one row, not two', ()
     const live = rows.filter((r) => r.deleted !== true);
     expect(live).toHaveLength(1);
     expect(live[0]).toMatchObject({ id: 'X', leg: 'japan' });
+  });
+});
+
+describe('#561 — the first snapshot merges instead of taking remote verbatim', () => {
+  const NEPAL = `trips/${TRIP_ID}/expenses/nepal`;
+  const JAPAN = `trips/${TRIP_ID}/expenses/japan`;
+  const DAY = 24 * 60 * 60 * 1000;
+  const ago = (ms: number) => `${String(Date.now() - ms).padStart(15, '0')}:000000:me`;
+  const items = (path: string) => (fake.docs.get(path) as { items: Expense[] }).items;
+
+  async function firstSnapshot(): Promise<Expense[]> {
+    const unsub = subscribeRemoteExpenses();
+    await flush();
+    fake.emitServerSnapshot();
+    await flush();
+    unsub();
+    return loadExpenses();
+  }
+
+  it('keeps a signed-out add from a day ago and pushes it up', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(10 * DAY) })] });
+    saveExpenses([exp('L', { hlc: ago(DAY) })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['L', 'R']);
+    expect(items(NEPAL).map((e) => e.id).sort()).toEqual(['L', 'R']);
+  });
+
+  it('drops a 400-day-old row missing from remote, and keeps an unstamped one', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(DAY) })] });
+    saveExpenses([exp('OLD', { hlc: ago(400 * DAY) }), exp('RAW', { hlc: undefined })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['R', 'RAW']);
+    expect(items(NEPAL).map((e) => e.id).sort()).toEqual(['R', 'RAW']);
+  });
+
+  it('a dirty leg still merges, old rows included', async () => {
+    localStorage.setItem(keyFor('syncOutbox'), JSON.stringify({ version: 1, dirty: { expenses: ['nepal'] } }));
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(DAY) })] });
+    saveExpenses([exp('OLD', { hlc: ago(400 * DAY) })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['OLD', 'R']);
+  });
+
+  it('a row moved to another leg is not resurrected in the old leg', async () => {
+    const moved = exp('X', { leg: 'japan', rev: 2, hlc: ago(DAY) });
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [{ ...exp('X', { hlc: ago(2 * DAY) }), deleted: true, rev: 2, hlc: moved.hlc }] });
+    fake.setDocData(JAPAN, { leg: 'japan', items: [moved] });
+    saveExpenses([exp('X', { leg: 'nepal', hlc: ago(2 * DAY) })]); // stale copy, still in the old leg
+
+    const rows = await firstSnapshot();
+    expect(rows.filter((e) => e.deleted !== true).map((e) => [e.id, e.leg])).toEqual([['X', 'japan']]);
+    expect(writeLog).toEqual([]);
+  });
+
+  it('keeps a row with a malformed hlc', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(DAY) })] });
+    saveExpenses([exp('BAD', { hlc: 'garbage' })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['BAD', 'R']);
+  });
+
+  it('a tombstone past the horizon survives while the same id is live in another leg', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('X', { deleted: true, rev: 2, hlc: ago(400 * DAY) })] });
+    fake.setDocData(JAPAN, { leg: 'japan', items: [exp('X', { leg: 'japan', hlc: ago(401 * DAY) })] });
+
+    const rows = await firstSnapshot();
+    expect(rows.map((e) => [e.id, e.leg, e.deleted])).toEqual([['X', 'nepal', true]]);
   });
 });

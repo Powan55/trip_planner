@@ -14,7 +14,6 @@ import {
   formatMoney,
   safeAmount,
   convert,
-  ratePerUsd,
   BUDGET_CATEGORIES,
   LEGS,
   SEED_RATES,
@@ -349,7 +348,11 @@ function Ledger({
         {unwritten && <span className="stamp stamp--dry">Unwritten</span>}
         {LEGS.map((leg) => (
           <span key={leg} className="chip">
-            {legCurrency(leg)} {ratePerUsd(model.rates, legCurrency(leg))} / {home}
+            {legCurrency(leg)}{' '}
+            {convert(1, home, legCurrency(leg), model.rates).toLocaleString('en-US', {
+              maximumSignificantDigits: 4,
+            })}{' '}
+            / {home}
           </span>
         ))}
         <span className="chip">{seeded ? 'seed rates' : 'rates overridden'}</span>
