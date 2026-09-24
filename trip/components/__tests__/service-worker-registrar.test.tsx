@@ -102,25 +102,46 @@ describe('ServiceWorkerRegistrar — hadController reload gating', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
-  it('a real update (controller already present at mount) reloads once on controllerchange', async () => {
-    const sw = makeServiceWorkerContainer({}, makeRegistration());
+  it('a real update reloads once on controllerchange in the tab that clicked Refresh', async () => {
+    const waiting = makeWorker();
+    const sw = makeServiceWorkerContainer({}, makeRegistration(waiting));
     Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
 
     await mount();
+    // This tab clicked Refresh on the toast.
+    const onClick = (vi.mocked(toast).mock.calls[0][1] as unknown as { action: { onClick: () => void } }).action.onClick;
+    onClick();
     sw.fire('controllerchange');
 
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
   it('firing controllerchange twice on a real update still only reloads once (dedupe guard)', async () => {
-    const sw = makeServiceWorkerContainer({}, makeRegistration());
+    const waiting = makeWorker();
+    const sw = makeServiceWorkerContainer({}, makeRegistration(waiting));
     Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
 
     await mount();
+    const onClick = (vi.mocked(toast).mock.calls[0][1] as unknown as { action: { onClick: () => void } }).action.onClick;
+    onClick();
     sw.fire('controllerchange');
     sw.fire('controllerchange');
 
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('#531 — a tab that never clicked Refresh does NOT reload on controllerchange; it gets the toast instead', async () => {
+    const sw = makeServiceWorkerContainer({}, makeRegistration());
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
+
+    await mount();
+    vi.mocked(toast).mockClear();
+
+    // Another tab clicked Refresh; clients.claim() fires controllerchange here too.
+    sw.fire('controllerchange');
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith('New version available', expect.any(Object));
   });
 });
 

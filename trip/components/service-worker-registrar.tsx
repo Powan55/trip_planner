@@ -42,11 +42,21 @@ export function ServiceWorkerRegistrar() {
     // (page was already controlled → SKIP_WAITING handshake) warrants a reload.
     const hadController = !!navigator.serviceWorker.controller;
 
+    // clients.claim() in the activate handler fires `controllerchange` in EVERY
+    // open tab, not just the one whose user clicked Refresh (#531) — so only the
+    // tab that actually requested the skip-waiting handshake may auto-reload.
+    // Other tabs get the same toast instead, so an in-progress form isn't wiped.
+    let clickedRefresh = false;
+
     // When the controlling worker changes (i.e. the new worker took over after
     // SKIP_WAITING), reload once onto the new version — but never on the first-install
-    // claim (see `hadController`).
+    // claim (see `hadController`), and never in a tab that didn't click Refresh.
     const onControllerChange = () => {
       if (!hadController || refreshing) return;
+      if (!clickedRefresh) {
+        promptUpdate(navigator.serviceWorker.controller ?? undefined);
+        return;
+      }
       refreshing = true;
       window.location.reload();
     };
@@ -56,15 +66,26 @@ export function ServiceWorkerRegistrar() {
     );
 
     // Prompt the user (persistent toast) that a new worker is waiting. Clicking
-    // Refresh triggers the skip-waiting handshake.
-    const promptUpdate = (worker: ServiceWorker) => {
+    // Refresh triggers the skip-waiting handshake. `worker` is omitted for the
+    // passive-tab toast (#531) — that tab has no waiting worker reference of its
+    // own, so Refresh there just marks this tab as the reloader and waits for
+    // the controllerchange already in flight from the tab that sent SKIP_WAITING.
+    const promptUpdate = (worker?: ServiceWorker) => {
       toast('New version available', {
+        id: 'sw-update-available',
         description: 'Refresh to get the latest offline app shell.',
         duration: Infinity,
         action: {
           label: 'Refresh',
           onClick: () => {
-            worker.postMessage({ type: 'SKIP_WAITING' });
+            clickedRefresh = true;
+            if (worker) {
+              worker.postMessage({ type: 'SKIP_WAITING' });
+            } else if (navigator.serviceWorker.controller) {
+              // Already controlled by the new worker (another tab completed the
+              // handshake) — just reload onto it.
+              window.location.reload();
+            }
           },
         },
       });
