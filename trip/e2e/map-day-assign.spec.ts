@@ -256,7 +256,7 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
     await page.setViewportSize(DESKTOP);
     // NO seeding on purpose: this runs against the curated seed itinerary a fresh device
     // gets (core/content/itinerary.ts). Measured on that seed: Day 1 = 3 items, 0 of which
-    // resolve to an asserted coordinate; Day 2 = 6 items, exactly 1 of which does.
+    // resolve to an asserted coordinate; Day 2 = 6 items, 3 of which do.
     await gotoMap(page);
 
     const day1 = page.getByTestId(`map-day-target-${DAY1}`);
@@ -271,17 +271,18 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
     // 0 is no better than the bug.
     expect(await day1.getAttribute('aria-label')).toContain('3 plans, 0 exact');
 
-    // Day 2 is the discriminator: 6 planned, 2 exactly-placed. A badge that simply echoed
-    // the total into both slots fails here.
+    // Day 2 is the discriminator: 6 planned, 3 exactly-placed. A badge that simply echoed
+    // the total into both slots fails here. The third is the welcome dinner, which gained its
+    // own curated marker (np-bhojan-griha).
     // ⚠️ This read "1" before S381, and the change is the ITEM-KEYING fix (D-278): the
     // day's "Check in to the Thamel hotel" and "Evening walk in Thamel" both resolve to the
     // np-thamel marker, and the old per-marker dedupe silently dropped the second one. Two
     // plans are exactly placed here; only one used to be counted.
     const day2 = page.getByTestId(`map-day-target-${DAY2}`);
     await expect(day2).toHaveAttribute('data-stop-count', '6');
-    await expect(day2).toHaveAttribute('data-mapped-count', '2');
+    await expect(day2).toHaveAttribute('data-mapped-count', '3');
     await expect(day2).toContainText('6 plans');
-    await expect(day2).toContainText('2 exact');
+    await expect(day2).toContainText('3 exact');
 
     // 🔴 S381, the whole point: this day used to render NO rows and an empty state that said
     // so. All three plans now have a row, all three are APPROXIMATE, and each one names the
@@ -301,14 +302,14 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
       await expect(rows.nth(i)).toContainText('≈ New York');
     }
 
-    // Day 2 mixes the two: six rows, two exact. Both exact rows survive even though they
-    // share ONE marker — the row is keyed by the item now, so neither is dropped and neither
-    // duplicates the other's key/testid.
+    // Day 2 mixes the two: six rows, three exact. The two Thamel rows both survive even though
+    // they share ONE marker — the row is keyed by the item now, so neither is dropped and
+    // neither duplicates the other's key/testid.
     await day2.click();
     await expect(page.locator('[data-testid^="map-day-order-stop-"]')).toHaveCount(6);
     await expect(
       page.locator('[data-testid^="map-day-order-stop-"][data-placement="exact"]'),
-    ).toHaveCount(2);
+    ).toHaveCount(3);
     await expect(
       page.locator('[data-testid^="map-day-order-stop-"][data-marker-id="np-thamel"]'),
     ).toHaveCount(2);
