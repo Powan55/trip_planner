@@ -295,4 +295,14 @@ describe('#532 — an edit patches the live row only, never its tombstone in ano
     const live = next.filter((e) => e.deleted !== true);
     expect(live).toEqual([expect.objectContaining({ id: 'x', leg: 'japan', amount: 150, rev: 3 })]);
   });
+
+  it('two LIVE rows sharing an id (pre-fix data) collapse to the newest-hlc one before patching, so spend is not double-counted', () => {
+    const list: Expense[] = [
+      { id: 'x', leg: 'nepal', category: 'food', amount: 100, createdAt: 't', rev: 1, hlc: '000000000001000:000000:me' },
+      { id: 'x', leg: 'japan', category: 'food', amount: 100, createdAt: 't', rev: 2, hlc: '000000000002000:000000:me' },
+    ];
+    const next = updateExpense(list, 'x', { amount: 150 }, (e) => ({ ...e, rev: 3, hlc: '000000000003000:000000:me' }));
+    expect(next).toHaveLength(1); // the older (nepal) duplicate is dropped, not patched
+    expect(next[0]).toMatchObject({ id: 'x', leg: 'japan', amount: 150 });
+  });
 });

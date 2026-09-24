@@ -124,7 +124,10 @@ export async function pushChunkMerged(
     }
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstone rows
     // from the MERGED leg before writing — the `pushDayMerged` gc analog over `gcTombstoneRows`.
-    const merged = gcTombstoneRows(mergeItems(remoteRows, rows), realClock.now().getTime());
+    // otherLegRows: a live row in ANOTHER leg (a pre-fix stale copy, or #532's own move) must keep
+    // this leg's tombstone for the same id from aging out, or GC lets the stale copy resurface.
+    const otherLiveIds = new Set(otherLegRows.filter((e) => e.deleted !== true).map((e) => e.id));
+    const merged = gcTombstoneRows(mergeItems(remoteRows, rows), realClock.now().getTime(), undefined, otherLiveIds);
     tx.set(ref, { leg, items: sanitizeRowsForWrite(merged) });
   });
 }
@@ -219,7 +222,18 @@ export function subscribeRemoteExpenses(): () => void {
         // Steady-state (or a dirty leg on first snapshot): item-level merge so an unpushed local
         // edit and a peer's edits both survive. GC BOUNDARY ②: prune
         // past-horizon, unreferenced tombstone rows from the MERGED leg before persist.
-        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), realClock.now().getTime()));
+        // otherLiveIds (#532): a live row this device holds for the SAME id in a sibling leg — from
+        // local or from that leg's own remote snapshot — must keep this leg's tombstone from aging
+        // out, or GC here lets a pre-fix stale copy elsewhere resurface.
+        const otherLiveIds = new Set(
+          LEGS.filter((l) => l !== leg).flatMap((l) => [
+            ...local.filter((e) => e.leg === l && e.deleted !== true).map((e) => e.id),
+            ...(remoteByLeg.get(l) ?? []).filter((e) => e.deleted !== true).map((e) => e.id),
+          ]),
+        );
+        result.push(
+          ...gcTombstoneRows(mergeItems(localLeg, remoteLeg), realClock.now().getTime(), undefined, otherLiveIds),
+        );
       }
     }
     persistAndDispatch([...dedupeAcrossLegs(result), ...foreign]);
