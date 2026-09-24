@@ -147,7 +147,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
 
     expect(h.attempts).toEqual([{ chunk: 'd1', version: 1 }]); // attempted
     expect(outboxDirty('itinerary')).toEqual(['d1']); // still dirty (reject swallowed)
-    expect(rawSlot()).toEqual({ version: 1, dirty: { itinerary: ['d1'] } }); // persisted
+    expect(rawSlot()).toEqual({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 1 } } }); // persisted
   });
 
   it('flush RETRIES a dirty chunk and acks it once it resolves', async () => {
@@ -311,6 +311,7 @@ describe('RELOAD scenario — the FU-19 fix (offline edit survives + pushes once
     expect(rawSlot()).toEqual({
       version: 1,
       dirty: { itinerary: ['2026-12-09', '2026-12-10'] },
+      seq: { itinerary: { '2026-12-09': 1, '2026-12-10': 1 } },
     });
 
     // ── SIMULATED RELOAD ──────────────────────────────────────────────────────────────────────
@@ -630,5 +631,54 @@ describe('#237 — sequential tab-shaped operations on different chunks do not c
 
     // Neither tab's record was dropped: d2 (tab A's era) and d3 (tab B's new write) both survive.
     expect(outboxDirty('itinerary').sort()).toEqual(['d2', 'd3']);
+  });
+});
+
+describe('#544 — an ack only clears a chunk nothing re-enqueued since its push started', () => {
+  it("tab B's stale push resolving does not clear tab A's newer edit; the next flush acks it", async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 1 } } }),
+    );
+    const storage = makeStorage({ d1: 1 });
+    const tabB = makeHarness();
+    let releaseB!: () => void;
+    tabB.cs.pushChunk = (chunk, current) => {
+      tabB.attempts.push({ chunk, version: current[chunk] });
+      return new Promise<void>((r) => (releaseB = r));
+    };
+    const settle = () => new Promise<void>((r) => setTimeout(r, 0));
+
+    const flushB = flushOutbox(tabB.cs, storage); // tab B pushes v1
+    await settle();
+    expect(tabB.attempts).toEqual([{ chunk: 'd1', version: 1 }]);
+
+    // "Tab A": separate module instance, same localStorage. Its v2 enqueues, then its push fails.
+    vi.resetModules();
+    const tabAModule = await import('@/core/sync/outbox');
+    const tabA = makeHarness();
+    tabA.failing.add('d1');
+    await tabAModule.withOutbox(tabA.cs)({ d1: 1 }, { d1: 2 });
+    storage.save({ d1: 2 });
+
+    releaseB(); // ack(v1) lands after v2 was enqueued
+    await flushB;
+    expect(outboxDirty('itinerary')).toEqual(['d1']); // v2 still protected
+
+    tabA.failing.clear();
+    await tabAModule.flushOutbox(tabA.cs, storage); // ack(v2)
+    expect(tabA.attempts.at(-1)).toEqual({ chunk: 'd1', version: 2 });
+    expect(outboxDirty('itinerary')).toEqual([]);
+  });
+
+  it('a legacy slot with no counters still acks (missing counter reads as 0)', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] } }),
+    );
+    const h = makeHarness();
+    await flushOutbox(h.cs, makeStorage({ d1: 1 }));
+    expect(h.attempts).toEqual([{ chunk: 'd1', version: 1 }]);
+    expect(outboxDirty('itinerary')).toEqual([]);
   });
 });
