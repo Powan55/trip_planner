@@ -54,6 +54,7 @@ import {
   DEFAULT_TRIP_ID,
   getActiveTripId,
   isSafeTripSegment,
+  selfJoinReloadGuard,
   wasTripCreatedHere,
 } from '@/core/storage/gateway';
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
@@ -486,10 +487,11 @@ export async function createTripDoc(tripId: string): Promise<void> {
  * non-owner exactly one shape of edit — a diff that touches only `members` and only ADDS keys.
  *
  * A `permission-denied` (the trip is member-gated and this device is not in the map — the read
- * itself is refused, before any write is attempted) dispatches `trip:access-pending` instead of
- * throwing. That is not an error state: it is the "ask a member to add your device code" flow.
+ * itself is refused) first tries a blind self-add as `'member'` and returns `'joined'` (D-595). Only
+ * if that is refused too, or this session already self-joined the trip, does it dispatch
+ * `trip:access-pending` instead of throwing: the "ask a member to add your device code" flow.
  */
-export async function ensureMembership(tripId: string): Promise<void> {
+export async function ensureMembership(tripId: string): Promise<'joined' | void> {
   // This function also repairs every known trip after Google-account adoption, when the
   // active pack may be the local-only sample. Gate the explicit target, not the active pack.
   if (!isRemoteConfigured() || !isSafeTripSegment(tripId) || tripId === DEFAULT_TRIP_ID) return;
@@ -504,7 +506,18 @@ export async function ensureMembership(tripId: string): Promise<void> {
     // - stale roster missing this uid where the server already has it as `'owner'` ⇒ the write
     //   below is `members.<uid> = 'member'`, and the rules evaluate `isOwner()` against the STORED
     //   doc, so it is ALLOWED: the owner silently demotes itself.
-    const snap = await getDocFromServer(ref);
+    let snap: Awaited<ReturnType<typeof getDocFromServer>>;
+    try {
+      snap = await getDocFromServer(ref);
+    } catch (err) {
+      // D-595: a gated trip refuses a non-member's read, so join blind (the rules allow adding
+      // only yourself, only as 'member'). Listeners already refused stay dead, so the page-load
+      // caller reloads on 'joined'; the guard caps that at once per trip per session.
+      if (!isPermissionDenied(err) || selfJoinReloadGuard.hasRun(tripId)) throw err;
+      await updateDoc(ref, { [`members.${uid}`]: 'member' });
+      selfJoinReloadGuard.markRun(tripId);
+      return 'joined';
+    }
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
     if (!members) {

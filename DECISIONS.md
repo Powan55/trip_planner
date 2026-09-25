@@ -5827,6 +5827,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** firestore.rules gains one update branch, `selfJoinsAsMember`: on a rostered trip, a signed-in non-member may add exactly its own uid as `member` and change nothing else. The profile carve-outs and the 200-entry roster cap are unchanged.
 
 **Why and the cost.** Opening a link and signing in should be enough to join. That makes the trip id the whole capability: a removed member can add itself back, each anonymous uid (one per device or cleared browser) takes a roster slot until the cap fills, and the only real revocation is a new trip id. Publish these rules only after the client self-join (D-595) ships, and only after confirming anonymous auth is enabled in the console, since the rules publish step still reports success without doing anything (#263).
+### D-591 · (issue #583, 2026-09-24) · A failed domain subscribe is reopened on `online` or tab return; a healthy one never is
+
+**Decision.** `SyncPort.subscribe` takes an optional `onDead` callback, fired when the dynamic import of the remote module fails and the subscription was not already torn down. `useDomainSync` then drops its handle, and the next `online` or visible `visibilitychange` flushes and reopens it. The handle is cleared only if it is still the one that died, so a late failure from a torn-down subscription cannot clear a newer one. `onDead` only covers a failed dynamic import: an `onSnapshot` error (e.g. permission-denied) still leaves the listener dead and is not reopened; that fix belongs in the `*-remote.ts` modules and is deferred. The captive-portal case (`armOnlineRetry` waiting on an `online` event that never fires) is deferred.
+
+**Why.** Resubscribing on every focus would re-read every doc across five domains on each tab return, against a 50k reads/day free quota. Keeping a healthy subscription costs no extra reads, so only a dead one is reopened.
 ### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
 
 **Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
@@ -5834,3 +5839,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
 
 **Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.
+
+### D-595 · (issue #599, 2026-09-24) · A device holding a trip id joins the roster itself
+
+**Decision.** When `ensureMembership`'s server read of the trip doc is refused, the client writes `members.<uid> = 'member'` by field path (never 'owner'), the add D-593's rule allows, and returns `'joined'`. Only the page-load caller in the provider reloads on that, once per trip per session (`selfJoinReload`, key 49), because listeners already refused stay dead; the adoption loop over every known trip never reloads. If the self-add is refused too, or the guard has fired, the access-pending toast shows as before. The provider now enrols `getTripId()`, so a shared default pack enrols under its share id.
+
+**Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
+
+**Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
