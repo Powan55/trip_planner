@@ -9,7 +9,7 @@ import { JournalBrowse } from './sections';
 
 export const metadata = {
   title: 'Journal · Nepal × Japan Journey',
-  description: 'Every trip day, in your own words — browse and edit your private, on-device journal entries.',
+  description: 'Every trip day, in your own words — browse and edit your private journal entries, synced only to your own devices.',
 };
 
 export default function JournalPage() {
@@ -24,7 +24,7 @@ export default function JournalPage() {
         variant="journal"
         title="Journal"
         eyebrow="Every day, in your words"
-        subtitle="Browse and edit every trip-day entry you've written — private, on this device only."
+        subtitle="Browse and edit every trip-day entry you've written — private to you, synced only to your own devices."
         bandClassName="max-w-3xl"
       />
       <JournalBrowse />
