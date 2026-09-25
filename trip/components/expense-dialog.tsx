@@ -272,7 +272,7 @@ export default function ExpenseDialog({
                   }}
                   placeholder="0"
                   autoComplete="off"
-                  className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
+                  className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/60 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
                 />
               </div>
             </div>

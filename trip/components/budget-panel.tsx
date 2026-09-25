@@ -14,7 +14,6 @@ import {
   formatMoney,
   safeAmount,
   convert,
-  ratePerUsd,
   BUDGET_CATEGORIES,
   LEGS,
   SEED_RATES,
@@ -349,7 +348,11 @@ function Ledger({
         {unwritten && <span className="stamp stamp--dry">Unwritten</span>}
         {LEGS.map((leg) => (
           <span key={leg} className="chip">
-            {legCurrency(leg)} {ratePerUsd(model.rates, legCurrency(leg))} / {home}
+            {legCurrency(leg)}{' '}
+            {convert(1, home, legCurrency(leg), model.rates).toLocaleString('en-US', {
+              maximumSignificantDigits: 4,
+            })}{' '}
+            / {home}
           </span>
         ))}
         <span className="chip">{seeded ? 'seed rates' : 'rates overridden'}</span>
@@ -673,7 +676,7 @@ function LegBudgetCard({
             step="any"
             placeholder="0"
             {...legDraft}
-            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-2 pr-3 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-2 pr-3 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
@@ -702,7 +705,7 @@ function LegBudgetCard({
       <details className="group border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface))]">
         <summary
           data-testid={`budget-leg-${leg}-categories-toggle`}
-          className="pr flex min-h-tap cursor-pointer list-none items-center justify-between px-3 py-2 text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="pr flex min-h-tap cursor-pointer list-none items-center justify-between px-3 py-2 text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
           <span>Break down by category (optional)</span>
           <span aria-hidden="true" className="text-ink-lo transition-transform group-open:rotate-90">
@@ -781,7 +784,7 @@ function CategoryBudgetInput({
             placeholder="0"
             aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
             {...draft}
-            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-1.5 pr-2.5 text-t-sm text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-1.5 pr-2.5 text-t-sm text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               sym === 'Rs' ? 'pl-8' : 'pl-6'
             }`}
           />

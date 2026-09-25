@@ -557,6 +557,12 @@ export const STORAGE_KEYS = {
    */
   personPrefs: 'nepal_japan_person_prefs',
   /**
+   * sessionStorage — comma-joined `string[]` of trip ids this tab has already reloaded for after
+   * joining their roster itself (self-join reload, key 49; D-595). Same shape as
+   * `tripMetaSelfHeal`. APP-SCOPED.
+   */
+  selfJoinReload: 'nepal_japan_self_join_reload',
+  /**
    * localStorage — JSON `{ [date]: { hlc, dirty?, deletedAt? } }`, the per-entry sync stamps for
    * the journal's account copy (journal-sync, key 50; D-596). TRIP-SCOPED beside key 12. Sync
    * machinery, not content: the backup leaves it out. Shape owned by `lib/journal-remote.ts`.
@@ -1288,6 +1294,20 @@ export const tripMetaSelfHealGuard = {
     const ids = raw ? raw.split(',') : [];
     if (!ids.includes(tripId)) ids.push(tripId);
     writeString('session', STORAGE_KEYS.tripMetaSelfHeal, ids.join(','));
+  },
+} as const;
+
+/** At most one reload per trip per session after a roster self-join (key 49; D-595). */
+export const selfJoinReloadGuard = {
+  hasRun(tripId: string): boolean {
+    const raw = readString('session', STORAGE_KEYS.selfJoinReload);
+    return raw !== null && raw.split(',').includes(tripId);
+  },
+  markRun(tripId: string): void {
+    const raw = readString('session', STORAGE_KEYS.selfJoinReload);
+    const ids = raw ? raw.split(',') : [];
+    if (!ids.includes(tripId)) ids.push(tripId);
+    writeString('session', STORAGE_KEYS.selfJoinReload, ids.join(','));
   },
 } as const;
 

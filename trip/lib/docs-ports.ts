@@ -49,7 +49,7 @@ export const docsSyncPort: SyncPort<DocItem[]> = {
   // configured AND identified traveler (dormant/guest never write the slot). Never throws.
   push: withOutbox(docsChunkSync),
 
-  subscribe() {
+  subscribe(onDead?: () => void) {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.
     if (!isRemoteConfigured()) return () => {};
 
@@ -63,6 +63,7 @@ export const docsSyncPort: SyncPort<DocItem[]> = {
       })
       .catch((err) => {
         console.warn('[docs] remote subscribe unavailable:', err);
+        if (!cancelled) onDead?.();
       });
 
     return () => {

@@ -85,7 +85,7 @@ export const itinerarySyncPort: SyncPort<DayPlan[]> = {
   // that). Never throws to the commit caller.
   push: withOutbox(itineraryChunkSync),
 
-  subscribe() {
+  subscribe(onDead?: () => void) {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.
     if (!isRemoteConfigured()) return () => {};
 
@@ -100,6 +100,7 @@ export const itinerarySyncPort: SyncPort<DayPlan[]> = {
       .catch((err) => {
         // Degrade to local-only; never crash.
         console.warn('[use-itinerary] remote subscribe unavailable:', err);
+        if (!cancelled) onDead?.();
       });
 
     return () => {
