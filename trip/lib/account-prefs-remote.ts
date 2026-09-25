@@ -9,27 +9,16 @@
 
 'use client';
 
-import { STORAGE_KEYS, getSyncCode, isSafeTripSegment, readJson, writeJson } from '@/core/storage/gateway';
+import { STORAGE_KEYS, getSyncCode, writeJson } from '@/core/storage/gateway';
 import { compareHlc, hlcSendOrLocal, parse, serialize } from '@/core/sync/hlc';
-import { isRemoteConfigured } from './firebase-config';
+import { FIELD_RE, accountCode, readLocal, sanitize, values, type PrefEntries, type PrefEntry } from './account-prefs';
 import { getRemote } from './firebase-remote';
 import { realClock } from './trip-now';
 
-export type PrefEntry = { v: unknown; hlc: string };
-export type PrefEntries = Record<string, PrefEntry>;
+export { getCachedPrefs, hasAccount, type PrefEntries, type PrefEntry } from './account-prefs';
 
-const FIELD_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
-
-function isEntry(x: unknown): x is PrefEntry {
-  return typeof x === 'object' && x !== null && 'v' in x && typeof (x as PrefEntry).hlc === 'string';
-}
-
-function sanitize(data: unknown): PrefEntries {
-  const out: PrefEntries = {};
-  if (typeof data !== 'object' || data === null) return out;
-  for (const [k, e] of Object.entries(data)) if (FIELD_RE.test(k) && isEntry(e)) out[k] = { v: e.v, hlc: e.hlc };
-  return out;
-}
+// Stamps a local-only edit made before getRemote() is known to work (paused, offline).
+const LOCAL_ACTOR = 'local';
 
 function newer(a: PrefEntry | undefined, b: PrefEntry | undefined): PrefEntry | undefined {
   if (!a) return b;
@@ -37,39 +26,58 @@ function newer(a: PrefEntry | undefined, b: PrefEntry | undefined): PrefEntry | 
   return compareHlc(parse(b.hlc), parse(a.hlc)) > 0 ? b : a;
 }
 
-function readLocal(): PrefEntries {
-  return sanitize(readJson<unknown>('local', STORAGE_KEYS.personPrefs, {}));
-}
-
 /**
- * Fold entries into the local mirror, per field, newest HLC wins. `code` is the account the
+ * Fold account entries into the local mirror, per field, newest HLC wins; a tie goes to the
+ * account copy, which is what clears a pushed field's dirty flag. `code` is the account the
  * entries came from; if this device has since signed out or switched account, nothing is written.
  */
 function mergeIntoLocal(entries: PrefEntries, code: string | null): PrefEntries {
   const merged = readLocal();
   if (code !== null && (getSyncCode()?.trim() ?? '') !== code) return merged;
-  for (const [k, e] of Object.entries(entries)) merged[k] = newer(merged[k], e)!;
+  for (const [k, e] of Object.entries(entries)) {
+    const mine = merged[k];
+    merged[k] = mine && compareHlc(parse(mine.hlc), parse(e.hlc)) > 0 ? mine : e;
+  }
   writeJson('local', STORAGE_KEYS.personPrefs, merged);
   return merged;
 }
 
-function values(entries: PrefEntries): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(entries).map(([k, e]) => [k, e.v]));
-}
-
-function accountCode(): string | null {
-  const code = getSyncCode()?.trim() ?? '';
-  return isRemoteConfigured() && isSafeTripSegment(code) ? code : null;
+/**
+ * Push every dirty mirror field that is still newer than the account's copy, with its ORIGINAL
+ * stamp (an automatic retry must not out-rank an edit made elsewhere since). Never rejects.
+ */
+async function pushDirty(code: string): Promise<void> {
+  if ((getSyncCode()?.trim() ?? '') !== code) return; // the mirror now belongs to another account
+  const dirty = Object.entries(readLocal()).filter(([, e]) => e.dirty);
+  if (!dirty.length) return;
+  try {
+    const { db, fs } = await getRemote();
+    const ref = fs.doc(db, 'trips', code, 'profile', 'prefs');
+    const won = await fs.runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const remote = snap.exists() ? sanitize(snap.data()) : {};
+      const out: PrefEntries = {};
+      const push: PrefEntries = {};
+      for (const [f, mine] of dirty) {
+        const theirs = remote[f];
+        if (theirs && compareHlc(parse(theirs.hlc), parse(mine.hlc)) >= 0) out[f] = theirs;
+        else out[f] = push[f] = { v: mine.v, hlc: mine.hlc };
+      }
+      if (Object.keys(push).length) {
+        if (snap.exists()) tx.update(ref, push);
+        else tx.set(ref, push);
+      }
+      return out;
+    });
+    mergeIntoLocal(won, code);
+  } catch (err) {
+    console.warn('[account-prefs] retry failed, kept on this device:', err);
+  }
 }
 
 // JSON round-trip strips `undefined`, which Firestore rejects.
 function clean(value: unknown): unknown {
   return value === undefined ? null : JSON.parse(JSON.stringify(value));
-}
-
-/** Synchronous read of the local mirror. May be stale; never use it to decide a mint. */
-export function getCachedPrefs(): Record<string, unknown> {
-  return values(readLocal());
 }
 
 /**
@@ -82,7 +90,9 @@ export async function getPrefs(): Promise<Record<string, unknown> | null> {
   try {
     const { db, fs } = await getRemote();
     const snap = await fs.getDocFromServer(fs.doc(db, 'trips', code, 'profile', 'prefs'));
-    return values(mergeIntoLocal(snap.exists() ? sanitize(snap.data()) : {}, code));
+    const merged = mergeIntoLocal(snap.exists() ? sanitize(snap.data()) : {}, code);
+    await pushDirty(code);
+    return values(merged);
   } catch (err) {
     console.warn('[account-prefs] read failed:', err);
     return null;
@@ -97,18 +107,21 @@ function stampPast(prev: PrefEntry | undefined, value: unknown, actor: string): 
 }
 
 /**
- * Set one field: an explicit edit, so it always wins. Mirrors locally first, then in a transaction
- * stamps past the newer of the mirror's and the account's stamp (so a slow clock or an unread
- * account can't lose the edit) and writes only that field. Never rejects.
+ * Set one field: an explicit edit, so it always wins. Mirrors locally (synchronously, marked
+ * dirty) before touching the network, so a paused or offline edit stays on this device and
+ * `getPrefs`/`subscribePrefs` push it later. Then, in a transaction, stamps past the newer of the
+ * mirror's and the account's stamp (so a slow clock or an unread account can't lose the edit)
+ * and writes only that field. Never rejects.
  */
 export async function setPref(field: string, value: unknown): Promise<void> {
   if (!FIELD_RE.test(field)) return;
   const code = accountCode();
   if (!code) return;
+  const local = readLocal();
+  local[field] = { ...stampPast(local[field], value, LOCAL_ACTOR), dirty: true };
+  writeJson('local', STORAGE_KEYS.personPrefs, local);
   try {
-    const { uid: actor } = await getRemote();
-    mergeIntoLocal({ [field]: stampPast(readLocal()[field], value, actor) }, code);
-    const { db, fs } = await getRemote();
+    const { db, fs, uid: actor } = await getRemote();
     const ref = fs.doc(db, 'trips', code, 'profile', 'prefs');
     const entry = await fs.runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
@@ -139,11 +152,15 @@ export async function claimField<T>(field: string, value: T): Promise<T | null> 
       const snap = await tx.get(ref);
       const existing = snap.exists() ? sanitize(snap.data())[field] : undefined;
       if (existing && existing.v !== null) return existing;
+      const mine = readLocal()[field];
+      if (mine?.dirty) return mine; // an explicit edit is on its way; never claim over it
       const entry = stampPast(existing, value, uid);
       if (snap.exists()) tx.update(ref, { [field]: entry });
       else tx.set(ref, { [field]: entry });
       return entry;
     });
+    const mine = readLocal()[field];
+    if (mine?.dirty) return mine.v as T;
     mergeIntoLocal({ [field]: won }, code);
     return won.v as T;
   } catch (err) {
@@ -204,6 +221,7 @@ export function subscribePrefs(cb: (prefs: Record<string, unknown>) => void): ()
           if (snap.metadata.hasPendingWrites) return;
           if ((getSyncCode()?.trim() ?? '') !== code) return;
           cb(values(mergeIntoLocal(snap.exists() ? sanitize(snap.data()) : {}, code)));
+          void pushDirty(code);
         },
         (err) => console.warn('[account-prefs] stream error:', err),
       );

@@ -5846,6 +5846,14 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** Gating `isTripRemoteConfigured()` would also switch the outbox off, and edits made while paused would be lost on the next authoritative snapshot.
 
 **Changes if:** sync needs to pause per trip rather than per device.
+
+### D-599 · (issue #603, 2026-09-24) · Home currency is a per-person pref, not a budget field
+
+**Decision.** With an account, the display currency is `homeCurrency` in the account prefs doc (D-594), overlaid onto `useBudget().model`. It is seeded once from the shared `budget.homeCurrency` through `claimField`, never `setPref`. New clients stop writing the shared field, and `commit` pins it to its stored value, but it is never deleted: older clients still read it, and `flatten.ts` falls back to USD without it. Rates stay USD-anchored and `merge-budget` is unchanged. Without an account the pick stays in the budget model on this device. `setPref` now writes the local mirror, marked dirty, before `getRemote()`, so a paused or offline edit is kept; after each server read or snapshot, dirty fields still newer than the account's copy are pushed with their original stamp.
+
+**Why.** Two travellers sharing one budget each want totals in their own currency, and a shared field made one person's pick flip the other's display.
+
+**Changes if:** a total needs to be stored in the home currency rather than only displayed in it.
 ### D-596 · (issue #602, 2026-09-24) · The journal follows its author across their own devices
 
 **Decision.** Amends D-152 by owner decision. A trip's journal is mirrored to `trips/{code}/profile/journal_{tripId}`, where `code` is the account's User Token (key 28) and `tripId` the local pack id. No token, no remote at all. The doc is `{ entries: { [date]: row } }`, one field so the 32-field cap doesn't bound the trip length. Each date is last-write-wins on its HLC; a delete writes a tombstone `{ deletedAt, hlc }`. An explicit save or delete stamps past both the local and the stored stamp inside a transaction and writes only its own date. Per-date stamps sit in the new trip-scoped key 50. A push that fails stays dirty and retries, keeping its stamp, on the next snapshot or `online` event, where anything newer on the server wins. Entries from before a device had a stamp are stamped at their own `updatedAt` and pushed. Body text is capped at 4000 characters. Photos stay on the device that took them (key 16 and IndexedDB), so another device shows the entry without them. "Clear journal" in Settings stays local: the stamps are kept, so the account copy doesn't refill it. One listener per page, and only while a journal view is mounted. A retry never turns a missing local entry into a tombstone unless the delete was explicit (deletedAt in key 50). The listener binds to the token present at mount. A backup restore re-stamps each restored day, so the restore wins on the author's other devices.

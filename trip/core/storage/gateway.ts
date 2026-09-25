@@ -736,6 +736,8 @@ export function getSyncCode(): string | null {
 }
 
 export function setSyncCode(code: string): void {
+  // Per-person prefs (key 48) belong to one account; never carry them, dirty edits included, into another.
+  if ((getSyncCode()?.trim() ?? '') !== code.trim()) removeKey('local', STORAGE_KEYS.personPrefs);
   writeString('local', STORAGE_KEYS.syncCode, code);
 }
 

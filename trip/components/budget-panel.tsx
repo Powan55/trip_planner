@@ -112,8 +112,8 @@ export default function BudgetPanel() {
   };
 
   // the home-currency toggle + exchange-rate override moved to the Settings page
-  // (`components/settings-panel.tsx`). The write path is IDENTICAL (still `useBudget().commit`),
-  // so budget sync is unaffected — only the rendering location changed.
+  // (`components/settings-panel.tsx`). `model.homeCurrency` here is the person's own display
+  // currency when they have an account (D-599), overlaid by `useBudget`.
 
   // the reactive expense store. Its aggregate feeds the `rollUp` `spent` seam, so the
   // rollup now returns real spent/remaining. The store's CustomEvent makes this update live the

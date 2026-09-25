@@ -5,7 +5,7 @@ vi.mock('@/lib/firebase-config', () => ({ isRemoteConfigured: () => true }));
 
 type Data = Record<string, unknown>;
 const docs = new Map<string, { data: Data; ver: number }>();
-const device = { uid: 'uid-a' };
+const device = { uid: 'uid-a', down: false };
 
 // Optimistic transactions like Firestore's: a commit whose read doc changed underneath it retries.
 const fs = {
@@ -46,15 +46,16 @@ vi.mock('@/lib/firebase-remote', () => ({
   // The uid is captured when getRemote is called, so each simulated device stamps with its own.
   getRemote: () => {
     const uid = device.uid;
+    if (device.down) return Promise.reject(new Error('sync paused on this device'));
     return Promise.resolve({ db: {}, fs, uid });
   },
 }));
 
-import { setPref, claimField, getPrefs, getCachedPrefs, unionPref } from '@/lib/account-prefs-remote';
+import { setPref, claimField, getPrefs, getCachedPrefs, subscribePrefs, unionPref } from '@/lib/account-prefs-remote';
 import { syncPriorNames } from '@/lib/prior-names-sync';
 import { itemMatchesAuthor } from '@/lib/author-filter';
 import type { ItineraryItem } from '@/lib/trip-data';
-import { identityStore, setSyncCode, wipeAllTripData } from '@/core/storage/gateway';
+import { STORAGE_KEYS, identityStore, setSyncCode, wipeAllTripData } from '@/core/storage/gateway';
 import { compareHlc, parse } from '@/core/sync/hlc';
 
 const PATH = 'trips/tok-1/profile/prefs';
@@ -64,6 +65,7 @@ function asDevice(uid: string) {
   localStorage.clear();
   setSyncCode('tok-1');
   device.uid = uid;
+  device.down = false;
 }
 
 beforeEach(() => {
@@ -123,6 +125,77 @@ describe('account prefs', () => {
     expect(a).toBe(b);
     expect((docs.get(PATH)?.data.defaultShare as { v: unknown }).v).toBe(a);
     expect(await claimField('defaultShare', 'Z')).toBe(a);
+  });
+
+  it('a paused/offline edit stays on this device and is pushed, with its own stamp, on the next read', async () => {
+    vi.useFakeTimers({ now: 5_000_000 });
+    docs.set(PATH, { data: { homeCurrency: { v: 'USD', hlc: '000000001000000:000000:uid-old' } }, ver: 1 });
+    device.down = true;
+    await setPref('homeCurrency', 'JPY');
+    expect(getCachedPrefs().homeCurrency).toBe('JPY');
+    expect(field('homeCurrency')?.v).toBe('USD');
+    const localHlc = (JSON.parse(localStorage.getItem(STORAGE_KEYS.personPrefs)!).homeCurrency as { hlc: string }).hlc;
+
+    device.down = false;
+    expect((await getPrefs())?.homeCurrency).toBe('JPY');
+    expect(field('homeCurrency')).toEqual({ v: 'JPY', hlc: localHlc });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.personPrefs)!).homeCurrency.dirty).toBeUndefined();
+  });
+
+  it('a paused edit is pushed from the subscribe snapshot too', async () => {
+    device.down = true;
+    await setPref('homeCurrency', 'JPY');
+    device.down = false;
+    const orig = fs.onSnapshot;
+    fs.onSnapshot = ((_ref: unknown, next: (s: unknown) => void) => {
+      next({ metadata: { hasPendingWrites: false }, exists: () => false, data: () => undefined });
+      return () => {};
+    }) as typeof fs.onSnapshot;
+    const seen: unknown[] = [];
+    const stop = subscribePrefs((p) => seen.push(p.homeCurrency));
+    await vi.waitFor(() => expect(field('homeCurrency')?.v).toBe('JPY'));
+    expect(seen).toEqual(['JPY']);
+    stop();
+    fs.onSnapshot = orig;
+  });
+
+  it('a pending local edit loses to a newer edit made elsewhere, and is not re-pushed', async () => {
+    vi.useFakeTimers({ now: 5_000_000 });
+    device.down = true;
+    await setPref('homeCurrency', 'JPY');
+    docs.set(PATH, { data: { homeCurrency: { v: 'NPR', hlc: '000000009000000:000000:uid-b' } }, ver: 1 });
+    device.down = false;
+    expect((await getPrefs())?.homeCurrency).toBe('NPR');
+    expect(field('homeCurrency')?.v).toBe('NPR');
+    expect(docs.get(PATH)?.ver).toBe(1);
+  });
+
+  it('a claim never lands over a pending local edit', async () => {
+    device.down = true;
+    await setPref('homeCurrency', 'JPY');
+    device.down = false;
+    expect(await claimField('homeCurrency', 'USD')).toBe('JPY');
+    expect(field('homeCurrency')).toBeUndefined();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.personPrefs)!).homeCurrency).toMatchObject({ v: 'JPY', dirty: true });
+    await getPrefs();
+    expect(field('homeCurrency')?.v).toBe('JPY');
+  });
+
+  it("switching account drops the last account's pending edits instead of pushing them", async () => {
+    device.down = true;
+    await setPref('homeCurrency', 'JPY');
+    device.down = false;
+    setSyncCode('tok-2');
+    await getPrefs();
+    expect(docs.get('trips/tok-2/profile/prefs')).toBeUndefined();
+    expect(getCachedPrefs().homeCurrency).toBeUndefined();
+  });
+
+  it('claimField does not overwrite an existing personal value', async () => {
+    await setPref('homeCurrency', 'JPY');
+    asDevice('uid-b');
+    expect(await claimField('homeCurrency', 'USD')).toBe('JPY');
+    expect(getCachedPrefs().homeCurrency).toBe('JPY');
   });
 
   it('sign-out wipes the local mirror', async () => {
