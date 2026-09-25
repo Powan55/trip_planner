@@ -52,9 +52,9 @@ import { expensesSyncPort, expensesStoragePort } from '@/lib/expenses-ports';
 import { budgetSyncPort, budgetStoragePort } from '@/lib/budget-ports';
 import { docsSyncPort, docsStoragePort } from '@/lib/docs-ports';
 import { placesSyncPort, myPlacesStoragePort } from '@/lib/places-ports';
-import { sanitizeEntries } from '@/core/journal/model';
+import { sanitizeEntries, type JournalEntry } from '@/core/journal/model';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
-import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
+import { getTripId, isRemoteConfigured, isTripRemoteConfigured } from '@/lib/firebase-config';
 import { normalizeModel } from '@/core/budget/model';
 import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
@@ -198,7 +198,13 @@ function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleane
 const DOMAINS = {
   journal: {
     read: () => journalStore.get<unknown>(ABSENT),
-    write: (v) => journalStore.set(v),
+    write: (v) => {
+      journalStore.set(v);
+      // Re-stamp each restored day so the restore wins on the author's other devices (D-596).
+      if (!isRemoteConfigured()) return;
+      const dates = (v as JournalEntry[]).map((e) => e.date);
+      void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
+    },
     validate: (v) => (Array.isArray(v) ? sanitizeEntries(v) : null),
   },
   expenses: {
@@ -282,7 +288,9 @@ type _ExhaustiveBackupDomains = [TripScopedSlot] extends
     // same bucket as weatherCache/syncOutbox above.
     | 'backupPromptLeg'
     // D-536 — the concierge thread stays on the device that had it.
-    | 'conciergeChat',
+    | 'conciergeChat'
+    // D-596 — the journal's per-entry sync stamps: sync machinery, like syncOutbox.
+    | 'journalSync',
   ]
   ? true
   : never;

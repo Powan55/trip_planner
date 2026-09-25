@@ -118,6 +118,17 @@ describe('SignOutConfirm — a stored key is shown before the wipe destroys it',
     expect(window.localStorage.getItem(NAME_KEY)).toBeNull();
   });
 
+  it('the unsynced warning does not follow onto the key step', async () => {
+    window.localStorage.setItem(
+      'nepal_japan_sync_outbox',
+      JSON.stringify({ version: 1, dirty: { budget: ['model'] } }),
+    );
+    await mount();
+    expect(at('t-unsynced')).not.toBeNull();
+    await click('t-confirm');
+    expect(at('t-unsynced')).toBeNull();
+  });
+
   it('cancelling from the key step leaves every byte intact', async () => {
     await mount();
     await click('t-confirm');
@@ -221,5 +232,44 @@ describe('SignOutConfirm — no key stored', () => {
     const copy = at('t-dialog')!.textContent ?? '';
     expect(copy).toContain('There is no key stored here');
     expect(copy).not.toContain('Your key gets you back');
+  });
+});
+
+// #623 — the wipe drops any queued-but-unsynced edit; the dialog must say so before it happens.
+describe('SignOutConfirm — unsynced-edit warning', () => {
+  const OUTBOX_KEY = 'nepal_japan_sync_outbox';
+
+  it('a dirty outbox shows the count in the dialog description', async () => {
+    window.localStorage.setItem(
+      OUTBOX_KEY,
+      JSON.stringify({ version: 1, dirty: { itinerary: ['2026-01-01', '2026-01-02'] } }),
+    );
+    await mount();
+    expect(at(`t-unsynced`)!.textContent).toBe('2 changes on this device haven\'t synced yet and will be lost.');
+  });
+
+  it('a single dirty chunk uses the singular form', async () => {
+    window.localStorage.setItem(OUTBOX_KEY, JSON.stringify({ version: 1, dirty: { budget: ['model'] } }));
+    await mount();
+    expect(at(`t-unsynced`)!.textContent).toBe('1 change on this device hasn\'t synced yet and will be lost.');
+  });
+
+  it('a clean outbox shows no warning', async () => {
+    await mount();
+    expect(at('t-unsynced')).toBeNull();
+  });
+
+  it('sums the default pack AND a known custom trip\'s outbox', async () => {
+    window.localStorage.setItem(OUTBOX_KEY, JSON.stringify({ version: 1, dirty: { budget: ['model'] } }));
+    window.localStorage.setItem(
+      'tripPlannerKnownTrips',
+      JSON.stringify([{ id: 'trip-x', name: 'Other trip', joinedAt: 1 }]),
+    );
+    window.localStorage.setItem(
+      'trip:trip-x:syncOutbox',
+      JSON.stringify({ version: 1, dirty: { expenses: ['leg-1'] } }),
+    );
+    await mount();
+    expect(at('t-unsynced')!.textContent).toBe('2 changes on this device haven\'t synced yet and will be lost.');
   });
 });

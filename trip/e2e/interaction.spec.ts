@@ -360,16 +360,19 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
     const fab = page.getByTestId('quick-add-fab');
     await expect(fab).toBeVisible();
 
-    // Opening the custom dialog sets body[data-dialog-open]='1'; the FAB observes
-    // that and unmounts itself (seam 2) so it never floats over the scrim.
+    // Opening the custom dialog sets body[data-dialog-open]='1'; the FAB observes that and
+    // goes opacity-0 + pointer-events-none (seam 2), but stays MOUNTED (#594): quick-add-host.tsx
+    // refocuses this element on dialog close, and a disconnected node would swallow that
+    // .focus() call, dropping focus to <body>.
     await fab.click();
     await expect(page.getByTestId('add-item-dialog')).toBeVisible();
-    await expect(page.getByTestId('quick-add-fab')).toHaveCount(0);
+    await expect(fab).toHaveCSS('opacity', '0');
+    await expect(fab).toHaveCSS('pointer-events', 'none');
 
     // Closing the dialog restores the FAB.
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('add-item-dialog')).toHaveCount(0);
-    await expect(page.getByTestId('quick-add-fab')).toBeVisible();
+    await expect(fab).toBeVisible();
   });
 
   /**
