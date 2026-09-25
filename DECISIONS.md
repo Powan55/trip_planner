@@ -5823,6 +5823,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** A stale push from one tab could ack a chunk after another tab's newer edit was enqueued; if that edit's push then failed, the chunk was no longer dirty and the first snapshot overwrote it on reload. An older build in another tab drops `seq` when it writes the slot; the counter then reads 0 and a newer build's in-flight ack no-ops (the chunk stays dirty and retries), which is the safe direction.
 
+### D-593 · (issue #599, 2026-09-24) · Holding a trip id lets a signed-in device add itself as a member
+
+**Decision.** firestore.rules gains one update branch, `selfJoinsAsMember`: on a rostered trip, a signed-in non-member may add exactly its own uid as `member` and change nothing else. The profile carve-outs and the 200-entry roster cap are unchanged.
+
+**Why and the cost.** Opening a link and signing in should be enough to join. That makes the trip id the whole capability: a removed member can add itself back, each anonymous uid (one per device or cleared browser) takes a roster slot until the cap fills, and the only real revocation is a new trip id. Publish these rules only after the client self-join (D-595) ships, and only after confirming anonymous auth is enabled in the console, since the rules publish step still reports success without doing anything (#263).
 ### D-590 · (issues #581, #582, 2026-09-24) · Reload a tab when another tab changes the active trip or identity
 
 **Decision.** `useCrossTabReload` reloads the tab on a `storage` event for the active-trip pointer, the default share, a token going to or from null (sign-in/out), or `localStorage.clear()`. A token rename keeps it non-null and does not reload. While reloading, the tab is marked retiring, and both draft flushes (`useDraftOnBlur` and the docs checklist note) skip their pagehide/unmount commit.
