@@ -478,7 +478,7 @@ export default function TripsHub() {
                         maxLength={40}
                         autoFocus
                         autoComplete="off"
-                        className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                        className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                       />
                       <button
                         type="submit"
@@ -575,7 +575,7 @@ export default function TripsHub() {
                             onFocus={(e) => e.currentTarget.select()}
                             aria-label={`Value to copy for ${t.name}`}
                             data-testid={`trips-hub-copy-fallback-${i}`}
-                            className="min-h-tap w-full min-w-0 break-all rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-sm text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                            className="min-h-tap w-full min-w-0 break-all rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-sm text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                           />
                         </div>
                       )}
@@ -694,7 +694,7 @@ export default function TripsHub() {
                 maxLength={40}
                 required
                 autoComplete="off"
-                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
             </div>
 
@@ -713,7 +713,7 @@ export default function TripsHub() {
                     setCreateStart(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -733,7 +733,7 @@ export default function TripsHub() {
                     setCreateEnd(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 />
               </div>
             </div>
@@ -758,7 +758,7 @@ export default function TripsHub() {
                 placeholder="e.g. Kochi, Munnar, Alleppey"
                 required
                 autoComplete="off"
-                className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
             </div>
 
@@ -826,7 +826,7 @@ export default function TripsHub() {
               spellCheck={false}
               aria-invalid={joinError !== null || undefined}
               aria-describedby={joinError ? 'trips-hub-join-error' : undefined}
-              className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             />
             <div className="flex flex-col gap-2 sm:flex-row">
               <label htmlFor="trips-hub-join-name" className="sr-only">
@@ -840,7 +840,7 @@ export default function TripsHub() {
                 placeholder="Shared trip"
                 maxLength={40}
                 autoComplete="off"
-                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
               <button
                 type="submit"
