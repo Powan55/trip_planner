@@ -10,6 +10,9 @@ type Data = Record<string, unknown>;
 const docs = new Map<string, { data: Data; ver: number }>();
 const net = { online: true };
 let listener: ((snap: unknown) => void) | null = null;
+// onGet: runs mid-transaction. interleave: another commit lands, then the body re-runs (a Firestore
+// retry). afterCommit: runs after the write, before push() returns.
+const hooks: { onGet?: () => void; interleave?: () => Promise<void>; afterCommit?: () => void } = {};
 
 function setPath(data: Data, path: string, value: unknown): Data {
   const [head, ...rest] = path.split('.');
@@ -34,7 +37,12 @@ const fs = {
     if (!net.online) throw new Error('unavailable');
     const writes: (() => void)[] = [];
     const tx = {
-      get: async (ref: { path: string }) => snapOf(ref.path),
+      get: async (ref: { path: string }) => {
+        const snap = snapOf(ref.path);
+        hooks.onGet?.();
+        hooks.onGet = undefined;
+        return snap;
+      },
       set: (ref: { path: string }, data: Data) =>
         writes.push(() => docs.set(ref.path, { data: structuredClone(data), ver: 1 })),
       update: (ref: { path: string }, data: Data) =>
@@ -45,8 +53,18 @@ const fs = {
           docs.set(ref.path, { data: next, ver: d.ver + 1 });
         }),
     };
-    const out = await fn(tx);
+    let out = await fn(tx);
+    const race = hooks.interleave;
+    hooks.interleave = undefined;
+    if (race) {
+      writes.length = 0;
+      await race();
+      out = await fn(tx);
+    }
     writes.forEach((w) => w());
+    const after = hooks.afterCommit;
+    hooks.afterCommit = undefined;
+    after?.();
     return out;
   },
 };
@@ -55,8 +73,9 @@ vi.mock('@/lib/firebase-remote', () => ({ getRemote: () => getRemote() }));
 
 import { pushJournalEntry, retainJournalSync } from '@/lib/journal-remote';
 import { loadJournal, saveJournal } from '@/core/journal/storage';
-import { getEntry, upsertEntry, removeEntry } from '@/core/journal/model';
-import { STORAGE_KEYS, identityStore, setSyncCode } from '@/core/storage/gateway';
+import { JOURNAL_TEXT_MAX, getEntry, upsertEntry, removeEntry } from '@/core/journal/model';
+import { STORAGE_KEYS, identityStore, setActiveTripId, setSyncCode } from '@/core/storage/gateway';
+import { signOut } from '@/lib/token-auth';
 import { exportTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { makeInMemoryBlobStore } from '@/core/photos/blob-store';
 
@@ -109,6 +128,7 @@ beforeEach(() => {
   devices.clear();
   current = '';
   net.online = true;
+  hooks.onGet = hooks.interleave = hooks.afterCommit = undefined;
   getRemote.mockClear();
   vi.useFakeTimers({ toFake: ['Date'], now: 1_000_000 });
 });
@@ -203,6 +223,53 @@ describe('journal account sync', () => {
     expect((await importTripBackup(file, makeInMemoryBlobStore())).ok).toBe(true);
     await settle();
     expect((docs.get(PATH)!.data.entries as Data)[DAY]).toMatchObject({ text: 'before the backup' });
+  });
+
+  // #630
+  it('a push never shortens a long local entry', async () => {
+    asDevice('A');
+    await edit('x'.repeat(5000));
+    expect(getEntry(loadJournal(), DAY)?.text).toHaveLength(5000);
+    expect(((docs.get(PATH)!.data.entries as Data)[DAY] as { text: string }).text).toHaveLength(JOURNAL_TEXT_MAX);
+    await sync();
+    expect(getEntry(loadJournal(), DAY)?.text).toHaveLength(5000);
+  });
+
+  it('an echo of our own capped row keeps the full local text', async () => {
+    asDevice('A');
+    const release = retainJournalSync();
+    await settle();
+    hooks.afterCommit = () => listener?.(snapOf(PATH));
+    await edit('y'.repeat(5000));
+    release();
+    expect(getEntry(loadJournal(), DAY)?.text).toHaveLength(5000);
+  });
+
+  it('a retried transaction never overwrites a newer edit', async () => {
+    asDevice('A');
+    hooks.interleave = () => edit('second');
+    await edit('first');
+    expect((docs.get(PATH)!.data.entries as Data)[DAY]).toMatchObject({ text: 'second' });
+    await sync();
+    expect(getEntry(loadJournal(), DAY)?.text).toBe('second');
+  });
+
+  it('a trip switch during the transaction writes nothing', async () => {
+    asDevice('A');
+    await edit('first');
+    hooks.onGet = () => setActiveTripId('trip-x');
+    await edit('second');
+    expect((docs.get(PATH)!.data.entries as Data)[DAY]).toMatchObject({ text: 'first' });
+    expect([...docs.keys()]).toEqual([PATH]);
+  });
+
+  it('a sign-out mid-push writes no tombstone', async () => {
+    asDevice('A');
+    await edit('first');
+    hooks.onGet = () => signOut();
+    await edit('second');
+    expect((docs.get(PATH)!.data.entries as Data)[DAY]).not.toHaveProperty('deletedAt');
+    expect((docs.get(PATH)!.data.entries as Data)[DAY]).toMatchObject({ text: 'first' });
   });
 
   it('no sync code makes zero remote calls', async () => {

@@ -554,9 +554,16 @@ export function replaceLocalPlanCopy(): string {
  * the active one, so the warning shown before that wipe sums `listKnownTrips()` the same way. */
 export function unsyncedEditCount(): number {
   return listKnownTrips().reduce(
-    (sum, t) => sum + SYNC_DOMAINS.reduce((s, d) => s + outboxDirty(d, t.id).length, 0),
+    (sum, t) => sum + SYNC_DOMAINS.reduce((s, d) => s + outboxDirty(d, t.id).length, 0) + journalDirty(t.id),
     0,
   );
+}
+
+/** Journal days waiting to push (#631). They queue in key 50, not the outbox, and the wipe drops them too. */
+function journalDirty(id: string): number {
+  const meta = readJson<unknown>('local', keyForTrip(id, 'journalSync'), null);
+  if (typeof meta !== 'object' || meta === null) return 0;
+  return Object.values(meta).filter((m) => (m as { dirty?: unknown } | null)?.dirty === true).length;
 }
 
 /**
