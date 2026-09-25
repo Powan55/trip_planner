@@ -5854,3 +5854,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
 
 **Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
+
+### D-601 · (issue #605, 2026-09-24) · Prior names follow the account and only ever grow
+
+**Decision.** The names someone renamed away from live in the account prefs doc as one field, `priorNames`, as well as locally (key 30). On boot, sign-in and reconnect, and after a claim, `unionPref` merges the local list into the account inside a transaction and the device adopts the union. Nothing is ever removed; the account list stops accepting new names at 50. The login placeholder is never synced unless it is explicitly claimed.
+
+**Why.** "My edits" on a second device missed items stamped with a name only the first device knew. Per-field last-write-wins would drop one of two concurrent additions.
+
+**Trade-off.** A name added past the cap stays on its own device. Removing a name needs a new rule.
