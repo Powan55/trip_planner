@@ -8,9 +8,12 @@ import PageHero from '@/components/page-hero';
 // module); this Server Component page exports metadata./ skeleton kept.
 import { MapSection } from './sections';
 
+// Server Component: getActiveTrip() resolves off a localStorage pointer, always DEFAULT_TRIP_ID
+// at build/SSR time (core/storage/gateway.ts), so a per-trip title here would just be wrong on
+// custom trips rather than dynamic. Kept trip-neutral instead.
 export const metadata = {
-  title: 'Map · Nepal × Japan Journey',
-  description: 'Interactive trip map — attractions, food, photo spots, and hotels across Kathmandu and Japan, filterable by category.',
+  title: 'Map · Trip Journey',
+  description: 'Interactive trip map — attractions, food, photo spots, and hotels across your destinations, filterable by category.',
 };
 
 export default function MapPage() {
@@ -22,6 +25,9 @@ export default function MapPage() {
         variant="map"
         title="Trip Map"
         eyebrow="Explore"
+        // Visually baselined (e2e/visual.spec.ts "map page hero", 3 viewports, Windows-rendered,
+        // CI-refreshed only) — kept literal rather than trip-neutral so the rendered header stays
+        // pixel-identical. The (non-rendered) metadata above is neutral; this text is not.
         subtitle="Attractions, food, photo spots, and hotels across Kathmandu and Japan — filter by category or overlay your own itinerary."
       />
       <MapSection />

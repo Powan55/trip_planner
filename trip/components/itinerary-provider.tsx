@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useItinerary, type ItineraryStore } from '@/hooks/use-itinerary';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { useDomainSync } from '@/hooks/use-domain-sync';
+import { useCrossTabReload } from '@/hooks/use-cross-tab-reload';
 import { isRemoteConfigured, getTripId } from '@/lib/firebase-config';
 import {
   getActiveTraveler,
@@ -25,6 +26,7 @@ import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budge
 import { docsSyncPort, docsOutboxSync, docsStoragePort } from '@/lib/docs-ports';
 import { placesSyncPort, placesOutboxSync, myPlacesStoragePort } from '@/lib/places-ports';
 import { withBasePath } from '@/lib/utils';
+import { syncPriorNames } from '@/lib/prior-names-sync';
 import { toast } from 'sonner';
 import TokenGate from '@/components/token-gate';
 import PresenceBar from '@/components/presence-bar';
@@ -387,6 +389,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   useDomainSync(budgetOutboxSync, budgetStoragePort, budgetSyncPort);
   useDomainSync(docsOutboxSync, docsStoragePort, docsSyncPort);
   useDomainSync(placesOutboxSync, myPlacesStoragePort, placesSyncPort);
+  useCrossTabReload();
 
   // TRIP-META SELF-HEAL — see `runTripMetaSelfHeal` (extracted so it has a runnable unit check
   // without mounting the whole provider tree, same as `createSyncCodeTripListSync` above).
@@ -424,6 +427,18 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // post-login "Traveler" nudge only where the placeholder is the final answer. See
   // `runAccountIdentitySync`; it owns the (previously unconditional) `consumeNameHint` call.
   useEffect(() => watchAccountIdentity(), []);
+
+  // D-601: prior names follow the account. On boot, on sign-in/rename, and on reconnect.
+  useEffect(() => {
+    const run = () => void syncPriorNames();
+    run();
+    window.addEventListener(IDENTITY_CHANGED_EVENT, run);
+    window.addEventListener('online', run);
+    return () => {
+      window.removeEventListener(IDENTITY_CHANGED_EVENT, run);
+      window.removeEventListener('online', run);
+    };
+  }, []);
 
   // Gated presence HEARTBEAT. Mirrors the remote-subscribe effect above and
   // its dormant/guest gate: start the per-traveler heartbeat ONLY when

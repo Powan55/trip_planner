@@ -57,6 +57,10 @@ export type JournalPatch = { text?: string; mood?: Mood | null; highlight?: stri
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Max body length. The account copy holds a whole trip in one doc, and Firestore caps a doc at
+ * 1 MiB: 4000 chars is ≤ 12 KB per day even in 3-byte scripts, so ~80 days fit. */
+export const JOURNAL_TEXT_MAX = 4000;
+
 /** Type guard: the value is one of the 4 canonical moods. */
 export function isMood(v: unknown): v is Mood {
   return typeof v === 'string' && (MOODS as readonly string[]).includes(v);

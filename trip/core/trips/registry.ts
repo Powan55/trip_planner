@@ -549,6 +549,16 @@ export function replaceLocalPlanCopy(): string {
   return `${REPLACE_LOCAL_PLAN_COPY} ${n} unsynced ${n === 1 ? 'edit' : 'edits'} on this device will be lost.`;
 }
 
+/** Total unsynced edits across every pack this browser knows (#623): sign-out's
+ * `wipeAllTripData()` clears the default pack's outbox AND every `trip:{id}:syncOutbox`, not just
+ * the active one, so the warning shown before that wipe sums `listKnownTrips()` the same way. */
+export function unsyncedEditCount(): number {
+  return listKnownTrips().reduce(
+    (sum, t) => sum + SYNC_DOMAINS.reduce((s, d) => s + outboxDirty(d, t.id).length, 0),
+    0,
+  );
+}
+
 /**
  * Tombstone cap. The prior "grows unbounded" debt note proposed a purge pass keyed on
  * a device set this app doesn't track; a fixed cap needs none. Mirrors `PLACES_CAP`'s exact idiom

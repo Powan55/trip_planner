@@ -11,7 +11,9 @@ import DocsChecklist from '@/components/docs-checklist';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { onNote } = vi.hoisted(() => ({ onNote: vi.fn() }));
+const { onNote, retiring } = vi.hoisted(() => ({ onNote: vi.fn(), retiring: { value: false } }));
+
+vi.mock('@/hooks/use-cross-tab-reload', () => ({ isTabRetiring: () => retiring.value }));
 
 vi.mock('@/hooks/use-docs', () => ({
   useDocs: () => ({
@@ -51,6 +53,7 @@ function type(value: string) {
 
 beforeEach(() => {
   onNote.mockClear();
+  retiring.value = false;
 });
 
 afterEach(async () => {
@@ -93,6 +96,19 @@ describe('docs checklist note — flush on hide/unmount, not just blur', () => {
 
     expect(onNote).toHaveBeenCalledTimes(1);
     expect(onNote).toHaveBeenCalledWith('passport', 'visa ref 42');
+  });
+
+  it('a retiring tab skips the pagehide and unmount flush (#581)', async () => {
+    await mount();
+    type('old trip note');
+    retiring.value = true;
+
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    await act(async () => root.unmount());
+
+    expect(onNote).not.toHaveBeenCalled();
   });
 
   it('does not commit when the draft is unchanged', async () => {

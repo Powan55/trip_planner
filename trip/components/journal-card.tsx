@@ -7,7 +7,7 @@ import { useJournal } from '@/hooks/use-journal';
 import { formatDateLong } from '@/lib/trip-data';
 import { showUndoToast } from '@/lib/undo-toast';
 import PhotoAttach from '@/components/photo-attach';
-import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
+import { JOURNAL_TEXT_MAX, MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
 
 /**
  * —: the in-trip per-day TEXT journal card.
@@ -413,6 +413,7 @@ function JournalEditor({
           id="journal-text-input"
           value={text}
           onChange={(e) => onTextChange(e.target.value)}
+          maxLength={JOURNAL_TEXT_MAX}
           rows={4}
           placeholder="What happened today? How did it feel?"
           data-testid="journal-text-input"

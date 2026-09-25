@@ -113,8 +113,7 @@ export default function QuickAddFab() {
     window.dispatchEvent(new CustomEvent('quickadd:open', { detail: { date } }));
   };
 
-  if (dialogOpen || isTravelRoute(pathname) || isPlannerRoute(pathname) || isNonAddRoute(pathname))
-    return null;
+  if (isTravelRoute(pathname) || isPlannerRoute(pathname) || isNonAddRoute(pathname)) return null;
 
   return (
     <button
@@ -122,10 +121,19 @@ export default function QuickAddFab() {
       data-testid="quick-add-fab"
       onClick={handleClick}
       aria-label="Add to plan"
+      // While a dialog is open (seam 2) we keep the button MOUNTED but visually hidden instead
+      // of unmounting: quick-add-host.tsx refocuses this element on dialog close, and a
+      // disconnected node silently swallows that .focus() call, dropping focus to <body>. No
+      // aria-hidden/tabIndex here — the refocus fires in AnimatePresence's onExitComplete,
+      // before the dialog unmounts, so an aria-hidden FAB would receive focus while still
+      // hidden from assistive tech (axe aria-hidden-focus). Not reachable by Tab regardless:
+      // the open dialog is aria-modal with its own Tab trap. `opacity-0`, not `invisible`
+      // (visibility:hidden) — visibility:hidden makes an element unfocusable in Chromium,
+      // which would reproduce the exact bug this fixes.
       // NO scale(), either direction. A press collapses the 3px lip and translates down by
       // the same 3px, so the control moves rather than swelling — and the focus ring goes
       // OUTWARD, because a ring drawn inside this accent fill measures 1.00:1, i.e. no ring.
-      className="md:hidden fixed right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-r1 bg-[color:hsl(var(--accent))] text-[color:var(--on-accent)] border-b-[3px] border-b-[color:var(--lip-volt)] outline-none transition-all [transition-duration:var(--duration-press)] hover:brightness-110 active:translate-y-[3px] active:border-b-0 active:mb-[3px] focus-visible:ring-2 focus-visible:ring-[color:var(--text-hi)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+      className={`md:hidden fixed right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-r1 bg-[color:hsl(var(--accent))] text-[color:var(--on-accent)] border-b-[3px] border-b-[color:var(--lip-volt)] outline-none transition-all [transition-duration:var(--duration-press)] hover:brightness-110 active:translate-y-[3px] active:border-b-0 active:mb-[3px] focus-visible:ring-2 focus-visible:ring-[color:var(--text-hi)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none${dialogOpen ? ' opacity-0 pointer-events-none' : ''}`}
       // Float one gap above the tab bar; both offsets scale with the device safe-area.
       style={{ bottom: 'calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 1rem)' }}
     >
