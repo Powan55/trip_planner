@@ -1097,6 +1097,13 @@ export const identityStore = {
     if (list.includes(prev)) return;
     writeJson('local', STORAGE_KEYS.priorNames, [...list, prev]);
   },
+  /** Adopt names synced from the account (D-601). Union only; returns whether anything was added. */
+  mergePriorNames(names: readonly string[]): boolean {
+    const list = identityStore.getPriorNames();
+    const add = names.filter((n, i) => n.trim() && !list.includes(n) && names.indexOf(n) === i);
+    if (add.length) writeJson('local', STORAGE_KEYS.priorNames, [...list, ...add]);
+    return add.length > 0;
+  },
   /**
    * Clear token, name AND the prior-name history (sign-out). Order is immaterial — all
    * best-effort. The history MUST go with the identity: leaving it behind would let the next

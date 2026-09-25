@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
+import { syncPriorNames } from '@/lib/prior-names-sync';
 import {
   getActiveTripId,
   DEFAULT_TRIP_ID,
@@ -973,6 +974,7 @@ function ClaimOldName({ current }: { current: string }) {
           // the store scans. This is the-C mechanism, reused — it is what keeps FUTURE
           // filtering correct for anything the rewrite cannot reach (items that sync in later).
           identityStore.addPriorName(from);
+          void syncPriorNames(from);
           // Three small store calls, one per store — each commits once and returns what IT
           // changed. The sum is what the preview promised.
           setClaimed(claimAuthorship(from) + claimExpenses(from) + claimDocs(from));
