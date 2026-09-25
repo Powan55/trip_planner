@@ -33,7 +33,7 @@ import { cityCoord } from '@/lib/city-coords';
 import { haversineKm } from '@/lib/day-anchor';
 import { countryLabelForDate } from '@/lib/leg-label';
 import { getActiveTraveler } from '@/lib/token-auth';
-import { getNowAtTrip, getTodayInTrip } from '@/lib/trip-now';
+import { getNowAtTrip, getTodayInTrip, isClockOverridden } from '@/lib/trip-now';
 
 /** A place the visit record can hold: a display city name and its day's country LABEL. */
 export interface VisitPlace {
@@ -151,6 +151,10 @@ const POSITION_OPTIONS: PositionOptions = {
  */
 export function runVisitAutocount(): void {
   try {
+    // #590: the `?today=` demo clock is a DISPLAY override, not a real day. Letting it drive this
+    // writer would accrue lifetime visits for a trip that never happened.
+    if (isClockOverridden()) return;
+
     // Behind the front door. A visitor sitting at the sign-in wall sees no app content, so they
     // must not accrue visits and — much more importantly — must not be shown a location prompt.
     if (getActiveTraveler() === null) return;

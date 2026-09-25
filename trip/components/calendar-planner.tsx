@@ -47,7 +47,7 @@ import { buildMapsPlaceUrl } from '@/lib/maps-link';
 import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
-import { effectiveStartMinutes, offsetForCountry } from '@/core/dates';
+import { effectiveDurationMinutes, effectiveStartMinutes, offsetForCountry } from '@/core/dates';
 import { unplannedGapsByItemId } from '@/lib/unplanned-gap';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
@@ -189,7 +189,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
   // an edit that never touched the time field.
   const [startMinutes, setStartMinutes] = useState<number | undefined>(() => (item ? effectiveStartMinutes(item) : undefined));
   const [timeTouched, setTimeTouched] = useState(false);
-  const [durationMinutes, setDurationMinutesState] = useState<number | undefined>(item?.durationMinutes);
+  const [durationMinutes, setDurationMinutesState] = useState<number | undefined>(() => (item ? effectiveDurationMinutes(item) : undefined));
   const [durationTouched, setDurationTouched] = useState(false);
   const [location, setLocation] = useState(item?.location ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
