@@ -5,7 +5,7 @@ import { useItinerary, type ItineraryStore } from '@/hooks/use-itinerary';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { useDomainSync } from '@/hooks/use-domain-sync';
 import { useCrossTabReload } from '@/hooks/use-cross-tab-reload';
-import { isRemoteConfigured } from '@/lib/firebase-config';
+import { isRemoteConfigured, getTripId } from '@/lib/firebase-config';
 import {
   getActiveTraveler,
   signIn,
@@ -315,7 +315,7 @@ export function runTripMetaSelfHeal(): () => void {
 }
 
 /**
- * #10 — MEMBERSHIP ENROLMENT, once per page load, for the active non-default trip.
+ * #10 — MEMBERSHIP ENROLMENT, once per page load, for the active trip's remote id.
  *
  * `ensureMembership` reads the trip doc and adds THIS device's uid to its `members` map if the
  * trip has one and this device is not in it. A trip with no usable roster is left alone — #477:
@@ -323,9 +323,9 @@ export function runTripMetaSelfHeal(): () => void {
  * costs one server read on every load after the first, and nothing else — the already-enrolled
  * and no-roster branches both write nothing.
  *
- * Gated exactly like the domain sync effects: configured build ∧ a non-default (non-sample) trip
- * ∧ an identified traveler. A guest never enrols, and the local-only sample has no members map at
- * all. Firebase is reached only through the dynamic import, after every gate.
+ * Gated exactly like the domain sync effects: configured build ∧ a remote trip id (`getTripId()`,
+ * so a shared default pack enrols too; D-595) ∧ an identified traveler. A guest never enrols, and
+ * the unshared sample has no remote id at all. Firebase is reached only through the dynamic import, after every gate.
  *
  * THE REFUSAL PATH IS THE PRODUCT, NOT AN ERROR. A trip that is member-gated and does not list
  * this device refuses the READ, so `ensureMembership` dispatches `trip:access-pending` rather than
@@ -343,8 +343,8 @@ export function runTripMetaSelfHeal(): () => void {
 export function runTripMembership(): () => void {
   const noop = () => {};
   if (!isRemoteConfigured()) return noop;
-  const activeId = getActiveTripId();
-  if (activeId === DEFAULT_TRIP_ID) return noop; // the sample is local-only — no members map
+  const tripId = getTripId();
+  if (!tripId) return noop; // the unshared sample is local-only — no members map
   if (!getActiveTraveler()) return noop; // guest / signed-out never enrols
 
   const onAccessPending = () => {
@@ -357,7 +357,11 @@ export function runTripMembership(): () => void {
   window.addEventListener('trip:access-pending', onAccessPending);
 
   void import('@/lib/trips-remote')
-    .then(({ ensureMembership }) => ensureMembership(activeId))
+    .then(({ ensureMembership }) => ensureMembership(tripId))
+    // D-595: listeners refused before the self-join stay dead, so restart them with one reload.
+    .then((r) => {
+      if (r === 'joined') window.location.reload();
+    })
     .catch((err) => {
       console.warn('[itinerary-provider] membership enrolment unavailable:', err);
     });
