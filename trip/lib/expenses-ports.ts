@@ -56,7 +56,7 @@ export const expensesSyncPort: SyncPort<Expense[]> = {
   // still pulls NO firebase onto the hot path. Never throws to the commit caller.
   push: withOutbox(expensesChunkSync),
 
-  subscribe() {
+  subscribe(onDead?: () => void) {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.
     if (!isRemoteConfigured()) return () => {};
 
@@ -70,6 +70,7 @@ export const expensesSyncPort: SyncPort<Expense[]> = {
       })
       .catch((err) => {
         console.warn('[expenses] remote subscribe unavailable:', err);
+        if (!cancelled) onDead?.();
       });
 
     return () => {

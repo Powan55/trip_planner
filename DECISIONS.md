@@ -5822,6 +5822,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** A stale push from one tab could ack a chunk after another tab's newer edit was enqueued; if that edit's push then failed, the chunk was no longer dirty and the first snapshot overwrote it on reload. An older build in another tab drops `seq` when it writes the slot; the counter then reads 0 and a newer build's in-flight ack no-ops (the chunk stays dirty and retries), which is the safe direction.
 
+### D-591 · (issue #583, 2026-09-24) · A failed domain subscribe is reopened on `online` or tab return; a healthy one never is
+
+**Decision.** `SyncPort.subscribe` takes an optional `onDead` callback, fired when the dynamic import of the remote module fails and the subscription was not already torn down. `useDomainSync` then drops its handle, and the next `online` or visible `visibilitychange` flushes and reopens it. The handle is cleared only if it is still the one that died, so a late failure from a torn-down subscription cannot clear a newer one. `onDead` only covers a failed dynamic import: an `onSnapshot` error (e.g. permission-denied) still leaves the listener dead and is not reopened; that fix belongs in the `*-remote.ts` modules and is deferred. The captive-portal case (`armOnlineRetry` waiting on an `online` event that never fires) is deferred.
+
+**Why.** Resubscribing on every focus would re-read every doc across five domains on each tab return, against a 50k reads/day free quota. Keeping a healthy subscription costs no extra reads, so only a dead one is reopened.
 ### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
 
 **Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
