@@ -6,7 +6,7 @@ import DefaultTripOnly from '@/components/default-trip-only';
 // itself is untouched — only WHERE it's mounted changed.
 // (Next 15): the ssr:false FlightsSection island lives in./sections (client
 // module); this Server Component page exports metadata./ skeleton kept.
-import { FlightsSection } from './sections';
+import { FlightsHeroSubtitle, FlightsSection } from './sections';
 
 export const metadata = {
   title: 'Flights · Nepal × Japan Journey',
@@ -22,7 +22,7 @@ export default function FlightsPage() {
         variant="flights"
         title="Flights"
         eyebrow="Bookings"
-        subtitle="Every leg of the journey — flights, layovers, and hotel stays across Nepal and Japan."
+        subtitle={<FlightsHeroSubtitle />}
       />
       <DefaultTripOnly>
         <FlightsSection />

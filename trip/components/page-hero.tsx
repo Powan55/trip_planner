@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import OptimizedImage from '@/components/optimized-image';
 import { cn } from '@/lib/utils';
 
@@ -92,7 +92,7 @@ interface PageHeroProps {
   variant: HeroVariant;
   title: string;
   eyebrow?: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   /** Heading level for the title. Default 'h1'. Use 'h2' on pages that already own an <h1>. */
   as?: 'h1' | 'h2';
   /** Optional extra classes on the outer <header> (e.g. spacing overrides at mount). */

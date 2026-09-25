@@ -39,6 +39,7 @@ import { footprintsToGeoJSON, type CountryFootprint } from '@/lib/visited-footpr
 import { MAP_PIN_DND_TYPE } from '@/lib/day-anchor';
 import { prefersReducedMotion } from '@/lib/motion';
 import { withBasePath } from '@/lib/base-path';
+import { getActiveTrip } from '@/core/trips';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -524,6 +525,14 @@ export interface TripMapProps {
    */
   countryFills?: CountryFootprint[];
 }
+
+// #596: TripMap is only ever mounted via dynamic(ssr:false) — no server render, no hydration
+// mismatch to guard against — so this reads the active trip directly, module-load, the same
+// pattern as `lib/leg-label.ts` and `components/wrapped-story.tsx`. Default pack ⇒ byte-identical
+// to the old literal.
+const TRIP_MAP_ARIA_LABEL = `Interactive map of trip destinations across ${getActiveTrip()
+  .legs.map((leg) => leg.countryLabel)
+  .join(' and ')}`;
 
 // ── TripMap: the reusable MapLibre engine ─────────────────────────────────────
 // Owns the container, lazy maplibre-gl load, style/controls, the browse-marker
@@ -1211,7 +1220,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       <div
         ref={containerRef}
         className="h-full w-full"
-        aria-label="Interactive map of trip destinations across Nepal and Japan"
+        aria-label={TRIP_MAP_ARIA_LABEL}
         role="region"
       />
 

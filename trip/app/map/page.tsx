@@ -6,7 +6,7 @@ import PageHero from '@/components/page-hero';
 // [&>section]:flex-1 selector leaves it at natural height).
 // (Next 15): the ssr:false MapSection island lives in./sections (client
 // module); this Server Component page exports metadata./ skeleton kept.
-import { MapSection } from './sections';
+import { MapHeroSubtitle, MapSection } from './sections';
 
 // Server Component: getActiveTrip() resolves off a localStorage pointer, always DEFAULT_TRIP_ID
 // at build/SSR time (core/storage/gateway.ts), so a per-trip title here would just be wrong on
@@ -26,9 +26,9 @@ export default function MapPage() {
         title="Trip Map"
         eyebrow="Explore"
         // Visually baselined (e2e/visual.spec.ts "map page hero", 3 viewports, Windows-rendered,
-        // CI-refreshed only) — kept literal rather than trip-neutral so the rendered header stays
-        // pixel-identical. The (non-rendered) metadata above is neutral; this text is not.
-        subtitle="Attractions, food, photo spots, and hotels across Kathmandu and Japan — filter by category or overlay your own itinerary."
+        // CI-refreshed only) — MapHeroSubtitle renders this exact literal until mounted (matching
+        // SSR, so the baseline is untouched) then swaps in a custom trip's own place names (#596).
+        subtitle={<MapHeroSubtitle />}
       />
       <MapSection />
     </main>
