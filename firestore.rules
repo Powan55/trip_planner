@@ -42,7 +42,8 @@ rules_version = '2';
 // ROLES. `owner` = the creator: may remove members, change roles (short of leaving no
 // owner), and delete the trip.
 // `member` = full content read+write, and may ADD other members (add-only; a member can
-// never remove or re-role an existing entry). `viewer` (read, no write) is the named
+// never remove or re-role an existing entry). Anyone signed in who holds the tripId may add
+// ITSELF as `member` and nothing else (D-593, selfJoinsAsMember). `viewer` (read, no write) is the named
 // upgrade path and is deliberately NOT built: it needs a second predicate on every write
 // rule plus UI to assign it, and nothing needs it yet.
 //
@@ -228,6 +229,18 @@ service cloud.firestore {
           && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0;
       }
 
+      // D-593 (#599): a signed-in non-member holding the trip id may add exactly its own uid, as
+      // 'member', and change nothing else. The trip id is therefore the whole capability again:
+      // a removed member can re-add itself, and real revocation means a new trip id.
+      function selfJoinsAsMember() {
+        return request.auth != null && !isOpen() && role() == ''
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.diff(resource.data.members).addedKeys() == [request.auth.uid].toSet()
+          && request.resource.data.members.diff(resource.data.members).removedKeys().size() == 0
+          && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0
+          && request.resource.data.members[request.auth.uid] == 'member';
+      }
+
       // ── the trip doc ──────────────────────────────────────────────────────────
       // `list` is granted by NOTHING, here or anywhere below (D-219).
       allow get: if isMember();
@@ -236,6 +249,7 @@ service cloud.firestore {
         (isOpen() && request.auth != null)   // grandfathered capability trip
         || isOwner()                         // owner: anything, incl. removing members
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else
+        || selfJoinsAsMember()               // id holder: may add itself as 'member' (D-593)
       );
       allow delete: if (isOpen() && request.auth != null) || isOwner();
 

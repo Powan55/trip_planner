@@ -51,7 +51,7 @@
  * So CI runs `node scripts/rules-check.mjs && touch "$RUNNER_TEMP/rules-ok"`, discards the CLI's
  * exit code, and asserts the file. Wiring the bare command in gives a RED gate on GREEN rules.
  *
- * WHAT IT PROVES, in eleven phases:
+ * WHAT IT PROVES, in twelve phases:
  *   0. control      — deny-all really denies, allow-all really allows (else every PASS is noise)
  *   1. D-251        — `request.resource.size()` is Cloud STORAGE syntax; in Firestore it is a
  *                     CONSTANT 3 (the {data,id,__name__} wrapper's member count), so the
@@ -84,6 +84,8 @@
  *  10. NEGATIVE CONTROL — the same member denials with the membership predicates REMOVED must
  *                     all be ALLOWED. Same reason as phase 4, for the other half of the file.
  *  10b. restored    — membership back on, the denials deny again.
+ *  11. NEGATIVE CONTROL — the 7g self-join denials (D-593) with selfJoinsAsMember() REMOVED must
+ *                     all be ALLOWED.
  */
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -215,17 +217,17 @@ function neuter(src, fnName, body, why) {
 // Put a fixture document in place with the rules under test having NO say, so one phase's
 // setup can never be a hostage to what the phase before it was allowed to do (phase 10
 // deliberately mutates and deletes trips/L).
-async function seed(path, data) {
+async function seed(path, data, rules = shipped) {
   await loadRules(ALLOW_ALL);
   await setDoc(doc(db, ...path), data);
-  await loadRules(shipped);
+  await loadRules(rules);
 }
 
 // Phase 10 overwrites and deletes both, so every phase running MEMBER_DENIALS rebuilds them.
-async function seedGated() {
-  await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+async function seedGated(rules = shipped) {
+  await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } }, rules);
   await seed(['trips', L, 'days', GATED_DAY],
-    { date: GATED_DAY, city: 'Kathmandu', country: 'nepal', items: bigList(2) });
+    { date: GATED_DAY, city: 'Kathmandu', country: 'nepal', items: bigList(2) }, rules);
 }
 
 console.log(`\nfirestore.rules harness — emulator ${HOST}, auth ${AUTH_HOST}, project ${PROJECT}`);
@@ -475,7 +477,8 @@ const MEMBER_DENIALS = [
   ['stranger S writes trips/L/days/{date}',
     () => setDoc(doc(dbS, 'trips', L, 'days', GATED_DAY), { date: GATED_DAY, city: 'Tokyo', country: 'japan', items: bigList(2) })],
   ['stranger S deletes trips/L/days/{date}', () => deleteDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
-  ['stranger S adds ITSELF to members', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' })],
+  // Self-adding as 'member' is allowed since D-593 (phase 7g); as 'owner' it never is.
+  ['stranger S adds ITSELF to members as "owner"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'owner' })],
   ['member M removes the owner', () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: deleteField() })],
   ["member M changes the owner's role", () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'member' })],
   ['member M deletes trips/L', () => deleteDoc(doc(dbM, 'trips', L))],
@@ -483,6 +486,21 @@ const MEMBER_DENIALS = [
   // (deliberately permissive) phase was allowed to leave behind.
   ['create a trip with SELF as "member", not "owner"',
     () => setDoc(doc(dbS, 'trips', `not-owner-${++createN}`), { schemaVersion: 1, members: { [S]: 'member' } })],
+];
+
+// Each is denied by selfJoinsAsMember() alone: phase 11 neuters it and every one must flip.
+const SELF_JOIN_DENIALS = [
+  ['stranger S self-adds as "owner"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'owner' })],
+  ['stranger S adds another uid as "member"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${THIRD}`]: 'member' })],
+  ['stranger S adds itself AND another uid',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', [`members.${THIRD}`]: 'member' })],
+  ['stranger S self-adds and removes member M',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', [`members.${M}`]: deleteField() })],
+  ["stranger S self-adds and changes M's role",
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', [`members.${M}`]: 'owner' })],
+  ['stranger S self-adds and touches another trip-doc field',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', seededFrom: 'x' })],
+  ['member M re-adds itself as "owner"', () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: 'owner' })],
 ];
 
 console.log('\n\n=== 7. MEMBERSHIP (negative): everyone else is out ===');
@@ -548,6 +566,26 @@ await expect('...writes an owner by field path (rules still allow it; no client 
 await seed(['trips', BRICK], NO_OWNER);
 await expect('...or overwrites the roster with a valid one (the repair)', 'ALLOWED',
   () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
+
+console.log('\n  -- 7g. SELF-JOIN (D-593): a trip-id holder may add only itself, only as "member" --');
+for (const [name, fn] of SELF_JOIN_DENIALS) {
+  await seedGated();
+  await expect(name, 'DENIED', fn);
+}
+await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', ...bigMap(199, 'uid') } });
+await expect('stranger S self-adds as "member" to a full roster (cap 200)', 'DENIED',
+  () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' }));
+await expect('UNAUTH self-adds as "member"', 'DENIED',
+  () => updateDoc(doc(dbU, 'trips', L), { 'members.unauth-uid': 'member' }));
+await seedGated();
+await expect('stranger S self-adds as "member"', 'ALLOWED',
+  () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' }));
+await expect('...and can now read trips/L and its content', 'ALLOWED', async () => {
+  const snap = await getDoc(doc(dbS, 'trips', L));
+  if (snap.data().members[S] !== 'member') throw new Error('fixture: S must be stored as member');
+  await getDoc(doc(dbS, 'trips', L, 'days', GATED_DAY));
+});
+await seedGated();   // phase 9 relies on S being a non-member of L
 const phase7 = flush('PHASE 7 (membership, negative)');
 
 // ── 8. THE GRANDFATHER CLAUSE ────────────────────────────────────────────────
@@ -641,6 +679,17 @@ await expect("anon S heals {version:1,name:'X'} inside a transaction", 'ALLOWED'
 // device must not be able to mint an identity doc for a key it merely typed, gated app or not.
 await expect('UNAUTH creates a missing identity doc -> DENIED (no client heal gate can substitute for the auth floor)', 'DENIED',
   () => setDoc(doc(dbU, 'trips', healKeys[4], 'profile', 'identity'), { version: 1 }));
+
+// Not carved out by id: these reach the subtree block, where isMember() is true only because no
+// trip doc exists at an account path.
+console.log('\n  -- 9e. account docs profile/prefs and profile/journal_<id> (D-593) --');
+for (const id of ['prefs', 'journal_x']) {
+  await expect(`authed sets trips/{acct}/profile/${id}`, 'ALLOWED',
+    () => setDoc(doc(dbS, 'trips', ACCT, 'profile', id), { version: 1 }));
+  await expect(`authed gets trips/{acct}/profile/${id}`, 'ALLOWED', async () => {
+    if (!(await getDoc(doc(dbS, 'trips', ACCT, 'profile', id))).exists()) throw new Error('fixture: must exist');
+  });
+}
 const phase9 = flush('PHASE 9 (the door + the account path)');
 
 // ── 10. NEGATIVE CONTROL for membership ──────────────────────────────────────
@@ -669,6 +718,17 @@ await seedGated();
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 const phase10b = flush('PHASE 10b (membership RESTORED)');
 
+// ── 11. NEGATIVE CONTROL for self-join ───────────────────────────────────────
+console.log('\n\n=== 11. NEGATIVE CONTROL: self-join denials, selfJoinsAsMember() REMOVED ===');
+const selfJoinOff = neuter(shipped, 'selfJoinsAsMember', 'return request.auth != null;',
+  'without a working phase 11 the 7g denials could be passing for some other reason.');
+for (const [name, fn] of SELF_JOIN_DENIALS) {
+  await seedGated(selfJoinOff);
+  await expect(name, 'DENIED', fn);
+}
+const phase11 = flush('PHASE 11 (self-join REMOVED)  <-- MUST be red');
+await loadRules(shipped);
+
 console.log('\n──────────────────────────────────────────────────────────────');
 console.log(`  phase 3   shape guard PRESENT   ${phase3.pass} passed, ${phase3.fail} failed`);
 console.log(`  phase 4   shape guard REMOVED   ${phase4.pass} passed, ${phase4.fail} failed   <- negative control`);
@@ -679,9 +739,11 @@ console.log(`  phase 8   grandfathered trip    ${phase8.pass} passed, ${phase8.f
 console.log(`  phase 9   the door + account    ${phase9.pass} passed, ${phase9.fail} failed`);
 console.log(`  phase 10  membership REMOVED    ${phase10.pass} passed, ${phase10.fail} failed   <- negative control`);
 console.log(`  phase 10b membership RESTORED   ${phase10b.pass} passed, ${phase10b.fail} failed`);
+console.log(`  phase 11  self-join REMOVED     ${phase11.pass} passed, ${phase11.fail} failed   <- negative control`);
 const shapeProven = phase3.fail === 0 && phase4.fail === HOSTILE.length && phase5.fail === 0;
 const memberProven = phase6.fail === 0 && phase7.fail === 0 && phase8.fail === 0 && phase9.fail === 0
-  && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0;
+  && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0
+  && phase11.fail === SELF_JOIN_DENIALS.length;
 const proven = shapeProven && memberProven;
 console.log(`  VERDICT: ${proven
   ? `BOTH GUARDS BITE — all ${HOSTILE.length} hostile writes flip DENIED->ALLOWED without boundedWrite(), `
