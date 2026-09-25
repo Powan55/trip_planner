@@ -54,6 +54,7 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
 };
 
 const LAST_TRIP_DATE = TRIP_DATES[TRIP_DATES.length - 1];
+const LAST_TRIP_COUNTRY = legLabel(getCountryForDate(LAST_TRIP_DATE));
 
 export default function TripStoryRecap() {
   const { getDayPlan, hydrated: itineraryHydrated } = useItineraryContext();
@@ -200,7 +201,7 @@ function StoryLocked({ nowDateStr }: { nowDateStr: string }) {
           Your story unlocks after the trip
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-t-lead leading-relaxed text-ink-mid">
-          Once the last day in Japan wraps on {formatDateLong(LAST_TRIP_DATE)}, this page becomes a
+          Once the last day in {LAST_TRIP_COUNTRY} wraps on {formatDateLong(LAST_TRIP_DATE)}, this page becomes a
           full day-by-day narrative of the trip — weaving what was planned, what actually happened,
           your journal reflections, and what was spent.
         </p>
