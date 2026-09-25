@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { isTabRetiring } from '@/hooks/use-cross-tab-reload';
 
 /** Local-draft input state that mirrors `committed` until the user types, and fires
  * `onCommit` only on blur (so a synced write happens once per edit, not once per keystroke).
@@ -12,7 +13,7 @@ export function useDraftOnBlur(committed: string, onCommit: (value: string) => v
   latest.current = { draft, committed, onCommit };
 
   const flush = () => {
-    if (!dirtyRef.current) return;
+    if (!dirtyRef.current || isTabRetiring()) return;
     dirtyRef.current = false;
     const { draft: d, committed: c, onCommit: commit } = latest.current;
     if (d !== c) commit(d);

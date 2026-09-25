@@ -563,6 +563,12 @@ export const STORAGE_KEYS = {
    */
   selfJoinReload: 'nepal_japan_self_join_reload',
   /**
+   * localStorage — JSON `{ [date]: { hlc, dirty?, deletedAt? } }`, the per-entry sync stamps for
+   * the journal's account copy (journal-sync, key 50; D-596). TRIP-SCOPED beside key 12. Sync
+   * machinery, not content: the backup leaves it out. Shape owned by `lib/journal-remote.ts`.
+   */
+  journalSync: 'nepal_japan_journal_sync',
+  /**
    * sessionStorage — `'1'` once this tab has reloaded onto the account's default-pack share id
    * (default-share reload, key 51; D-598). APP-SCOPED. Stops a write that never sticks from
    * reloading forever.
@@ -770,7 +776,8 @@ export type TripScopedSlot =
   | 'myPlaces'
   | 'expensesCorrupt'
   | 'backupPromptLeg'
-  | 'conciergeChat';
+  | 'conciergeChat'
+  | 'journalSync';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -799,6 +806,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'expensesCorrupt',
   'backupPromptLeg',
   'conciergeChat',
+  'journalSync',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1102,6 +1110,13 @@ export const identityStore = {
     const list = identityStore.getPriorNames();
     if (list.includes(prev)) return;
     writeJson('local', STORAGE_KEYS.priorNames, [...list, prev]);
+  },
+  /** Adopt names synced from the account (D-601). Union only; returns whether anything was added. */
+  mergePriorNames(names: readonly string[]): boolean {
+    const list = identityStore.getPriorNames();
+    const add = names.filter((n, i) => n.trim() && !list.includes(n) && names.indexOf(n) === i);
+    if (add.length) writeJson('local', STORAGE_KEYS.priorNames, [...list, ...add]);
+    return add.length > 0;
   },
   /**
    * Clear token, name AND the prior-name history (sign-out). Order is immaterial — all
