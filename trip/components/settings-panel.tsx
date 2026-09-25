@@ -63,7 +63,6 @@ import {
   currencySymbol,
   CURRENCIES,
   SEED_RATES,
-  type CurrencyCode,
 } from '@/core/budget/model';
 import BackupRestore from '@/components/backup-restore';
 import {
@@ -93,9 +92,8 @@ import {
  *
 
  * 2. CURRENCY & RATES — the home/display-currency toggle + the two exchange-rate overrides,
- * RELOCATED verbatim from `budget-panel.tsx`. The write path is IDENTICAL — still
- * `useBudget().commit(() => next)` — so budget sync is
- * untouched; only the rendering location changed. Testids are preserved (`budget-currency-*`,
+ * RELOCATED from `budget-panel.tsx`. Rates still write through `useBudget().commit`; the home
+ * currency is per person (D-599) and never written to the shared budget. Testids are preserved (`budget-currency-*`,
  * `budget-rate-*`) so the DOM contract is stable, just on `/settings` now.
  *
  * 3. DATA MANAGEMENT — Export/Import surfaced via the reused `<BackupRestore>` panel (
@@ -1473,14 +1471,11 @@ function SyncGroup() {
 
 /**
  * Currency & rates group — the home-currency toggle + exchange-rate overrides RELOCATED from
- * `budget-panel.tsx`. Write path unchanged (`useBudget().commit`) so budget sync is unaffected.
+ * `budget-panel.tsx`. Rates write through `useBudget().commit`; the home currency is per person
+ * (D-599) via `setHomeCurrency`.
  */
 function CurrencyGroup() {
-  const { model, commit } = useBudget();
-
-  const setHomeCurrency = (home: CurrencyCode) => {
-    commit((cur) => ({ ...cur, homeCurrency: home }));
-  };
+  const { model, commit, setHomeCurrency } = useBudget();
 
   const setRate = (currency: 'NPR' | 'JPY', value: string) => {
     // 0 is the "blank / mid-edit / use the seed" sentinel that `ratePerUsd` already falls back on,

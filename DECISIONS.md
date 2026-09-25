@@ -5825,3 +5825,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** Gating `isTripRemoteConfigured()` would also switch the outbox off, and edits made while paused would be lost on the next authoritative snapshot.
 
 **Changes if:** sync needs to pause per trip rather than per device.
+
+### D-599 · (issue #603, 2026-09-24) · Home currency is a per-person pref, not a budget field
+
+**Decision.** With an account, the display currency is `homeCurrency` in the account prefs doc (D-594), overlaid onto `useBudget().model`. It is seeded once from the shared `budget.homeCurrency` through `claimField`, never `setPref`. New clients stop writing the shared field, and `commit` pins it to its stored value, but it is never deleted: older clients still read it, and `flatten.ts` falls back to USD without it. Rates stay USD-anchored and `merge-budget` is unchanged. Without an account the pick stays in the budget model on this device. `setPref` now writes the local mirror, marked dirty, before `getRemote()`, so a paused or offline edit is kept; after each server read or snapshot, dirty fields still newer than the account's copy are pushed with their original stamp.
+
+**Why.** Two travellers sharing one budget each want totals in their own currency, and a shared field made one person's pick flip the other's display.
+
+**Changes if:** a total needs to be stored in the home currency rather than only displayed in it.

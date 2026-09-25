@@ -34,10 +34,12 @@ vi.mock('@/lib/trips-remote', () => ({
 vi.mock('@/lib/firebase-remote', () => ({ getRemote: async () => ({ uid: 'me' }) }));
 
 const commit = vi.fn();
+const setHomeCurrency = vi.fn();
 vi.mock('@/hooks/use-budget', () => ({
   useBudget: () => ({
     model: { version: 1, homeCurrency: 'USD', rates: { NPR: 152.7, JPY: 159.2 }, legBudgets: {}, categoryBudgets: {} },
     commit: (fn: (m: any) => any) => commit(fn),
+    setHomeCurrency: (c: string) => setHomeCurrency(c),
   }),
 }));
 
@@ -142,6 +144,7 @@ describe('CurrencyGroup — #569 aria-pressed, not role=radio', () => {
 
     act(() => npr.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     await flush();
-    expect(commit).toHaveBeenCalled();
+    expect(setHomeCurrency).toHaveBeenCalledWith('NPR');
+    expect(commit).not.toHaveBeenCalled();
   });
 });
