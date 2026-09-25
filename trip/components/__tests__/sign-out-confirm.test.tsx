@@ -254,6 +254,29 @@ describe('SignOutConfirm — unsynced-edit warning', () => {
     expect(at(`t-unsynced`)!.textContent).toBe('1 change on this device hasn\'t synced yet and will be lost.');
   });
 
+  it('counts a journal day waiting to push (#631)', async () => {
+    window.localStorage.setItem(
+      'nepal_japan_journal_sync',
+      JSON.stringify({ '2026-12-11': { hlc: 'a', dirty: true }, '2026-12-12': { hlc: 'b' } }),
+    );
+    await mount();
+    expect(at(`t-unsynced`)!.textContent).toBe('1 change on this device hasn\'t synced yet and will be lost.');
+  });
+
+  it('sums journal days across the default pack and a known custom trip', async () => {
+    window.localStorage.setItem('nepal_japan_journal_sync', JSON.stringify({ '2026-12-11': { hlc: 'a', dirty: true } }));
+    window.localStorage.setItem(
+      'tripPlannerKnownTrips',
+      JSON.stringify([{ id: 'trip-x', name: 'Other trip', joinedAt: 1 }]),
+    );
+    window.localStorage.setItem(
+      'trip:trip-x:journalSync',
+      JSON.stringify({ '2026-12-01': { hlc: 'b', dirty: true }, '2026-12-02': { hlc: 'c', dirty: true } }),
+    );
+    await mount();
+    expect(at('t-unsynced')!.textContent).toBe('3 changes on this device haven\'t synced yet and will be lost.');
+  });
+
   it('a clean outbox shows no warning', async () => {
     await mount();
     expect(at('t-unsynced')).toBeNull();

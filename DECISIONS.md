@@ -5867,3 +5867,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** "My edits" on a second device missed items stamped with a name only the first device knew. Per-field last-write-wins would drop one of two concurrent additions.
 
 **Trade-off.** A name added past the cap stays on its own device. Removing a name needs a new rule.
+
+### D-602 · (issues #630, #631, 2026-09-25) · Journal text is capped on the wire, never on the author's device
+
+**Decision.** A synced journal row still carries at most 4000 characters of text. A push never writes that row back over the local entry, and adopting a capped row whose text is a prefix of a longer local entry keeps the local text. Dirty journal days count toward the sign-out warning.
+
+**Why.** Entries written before the input cap, or restored from a backup, lost everything past 4000 characters on every device the first time they synced. Lifting the cap instead would let one long entry push the trip's journal doc past Firestore's 1 MiB limit and stop all its journal pushes.
+
+**Trade-off.** Other devices see only the first 4000 characters. If one of them edits the text, that capped edit comes back to the author's device and replaces the full text. Accepted.

@@ -75,25 +75,31 @@ function rowFor(date: string, hlc: string): Row {
   return row;
 }
 
-function rowToEntry(date: string, row: Row): JournalEntry | null {
+function rowToEntry(date: string, row: Row, local: JournalEntry | undefined): JournalEntry | null {
   if (row.deletedAt !== undefined) return null;
+  const text = typeof row.text === 'string' ? row.text.slice(0, JOURNAL_TEXT_MAX) : '';
+  // A capped copy of a longer local entry (our own push, echoed back) keeps the full local text.
+  const capped = text.length === JOURNAL_TEXT_MAX && !!local && local.text.length > text.length && local.text.startsWith(text);
   return sanitizeEntry({
     ...row,
     date,
-    text: typeof row.text === 'string' ? row.text.slice(0, JOURNAL_TEXT_MAX) : '',
+    text: capped ? local!.text : text,
     highlight: typeof row.highlight === 'string' ? row.highlight.slice(0, HIGHLIGHT_MAX) : undefined,
   });
 }
+
+const metaOf = (row: Row): Meta =>
+  row.deletedAt !== undefined ? { hlc: row.hlc, deletedAt: row.deletedAt } : { hlc: row.hlc };
 
 /** Write remote rows into the local journal and their stamps into key 50. */
 function adopt(rows: [string, Row][], meta: Record<string, Meta>): void {
   let entries = loadJournal();
   for (const [date, row] of rows) {
-    const e = rowToEntry(date, row);
     const i = entries.findIndex((x) => x.date === date);
+    const e = rowToEntry(date, row, entries[i]);
     if (i === -1) entries = e ? [...entries, e] : entries;
     else entries = e ? entries.map((x, j) => (j === i ? e : x)) : entries.filter((_, j) => j !== i);
-    meta[date] = row.deletedAt !== undefined ? { hlc: row.hlc, deletedAt: row.deletedAt } : { hlc: row.hlc };
+    meta[date] = metaOf(row);
   }
   writeMeta(meta);
   if (rows.length === 0) return;
@@ -124,6 +130,7 @@ function applyRemote(rows: Record<string, Row>, t: Target): void {
  * anything newer on the server, which it then adopts.
  */
 async function push(t: Target, date: string, explicit: boolean): Promise<void> {
+  if (!sameTarget(t)) return;
   const m = readMeta()[date];
   if (!m || (!explicit && !m.dirty)) return;
   // Gone locally without an explicit delete (Settings' local clear): a retry must not tombstone it.
@@ -134,22 +141,31 @@ async function push(t: Target, date: string, explicit: boolean): Promise<void> {
     return;
   }
   const sent = m.hlc;
+  // Built before any await so a sign-out mid-flight can't turn it into a tombstone. The target and
+  // the local stamp are re-checked inside the transaction, so a retry never writes a stale row.
+  const local = rowFor(date, sent);
   try {
     const { db, fs } = await getRemote();
     if (!sameTarget(t)) return;
     const ref = fs.doc(db, 'trips', t.code, 'profile', t.docId);
-    const row = await fs.runTransaction(db, async (tx) => {
+    const res = await fs.runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
+      if (!sameTarget(t) || readMeta()[date]?.hlc !== sent) return null;
       const remote = snap.exists() ? readRows(snap.data())[date] : undefined;
-      if (!explicit && remote && newer(remote.hlc, sent)) return remote;
-      const next = rowFor(date, explicit ? stamp(remote && newer(remote.hlc, sent) ? remote.hlc : sent) : sent);
+      if (!explicit && remote && newer(remote.hlc, sent)) return { row: remote, ours: false };
+      const next = { ...local, hlc: explicit ? stamp(remote && newer(remote.hlc, sent) ? remote.hlc : sent) : sent };
       if (snap.exists()) tx.update(ref, { [`entries.${date}`]: next });
       else tx.set(ref, { entries: { [date]: next } });
-      return next;
+      return { row: next, ours: true };
     });
     const meta = readMeta();
     // Edited again while this was in flight: that edit pushes itself.
-    if (sameTarget(t) && meta[date]?.hlc === sent) adopt([[date, row]], meta);
+    if (!res || !sameTarget(t) || meta[date]?.hlc !== sent) return;
+    // Our own row may be capped; the local entry stays as written, only its stamp moves.
+    if (res.ours) {
+      meta[date] = metaOf(res.row);
+      writeMeta(meta);
+    } else adopt([[date, res.row]], meta);
   } catch (err) {
     console.warn('[journal-sync] push failed, will retry:', err);
   }
