@@ -51,7 +51,10 @@ vi.mock('@/lib/firebase-remote', () => ({
   },
 }));
 
-import { setPref, claimField, getPrefs, getCachedPrefs, subscribePrefs } from '@/lib/account-prefs-remote';
+import { setPref, claimField, getPrefs, getCachedPrefs, subscribePrefs, unionPref } from '@/lib/account-prefs-remote';
+import { syncPriorNames } from '@/lib/prior-names-sync';
+import { itemMatchesAuthor } from '@/lib/author-filter';
+import type { ItineraryItem } from '@/lib/trip-data';
 import { STORAGE_KEYS, identityStore, setSyncCode, wipeAllTripData } from '@/core/storage/gateway';
 import { compareHlc, parse } from '@/core/sync/hlc';
 
@@ -199,5 +202,64 @@ describe('account prefs', () => {
     await setPref('homeCurrency', 'EUR');
     wipeAllTripData();
     expect(getCachedPrefs()).toEqual({});
+  });
+});
+
+describe('prior names (D-601)', () => {
+  it('two devices adding different names concurrently both survive', async () => {
+    const a = unionPref('priorNames', ['Traveler']);
+    asDevice('uid-b');
+    const b = unionPref('priorNames', ['Pow']);
+    await Promise.all([a, b]);
+    expect([...(field('priorNames')!.v as string[])].sort()).toEqual(['Pow', 'Traveler']);
+  });
+
+  it('"My edits" on device B matches the name A went by, after sync', async () => {
+    identityStore.addPriorName('Pow');
+    await syncPriorNames();
+    asDevice('uid-b');
+    identityStore.setName('Powan');
+    const item = { id: 'x', createdBy: 'Pow' } as unknown as ItineraryItem;
+    expect(itemMatchesAuthor(item, { kind: 'mine' }, 'Powan', identityStore.getPriorNames())).toBe(false);
+    await syncPriorNames();
+    expect(itemMatchesAuthor(item, { kind: 'mine' }, 'Powan', identityStore.getPriorNames())).toBe(true);
+  });
+
+  it('never drops what the account holds, and stops growing at the cap', async () => {
+    await unionPref('priorNames', ['a', 'b'], 2);
+    expect(await unionPref('priorNames', ['c'], 2)).toEqual(['a', 'b']);
+    expect(await unionPref('priorNames', [], 1)).toEqual(['a', 'b']);
+  });
+
+  it('never sends the login placeholder automatically', async () => {
+    identityStore.addPriorName('Traveler');
+    identityStore.addPriorName('Pow');
+    await syncPriorNames();
+    expect(field('priorNames')?.v).toEqual(['Pow']);
+    expect(identityStore.getPriorNames()).toEqual(['Traveler', 'Pow']);
+  });
+
+  it('sends the placeholder when it is explicitly claimed', async () => {
+    identityStore.addPriorName('Traveler');
+    await syncPriorNames('Traveler');
+    expect(field('priorNames')?.v).toEqual(['Traveler']);
+  });
+
+  it('does not adopt the union if the account changed mid-flight', async () => {
+    docs.set(PATH, { data: { priorNames: { v: ['Other'], hlc: '000000001000000:000000:uid-old' } }, ver: 1 });
+    identityStore.addPriorName('Pow');
+    const run = fs.runTransaction;
+    fs.runTransaction = async (...args) => {
+      const out = await run(...args);
+      setSyncCode('tok-2');
+      return out;
+    };
+    try {
+      await syncPriorNames();
+    } finally {
+      fs.runTransaction = run;
+    }
+    expect(field('priorNames')?.v).toEqual(['Other', 'Pow']);
+    expect(identityStore.getPriorNames()).toEqual(['Pow']);
   });
 });

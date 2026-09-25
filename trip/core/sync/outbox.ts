@@ -174,8 +174,9 @@ export function outboxDirty(domain: SyncDomain, tripId?: string): string[] {
   return [...(loadSlot(tripId).dirty[domain] ?? [])];
 }
 
-// ── The gate. Both enqueue and flush re-check it, so a traveler who signs out with
-// a dirty outbox keeps the entries and resumes on sign-in. #10: the gate is TRIP-scoped
+// ── The gate. Both enqueue and flush re-check it — but sign-out's `wipeAllTripData()` clears
+// every pack's slot regardless, so `SignOutConfirm` warns before that wipe instead (#623). #10:
+// the gate is TRIP-scoped
 // (`isTripRemoteConfigured`) because every chunk this outbox ever drives is a
 // `trips/{getTripId()}/…` write — on the local-only default pack (remote id retired, '') an
 // enqueue would otherwise record dirty chunks whose flush composes an invalid empty path and

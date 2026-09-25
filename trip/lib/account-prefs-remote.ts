@@ -170,6 +170,39 @@ export async function claimField<T>(field: string, value: T): Promise<T | null> 
 }
 
 /**
+ * Grow a string-list field: in one transaction, append whichever of `items` the account lacks
+ * (account order first, so nothing already there is ever dropped) and resolve to the union.
+ * Per-field last-write-wins would lose one of two concurrent additions; this cannot. Writes
+ * nothing when there is nothing new. `max` keeps the doc bounded: past it, new items are refused.
+ * `null` on any failure, like `claimField`.
+ */
+export async function unionPref(field: string, items: readonly string[], max = 50): Promise<string[] | null> {
+  const code = accountCode();
+  if (!code || !FIELD_RE.test(field)) return null;
+  try {
+    const { db, fs, uid } = await getRemote();
+    const ref = fs.doc(db, 'trips', code, 'profile', 'prefs');
+    const { entry, list } = await fs.runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const existing = snap.exists() ? sanitize(snap.data())[field] : undefined;
+      const v = existing?.v;
+      const have = Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : [];
+      const next = [...new Set([...have, ...items])].slice(0, Math.max(max, have.length));
+      if (next.length === have.length) return { entry: existing, list: have };
+      const stamped = stampPast(existing, next, uid);
+      if (snap.exists()) tx.update(ref, { [field]: stamped });
+      else tx.set(ref, { [field]: stamped });
+      return { entry: stamped, list: next };
+    });
+    if (entry) mergeIntoLocal({ [field]: entry }, code);
+    return list;
+  } catch (err) {
+    console.warn('[account-prefs] union failed:', err);
+    return null;
+  }
+}
+
+/**
  * Live prefs. Each server snapshot is merged into the mirror and `cb` gets the merged values.
  * No-op unsubscribe when dormant or signed out; a dropped stream stays down until reload.
  */

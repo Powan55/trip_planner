@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
+import { syncPriorNames } from '@/lib/prior-names-sync';
 import {
   getActiveTripId,
   DEFAULT_TRIP_ID,
@@ -1037,6 +1038,7 @@ function ClaimOldName({ current }: { current: string }) {
           // the store scans. This is the-C mechanism, reused — it is what keeps FUTURE
           // filtering correct for anything the rewrite cannot reach (items that sync in later).
           identityStore.addPriorName(from);
+          void syncPriorNames(from);
           // Three small store calls, one per store — each commits once and returns what IT
           // changed. The sum is what the preview promised.
           setClaimed(claimAuthorship(from) + claimExpenses(from) + claimDocs(from));
@@ -1696,7 +1698,7 @@ function DataGroup() {
         <h3 className="pr pr--l text-ink-hi">Clear trip data</h3>
         <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
           Permanently remove data for one area of the trip. On a shared trip this clears it for
-          everyone; the journal is always private to this device.
+          everyone; the journal is always private to you.
         </p>
         <ul className="mt-4">
           <ClearRow
@@ -1729,9 +1731,9 @@ function DataGroup() {
           <ClearRow
             testId="settings-clear-journal"
             label="Journal"
-            description="Every private journal entry (this device only)."
+            description="Every private journal entry, on this device."
             title="Clear the journal?"
-            body="This removes every journal entry. The journal is private to this device and is never shared, so this only affects this browser. This cannot be undone."
+            body="This removes every journal entry from this browser. Your other signed-in devices keep their copy, and other travellers never see it. This cannot be undone."
             confirmLabel="Clear journal"
             onConfirm={handleClearJournal}
           />
