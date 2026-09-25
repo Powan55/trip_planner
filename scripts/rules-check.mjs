@@ -401,6 +401,7 @@ const HOSTILE = [
   ['removed[] with 20,000 elements', () => setDoc(doc(db, 'trips', TRIP, 'profile', 'tripList'), { version: 1, removed: bigList(20000) })],
   ['budget fields{} with 20,000 entries', () => setDoc(doc(db, 'trips', TRIP, 'budget', 'model'), { version: 1, fields: bigMap(20000) })],
   ['members{} with 20,000 entries', () => setDoc(doc(db, 'trips', TRIP, 'days', 'b5'), { date: 'b5', members: bigMap(20000, 'uid') })],
+  ['entries{} with 1001 entries (one over the ceiling)', () => setDoc(doc(db, 'trips', TRIP, 'profile', 'journal_' + TRIP), { entries: bigMap(1001) })],
   ['items as a 200,000-char string (scalar in a list slot)', () => setDoc(doc(db, 'trips', TRIP, 'days', 'x'), { date: 'x', items: 'z'.repeat(200000) })],
   ['items[5001] (one over the ceiling)', () => setDoc(doc(db, 'trips', TRIP, 'days', 'b2'), { date: 'b2', items: bigList(5001) })],
   ['members{201} (one over the roster ceiling)', () => setDoc(doc(db, 'trips', TRIP, 'days', 'b6'), { date: 'b6', members: bigMap(201, 'uid') })],

@@ -159,7 +159,8 @@ service cloud.firestore {
         && len('trips') <= 5000      // profile/tripList rows
         && len('removed') <= 5000    // profile/tripList tombstones
         && len('fields') <= 5000     // budget leaf-field map
-        && len('members') <= 200;    // uid → role roster
+        && len('members') <= 200     // uid → role roster
+        && len('entries') <= 1000;   // journal date → row map (max 730 days + margin)
     }
 
     // The trip doc itself: reachable and writable by direct id only — never listable.
