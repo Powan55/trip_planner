@@ -18,7 +18,7 @@ import {
   getSyncCode,
   nameHintFlag,
 } from '@/core/storage/gateway';
-import { getKnownTrip, renameKnownTrip, setTripConfig, SHARED_NAME } from '@/core/trips/registry';
+import { getKnownTrip, applyRemoteTripMeta } from '@/core/trips/registry';
 import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib/expenses-ports';
 import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budget-ports';
@@ -257,52 +257,41 @@ export function createSyncCodeTripListSync(): { activate: () => void; teardown: 
 }
 
 /**
- * TRIP-META SELF-HEAL. A joiner who switched to a non-default trip
- * (the `?trip=` handshake or the trips-hub "Join" form) but has NO local config for it — a fresh
- * browser, or a `pushTripMeta` write that never landed — fetches the trip's remote name/config and
- * applies it, then reloads exactly once so every config-reading surface (countdown target,
- * dashboard dates, destinations) picks it up. Unlike the domain subscribes it does NOT gate on an
+ * TRIP-META PULL. On every load of a non-default trip, fetches its remote name/config and folds it
+ * in via `applyRemoteTripMeta` (D-600: updatedAt LWW, plus the joiner heal for a trip with no local
+ * name/config yet). When that changed anything it reloads, at most once per session, so every
+ * config-reading surface (countdown target, dashboard dates, destinations) picks it up. A peer's
+ * rename therefore lands on the next load. Unlike the domain subscribes it does NOT gate on an
  * active traveler: it is a single READ of public trip identity (the whole point is to orient a
  * brand-new joiner who has nothing local yet), not a continuous sync channel. Dynamically imports
  * `lib/trips-remote` so the dormant/default-pack build pulls no firebase — every gate is
  * checked before that import. Returns the effect cleanup (cancels a late resolve).
  *
- * — WHAT THE GUARD MEANS, AND WHY IT MOVED. `tripMetaSelfHealGuard` is sessionStorage-backed
- * and is now set only when the fetch actually FOUND a doc. It previously ran before the existence
- * check, which turned "the creator's write hasn't landed yet" into a PERMANENT dead trip for the
- * whole session: no day cells, and a reload could not recover because the guard outlives it. The
- * guard's real job is narrower — stop a reload LOOP when the found doc has a name but no config
- * (nothing is written locally, so the `?.config` gate below stays open on the next load) — and
- * that still holds, because every reload path is downstream of `markRun`.
+ * THE GUARD. `tripMetaSelfHealGuard` (sessionStorage) caps only the RELOAD, never the fetch. The
+ * remote stamp is adopted on apply, so an unchanged doc is a no-op next load; the guard is the
+ * backstop if the local write keeps failing (full storage) and would otherwise reload-loop. It is
+ * marked only on a real change, so "the creator's write hasn't landed yet" stays retryable.
  *
- * RETRY CADENCE this creates: the provider mounts in the root layout, so this runs ONCE PER FULL
- * DOCUMENT LOAD (client-side route changes do not remount it). A trip still missing its meta doc
- * therefore costs at most one `getDoc` per page load, and stops entirely the moment either gate
- * closes (config present, or a doc found). No timer, no interval, no listener — it cannot storm.
- * in-session recovery needs a reload; deliberately no poll/visibilitychange retry, which
- * is exactly the unbounded request path this fix must not introduce.
+ * COST: the provider mounts in the root layout, so this is ONE `getDoc` PER FULL DOCUMENT LOAD
+ * (client-side route changes do not remount it). No timer, no interval, no listener.
  */
 export function runTripMetaSelfHeal(): () => void {
   const noop = () => {};
   if (!isRemoteConfigured()) return noop;
   const activeId = getActiveTripId();
   if (activeId === DEFAULT_TRIP_ID) return noop; // default pack has no remote TripConfigBlock flow
-  if (getKnownTrip(activeId)?.config) return noop; // already has a local config — nothing to heal
-  if (tripMetaSelfHealGuard.hasRun(activeId)) return noop; // already healed this trip this session
 
   let cancelled = false;
   void import('@/lib/trips-remote')
     .then(({ fetchTripMeta }) => fetchTripMeta(activeId))
     .then((remote) => {
       if (cancelled) return;
-      if (!remote) return; // not there YET (or unreachable) — leave the guard unset so a later load retries
-      tripMetaSelfHealGuard.markRun(activeId); // found it: caps the reload below to one per session
-      const current = getKnownTrip(activeId);
-      // Only overwrite the local name if it's still the join-time placeholder — never clobber
-      // a name the user (or a peer's own rename push) already set.
-      if (current?.name === SHARED_NAME) renameKnownTrip(activeId, remote.name);
-      if (remote.config) setTripConfig(activeId, remote.config);
-      window.location.reload(); // one guarded reload so every config-reading surface re-hydrates
+      if (!remote) return; // not there YET (or unreachable) — a later load retries
+      // D-600: runs on every boot and applies a peer's rename/config by updatedAt LWW.
+      if (!applyRemoteTripMeta(activeId, remote)) return;
+      if (tripMetaSelfHealGuard.hasRun(activeId)) return; // one reload per session, even if a write keeps failing
+      tripMetaSelfHealGuard.markRun(activeId);
+      window.location.reload(); // so every config-reading surface re-hydrates
     })
     .catch((err) => {
       console.warn('[itinerary-provider] trip meta self-heal failed:', err);

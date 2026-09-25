@@ -353,9 +353,10 @@ export function getActiveTripCityCoord(city: string): CityCoord | undefined {
 
 /**
  * Attach/replace a custom trip's config. Upserts the entry if absent (a wizard-created
- * trip that was not join-by-key'd first). Stamps `updatedAt` for the entry-level LWW.
+ * trip that was not join-by-key'd first). Stamps `updatedAt` for the entry-level LWW unless
+ * `touch` is false (a per-device write such as geocoded coordinates, which must not outrank a peer).
  */
-export function setTripConfig(id: string, config: TripConfigBlock): void {
+export function setTripConfig(id: string, config: TripConfigBlock, touch = true): void {
   const clean = sanitizeTripConfig(config);
   if (!id || !clean) return;
   const stored = readStored();
@@ -363,9 +364,9 @@ export function setTripConfig(id: string, config: TripConfigBlock): void {
   const now = Date.now();
   if (hit) {
     hit.config = clean;
-    hit.updatedAt = now;
+    if (touch) hit.updatedAt = now;
   } else {
-    stored.push({ id, name: SHARED_NAME, joinedAt: now, updatedAt: now, config: clean });
+    stored.push({ id, name: SHARED_NAME, joinedAt: now, ...(touch ? { updatedAt: now } : {}), config: clean });
   }
   writeStored(stored);
 }
@@ -394,6 +395,46 @@ export function renameKnownTrip(id: string, name: string): void {
     hit.updatedAt = Date.now(); // entry-level LWW stamp
   } else stored.push({ id, name: trimmed, joinedAt: Date.now() });
   writeStored(stored);
+}
+
+/**
+ * D-600 — fold a peer's `meta/info` into the local entry, last-write-wins on `updatedAt`. A missing
+ * stamp counts as 0 (oldest). The remote's stamp is adopted as-is so an unchanged doc is a no-op on
+ * the next boot. Two carve-outs: a local placeholder name/config is always filled (the joiner heal),
+ * and a remote placeholder name never replaces a real one (an old client can write one). Returns
+ * whether the name or config changed.
+ */
+export function applyRemoteTripMeta(
+  id: string,
+  remote: { name: string; config?: TripConfigBlock; updatedAt?: number },
+): boolean {
+  if (!id) return false;
+  const stored = readStored();
+  let hit = stored.find((t) => t.id === id);
+  if (!hit) {
+    hit = { id, name: SHARED_NAME, joinedAt: Date.now() };
+    stored.push(hit);
+  }
+  const remoteAt = remote.updatedAt ?? 0;
+  const newer = remoteAt > (hit.updatedAt ?? 0);
+  const name = remote.name.trim();
+  let changed = false;
+  if (name && name !== SHARED_NAME && name !== hit.name && (newer || hit.name === SHARED_NAME)) {
+    hit.name = name;
+    changed = true;
+  }
+  if (remote.config && (newer || !hit.config)) {
+    const config = { ...remote.config };
+    // Coordinates are geocoded per device and not always pushed; keep ours rather than drop them.
+    if (!config.cityCoords && hit.config?.cityCoords) config.cityCoords = hit.config.cityCoords;
+    if (JSON.stringify(config) !== JSON.stringify(hit.config)) {
+      hit.config = config;
+      changed = true;
+    }
+  }
+  if (newer) hit.updatedAt = remoteAt;
+  if (newer || changed) writeStored(stored);
+  return changed;
 }
 
 /**

@@ -57,7 +57,7 @@ let metaSettled = false;
 const pushTripMetaMock = vi.fn((_id: string, _meta: unknown) => metaPush.promise);
 const pushTripListMock = vi.fn((_code: string) => Promise.resolve());
 const fetchTripMetaMock = vi.fn(
-  async (_id: string): Promise<{ name: string; config?: unknown } | undefined> => undefined,
+  async (_id: string): Promise<{ name: string; config?: unknown; updatedAt?: number } | undefined> => undefined,
 );
 vi.mock('@/lib/trips-remote', () => ({
   pushTripMeta: (id: string, meta: unknown) => pushTripMetaMock(id, meta),
@@ -80,6 +80,9 @@ import {
   joinTrip,
   getKnownTrip,
   listKnownTrips,
+  renameKnownTrip,
+  setTripConfig,
+  applyRemoteTripMeta,
   SHARED_NAME,
   TRIP_DAYS_MAX,
 } from '@/core/trips/registry';
@@ -287,7 +290,11 @@ describe('S375 control — the NON-navigating push path stays fire-and-forget', 
     expect(loc.assign).not.toHaveBeenCalled();
     await flush();
     expect(pushTripMetaMock).toHaveBeenCalledTimes(1);
-    expect(pushTripMetaMock.mock.calls[0][1]).toMatchObject({ name: 'New name' });
+    expect(pushTripMetaMock.mock.calls[0][1]).toMatchObject({
+      name: 'New name',
+      updatedAt: getKnownTrip('trip-to-rename')?.updatedAt, // D-600: the stamp peers compare on
+    });
+    expect(typeof getKnownTrip('trip-to-rename')?.updatedAt).toBe('number');
 
     view.unmount();
   });
@@ -336,9 +343,7 @@ describe('S375 half 2 — the self-heal guard marks only a FOUND doc', () => {
     expect(loc.reload).toHaveBeenCalledTimes(1);
   });
 
-  it('a name-only hit still caps the reload at one per session (the guard\'s real job)', async () => {
-    // No config in the doc ⇒ nothing is written locally ⇒ the `?.config` gate stays OPEN on the
-    // next load. Only the guard stops this from reload-looping, so the move must not have lost it.
+  it('a name-only hit reloads once, then the next load refetches without looping', async () => {
     fetchTripMetaMock.mockResolvedValue({ name: 'Kerala 2027' });
     const loc = stubLocation();
 
@@ -350,15 +355,78 @@ describe('S375 half 2 — the self-heal guard marks only a FOUND doc', () => {
 
     runTripMetaSelfHeal(); // the reload's next mount
     await flush();
-    expect(fetchTripMetaMock).toHaveBeenCalledTimes(1); // short-circuited before the import
-    expect(loc.reload).toHaveBeenCalledTimes(1); // no loop
+    expect(fetchTripMetaMock).toHaveBeenCalledTimes(2); // D-600: every load refetches
+    expect(loc.reload).toHaveBeenCalledTimes(1); // nothing changed, so no loop
   });
 
-  it('does not touch the network for the default pack or a trip that already has a config', async () => {
+  it('does not touch the network for the default pack', async () => {
     setActiveTripId(DEFAULT_TRIP_ID);
     runTripMetaSelfHeal();
     await flush();
     expect(fetchTripMetaMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('D-600 — a peer rename reaches this device by updatedAt LWW', () => {
+  const TRIP = 'renamed-trip';
+  const cfg = (start: string) => ({
+    start,
+    end: '2027-01-10',
+    destinations: ['Kochi'],
+    vibe: 'relaxed',
+    updatedAt: 1,
+  });
+
+  beforeEach(() => {
+    joinTrip(TRIP, SHARED_NAME);
+    setActiveTripId(TRIP);
+    renameKnownTrip(TRIP, 'Kerala');
+    setTripConfig(TRIP, cfg('2027-01-01'));
+  });
+  const localAt = () => getKnownTrip(TRIP)!.updatedAt!;
+
+  it('a newer remote replaces the local name and config, and the hub list shows it', async () => {
+    const loc = stubLocation();
+    fetchTripMetaMock.mockResolvedValue({ name: 'Kerala & Goa', config: cfg('2027-01-02'), updatedAt: localAt() + 1 });
+
+    runTripMetaSelfHeal();
+    await flush();
+
+    expect(getKnownTrip(TRIP)?.name).toBe('Kerala & Goa');
+    expect(getKnownTrip(TRIP)?.config?.start).toBe('2027-01-02');
+    expect(loc.reload).toHaveBeenCalledTimes(1);
+
+    const view = render(createElement(TripsHub));
+    await flush();
+    expect(view.container.textContent).toContain('Kerala & Goa');
+    view.unmount();
+
+    runTripMetaSelfHeal(); // next load: the adopted stamp makes the same doc a no-op
+    await flush();
+    expect(loc.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('an older remote does not replace the local name', async () => {
+    const loc = stubLocation();
+    fetchTripMetaMock.mockResolvedValue({ name: 'Old', config: cfg('2027-01-05'), updatedAt: localAt() - 1 });
+    runTripMetaSelfHeal();
+    await flush();
+    expect(getKnownTrip(TRIP)?.name).toBe('Kerala');
+    expect(getKnownTrip(TRIP)?.config?.start).toBe('2027-01-01');
+    expect(loc.reload).not.toHaveBeenCalled();
+  });
+
+  it('a missing remote updatedAt counts as oldest', async () => {
+    stubLocation();
+    fetchTripMetaMock.mockResolvedValue({ name: 'From an old client' });
+    runTripMetaSelfHeal();
+    await flush();
+    expect(getKnownTrip(TRIP)?.name).toBe('Kerala');
+  });
+
+  it('a placeholder name never overwrites a real one, even with a newer stamp', () => {
+    expect(applyRemoteTripMeta(TRIP, { name: SHARED_NAME, updatedAt: localAt() + 1000 })).toBe(false);
+    expect(getKnownTrip(TRIP)?.name).toBe('Kerala');
   });
 });
 

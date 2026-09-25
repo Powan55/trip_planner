@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resolveAndCacheCityCoords } from '@/lib/city-geocode';
-import { setTripConfig, getKnownTrip, type TripConfigBlock } from '@/core/trips/registry';
+import {
+  setTripConfig,
+  getKnownTrip,
+  applyRemoteTripMeta,
+  type TripConfigBlock,
+} from '@/core/trips/registry';
 import { resetWorldSearchState } from '@/lib/world-search';
 
 /**
@@ -92,6 +97,22 @@ describe('resolveAndCacheCityCoords (#250)', () => {
     // Reusing the pre-await snapshot would silently revert both of these.
     expect(stored?.vibe).toBe('city');
     expect(stored?.destinations).toEqual(['Ubud', 'Kuta']);
+  });
+
+  it('D-600: the coordinate write does not bump updatedAt, so an earlier peer rename still wins', async () => {
+    setTripConfig('custom-1', BASE);
+    const createdAt = getKnownTrip('custom-1')!.updatedAt!;
+    const { fetchImpl } = stubFetch(() =>
+      jsonResponse(nominatimRow('Ubud', 'Ubud, Bali, Indonesia', '-8.5069', '115.2625')),
+    );
+
+    await resolveAndCacheCityCoords('custom-1', ['Ubud'], { fetchImpl, minIntervalMs: 0 });
+    expect(getKnownTrip('custom-1')?.updatedAt).toBe(createdAt);
+
+    // A peer renamed after the create but before this geocode: its stamp is only just newer.
+    expect(applyRemoteTripMeta('custom-1', { name: 'Bali', updatedAt: createdAt + 1 })).toBe(true);
+    expect(getKnownTrip('custom-1')?.name).toBe('Bali');
+    expect(getKnownTrip('custom-1')?.config?.cityCoords).toBeDefined();
   });
 
   it('skips a destination already resolved (no second request)', async () => {

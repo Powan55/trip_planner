@@ -5842,3 +5842,7 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
 
 **Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
+
+### D-600 · (issue #604, 2026-09-24) · Trip name/config propagate via `trips/{id}/meta/info.updatedAt`, last-write-wins
+
+Every load of a non-default trip re-fetches meta/info once (no listener) and applies it through `applyRemoteTripMeta`: remote wins only when its `updatedAt` is strictly newer (a missing stamp counts as 0), and the remote stamp is adopted so an unchanged doc is a no-op next load. Carve-outs: a local placeholder name/config is always filled (joiner heal), and a remote placeholder name never replaces a real one. `cityCoords` are per-device: kept locally when the remote lacks them, and a geocode write does not bump `updatedAt`. At most one reload per session and only on a real change. Same client-clock stamp as the synced trip list. Accepted: pre-D-600 clients write no stamp, so their renames don't reach updated devices, and a member with a clock far ahead can pin the name until someone writes a later stamp.

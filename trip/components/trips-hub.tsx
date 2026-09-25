@@ -193,8 +193,9 @@ export default function TripsHub() {
   const pushMetaFor = (id: string, name: string, config?: TripConfigBlock): Promise<void> => {
     const token = shareTokenFor(id);
     if (!token) return Promise.resolve();
+    const updatedAt = getKnownTrip(id)?.updatedAt;
     return import('@/lib/trips-remote')
-      .then(({ pushTripMeta }) => pushTripMeta(token, { name, config }))
+      .then(({ pushTripMeta }) => pushTripMeta(token, { name, config, updatedAt }))
       .catch((err) => console.warn('[trips-hub] trip meta push unavailable:', err));
   };
 
