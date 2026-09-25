@@ -38,7 +38,7 @@
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
 import { getRemote, isPermissionDenied, type RemoteHandle } from './firebase-remote';
-import { deviceStore } from '@/core/storage/gateway';
+import { deviceStore, syncPausedPrefs } from '@/core/storage/gateway';
 
 // ---------------------------------------------------------------------------
 // Tuning constants. HEARTBEAT_MS MUST stay >= 30_000 (free-tier hard rule).
@@ -195,6 +195,7 @@ async function writeHeartbeat(): Promise<void> {
 export function startPresence(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   if (!isTripRemoteConfigured()) return; // dormant or the local-only default pack (#10) ⇒ no loop
+  if (syncPausedPrefs.get()) return;
   const traveler = getActiveTraveler();
   if (!traveler) return; // guest / signed-out ⇒ never start
 

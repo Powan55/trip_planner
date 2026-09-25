@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { m } from 'framer-motion';
-import { AlertTriangle, Check, RefreshCw, MonitorSmartphone } from 'lucide-react';
+import { AlertTriangle, Check, CloudOff, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { usePresence } from '@/hooks/use-presence';
 import { useOnline } from '@/hooks/use-online';
@@ -61,7 +61,7 @@ import ShareDefaultTripDialog from '@/components/share-default-trip';
  * three; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
  */
 export function SyncStatusBadge() {
-  const { pending, blocked, readBlocked, lastAckAt, localOnly } = useSyncStatus();
+  const { pending, blocked, readBlocked, lastAckAt, localOnly, paused } = useSyncStatus();
   /**
    * D-546 — DELIVERY, not transport. Everything above comes out of this device's own outbox:
    * `lastAckAt` is stamped when Firestore accepted the bytes, which is equally true whether one
@@ -85,19 +85,20 @@ export function SyncStatusBadge() {
   // one thing this pill must never say. `blocked` is a subset of `pending` (a refused chunk is
   // never acked); `readBlocked` has no count to give (a denied snapshot stream has no chunk to key
   // against), so it ORs straight into `isBlocked` instead of adding to `blocked`.
-  const isBlocked = blocked > 0 || readBlocked;
+  // #600: sync switched off on this device outranks every other state; nothing else is live.
+  const isBlocked = !paused && (blocked > 0 || readBlocked);
 
   // Dormant/guest (both read as pending:0 + lastAckAt:null + readBlocked:false) OR a real build
   // that has simply never synced anything yet — either way, nothing to show. But a device denied
   // on its very FIRST read (never synced: pending:0, lastAckAt:null) must still show — that is
   // the #271 case this pill exists for — so `isBlocked` gets its own clause rather than folding
   // into the pending/lastAckAt check above.
-  const show = pending !== 0 || lastAckAt !== null || isBlocked || localOnly;
-  const isPending = pending > 0;
+  const show = paused || pending !== 0 || lastAckAt !== null || isBlocked || localOnly;
+  const isPending = !paused && pending > 0;
   // D-542 — LAST in precedence. `localOnly` and a pending/blocked count are mutually exclusive in
   // practice (a local-only device has a gated-off outbox, so it can never accumulate either), but
   // ordering it last means that if they ever do co-occur the live fact wins over the invitation.
-  const isLocalOnly = localOnly && !isBlocked && !isPending;
+  const isLocalOnly = !paused && localOnly && !isBlocked && !isPending;
   // The same amber the pre-flight rows already use for 'attention' (with the same AlertTriangle),
   // so the two surfaces reading this one outbox agree on what a refusal looks like.
   const tone = isBlocked ? 'text-amber-300' : 'text-ink-mid';
@@ -109,7 +110,9 @@ export function SyncStatusBadge() {
    * stated as a positive; its absence is stated as a fact, in the sr-only sentence.
    */
   const audience = peers.length;
-  const label = isBlocked
+  const label = paused
+    ? 'Sync off'
+    : isBlocked
     ? blocked > 0
       ? `${blocked} not syncing`
       : 'Not syncing'
@@ -122,7 +125,9 @@ export function SyncStatusBadge() {
           : `Saved ${relative ?? 'recently'}`;
   const localOnlySummary =
     'Your plan is saved on this device only. Nothing you change here reaches anyone else, and it is not backed up anywhere. Activate to share it.';
-  const summary = isBlocked
+  const summary = paused
+    ? `Sync is off on this device. ${pending > 0 ? `${pending} change${pending === 1 ? ' is' : 's are'} saved here and will` : 'Changes stay on this device and'} upload when you turn sync back on in Settings.`
+    : isBlocked
     ? blocked > 0
       ? `The shared trip refused ${blocked} change${blocked === 1 ? '' : 's'}, so ${blocked === 1 ? 'it is' : 'they are'} saved on this device only and will not upload on their own. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.`
       : `The shared trip refused to send this device its latest data. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.`
@@ -157,7 +162,9 @@ export function SyncStatusBadge() {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             data-testid="sync-status-badge"
             data-state={
-              isBlocked
+              paused
+                ? 'paused'
+                : isBlocked
                 ? 'blocked'
                 : isPending
                   ? 'pending'
@@ -175,12 +182,14 @@ export function SyncStatusBadge() {
             <Chip
               {...chipProps}
               className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
-                isBlocked || isPending || isLocalOnly
+                paused || isBlocked || isPending || isLocalOnly
                   ? 'border-dashed border-[color:var(--text-lo)]'
                   : 'border-[hsl(var(--border))]'
               } ${tone} ${isLocalOnly ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]' : ''}`}
             >
-              {isBlocked ? (
+              {paused ? (
+                <CloudOff className="h-3 w-3 shrink-0" aria-hidden="true" />
+              ) : isBlocked ? (
                 <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
               ) : isPending ? (
                 <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
