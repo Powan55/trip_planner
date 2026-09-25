@@ -5834,3 +5834,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
 
 **Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.
+
+### D-595 · (issue #599, 2026-09-24) · A device holding a trip id joins the roster itself
+
+**Decision.** When `ensureMembership`'s server read of the trip doc is refused, the client writes `members.<uid> = 'member'` by field path (never 'owner'), the add D-593's rule allows, and returns `'joined'`. Only the page-load caller in the provider reloads on that, once per trip per session (`selfJoinReload`, key 49), because listeners already refused stay dead; the adoption loop over every known trip never reloads. If the self-add is refused too, or the guard has fired, the access-pending toast shows as before. The provider now enrols `getTripId()`, so a shared default pack enrols under its share id.
+
+**Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
+
+**Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
