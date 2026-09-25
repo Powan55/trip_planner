@@ -907,6 +907,11 @@ html {
      while stamped; iOS input-zoom fix pins inputs at 16px, unaffected.) */
   font-size: 106.25%;
   scroll-behavior: smooth;
+  /* Keyboard-focused elements must clear the fixed navbar (h-16 = 4rem + its scrolled
+     border-b-2, navbar.tsx:180) and, below md, the bottom tab bar (--tab-bar-h, published
+     by bottom-tab-bar.tsx, itself md:hidden). WCAG 2.4.11. */
+  scroll-padding-top: calc(4rem + 2px);
+  scroll-padding-bottom: env(safe-area-inset-bottom);
   /*/A6 · behavior 4 (tap-highlight): iOS/Android paint a grey flash rect on any
      tappable element on `touchstart`. Suppressed app-wide — the app already has its
      own hover/active states plus the `:focus-visible` ring below for keyboard, so
@@ -918,6 +923,14 @@ html {
      Safari has no CSS property that kills the bounce ITSELF (see the identical
      caveat on `.travel-mode-root`,) — this only stops the chain-through. */
   overscroll-behavior-y: contain;
+}
+
+/* Bottom tab bar only exists below md (bottom-tab-bar.tsx is md:hidden), so the
+   scroll-padding it needs would over-reserve space on desktop otherwise. */
+@media (max-width: 767.98px) {
+  html {
+    scroll-padding-bottom: calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom));
+  }
 }
 
 /* `machine` sets family only, and the one IBM Plex Mono face loaded here is the 600 — so

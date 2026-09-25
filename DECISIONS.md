@@ -5827,6 +5827,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Decision.** Settings that follow a person across devices go in `trips/{code}/profile/prefs` as `{ [field]: { v, hlc } }`, where `code` is the account's User Token (storage key 28, `getSyncCode()`), not the display-name slot (key 4). The doc is mirrored locally in storage key 48, which is wiped on sign-out, and a response that lands after sign-out or an account switch is dropped. Each field is last-write-wins on its own HLC. An explicit `setPref` stamps past both the local and the stored stamp inside its transaction, so an edit always wins by commit order; stale stamps only lose when an older value is read back. Writes update only their own field, and `claimField` is a create-if-absent transaction that returns whichever value the account ends up with. The rules' `boundedWrite` caps a doc at 32 top-level fields, so this doc holds at most 32 prefs. Key 47 (`syncPaused`) is a per-device switch and is not synced.
 
 **Why.** `pushTripList` rewrites `profile/tripList` whole with `tx.set` of `{version, trips, removed}`, so any new field there would be erased by older clients. A whole-doc LWW on the new doc would let one device's edit to one setting revert another device's edit to a different one.
+### D-591 · (issue #583, 2026-09-24) · A failed domain subscribe is reopened on `online` or tab return; a healthy one never is
+
+**Decision.** `SyncPort.subscribe` takes an optional `onDead` callback, fired when the dynamic import of the remote module fails and the subscription was not already torn down. `useDomainSync` then drops its handle, and the next `online` or visible `visibilitychange` flushes and reopens it. The handle is cleared only if it is still the one that died, so a late failure from a torn-down subscription cannot clear a newer one. `onDead` only covers a failed dynamic import: an `onSnapshot` error (e.g. permission-denied) still leaves the listener dead and is not reopened; that fix belongs in the `*-remote.ts` modules and is deferred. The captive-portal case (`armOnlineRetry` waiting on an `online` event that never fires) is deferred.
+
+**Why.** Resubscribing on every focus would re-read every doc across five domains on each tab return, against a 50k reads/day free quota. Keeping a healthy subscription costs no extra reads, so only a dead one is reopened.
 ### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
 
 **Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
@@ -5834,3 +5839,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
 
 **Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.
+
+### D-595 · (issue #599, 2026-09-24) · A device holding a trip id joins the roster itself
+
+**Decision.** When `ensureMembership`'s server read of the trip doc is refused, the client writes `members.<uid> = 'member'` by field path (never 'owner'), the add D-593's rule allows, and returns `'joined'`. Only the page-load caller in the provider reloads on that, once per trip per session (`selfJoinReload`, key 49), because listeners already refused stay dead; the adoption loop over every known trip never reloads. If the self-add is refused too, or the guard has fired, the access-pending toast shows as before. The provider now enrols `getTripId()`, so a shared default pack enrols under its share id.
+
+**Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
+
+**Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
