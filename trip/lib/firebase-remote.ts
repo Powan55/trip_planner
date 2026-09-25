@@ -1,6 +1,7 @@
 'use client';
 
 import { FIREBASE_CONFIG, isRemoteConfigured } from './firebase-config';
+import { syncPausedPrefs } from '@/core/storage/gateway';
 
 // ---------------------------------------------------------------------------
 // Shared lazy firebase handle. Both the read (subscribe) and write (push) paths
@@ -36,6 +37,18 @@ export interface RemoteHandle {
 let remotePromise: Promise<RemoteHandle> | null = null;
 
 /**
+ * Rejection `getRemote()` gives while "Sync this device" is off (#600). Not a permission error on
+ * purpose: the outbox keeps the chunk dirty and retries it later instead of marking it refused.
+ */
+export class SyncPausedError extends Error {
+  readonly code = 'sync-paused';
+  constructor() {
+    super('sync paused on this device');
+    this.name = 'SyncPausedError';
+  }
+}
+
+/**
  * Lazily initialize firebase (app + firestore) ONCE, behind the `isRemoteConfigured()` gate.
  * Rejects (caller degrades to local-only) if the gate is off or any step fails; never throws
  * synchronously.
@@ -46,6 +59,14 @@ let remotePromise: Promise<RemoteHandle> | null = null;
  * before any caller issues a read or a write.
  */
 export function getRemote(): Promise<RemoteHandle> {
+  if (isRemoteConfigured() && syncPausedPrefs.get()) {
+    return Promise.reject(new SyncPausedError());
+  }
+  return getAuthHandle();
+}
+
+// Sign-in only, for the auth helpers below: they move no trip data, so pausing sync leaves them be.
+function getAuthHandle(): Promise<RemoteHandle> {
   if (!isRemoteConfigured()) {
     return Promise.reject(new Error('remote not configured'));
   }
@@ -119,7 +140,7 @@ export function getRemote(): Promise<RemoteHandle> {
 export async function getAuthIdToken(): Promise<string | null> {
   if (!isRemoteConfigured()) return null;
   try {
-    const { auth } = await getRemote();
+    const { auth } = await getAuthHandle();
     return (await auth.currentUser?.getIdToken()) ?? null;
   } catch {
     return null; // unreachable firebase must degrade to "no header", never to a thrown turn
@@ -218,7 +239,7 @@ export type LinkResult = 'linked' | 'adopted' | 'popup-blocked' | 'failed';
 export async function linkGoogleAccount(): Promise<LinkResult> {
   if (!isRemoteConfigured()) return 'failed';
   try {
-    const { auth } = await getRemote();
+    const { auth } = await getAuthHandle();
     const { GoogleAuthProvider, linkWithPopup, signInWithCredential } = await import('firebase/auth');
     const user = auth.currentUser;
     if (!user) return 'failed';
@@ -256,7 +277,7 @@ export async function linkGoogleAccount(): Promise<LinkResult> {
 export async function isGoogleLinked(): Promise<boolean> {
   if (!isRemoteConfigured()) return false;
   try {
-    const { auth } = await getRemote();
+    const { auth } = await getAuthHandle();
     return auth.currentUser?.providerData.some((p) => p.providerId === 'google.com') ?? false;
   } catch {
     return false;

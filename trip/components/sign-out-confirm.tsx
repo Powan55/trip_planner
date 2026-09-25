@@ -7,6 +7,7 @@ import { downloadTripBackup } from '@/lib/trip-backup';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import { unsyncedEditCount } from '@/core/trips/registry';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -72,6 +73,7 @@ export default function SignOutConfirm({
   // Read post-open, never at mount: this is a client-only storage read, and the key can be minted
   // (Settings, /trips) while the page is still up.
   const [code, setCode] = useState<string | null>(null);
+  const [unsynced, setUnsynced] = useState(0);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
 
@@ -118,6 +120,7 @@ export default function SignOutConfirm({
         setBackup('idle'); // fresh dialog, fresh backup-offer state
         setStep('confirm');
         setCode(getSyncCode());
+        setUnsynced(unsyncedEditCount());
       }}
     >
       <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
@@ -143,6 +146,12 @@ export default function SignOutConfirm({
                 : forgetDevice
                   ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). There is no key stored here, so nothing signs back in afterwards. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device. There is no key stored here, so nothing signs back in afterwards, and the plan won't come back unless it's synced to another device."}
+            {step !== 'key' && unsynced > 0 && (
+              <span className="mt-2 block font-semibold text-[color:var(--text-hi)]" data-testid={`${testId}-unsynced`}>
+                {unsynced} {unsynced === 1 ? 'change' : 'changes'} on this device{' '}
+                {unsynced === 1 ? "hasn't" : "haven't"} synced yet and will be lost.
+              </span>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

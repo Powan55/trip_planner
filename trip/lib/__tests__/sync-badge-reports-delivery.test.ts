@@ -68,7 +68,7 @@ function render(el: ReactElement) {
 describe('D-546 — the sync badge reports delivery, not just transport', () => {
   beforeEach(() => {
     h.presence = [];
-    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false };
+    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false, paused: false };
   });
 
   it('with no one else on the trip it says "Saved", never "Synced"', () => {
@@ -135,13 +135,13 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
 
   it('a live outbox fact still outranks the audience — pending and blocked are unchanged', () => {
     h.presence = [peer('Uttam')];
-    h.sync = { pending: 3, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false };
+    h.sync = { pending: 3, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false, paused: false };
     const pendingRender = render(createElement(SyncStatusBadge));
     expect(pendingRender.text()).toBe('3 pending');
     expect(pendingRender.state()).toBe('pending');
     pendingRender.unmount();
 
-    h.sync = { pending: 3, blocked: 3, readBlocked: false, lastAckAt: ACKED, localOnly: false };
+    h.sync = { pending: 3, blocked: 3, readBlocked: false, lastAckAt: ACKED, localOnly: false, paused: false };
     const blockedRender = render(createElement(SyncStatusBadge));
     expect(blockedRender.text()).toBe('3 not syncing');
     expect(blockedRender.state()).toBe('blocked');
@@ -149,7 +149,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
   });
 
   it('the local-only offer is untouched — an unshared pack has no audience to report', () => {
-    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: true };
+    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: true, paused: false };
     const r = render(createElement(SyncStatusBadge));
 
     expect(r.text()).toBe('This device only');
@@ -160,7 +160,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
   });
 
   it('nothing to report is still nothing to render (dormant / guest)', () => {
-    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false };
+    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false, paused: false };
     h.presence = [peer('Uttam')];
     const r = render(createElement(SyncStatusBadge));
 

@@ -1161,6 +1161,7 @@ D-109's direction reverses. `core/dates/trip-cities.ts` no longer hand-authors t
 **Decision:** gateway key 12 (journal) stays device-local: no `SyncPort` wired, no Firestore path assigned, ever. Export/import, an explicit user act, remains the only egress. The absence is the design, recorded so no future slice "helpfully" syncs it.
 **Why:** a private diary shared by silent default betrays the surface's premise; syncing it later, if ever wanted, costs one config field, so locking local-by-default costs nothing.
 **Changes if:** we explicitly want shared entries, and then it is an opt-in per-entry share design, never a default sync.
+**Amended by D-596 (2026-09-24, owner decision):** the journal now syncs to its author's own devices only, under their account. It is still never visible to other travellers and never in concierge context.
 
 ### D-153 · (proposed S139, recorded 2026-07-11) · `gcTombstones` runs as a post-merge pass at the two merge boundaries only; 30-day horizon; zero dedicated writes
 **Decision:** invoked on merged results inside `push*Merged` (before `tx.set`) and on the steady-state snapshot apply (before persist), never in the hot merge path and never as its own Firestore write. Expenses get the id-keyed analog in `merge-items.ts`; budget is N/A. Cross-client `nowPt` skew is accepted: it is conservative, and it converges as docs rewrite. S145 implements it, and the S110 TL-A P3 riders ride the same slice: `getEntry` memoization (version-stamped ref), the provider re-routed through `itinerarySyncPort.subscribe` (which kills the dead surface, since `itinerary-provider.tsx:65` imports `subscribeRemote` directly today), and hydration min-height reservation.
@@ -5822,11 +5823,29 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Why.** A stale push from one tab could ack a chunk after another tab's newer edit was enqueued; if that edit's push then failed, the chunk was no longer dirty and the first snapshot overwrote it on reload. An older build in another tab drops `seq` when it writes the slot; the counter then reads 0 and a newer build's in-flight ack no-ops (the chunk stays dirty and retries), which is the safe direction.
 
+### D-590 · (issues #581, #582, 2026-09-24) · Reload a tab when another tab changes the active trip or identity
+
+**Decision.** `useCrossTabReload` reloads the tab on a `storage` event for the active-trip pointer, the default share, a token going to or from null (sign-in/out), or `localStorage.clear()`. A token rename keeps it non-null and does not reload. While reloading, the tab is marked retiring, and both draft flushes (`useDraftOnBlur` and the docs checklist note) skip their pagehide/unmount commit.
+
+**Why.** An unreloaded tab keeps its snapshot listeners on the old trip while `keyFor` resolves to the new one, so peer edits and local drafts landed in the wrong trip, and after sign-out were written back onto a wiped device. Without the guard on both flushes, the reload's own pagehide would commit the old draft into the new slots. A snapshot landing between the event and unload can still persist; closing that needs the remote adapters to check the trip they subscribed for.
 ### D-594 · (2026-09-24) · Per-person settings live in their own account doc, merged per field
 
 **Decision.** Settings that follow a person across devices go in `trips/{code}/profile/prefs` as `{ [field]: { v, hlc } }`, where `code` is the account's User Token (storage key 28, `getSyncCode()`), not the display-name slot (key 4). The doc is mirrored locally in storage key 48, which is wiped on sign-out, and a response that lands after sign-out or an account switch is dropped. Each field is last-write-wins on its own HLC. An explicit `setPref` stamps past both the local and the stored stamp inside its transaction, so an edit always wins by commit order; stale stamps only lose when an older value is read back. Writes update only their own field, and `claimField` is a create-if-absent transaction that returns whichever value the account ends up with. The rules' `boundedWrite` caps a doc at 32 top-level fields, so this doc holds at most 32 prefs. Key 47 (`syncPaused`) is a per-device switch and is not synced.
 
 **Why.** `pushTripList` rewrites `profile/tripList` whole with `tx.set` of `{version, trips, removed}`, so any new field there would be erased by older clients. A whole-doc LWW on the new doc would let one device's edit to one setting revert another device's edit to a different one.
+
+### D-597 · (2026-09-24) · "Sync this device" pauses at getRemote(), not at the sync gate
+
+**Decision.** The per-device switch (key 47) makes `getRemote()` reject with `SyncPausedError` (code `sync-paused`). `isTripRemoteConfigured()` is untouched, so the outbox keeps queuing while paused; pushes, snapshot listeners and the presence heartbeat all fail at `getRemote()`. The error is not `permission-denied`, so queued chunks stay dirty and are not counted as refused. Toggling reloads the tab, and a `storage` event on key 47 reloads other tabs. On resume the outbox flushes and each domain's first snapshot merges dirty chunks rather than overwriting them. The auth-only helpers (`getAuthIdToken`, Google link) bypass the switch because they move no trip data. The badge reads "Sync off" ahead of every other state. The pre-flight check reports "Sync is off on this device" ahead of its blocked and pending rows, the presence heartbeat does not start, and adding or removing a device in Trip access is disabled.
+
+**Why.** Gating `isTripRemoteConfigured()` would also switch the outbox off, and edits made while paused would be lost on the next authoritative snapshot.
+
+**Changes if:** sync needs to pause per trip rather than per device.
+### D-596 · (issue #602, 2026-09-24) · The journal follows its author across their own devices
+
+**Decision.** Amends D-152 by owner decision. A trip's journal is mirrored to `trips/{code}/profile/journal_{tripId}`, where `code` is the account's User Token (key 28) and `tripId` the local pack id. No token, no remote at all. The doc is `{ entries: { [date]: row } }`, one field so the 32-field cap doesn't bound the trip length. Each date is last-write-wins on its HLC; a delete writes a tombstone `{ deletedAt, hlc }`. An explicit save or delete stamps past both the local and the stored stamp inside a transaction and writes only its own date. Per-date stamps sit in the new trip-scoped key 50. A push that fails stays dirty and retries, keeping its stamp, on the next snapshot or `online` event, where anything newer on the server wins. Entries from before a device had a stamp are stamped at their own `updatedAt` and pushed. Body text is capped at 4000 characters. Photos stay on the device that took them (key 16 and IndexedDB), so another device shows the entry without them. "Clear journal" in Settings stays local: the stamps are kept, so the account copy doesn't refill it. One listener per page, and only while a journal view is mounted. A retry never turns a missing local entry into a tombstone unless the delete was explicit (deletedAt in key 50). The listener binds to the token present at mount. A backup restore re-stamps each restored day, so the restore wins on the author's other devices.
+
+**Why.** The owner wanted a diary written on the phone to be there on the laptop. The account path sits under the User Token, which is never shared, so nothing reaches a shared trip doc. Tombstones stop a delete coming back from a device that was offline.
 ### D-591 · (issue #583, 2026-09-24) · A failed domain subscribe is reopened on `online` or tab return; a healthy one never is
 
 **Decision.** `SyncPort.subscribe` takes an optional `onDead` callback, fired when the dynamic import of the remote module fails and the subscription was not already torn down. `useDomainSync` then drops its handle, and the next `online` or visible `visibilitychange` flushes and reopens it. The handle is cleared only if it is still the one that died, so a late failure from a torn-down subscription cannot clear a newer one. `onDead` only covers a failed dynamic import: an `onSnapshot` error (e.g. permission-denied) still leaves the listener dead and is not reopened; that fix belongs in the `*-remote.ts` modules and is deferred. The captive-portal case (`armOnlineRetry` waiting on an `online` event that never fires) is deferred.
@@ -5847,3 +5866,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
 
 **Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
+
+### D-601 · (issue #605, 2026-09-24) · Prior names follow the account and only ever grow
+
+**Decision.** The names someone renamed away from live in the account prefs doc as one field, `priorNames`, as well as locally (key 30). On boot, sign-in and reconnect, and after a claim, `unionPref` merges the local list into the account inside a transaction and the device adopts the union. Nothing is ever removed; the account list stops accepting new names at 50. The login placeholder is never synced unless it is explicitly claimed.
+
+**Why.** "My edits" on a second device missed items stamped with a name only the first device knew. Per-field last-write-wins would drop one of two concurrent additions.
+
+**Trade-off.** A name added past the cap stays on its own device. Removing a name needs a new rule.

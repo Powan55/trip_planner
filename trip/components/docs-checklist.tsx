@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileCheck2, PlaneTakeoff, ShieldCheck } from 'lucide-react';
 import { useDocs } from '@/hooks/use-docs';
+import { isTabRetiring } from '@/hooks/use-cross-tab-reload';
 import type { DocSection, DocItem } from '@/core/docs/model';
 import { haptic } from '@/lib/haptics';
 import { crossedIntoComplete } from '@/lib/celebration';
@@ -76,6 +77,7 @@ function DocRow({
   onNoteRef.current = onNote;
 
   const flushDraft = () => {
+    if (isTabRetiring()) return;
     if (draftRef.current.trim() !== savedNoteRef.current) onNoteRef.current(item.id, draftRef.current);
   };
 

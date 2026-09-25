@@ -18,6 +18,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
 
+const retiring = vi.hoisted(() => ({ value: false }));
+vi.mock('@/hooks/use-cross-tab-reload', () => ({ isTabRetiring: () => retiring.value }));
+
 interface Handle {
   value: () => string;
   type: (v: string) => void;
@@ -157,6 +160,22 @@ describe('useDraftOnBlur (V6-2)', () => {
     expect(onCommit).toHaveBeenCalledWith('150');
     h.unmount();
     expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it('a retiring tab skips the pagehide flush so the old draft never lands in the new trip (#581)', () => {
+    const onCommit = vi.fn();
+    const h = render('100', onCommit);
+    h.type('150');
+    retiring.value = true;
+    try {
+      act(() => {
+        window.dispatchEvent(new Event('pagehide'));
+      });
+      h.unmount();
+    } finally {
+      retiring.value = false;
+    }
+    expect(onCommit).not.toHaveBeenCalled();
   });
 
   it('unmounting with a dirty draft commits it', () => {
