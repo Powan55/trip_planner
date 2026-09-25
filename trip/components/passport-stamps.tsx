@@ -228,7 +228,7 @@ export default function PassportStamps() {
             className="mt-4 max-w-md text-t-body leading-relaxed"
             style={{ color: 'var(--on-paper)' }}
           >
-            No stamps yet. The first one lands the day your trip reaches Nepal, and any country
+            No stamps yet. The first one lands the day your trip reaches {legs[0]?.label ?? 'its first country'}, and any country
             you have already been to takes its place on this page as soon as it is counted.
           </p>
         </div>
