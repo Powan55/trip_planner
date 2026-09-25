@@ -320,5 +320,18 @@ service cloud.firestore {
         allow create, update: if isMember() && boundedWrite();
       }
     }
+
+    // Email/password account: {username, accountId}, owner-only. accountId names
+    // trips/{accountId}/profile/*. Create-only: repointing accountId would hand over
+    // another account's profile once profile access keys off this doc.
+    match /users/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['username', 'accountId'])
+        && request.resource.data.username is string
+        && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.accountId is string
+        && request.resource.data.accountId.size() == 36;
+    }
   }
 }
