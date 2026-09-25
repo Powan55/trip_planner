@@ -53,9 +53,8 @@ import { budgetSyncPort, budgetStoragePort } from '@/lib/budget-ports';
 import { docsSyncPort, docsStoragePort } from '@/lib/docs-ports';
 import { placesSyncPort, myPlacesStoragePort } from '@/lib/places-ports';
 import { sanitizeEntries, type JournalEntry } from '@/core/journal/model';
-import { pushJournalEntry } from '@/lib/journal-remote';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
-import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
+import { getTripId, isRemoteConfigured, isTripRemoteConfigured } from '@/lib/firebase-config';
 import { normalizeModel } from '@/core/budget/model';
 import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
@@ -202,7 +201,9 @@ const DOMAINS = {
     write: (v) => {
       journalStore.set(v);
       // Re-stamp each restored day so the restore wins on the author's other devices (D-596).
-      for (const e of v as JournalEntry[]) void pushJournalEntry(e.date);
+      if (!isRemoteConfigured()) return;
+      const dates = (v as JournalEntry[]).map((e) => e.date);
+      void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
     },
     validate: (v) => (Array.isArray(v) ? sanitizeEntries(v) : null),
   },

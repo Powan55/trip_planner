@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef } from 'react';
 import { keyFor } from '@/core/storage/gateway';
 import { loadJournal, saveJournal, journalStoragePort } from '@/core/journal/storage';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
-import { pushJournalEntry, retainJournalSync } from '@/lib/journal-remote';
+import { isRemoteConfigured } from '@/lib/firebase-config';
+
+function pushLater(date: string): void {
+  if (isRemoteConfigured()) void import('@/lib/journal-remote').then((m) => m.pushJournalEntry(date));
+}
 import {
   getEntry as getEntryCore,
   upsertEntry as upsertEntryCore,
@@ -53,7 +57,18 @@ const useJournalStore = createReactiveStore<JournalEntry[]>({
 export function useJournal(): JournalStore {
   const { value: entries, hydrated, commit } = useJournalStore();
 
-  useEffect(() => retainJournalSync(), []);
+  useEffect(() => {
+    if (!isRemoteConfigured()) return;
+    let cancelled = false;
+    let release: (() => void) | null = null;
+    void import('@/lib/journal-remote').then((m) => {
+      if (!cancelled) release = m.retainJournalSync();
+    });
+    return () => {
+      cancelled = true;
+      release?.();
+    };
+  }, []);
 
   // Read against the freshest persisted state (not a stale closure), so a caller that reads right
   // after a save sees the write; falls back to React state under SSR/pre-hydrate.
@@ -83,7 +98,7 @@ export function useJournal(): JournalStore {
       // timestamp injected HERE.
       if (!hydrated) return;
       commit((current) => upsertEntryCore(current, date, patch, new Date().toISOString()));
-      void pushJournalEntry(date);
+      pushLater(date);
     },
     [commit, hydrated],
   );
@@ -92,7 +107,7 @@ export function useJournal(): JournalStore {
     (date: string) => {
       if (!hydrated) return;
       commit((current) => removeEntryCore(current, date));
-      void pushJournalEntry(date);
+      pushLater(date);
     },
     [commit, hydrated],
   );
