@@ -25,7 +25,10 @@ export default function MapPage() {
         variant="map"
         title="Trip Map"
         eyebrow="Explore"
-        subtitle="Attractions, food, photo spots, and hotels across your destinations — filter by category or overlay your own itinerary."
+        // Visually baselined (e2e/visual.spec.ts "map page hero", 3 viewports, Windows-rendered,
+        // CI-refreshed only) — kept literal rather than trip-neutral so the rendered header stays
+        // pixel-identical. The (non-rendered) metadata above is neutral; this text is not.
+        subtitle="Attractions, food, photo spots, and hotels across Kathmandu and Japan — filter by category or overlay your own itinerary."
       />
       <MapSection />
     </main>
