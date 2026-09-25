@@ -562,6 +562,12 @@ export const STORAGE_KEYS = {
    * `tripMetaSelfHeal`. APP-SCOPED.
    */
   selfJoinReload: 'nepal_japan_self_join_reload',
+  /**
+   * sessionStorage — `'1'` once this tab has reloaded onto the account's default-pack share id
+   * (default-share reload, key 51; D-598). APP-SCOPED. Stops a write that never sticks from
+   * reloading forever.
+   */
+  defaultShareReload: 'nepal_japan_default_share_reload',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -1300,6 +1306,18 @@ export const selfJoinReloadGuard = {
     const ids = raw ? raw.split(',') : [];
     if (!ids.includes(tripId)) ids.push(tripId);
     writeString('session', STORAGE_KEYS.selfJoinReload, ids.join(','));
+  },
+} as const;
+
+/** At most one reload per session onto the account's default share (key 51; D-598). */
+export const defaultShareReloadGuard = {
+  hasRun(): boolean {
+    return readString('session', STORAGE_KEYS.defaultShareReload) !== null;
+  },
+  /** False when the flag did not stick (storage blocked), so the caller must not reload. */
+  markRun(): boolean {
+    writeString('session', STORAGE_KEYS.defaultShareReload, '1');
+    return this.hasRun();
   },
 } as const;
 

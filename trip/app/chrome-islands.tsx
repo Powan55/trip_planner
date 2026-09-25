@@ -8,6 +8,13 @@
 // pattern, same tree positions in the layout.
 import dynamic from 'next/dynamic';
 import { openPalette, isPaletteMounted } from '@/lib/palette-open';
+import { isRemoteConfigured } from '@/lib/firebase-config';
+
+// D-598: once per page load, put the default pack on the account's shared trip. Outside the
+// itinerary provider so a re-mount can't run it twice.
+if (typeof window !== 'undefined' && isRemoteConfigured()) {
+  void import('@/lib/account-share').then((m) => m.syncDefaultShare(), () => {});
+}
 
 // (#505): CommandPalette itself owns the real ⌘K/Ctrl+K listener, but it's a
 // lazy chunk (below) and may not have attached it yet. This module IS always

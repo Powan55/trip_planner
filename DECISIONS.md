@@ -5847,3 +5847,11 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
 
 **Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
+
+### D-598 · (issue #601, 2026-09-24) · The default pack's share id lives in the account
+
+**Decision.** On each identified page load (`lib/account-share.ts`, run from `app/chrome-islands.tsx`), under a `default-share` Web Lock, the client settles `profile/prefs.defaultShare` through `claimField` alone, whose transaction is the server read (the local prefs mirror is never consulted). A device with no share id mints one, claims it, and adopts whichever id the claim returns; only a device whose own mint won marks the trip created-here. A device that already has an id claims with it: an empty account takes it, and if the account holds a different one the device keeps its own and only logs. Before adopting, every synced domain the pack holds (itinerary days, budget, docs, places, expense legs) is marked dirty so it merges into the trip's first snapshot rather than being replaced. The adopt then reloads in place, at most once per session (`defaultShareReload`, key 51). Other open tabs are not reloaded; they pick the id up on their next load. A failed or offline claim does nothing, and the trip doc is not pre-created. The share id is re-read right before writing, because writing a different one would wipe the pack's synced slots. `setPref` is never used for this field.
+
+**Why.** Minting per device (D-542) gave one person a separate trip on each device.
+
+**Trade-off.** Older clients stay local-only until they update. A person whose devices already hold different ids keeps them apart; nothing merges them automatically.

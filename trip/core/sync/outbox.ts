@@ -290,6 +290,16 @@ function enqueue(domain: SyncDomain, chunks: string[]): Record<string, number> {
   return counters;
 }
 
+/**
+ * Queue chunks without pushing them (D-598): the device is about to point the default pack at an
+ * account's existing trip, and its own days must merge into that trip's first snapshot rather than
+ * be replaced by it. Deliberately not behind `enabled()`: the share id is written right after this,
+ * so the trip gate cannot be true yet. The caller checks the traveler.
+ */
+export function markOutboxDirty(domain: SyncDomain, chunks: string[]): void {
+  if (chunks.length > 0) enqueue(domain, chunks);
+}
+
 /** Ack: remove one confirmed chunk from the domain's dirty set, and stamp the single app-wide
  * `lastAckAt` to now — every real ack is progress worth surfacing, regardless of domain.
  *
