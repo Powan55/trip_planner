@@ -165,6 +165,13 @@ describe('pushTripMeta — writes trips/{tripId}/meta/info', () => {
     expect(writeLog[0].opts).toEqual({});
   });
 
+  it('D-600: carries updatedAt, and fetch reads it back for LWW', async () => {
+    await pushTripMeta(TRIP_ID, { name: 'Renamed', updatedAt: 1234 });
+    expect(writeLog[0].data).toEqual({ name: 'Renamed', updatedAt: 1234 });
+    fake.setDocData(DOC_PATH, writeLog[0].data);
+    expect(await fetchTripMeta(TRIP_ID)).toEqual({ name: 'Renamed', updatedAt: 1234 });
+  });
+
   it('no-ops (no Firestore call) when dormant', async () => {
     isRemoteConfiguredMock.mockReturnValue(false);
     await pushTripMeta(TRIP_ID, { name: 'X' });

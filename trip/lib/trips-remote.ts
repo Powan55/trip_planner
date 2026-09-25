@@ -2,7 +2,7 @@
 // to Firestore, so someone joining via a `?trip=` link receives
 // who/what the trip is, not just its raw itinerary/expenses/etc. rows.
 //
-// SHAPE: ONE doc `trips/{tripId}/meta/info` = `{ name, config? }` (the `meta` subcollection name
+// SHAPE: ONE doc `trips/{tripId}/meta/info` = `{ name, config?, updatedAt? }` (the `meta` subcollection name
 // is RESERVED within a trip doc, alongside the-future `profile` subcollection — never reuse
 // either name for a different purpose).
 //
@@ -26,9 +26,8 @@
 // a joiner's self-heal read, not a live sync channel), sanitized via the registry's
 // own `sanitizeTripConfig` so a malformed remote doc degrades to `undefined`/a name-only
 // result rather than corrupting local state. Its caller (`runTripMetaSelfHeal` in
-// components/itinerary-provider) runs it at most ONCE PER PAGE LOAD and — since —
-// marks its per-session guard only when a doc was actually FOUND, so "the creator's write
-// hasn't landed yet" stays retryable instead of dead-ending the joiner's whole session.
+// components/itinerary-provider) runs it ONCE PER PAGE LOAD and applies it by updatedAt LWW
+// (D-600), so a peer's rename lands on the next load.
 //
 // DORMANT-SAFE: firebase is reached ONLY through the shared `getRemote()` (lazy, gated on
 // `isRemoteConfigured()`). This module is itself imported only dynamically (from trips-hub's
@@ -61,7 +60,7 @@ import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
 
-export type TripMetaPayload = { name: string; config?: TripConfigBlock };
+export type TripMetaPayload = { name: string; config?: TripConfigBlock; updatedAt?: number };
 
 /**
  * Best-effort push of a trip's name/config to `trips/{tripId}/meta/info`. Never rejects to the
@@ -79,6 +78,8 @@ export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promi
     const { doc, setDoc } = fs;
     const ref = doc(db, 'trips', tripId, 'meta', 'info');
     const payload: Record<string, unknown> = { name: meta.name };
+    // D-600: the entry's own client-clock stamp, the same clock the synced trip list compares on.
+    if (typeof meta.updatedAt === 'number' && Number.isFinite(meta.updatedAt)) payload.updatedAt = meta.updatedAt;
     // JSON round-trip both clones and strips `undefined`-valued optional fields (`currency`),
     // which Firestore's setDoc rejects — same defensive move as docs-remote's sanitizeRowsForWrite.
     if (meta.config) payload.config = JSON.parse(JSON.stringify(meta.config));
@@ -110,7 +111,9 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
     const data = snap.data() as Record<string, unknown>;
     if (typeof data.name !== 'string' || data.name.trim().length === 0) return undefined;
     const config = sanitizeTripConfig(data.config);
-    return config ? { name: data.name, config } : { name: data.name };
+    const out: TripMetaPayload = config ? { name: data.name, config } : { name: data.name };
+    if (typeof data.updatedAt === 'number' && Number.isFinite(data.updatedAt)) out.updatedAt = data.updatedAt;
+    return out;
   } catch (err) {
     console.warn('[trips-remote] trip meta fetch failed:', err);
     return undefined;

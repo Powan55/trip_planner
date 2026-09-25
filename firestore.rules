@@ -141,7 +141,7 @@ service cloud.firestore {
     //   …/expenses/{leg}       {leg, items[]}                           2 fields
     //   …/budget/model         {version, fields{}}                      2 fields
     //   …/docs/checklist       {version, items[]}                       2 fields
-    //   …/meta/info            {name, config{}}                         1-2 fields
+    //   …/meta/info            {name, config{}, updatedAt}              1-3 fields
     //   …/profile/tripList     {version, trips[], removed[]}            3 fields
     //   …/presence/{deviceId}  {name, lastSeen}                         2 fields
     // Container lengths: a packed day is ~20 items, a heavily-used expense leg ~400-500
