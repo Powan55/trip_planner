@@ -147,6 +147,64 @@ export async function getAuthIdToken(): Promise<string | null> {
   }
 }
 
+const CLEAR_CACHE_TIMEOUT_MS = 3000;
+const FLUSH_WAIT_MS = 1500;
+
+function deleteDatabase(name: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(name);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Drop this device's Firestore cache before a sign-out wipe (#571, D-576): the cached trip docs
+ * and any queued writes. `signOutAuth` also drops the anonymous session, so the next person on a
+ * handed-on device gets a fresh uid. Best-effort and bounded: never throws, never waits more than
+ * a few seconds, because sign-out has to finish even when this cannot.
+ *
+ * When Firebase never started on this page load, the leftovers of an earlier one are deleted by
+ * name (the SDK's names for the default app and database) rather than starting the SDK just to
+ * clear it.
+ */
+export async function clearRemoteCache({ signOutAuth = false } = {}): Promise<void> {
+  if (!isRemoteConfigured()) return;
+  const pending = remotePromise;
+  remotePromise = null;
+  const work = (async () => {
+    const handle = pending ? await pending.catch(() => null) : null;
+    if (handle) {
+      // Give queued offline writes a short chance to reach the server before they are dropped.
+      await Promise.race([
+        handle.fs.waitForPendingWrites(handle.db).catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, FLUSH_WAIT_MS)),
+      ]);
+      if (signOutAuth) await handle.auth.signOut();
+      await handle.fs.terminate(handle.db);
+      await handle.fs.clearIndexedDbPersistence(handle.db);
+    } else {
+      await Promise.all([
+        deleteDatabase(`firestore/[DEFAULT]/${FIREBASE_CONFIG.projectId}/main`),
+        signOutAuth ? deleteDatabase('firebaseLocalStorageDb') : null,
+      ]);
+    }
+  })();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      work,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timed out')), CLEAR_CACHE_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (err) {
+    console.warn('[firebase-remote] could not clear the local Firestore cache', err);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** What `linkGoogleAccount` did, as four outcomes a UI can speak plainly about. */
 export type LinkResult = 'linked' | 'adopted' | 'popup-blocked' | 'failed';
 

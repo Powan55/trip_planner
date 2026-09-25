@@ -5787,6 +5787,16 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** `clients.claim()` fires `controllerchange` in every open tab. Only the tab whose user clicked Refresh auto-reloads; other tabs keep showing the update toast (with their own Refresh action) instead. A passive tab that never reloads may hit `ChunkLoadError` on a lazy chunk the old precache doesn't have — accepted over silently reloading and losing whatever that tab had in progress.
 
+### D-576 · (issue #571, 2026-09-24) · Sign-out clears the Firestore cache; Forget this device also drops the anonymous session
+
+**Decision.** `<SignOutConfirm>` calls `clearRemoteCache()` before `signOut()`. A started instance is terminated and its IndexedDB persistence cleared, and the cached handle is reset. If Firebase never started on this page load, the leftover `firestore/[DEFAULT]/<projectId>/main` database is deleted by name instead. Forget this device also signs out of Firebase Auth (or deletes `firebaseLocalStorageDb`), so the next sign-in mints a new anonymous uid. A plain sign-out keeps the uid, as #10 requires.
+
+**Why.** The wipe cleared web storage only, so the previous traveller's trip docs and the account key path stayed in the Firestore cache on a shared device. The clear is best-effort and gives up after 3 s with a warning: sign-out must finish even when another tab holds the database open or the SDK hangs.
+### D-573 · (issue #561, 2026-09-24) · Expenses merge on first snapshot instead of taking remote verbatim
+
+**Decision.** On the first server snapshot a clean, present leg is merged with local, then local rows absent from remote and older than `DEFAULT_GC_HORIZON_MS` are dropped; unstamped rows stay. If a kept row is missing from remote or newer than it, the leg is pushed right away. Same rule as places (#539).
+
+**Why.** Signed-out adds and backup restores stamp an `hlc` but never reach the outbox, so the verbatim apply wiped them on the first sign-in. A cross-leg move is still safe: the old leg's move tombstone wins the merge, and `dedupeAcrossLegs` covers a peer that never wrote one.
 ### D-569 · (issue #541, 2026-09-24) · The done tick merges on its own stamp, apart from the rest of the row
 
 **Decision.** Itinerary items and docs checklist rows carry an optional `doneHlc`, set to the row's new `hlc` on every done/checked toggle (tick and untick) under sync. `resolvePair` takes `done`/`doneBy`/`doneAt`/`checked`/`doneHlc` as one unit from the row with the higher `doneHlc`, the same way it already joins `ord`. A tombstone winner is returned untouched; a tie, or no `doneHlc` on either side, keeps the body winner as before. A row with no `doneHlc` compares by its `hlc` instead, so an older build's untick still beats an older tick; to keep that fallback from letting a plain edit claim the tick, current builds write the pre-edit key into `doneHlc` on every non-toggle edit.
@@ -5825,3 +5835,23 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 **Why.** Gating `isTripRemoteConfigured()` would also switch the outbox off, and edits made while paused would be lost on the next authoritative snapshot.
 
 **Changes if:** sync needs to pause per trip rather than per device.
+### D-591 · (issue #583, 2026-09-24) · A failed domain subscribe is reopened on `online` or tab return; a healthy one never is
+
+**Decision.** `SyncPort.subscribe` takes an optional `onDead` callback, fired when the dynamic import of the remote module fails and the subscription was not already torn down. `useDomainSync` then drops its handle, and the next `online` or visible `visibilitychange` flushes and reopens it. The handle is cleared only if it is still the one that died, so a late failure from a torn-down subscription cannot clear a newer one. `onDead` only covers a failed dynamic import: an `onSnapshot` error (e.g. permission-denied) still leaves the listener dead and is not reopened; that fix belongs in the `*-remote.ts` modules and is deferred. The captive-portal case (`armOnlineRetry` waiting on an `online` event that never fires) is deferred.
+
+**Why.** Resubscribing on every focus would re-read every doc across five domains on each tab return, against a 50k reads/day free quota. Keeping a healthy subscription costs no extra reads, so only a dead one is reopened.
+### D-592 · (issue #589, 2026-09-24) · A phase header only repeats when the day moves to a later phase
+
+**Decision.** `groupItemsByPhase` amends D-216 (header-boundary rule): `isNewPhase` now tracks the last *headed* phase's rank (morning < afternoon < evening < anytime) and only fires when the current item's rank is higher, instead of comparing to the immediately preceding item. D-142's (LOCKED) no-reorder guarantee still holds; stored/manual order is untouched.
+
+**Why.** A day whose items cross timezones (or are manually reordered) could fall back to an earlier phase mid-list and re-print that phase's header, which read as a bug even though the order was intentional.
+
+**Trade-off.** A manually reordered item that lands under an earlier-ranked header shows under the wrong-looking header; its own time chip stays correct.
+
+### D-595 · (issue #599, 2026-09-24) · A device holding a trip id joins the roster itself
+
+**Decision.** When `ensureMembership`'s server read of the trip doc is refused, the client writes `members.<uid> = 'member'` by field path (never 'owner'), the add D-593's rule allows, and returns `'joined'`. Only the page-load caller in the provider reloads on that, once per trip per session (`selfJoinReload`, key 49), because listeners already refused stay dead; the adoption loop over every known trip never reloads. If the self-add is refused too, or the guard has fired, the access-pending toast shows as before. The provider now enrols `getTripId()`, so a shared default pack enrols under its share id.
+
+**Why.** Under member-gated rules a non-member cannot read the doc, so the read-then-enrol path could never let anyone join.
+
+**Trade-off.** The trip id is the whole capability: a removed member can rejoin. Open trips skip the self-join (the read succeeds). One real change: the provider now enrols a shared default pack, so the device that shared it (marked created-here) writes itself `'owner'` on first load and the pack becomes member-gated, as #501 already does for custom trips. Harmless while the live rules are open.
