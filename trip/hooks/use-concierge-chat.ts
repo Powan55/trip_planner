@@ -354,9 +354,10 @@ export type ChatStatus = 'idle' | 'streaming' | 'error';
  */
 function statusMessage(status: number): string {
   if (status === 401 || status === 403) {
-    return 'The concierge couldn’t confirm this trip is yours. Sign in again, or open the trip from your trips list.';
+    return "The concierge couldn't confirm this trip is yours. Sign in again, or open the trip from your trips list.";
   }
   if (status === 413) return 'That message was too long to send. Shorten it and try again.';
+  if (status === 429) return "You've sent a lot of messages in a short time. Wait a minute, then try again.";
   return 'The concierge is having trouble right now. Try again in a moment.';
 }
 
