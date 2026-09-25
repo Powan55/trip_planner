@@ -106,7 +106,15 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             ref={isSelected ? selectedRef : undefined}
             type="button"
             onClick={() => onSelect(date)}
-            onFocus={(e) => centerChip(scrollerRef.current, e.currentTarget, prefersReducedMotion)}
+            // Keyboard focus only (`:focus-visible`) — a pointer/touch tap already lands its own
+            // click and the chip's `snap-center` scroll-snap settles it, so re-centering here too
+            // races that gesture: on touch, scrolling the strip mid-tap can make the browser treat
+            // the tap as a scroll and drop the click (TM-11 day-strip clicks silently no-op'd).
+            onFocus={(e) => {
+              if (e.currentTarget.matches(':focus-visible')) {
+                centerChip(scrollerRef.current, e.currentTarget, prefersReducedMotion);
+              }
+            }}
             aria-pressed={isSelected}
             aria-label={`${long}${todayLabel}${activityLabel}${shadeLabel(shade)}`}
             data-testid={`day-strip-${date}`}
