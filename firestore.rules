@@ -86,7 +86,7 @@ rules_version = '2';
 //
 // ⚠ MATCHES ARE ADDITIVE (OR), NEVER SUBTRACTIVE. An operation is allowed if ANY matching
 // rule allows it; a later block can only ever WIDEN what an earlier one granted. That is
-// what makes the `profile/{identity,tripList}` and `meta/**` carve-outs below work at all — each sits
+// what makes the `profile/{identity,tripList,prefs,journal_*}` and `meta/**` carve-outs below work at all — each sits
 // alongside the member-gated subtree block, not instead of it — and it is also the trap
 // D-219 fell into. There is no way to write "members only, EXCEPT nobody may…" here.
 //
@@ -161,6 +161,11 @@ service cloud.firestore {
         && len('fields') <= 5000     // budget leaf-field map
         && len('members') <= 200     // uid → role roster
         && len('entries') <= 1000;   // journal date → row map (max 730 days + margin)
+    }
+
+    // Account docs under trips/{userToken}/profile/ (D-605). matches() is a full match.
+    function isAccountDoc(docId) {
+      return docId in ['identity', 'tripList', 'prefs'] || docId.matches('journal_.{1,128}');
     }
 
     // The trip doc itself: reachable and writable by direct id only — never listable.
@@ -255,7 +260,7 @@ service cloud.firestore {
       allow delete: if (isOpen() && request.auth != null) || isOwner();
 
       // ── CARVE-OUT: the account path + the login door ──────────────────────────
-      // `trips/{userToken}/profile/{identity,tripList}` is not trip content at all: the
+      // `trips/{userToken}/profile/{identity,tripList,prefs,journal_*}` is not trip content: the
       // userToken IS the capability (D-239's two-token model), and there is no members map
       // on an account. It MUST keep capability semantics, auth floor only:
       //   · the door validates a pasted User Token by reading trips/{code}/profile/identity
@@ -265,23 +270,24 @@ service cloud.firestore {
       //     loudly broken. That is the failure mode this block exists to prevent.
       //   · the trip-list sync writes here on a device that is a member of nothing.
       // Matches are additive, so this WIDENS the subtree block below for this one prefix.
-      // Two document ids, not a subtree: `identity` and `tripList` are the only profile paths
-      // the app touches (lib/trips-remote.ts). A recursive carve-out would let any tripId
-      // holder create at any depth, and the delete exception below would make it permanent.
-      // COST, ACCEPTED: on a MEMBER-GATED trip these two documents stay capability-only —
+      // Named document ids, not a subtree: identity, tripList (lib/trips-remote.ts), prefs
+      // (lib/account-prefs-remote.ts) and journal_{tripId} (lib/journal-remote.ts) are the only
+      // profile paths the app touches. D-605: prefs/journal_* were missing, so on an account
+      // token that is also a gated trip id they fell to the member-only subtree block (#644).
+      // A recursive carve-out would let any tripId holder create at any depth.
+      // COST, ACCEPTED: on a MEMBER-GATED trip these documents stay capability-only —
       // a non-member holding the tripId can read and write them. The app keeps nothing
       // there for a trip id (the account documents live under a userToken, D-239), and the
       // alternative is circular: the door would have to know a membership before it is
       // allowed to check whether the account exists at all.
       match /profile/{docId} {
-        allow get: if request.auth != null && docId in ['identity', 'tripList'];
-        allow create, update: if request.auth != null && boundedWrite()
-          && docId in ['identity', 'tripList'];
+        allow get: if request.auth != null && isAccountDoc(docId);
+        allow create, update: if request.auth != null && boundedWrite() && isAccountDoc(docId);
       }
 
       // The subtree block below refuses `delete` for the whole profile prefix. These two give
       // it back to members everywhere except identity/tripList themselves, so nothing else
-      // planted under profile/ is permanent. The second covers anything nested below a
+      // planted under profile/ (prefs and journal_* included) is permanent. The second covers anything nested below a
       // profile document, where the id says nothing about what the document is.
       match /profile/{docId}/{rest=**} {
         allow delete: if isMember() && !(docId in ['identity', 'tripList']);

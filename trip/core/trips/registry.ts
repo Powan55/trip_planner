@@ -543,10 +543,10 @@ const SYNC_DOMAINS: readonly SyncDomain[] = ['itinerary', 'expenses', 'budget', 
 /** Confirm copy for `joinReplacesLocalPlan`, naming how many queued-but-unsynced edits the
  * default pack's outbox would drop (issue #526). Reads the default pack's own slot, not the
  * active trip's — the join box is reachable while a custom trip is active. */
-export function replaceLocalPlanCopy(): string {
+export function replaceLocalPlanCopy(lead: string = REPLACE_LOCAL_PLAN_COPY): string {
   const n = SYNC_DOMAINS.reduce((sum, d) => sum + outboxDirty(d, DEFAULT_TRIP_ID).length, 0);
-  if (n === 0) return REPLACE_LOCAL_PLAN_COPY;
-  return `${REPLACE_LOCAL_PLAN_COPY} ${n} unsynced ${n === 1 ? 'edit' : 'edits'} on this device will be lost.`;
+  if (n === 0) return lead;
+  return `${lead} ${n} unsynced ${n === 1 ? 'edit' : 'edits'} on this device will be lost.`;
 }
 
 /** Total unsynced edits across every pack this browser knows (#623): sign-out's
