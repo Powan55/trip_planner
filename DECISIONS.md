@@ -1891,6 +1891,7 @@ _(S348 + S350, recorded 2026-07-30)_
 **Why:** react-markdown + remark-gfm ≈ 44 KB gz. marked + DOMPurify ≈ 27 KB gz and requires `dangerouslySetInnerHTML`, reopening an injection surface the current regex→React-element renderer is structurally immune to. The hand-rolled renderer is ~110 lines.
 **Changes if:** the concierge ever needs tables or nested structure, at which point re-evaluate. The prompt currently forbids both.
 **Honest limit:** the prompt half is unverifiable without a live model key. The renderer is the deterministic half and carries the readability fix on its own.
+**Amendment (2026-09-25):** models ignore parts of the clause, so the renderer now also tolerates `•`/`–` bullets, a whole list run onto one line (split only at two or more ` - **` or counting-up ` N. **` markers outside code spans), `---` rules, and pipe-table rows, which fall back to one line per row with cells joined by ` · `. ` -- ` in plain text becomes an em dash. Tables and nesting are still not rendered, and "Changes if" still holds.
 
 ## D-251 · impl-note · `request.resource.size()` is a constant in Firestore rules: never use it as a size guard
 _(S358, recorded 2026-07-31. The wave plan specified this exact no-op and it nearly shipped.)_
