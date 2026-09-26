@@ -117,7 +117,7 @@ function formatBytes(bytes: number): string {
  * "Is the map ENGINE in the offline install?" — deliberately NOT "is the offline map ready".
  *
  * 🔴 D-286 BINDS THIS COPY. There is no offline map and there is not going to be one: basemap
- * tiles come from `basemaps.cartocdn.com`, which is cross-origin, and the SW's first fetch-handler
+ * tiles come from `tiles.openfreemap.org`, which is cross-origin, and the SW's first fetch-handler
  * line passes cross-origin through untouched, so tiles are never cached. Offline PMTiles was
  * closed NO-GO (D-173 → D-197: 180 MB–3.7 GB against a 100 MB cap). The maplibre ENGINE is not
  * precached either (V6-14): it is RUNTIME-cached into the precache on the first ONLINE `/map`
