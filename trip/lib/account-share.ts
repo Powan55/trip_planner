@@ -6,7 +6,9 @@
 
 import {
   DEFAULT_TRIP_ID,
+  defaultPackHasSyncedData,
   defaultShareReloadGuard,
+  dropDefaultPackSyncedData,
   getActiveTripId,
   getDefaultTripShareId,
   isSafeTripSegment,
@@ -19,11 +21,15 @@ import {
 import { isLeg } from '@/core/budget/model';
 import { loadExpenses } from '@/core/budget/storage';
 import { markOutboxDirty, type SyncDomain } from '@/core/sync/outbox';
+import { replaceLocalPlanCopy } from '@/core/trips/registry';
 import { loadPlans } from '@/core/vault/storage';
 import { isRemoteConfigured } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
 
 const FIELD = 'defaultShare';
+
+const ACCOUNT_PLAN_COPY =
+  "Your account already syncs a trip plan. Use it on this device? It replaces the plan here, so back that up first if it has edits worth keeping.";
 
 function asId(v: unknown): string {
   const id = typeof v === 'string' ? v.trim() : '';
@@ -66,12 +72,32 @@ async function settle(): Promise<void> {
   // Another tab may have adopted while this one waited on the network, and writing a different id
   // over it would wipe the default pack's synced slots.
   if (getDefaultTripShareId() !== '') return;
+  if (id === minted) {
+    if (!defaultShareReloadGuard.markRun()) return;
+    // Marked only once the claim is won, and in the same synchronous run as the adopt, so a failed
+    // or lost claim leaves nothing behind.
+    markTripCreatedHere(minted);
+    markLocalDataDirty();
+    setDefaultTripShareId(id);
+    window.location.reload();
+    return;
+  }
+
+  // Adopting the account's trip replaces this device's plan (D-603); never merge it in unasked.
+  if (defaultPackHasSyncedData()) {
+    // A background tab can't answer a prompt; leave the guard unset so the next load asks.
+    if (document.visibilityState !== 'visible') return;
+    if (!window.confirm(replaceLocalPlanCopy(ACCOUNT_PLAN_COPY))) {
+      defaultShareReloadGuard.markRun();
+      return;
+    }
+    if (getDefaultTripShareId() !== '') return;
+  }
   if (!defaultShareReloadGuard.markRun()) return;
-  // Marked only once the claim is won, and in the same synchronous run as the adopt, so a failed
-  // or lost claim leaves nothing behind.
-  if (id === minted) markTripCreatedHere(minted);
-  markLocalDataDirty();
   setDefaultTripShareId(id);
+  // Set before drop, so a write that didn't land can't cost the local plan.
+  if (getDefaultTripShareId() !== id) return;
+  dropDefaultPackSyncedData();
   window.location.reload();
 }
 

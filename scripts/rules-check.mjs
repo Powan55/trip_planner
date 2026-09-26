@@ -76,7 +76,7 @@
  *   8. GRANDFATHER  — a trip with NO members map keeps capability semantics for any signed-in
  *                     holder of the tripId. This is the opt-in lock: it is what stops a rules
  *                     deploy (instant, global) bricking every legacy trip and every ?trip= link.
- *   9. THE DOOR     — profile/identity and profile/tripList keep capability semantics behind the
+ *   9. THE DOOR     — profile/identity, tripList, prefs and journal_* keep capability semantics behind the
  *                     auth floor, so the login door's probe of an ABSENT trips/{code}/profile/identity resolves to
  *                     "missing" rather than to permission-denied (D-296: a 403 there would make
  *                     token validation silently vacuous), and meta/** is readable by a
@@ -613,8 +613,9 @@ const phase8 = flush('PHASE 8 (grandfathered capability trip)');
 // D-296: the door validates a pasted User Token with ONE server read of
 // trips/{code}/profile/identity, BEFORE any membership can exist, and its tri-state ADMITS on
 // 'unavailable'. So a permission-denied there would not fail loudly — it would make token
-// validation silently vacuous. profile/** therefore keeps capability semantics behind the
-// auth floor, and this phase is the tripwire on that.
+// validation silently vacuous. The carved profile ids (identity, tripList, prefs, journal_*,
+// D-605) therefore keep capability semantics behind the auth floor, and this phase is the
+// tripwire on that.
 console.log('\n\n=== 9. THE DOOR: profile/** and meta/** keep capability semantics ===');
 await expect('authed get on an ABSENT trips/{acct}/profile/identity -> MISSING', 'ALLOWED', async () => {
   const snap = await getDoc(doc(db, 'trips', ACCT, 'profile', 'identity'));
@@ -640,18 +641,35 @@ await expect('authed NON-MEMBER gets trips/L/meta/info (the join preview)', 'ALL
   () => getDoc(doc(dbS, 'trips', L, 'meta', 'info')));
 await expect('authed NON-MEMBER reads trips/L/profile/identity (the door)', 'ALLOWED',
   () => getDoc(doc(dbS, 'trips', L, 'profile', 'identity')));
+// D-605 (#644): prefs and journal_* are account docs like identity/tripList. The account token
+// can also be a gated trip id, so they must not fall through to the member-only subtree block.
+for (const id of ['prefs', 'journal_x']) {
+  await expect(`authed NON-MEMBER sets trips/L/profile/${id}`, 'ALLOWED',
+    () => setDoc(doc(dbS, 'trips', L, 'profile', id), { version: 1 }));
+  await expect(`authed NON-MEMBER gets trips/L/profile/${id}`, 'ALLOWED', async () => {
+    if (!(await getDoc(doc(dbS, 'trips', L, 'profile', id))).exists()) throw new Error('fixture: must exist');
+  });
+}
 await expect('...but the same NON-MEMBER still cannot list trips/L/days', 'DENIED',
   () => getDocs(collection(dbS, 'trips', L, 'days')));
 await expect('...and still cannot list trips/L/meta', 'DENIED',
   () => getDocs(collection(dbS, 'trips', L, 'meta')));
 
-console.log('\n  -- 9c. the carve-out is two document ids, and nothing planted under profile/ is permanent (#398) --');
+console.log('\n  -- 9c. the carve-out is three ids plus journal_*, and nothing planted under profile/ is permanent (#398) --');
 await expect('authed deletes trips/{acct}/profile/tripList -> DENIED (same reason as identity)', 'DENIED',
   () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'tripList')));
 await expect('stranger S creates trips/L/profile/planted   (gated trip, uncarved id)', 'DENIED',
   () => setDoc(doc(dbS, 'trips', L, 'profile', 'planted'), { junk: 1 }));
 await expect('stranger S creates trips/L/profile/identity/deep/doc  (any depth)', 'DENIED',
   () => setDoc(doc(dbS, 'trips', L, 'profile', 'identity', 'deep', 'doc'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/journal   (no suffix)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'journal'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/journal_   (empty suffix)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'journal_'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/prefsx', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'prefsx'), { junk: 1 }));
+await expect('stranger S gets trips/L/profile/prefsx', 'DENIED',
+  () => getDoc(doc(dbS, 'trips', L, 'profile', 'prefsx')));
 await expect('stranger S gets trips/L/profile/planted', 'DENIED',
   () => getDoc(doc(dbS, 'trips', L, 'profile', 'planted')));
 await seed(['trips', ACCT, 'profile', 'planted'], { junk: 1 });
@@ -683,8 +701,8 @@ await expect("anon S heals {version:1,name:'X'} inside a transaction", 'ALLOWED'
 await expect('UNAUTH creates a missing identity doc -> DENIED (no client heal gate can substitute for the auth floor)', 'DENIED',
   () => setDoc(doc(dbU, 'trips', healKeys[4], 'profile', 'identity'), { version: 1 }));
 
-// Not carved out by id: these reach the subtree block, where isMember() is true only because no
-// trip doc exists at an account path.
+// Carved out by id since D-605; before that they passed here only because isMember() is true
+// when no trip doc exists at an account path. 9b covers the gated-trip case.
 console.log('\n  -- 9e. account docs profile/prefs and profile/journal_<id> (D-593) --');
 for (const id of ['prefs', 'journal_x']) {
   await expect(`authed sets trips/{acct}/profile/${id}`, 'ALLOWED',
