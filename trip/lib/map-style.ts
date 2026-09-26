@@ -4,23 +4,11 @@
 // safe to import from anywhere and stays out of the dormant hot path. The GL
 // canvas itself is mounted client-only by map-section.tsx.
 //
-// Basemap choice: CARTO "dark-matter" raster XYZ
-// tiles. Genuinely free, NO API key required, dark by design — a clean fit for
-// the navy/gold brand. Attribution (CARTO + OpenStreetMap) is legally required
-// and is rendered via MapLibre's AttributionControl (see map-section.tsx).
-//
-// Tiles: https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
-// Docs: https://github.com/CartoDB/basemap-styles (free basemaps, no token)
-//
-// REJECTED alternatives (need a key in production → free-only rule): Stadia,
-// MapTiler, Mapbox. Raw tile.openstreetmap.org is also rejected (usage policy
-// discourages app embedding + it is light, not dark).
-//
-// Brand-tune: a navy fill sits UNDER the raster (shows through tile gaps / while
-// loading and warms the dark grey toward the app's navy), and the raster is
-// drawn at slightly reduced opacity so it never fights the gold accents. Labels
-// and land are already muted in dark-matter, so no extra label-layer overrides
-// are needed for a raster source.
+// Basemap: OpenFreeMap vector tiles (OpenMapTiles schema), keyless and free, with
+// our own trimmed dark layer set below (D-606). CARTO's raster tiles now need a
+// key. The OpenFreeMap style JSON is not fetched at runtime: sprite-dependent
+// layers are dropped, and labels read `name:latin` only so MapLibre never asks
+// for a glyph range we do not self-host (Devanagari, kana, ...).
 
 import type { MarkerCategory } from '@/lib/map-data';
 // The single basePath source (lib/utils.ts). Pure — no React, no browser API, no
@@ -84,17 +72,51 @@ export const CATEGORY_COLOR: Record<MarkerCategory, string> = {
   Cultural: '#f59e0b', // amber-500
 };
 
-// CARTO dark-matter raster XYZ endpoints (subdomained a-d for throughput). Free,
-// no key. Retina ({r}) omitted for a smaller, universally-served 256px tile.
-export const CARTO_DARK_TILES = [
-  'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-];
+// TileJSON, not an inlined tile URL: OpenFreeMap rotates its dated planet build
+// weekly and the TileJSON is the documented way to find the current one.
+export const OPENFREEMAP_TILEJSON = 'https://tiles.openfreemap.org/planet';
 
 export const MAP_ATTRIBUTION =
-  '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>';
+  '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">© OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
+
+const GROUND = {
+  water: '#04030c',
+  park: '#0f0d20',
+  building: '#13112a',
+  roadMinor: '#1b1930',
+  roadMajor: '#27253d',
+  motorway: '#333049',
+  rail: '#211f36',
+  border: '#3a3752',
+  borderState: '#28263c',
+  label: '#7d7a93',
+  labelDim: '#5d5a73',
+} as const;
+
+const LATIN_NAME = ['get', 'name:latin'];
+const LABEL_PAINT = {
+  'text-color': GROUND.label,
+  'text-halo-color': BRAND.navy900,
+  'text-halo-width': 1.2,
+};
+
+function roadLayer(id: string, classes: string[], color: string, minzoom: number, widths: number[]) {
+  return {
+    id,
+    type: 'line',
+    source: 'openfreemap',
+    'source-layer': 'transportation',
+    minzoom,
+    filter: [
+      'all',
+      ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false],
+      ['match', ['get', 'class'], classes, true, false],
+      ['!=', ['get', 'brunnel'], 'tunnel'],
+    ],
+    layout: { 'line-cap': 'round', 'line-join': 'round' },
+    paint: { 'line-color': color, 'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], ...widths] },
+  };
+}
 
 /**
  * Build the MapLibre StyleSpecification for the brand-tuned dark basemap.
@@ -105,15 +127,16 @@ export const MAP_ATTRIBUTION =
 export function buildMapStyle(): Record<string, unknown> {
   return {
     version: 8,
-    // Glyphs endpoint for the symbol layers that render cluster counts and
-    // numbered day markers. SELF-HOSTED under public/font/ — the PBFs are ours,
-    // served same-origin, no third-party host on the runtime path.
+    // Glyphs endpoint for every symbol layer: cluster counts, numbered day
+    // markers and the basemap labels. SELF-HOSTED under public/font/ — the PBFs
+    // are ours, served same-origin, no third-party host on the runtime path.
     //
-    // MEASURED before deciding (issue #8): both label fields are NUMERIC
-    // ('point_count_abbreviated', 'day' — item titles render in HTML popups, not
-    // as SDF glyphs), so range 0-255 of two stacks is everything the map can ever
-    // request: "Noto Sans Regular" 76,580 B + "Noto Sans Bold" 81,170 B =
-    // 157,750 B (154.05 KiB). No other range is ever fetched.
+    // Ranges on disk: 0-255 for both stacks (the pin labels are numeric), plus
+    // 256-511, 7680-7935 and 8192-8447 for "Noto Sans Regular", the ranges the
+    // basemap's `name:latin` labels were seen to request across Nepal, Japan and
+    // the default view (macrons, Vietnamese letters, curly apostrophes). A rarer
+    // codepoint falls back to MapLibre's local drawing after a 404; the tile
+    // still renders.
     //
     // The byte count decided it, but the stronger reason is an OFFLINE DEFECT the
     // old cross-origin URL had: the service worker's fetch handler returns
@@ -135,32 +158,125 @@ export function buildMapStyle(): Record<string, unknown> {
     // where a bare '/font/...' 404s.
     glyphs: withBasePath('/font/{fontstack}/{range}.pbf'),
     sources: {
-      'carto-dark': {
-        type: 'raster',
-        tiles: CARTO_DARK_TILES,
-        tileSize: 256,
+      openfreemap: {
+        type: 'vector',
+        url: OPENFREEMAP_TILEJSON,
         attribution: MAP_ATTRIBUTION,
-        maxzoom: 20,
       },
     },
     layers: [
-      // Navy underlay — warms the basemap toward the brand and fills tile gaps.
+      // The ground, and all that shows offline or before the first tile lands.
       {
         id: 'brand-navy-underlay',
         type: 'background',
         paint: { 'background-color': BRAND.navy900 },
       },
       {
-        id: 'carto-dark',
-        type: 'raster',
-        source: 'carto-dark',
-        paint: {
-          // Slightly translucent so the navy underlay tints it and the raster
-          // never overpowers the gold accents / markers.
-          'raster-opacity': 0.92,
-          'raster-saturation': -0.15,
-          'raster-contrast': 0.05,
+        id: 'water',
+        type: 'fill',
+        source: 'openfreemap',
+        'source-layer': 'water',
+        filter: ['!=', ['get', 'brunnel'], 'tunnel'],
+        paint: { 'fill-color': GROUND.water, 'fill-antialias': false },
+      },
+      {
+        id: 'waterway',
+        type: 'line',
+        source: 'openfreemap',
+        'source-layer': 'waterway',
+        minzoom: 8,
+        paint: { 'line-color': GROUND.water, 'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 14, 2] },
+      },
+      {
+        id: 'park',
+        type: 'fill',
+        source: 'openfreemap',
+        'source-layer': 'landuse',
+        filter: ['==', ['get', 'class'], 'park'],
+        paint: { 'fill-color': GROUND.park },
+      },
+      {
+        id: 'building',
+        type: 'fill',
+        source: 'openfreemap',
+        'source-layer': 'building',
+        minzoom: 13,
+        paint: { 'fill-color': GROUND.building, 'fill-opacity': 0.7 },
+      },
+      roadLayer('road-minor', ['minor', 'service'], GROUND.roadMinor, 12, [12, 0.5, 17, 6]),
+      roadLayer('road-major', ['primary', 'secondary', 'tertiary', 'trunk'], GROUND.roadMajor, 7, [7, 0.4, 12, 1.5, 17, 10]),
+      roadLayer('road-motorway', ['motorway'], GROUND.motorway, 5, [5, 0.4, 12, 2, 17, 12]),
+      roadLayer('rail', ['rail', 'transit'], GROUND.rail, 10, [10, 0.5, 17, 2]),
+      {
+        id: 'boundary-state',
+        type: 'line',
+        source: 'openfreemap',
+        'source-layer': 'boundary',
+        minzoom: 4,
+        filter: ['all', ['==', ['get', 'admin_level'], 4], ['!=', ['get', 'maritime'], 1]],
+        paint: { 'line-color': GROUND.borderState, 'line-dasharray': [2, 2], 'line-width': 0.8 },
+      },
+      {
+        id: 'boundary-country',
+        type: 'line',
+        source: 'openfreemap',
+        'source-layer': 'boundary',
+        filter: ['all', ['==', ['get', 'admin_level'], 2], ['!=', ['get', 'maritime'], 1]],
+        paint: { 'line-color': GROUND.border, 'line-width': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 10, 1.5] },
+      },
+      {
+        id: 'road-label',
+        type: 'symbol',
+        source: 'openfreemap',
+        'source-layer': 'transportation_name',
+        minzoom: 13,
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': LATIN_NAME,
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 10,
         },
+        paint: { ...LABEL_PAINT, 'text-color': GROUND.labelDim },
+      },
+      {
+        id: 'place-minor-label',
+        type: 'symbol',
+        source: 'openfreemap',
+        'source-layer': 'place',
+        minzoom: 11,
+        filter: ['match', ['get', 'class'], ['village', 'suburb', 'neighbourhood', 'quarter', 'hamlet'], true, false],
+        layout: { 'text-field': LATIN_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 10 },
+        paint: { ...LABEL_PAINT, 'text-color': GROUND.labelDim },
+      },
+      {
+        id: 'place-label',
+        type: 'symbol',
+        source: 'openfreemap',
+        'source-layer': 'place',
+        filter: ['match', ['get', 'class'], ['city', 'town'], true, false],
+        layout: {
+          'text-field': LATIN_NAME,
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['match', ['get', 'class'], 'city', 13, 11],
+          'symbol-sort-key': ['get', 'rank'],
+        },
+        paint: LABEL_PAINT,
+      },
+      {
+        id: 'country-label',
+        type: 'symbol',
+        source: 'openfreemap',
+        'source-layer': 'place',
+        maxzoom: 7,
+        filter: ['==', ['get', 'class'], 'country'],
+        layout: {
+          'text-field': LATIN_NAME,
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 11,
+          'text-transform': 'uppercase',
+          'text-letter-spacing': 0.1,
+        },
+        paint: LABEL_PAINT,
       },
     ],
   };

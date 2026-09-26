@@ -39,32 +39,17 @@ const DEFAULT_TOKEN = 'Alina';
  * (`lib/map-style.ts` -> `withBasePath('/font/{fontstack}/{range}.pbf')`, PBFs under
  * `public/font/`), so nothing in the app requests this host any more and the route below
  * matches zero requests. Kept, not deleted, because the measured flake notes at its
- * `page.route` call are the reason the CARTO stub underneath it exists — delete the pair
+ * `page.route` call are the reason the tile stub underneath it exists — delete the pair
  * together or not at all. Same-origin glyphs are served off disk by `scripts/serve-out.mjs`,
  * so they no longer contribute to the reload-abort noise this stub was for.
  */
 const MAPLIBRE_GLYPH_URL = 'https://demotiles.maplibre.org/**';
 
 /**
- * The map style's RASTER BASEMAP endpoints, declared at `lib/map-style.ts:56-61`
- * (`CARTO_DARK_TILES`): `https://{a,b,c,d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`.
- * MapLibre rotates the four subdomains, so the glob wildcards it — Playwright compiles a single
- * `*` to `[^/]*` (it cannot cross a `/`), so this matches every `<sub>.basemaps.cartocdn.com`
- * host and nothing else. This is the abort source that actually drives the flake; see the
- * docblock at its `page.route` call below.
+ * The map style's TileJSON and vector tile host (`OPENFREEMAP_TILEJSON` in `lib/map-style.ts`). This
+ * is the abort source that actually drives the flake; see the docblock at its `page.route` call below.
  */
-const CARTO_TILE_URL = 'https://*.basemaps.cartocdn.com/**';
-
-/**
- * 1×1 fully transparent RGBA PNG (68 bytes), built with zlib + correct chunk CRCs and verified
- * by decoding it back (signature, all three chunk CRCs via `zlib.crc32`, IHDR 1×1/8-bit/RGBA,
- * IDAT inflating to the expected 5 bytes). A WELL-FORMED image matters: MapLibre decodes raster
- * tiles with `createImageBitmap`, and a malformed body would trade one console error for another.
- */
-const TRANSPARENT_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=',
-  'base64',
-);
+const BASEMAP_TILE_URL = 'https://tiles.openfreemap.org/**';
 
 export const test = base.extend({
   page: async ({ page }, use) => {
@@ -95,13 +80,13 @@ export const test = base.extend({
      * GL canvas. On the shared fixture rather than per-spec because the race is latent in
      * every spec that reloads with a map mounted.
      *
-     * ⚠️ MEASURED, AND NOT SUFFICIENT ON ITS OWN — it needs the raster stub below.
+     * ⚠️ MEASURED, AND NOT SUFFICIENT ON ITS OWN — it needs the tile stub below.
      * `map-favorites-offline.spec.ts -g "survives a reload" --repeat-each=10`:
      *   with ONLY this stub:  2/10 and 1/10 failed
      *   with NO stub:         3/10 failed
      * — i.e. within noise of each other. A trace of one WITH-stub failure shows ZERO demotiles
      * requests on the wire (this route fulfilled them all) and 16 aborted
-     * `*.basemaps.cartocdn.com/dark_all/*.png` RASTER TILE requests, `_resourceType: "fetch"`,
+     * basemap tile requests (CARTO raster PNGs at the time), `_resourceType: "fetch"`,
      * `_failureText: "net::ERR_ABORTED"`. The glyph endpoint is one abort source among ~17, not
      * "the" cause. Kept because it removes a real one cheaply.
      */
@@ -109,29 +94,29 @@ export const test = base.extend({
       route.fulfill({ status: 200, contentType: 'application/x-protobuf', body: '' }),
     );
     /**
-     * The OTHER ~16 abort sources, and the ones that actually move the failure rate: the CARTO
-     * raster basemap tiles from `lib/map-style.ts`'s `CARTO_DARK_TILES` (see `CARTO_TILE_URL`).
+     * The OTHER ~16 abort sources, and the ones that actually move the failure rate: the
+     * basemap tiles from `lib/map-style.ts`'s `OPENFREEMAP_TILEJSON` (see `BASEMAP_TILE_URL`).
      *
-     * MapLibre fetches raster tiles with `fetch` (not `<img src>`), so a tile cancelled by
+     * MapLibre fetches tiles with `fetch` (not `<img src>`), so a tile cancelled by
      * `page.reload()` rejects with the SAME bare `TypeError: Failed to fetch` the glyph abort
      * produces, and `Evented.fire` logs that error object verbatim via `console.error(event.error)`
      * when no `error` listener is attached.
      *
      * 🔴 CLASS DISTINCTION — why `KNOWN_TILE_FETCH_NOISE` (in `map-favorites-offline.spec.ts` and
      * `map-day-assign.spec.ts`) structurally cannot filter this: it matches on `AJAXError: Failed
-     * to fetch` and on the literal substring `basemaps.cartocdn.com`. MapLibre wraps only NON-2XX
+     * to fetch` and on the literal substring `tiles.openfreemap.org`. MapLibre wraps only NON-2XX
      * RESPONSES in `AJAXError`; an ABORT is forwarded as the raw `TypeError`, whose message is the
-     * bare string `Failed to fetch` with NO URL in it. So the `basemaps\.cartocdn\.com` branch —
+     * bare string `Failed to fetch` with NO URL in it. So the `tiles\.openfreemap\.org` branch —
      * which looks like it covers exactly this — can never match the aborted-tile message. The
      * filter is not missing a case; it applies to a different error class. Do NOT "fix" that by
      * widening it: `TypeError: Failed to fetch` is also what a genuine app-code fetch bug logs.
      *
      * SAFE HERE because this box has NO OUTBOUND INTERNET (`curl` to these hosts exits 35), so
      * these tiles NEVER load in this harness either way. Stubbing changes only HOW they fail, not
-     * what renders: zero basemap pixels before, zero after (the transparent tile composites onto
-     * the `brand-navy-underlay` background layer, which is what visual baselines already captured).
-     * Fulfilled with a valid tiny PNG rather than an abort/404 so the raster source gets a
-     * well-formed answer instead of trading one console error for another.
+     * what renders: zero basemap pixels before, zero after (an empty body is a valid empty vector
+     * tile, so only the `brand-navy-underlay` background layer paints, which is what visual
+     * baselines captured). Fulfilled rather than aborted/404'd so the source gets a well-formed
+     * answer instead of trading one console error for another.
      *
      * ⚠️ MEASURED BY COUNTING, NOT BY INSPECTION — a single green run cannot see a ~10% coin.
      * `-g "survives a reload"`, same build, same port, back to back (2026-08-01):
@@ -150,8 +135,19 @@ export const test = base.extend({
      * no stub, measured with a request counter). Do not add repeat-until-green retries on the
      * strength of this comment; the residual is real.
      */
-    await page.route(CARTO_TILE_URL, (route) =>
-      route.fulfill({ status: 200, contentType: 'image/png', body: TRANSPARENT_PNG }),
+    await page.route(BASEMAP_TILE_URL, (route) =>
+      new URL(route.request().url()).pathname === '/planet'
+        ? route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              tilejson: '3.0.0',
+              tiles: ['https://tiles.openfreemap.org/planet/stub/{z}/{x}/{y}.pbf'],
+              minzoom: 0,
+              maxzoom: 14,
+            }),
+          })
+        : route.fulfill({ status: 200, contentType: 'application/x-protobuf', body: '' }),
     );
     await use(page);
   },

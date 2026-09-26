@@ -1048,8 +1048,13 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     const src = map.getSource(MARKERS_SOURCE_ID) as GeoJSONSource | undefined;
     if (!src) return;
     src.setData(markersToGeoJSON(markers) as never);
-    // Close any open popup whose marker is no longer in the visible set.
-    if (popupMarker && !markers.some((mk) => mk.id === popupMarker.id)) {
+    // Close any open popup whose marker is no longer in the visible set. Stop popups
+    // are the route effect's to close; this one runs late when `load` lands after a click.
+    if (
+      popupMarker &&
+      MARKER_BY_ID.has(popupMarker.id) &&
+      !markers.some((mk) => mk.id === popupMarker.id)
+    ) {
       popupRef.current?.remove();
     }
     if (markers.length === 0 || !fitBounds) return;
