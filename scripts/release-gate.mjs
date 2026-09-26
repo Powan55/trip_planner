@@ -152,9 +152,10 @@ const preamble = releases.split('\n').slice(0, 20).join('\n');
 const preambleVersionMatch = /The newest live app is `v([0-9.]+)`/.exec(preamble);
 const preambleVersion = preambleVersionMatch ? preambleVersionMatch[1] : null;
 
+const headingHeld = heading && HOLD_MARKER.test(heading.clean);
 if (!heading) {
   fail(`trip/docs/RELEASES.md has no "## ${tag}" heading. Every deploy says what it changed.`);
-} else if (HOLD_MARKER.test(heading.clean)) {
+} else if (headingHeld) {
   fail(`trip/docs/RELEASES.md marks ${tag} as held, so it must not ship: ${heading.line.trim()}`);
 } else if (!newestTag) {
   // NOT a pass for the preamble: the comparison had nothing to compare against. `newestTag`
@@ -165,6 +166,20 @@ if (!heading) {
   fail(`trip/docs/RELEASES.md preamble says the newest live app is v${preambleVersion || 'unknown'}, but the newest deploy tag is v${newestTag}. Update the preamble to: The newest live app is \`v${newestTag}\`.`);
 } else {
   pass(`trip/docs/RELEASES.md documents ${tag} with no hold marker, and preamble is current.`);
+}
+
+// 2b. Independent of the heading verdict above, NOT chained onto it: a missing or held
+// heading has no bearing on whether the preamble names the newest deploy — chaining them
+// meant fixing the heading and re-pushing was the only way to discover a stale preamble
+// was ALSO wrong. Runs only when the branch above did not already evaluate the preamble
+// (i.e. heading missing or held); the "both fine" and "no tag visible" cases are already
+// covered there in one message.
+if ((!heading || headingHeld) && newestTag) {
+  if (preambleVersion !== newestTag) {
+    fail(`trip/docs/RELEASES.md preamble says the newest live app is v${preambleVersion || 'unknown'}, but the newest deploy tag is v${newestTag}. Update the preamble to: The newest live app is \`v${newestTag}\`.`);
+  } else {
+    pass(`trip/docs/RELEASES.md preamble names the newest deploy tag v${newestTag}.`);
+  }
 }
 
 // 3. Came through `dev`. Set only on the pull-request path; absent on a push, where there

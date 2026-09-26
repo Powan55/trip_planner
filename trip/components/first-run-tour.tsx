@@ -127,7 +127,7 @@ export function stopsForActiveTrip(): TourStop[] {
       label: 'Journal',
       href: hrefFor('Journal'),
       Icon: BookOpen,
-      blurb: 'A private day-by-day journal for the trip — mood, highlights, and notes, saved on this device.',
+      blurb: 'A private day-by-day journal for the trip — mood, highlights, and notes, synced only to your own devices.',
     },
     {
       key: 'map',

@@ -54,5 +54,5 @@ export async function resolveAndCacheCityCoords(
   // the throttled requests (a rename, a re-edit) — merge onto whatever is current, don't clobber it.
   const latest = getKnownTrip(tripId)?.config;
   if (!latest) return;
-  setTripConfig(tripId, { ...latest, cityCoords: resolved });
+  setTripConfig(tripId, { ...latest, cityCoords: resolved }, false);
 }

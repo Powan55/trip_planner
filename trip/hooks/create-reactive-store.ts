@@ -30,7 +30,8 @@ import type { StoragePort, SyncPort } from '@/core/ports';
  * 2. REACTIVITY, BOTH LAYERS — every commit dispatches the CustomEvent; the hook
  * listens to that event AND the cross-tab `storage` event (key-match via the exported key
  * constants, or `key === null` full-clear), re-reading from the StoragePort — never a stale
- * closure.
+ * closure. The committing instance re-reads too (D-604): if `save` failed, it shows what is
+ * actually stored rather than an edit that was never kept.
  * 3. FRESH-BASE COMMIT — `compute` receives `storage.load()`, so chained mutations in
  * one handler compose (each sees the prior's already-persisted write).
  * 4. PUSH PLACEMENT — `sync.push(prev, next)` fires ONLY from `commit()`, AFTER the
@@ -95,17 +96,16 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
         if (!hydratedRef.current) return;
         setValue(storage.load());
       };
-      const onCustom = () => reread();
       const onStorage = (e: StorageEvent) => {
         // Resolve the match set at event time so a pack-dependent key (function-form
         // `storageKeys`) reflects the ACTIVE pack, not a value frozen at module load.
         const keys = typeof storageKeys === 'function' ? storageKeys() : storageKeys;
         if (e.key === null || keys.includes(e.key)) reread();
       };
-      window.addEventListener(eventName, onCustom);
+      window.addEventListener(eventName, reread);
       window.addEventListener('storage', onStorage);
       return () => {
-        window.removeEventListener(eventName, onCustom);
+        window.removeEventListener(eventName, reread);
         window.removeEventListener('storage', onStorage);
       };
     }, []);

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import {
   joinTrip,
   parseTripToken,
+  isOwnAccountToken,
+  OWN_ACCOUNT_TOKEN_COPY,
   DEFAULT_SHARE_PREFIX,
   type TripToken,
 } from '@/core/trips/registry';
@@ -62,7 +64,9 @@ import {
  */
 export default function TripJoinHandshake() {
   const [token, setToken] = useState<TripToken | null>(null);
-  const [status, setStatus] = useState<'idle' | 'joining' | 'error' | 'unusable'>('idle');
+  const [status, setStatus] = useState<'idle' | 'joining' | 'error' | 'unusable' | 'own-key'>(
+    'idle',
+  );
   const { traveler } = useActiveTraveler();
   // Depend on the BOOLEAN, not the traveler object: `useActiveTraveler` re-resolves a fresh object
   // on every identity:changed, which would re-run this effect for no reason.
@@ -85,6 +89,12 @@ export default function TripJoinHandshake() {
     const parsed = parseTripToken(t);
     if (!parsed) {
       setStatus('unusable');
+      return;
+    }
+    // D-504 — a link carrying this device's own account key. `joinTrip` would refuse it anyway;
+    // saying so up front beats a confirm whose only outcome is the storage-failure sentence.
+    if (isOwnAccountToken(t)) {
+      setStatus('own-key');
       return;
     }
     // Prompt only when this is NOT where the browser already is. For a default-pack invitation
@@ -127,7 +137,7 @@ export default function TripJoinHandshake() {
 
   // D-546 — a link whose token can never be used. Drawn rather than ignored: an invitee who was
   // sent a mangled link must be told to ask for another, not left on a page where nothing happens.
-  if (status === 'unusable') {
+  if (status === 'unusable' || status === 'own-key') {
     return (
       <AlertDialog open onOpenChange={(open) => !open && handleCancel()}>
         <AlertDialogContent
@@ -137,9 +147,15 @@ export default function TripJoinHandshake() {
           <AlertDialogHeader>
             <AlertDialogTitle>This link can&rsquo;t be opened</AlertDialogTitle>
             <AlertDialogDescription className="text-t-body text-ink-mid">
-              The trip code in this link is incomplete, so nothing has been changed on this device.
-              Links are often cut short by chat apps &mdash; ask whoever sent it to share the code
-              itself instead, and paste it in Settings, under Trip access.
+              {status === 'own-key' ? (
+                OWN_ACCOUNT_TOKEN_COPY
+              ) : (
+                <>
+                  The trip code in this link is incomplete, so nothing has been changed on this
+                  device. Links are often cut short by chat apps &mdash; ask whoever sent it to share
+                  the code itself instead, and paste it in Settings, under Trip access.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

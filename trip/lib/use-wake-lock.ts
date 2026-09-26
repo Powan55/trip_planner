@@ -39,6 +39,7 @@ export function useWakeLock(active: boolean): WakeLockState {
         lockRef.current = lock;
         setHeld(true);
         lock.addEventListener('release', () => {
+          if (cancelled) return;
           setHeld(false);
           lockRef.current = null;
         });

@@ -17,6 +17,14 @@ const GZIP_MAGIC_0 = 0x1f;
 const GZIP_MAGIC_1 = 0x8b;
 
 /**
+ * How much of a rejected/corrupt import blob is kept in a quarantine slot. Shared by both
+ * quarantine writers — `export-import.ts`'s `quarantineImport()` and `load-save.ts`'s
+ * `quarantineCorrupt()` — so the two cannot drift apart (#411). Lives here (a leaf module) so
+ * neither of those two mutually-importing files needs to import the other for it.
+ */
+export const QUARANTINE_MAX_CHARS = 4096;
+
+/**
  * True when this browser can do native gzip (de)compression. Exported so callers (e.g. the
  * download UI) can pick the right filename WITHOUT re-deriving support from Blob internals.
  */

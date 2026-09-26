@@ -35,6 +35,12 @@ const MIN_BYTES = 8 * 1024; // ~8 KB sanity floor
 const POLITE_DELAY_MS = 350; // between distinct subjects (be gentle with the API)
 const MAX_RETRIES = 5; // retry transient throttling (400/429/5xx) with backoff
 
+// The licence allowlist. A space or a digit has to follow `CC BY`, optionally after `-SA` —
+// which is what rejects the CC BY-NC / CC BY-ND variants (`CC BY 4.0` and `CC BY-SA 4.0` both
+// pass); anything non-free ("Fair use") fails outright.
+const LICENCE_ALLOWED =
+  /^(?:CC0|Public domain|CC BY(?:-SA)?[\s\d]|Unsplash License|Pexels License)/i;
+
 // ── Manifest ────────────────────────────────────────────────────────────────
 // Each entry: { id, area, title, width?, alt? }. width defaults per area.
 /** @type {{id:string, area:string, title:string, width?:number, alt?:string}[]} */
@@ -99,7 +105,7 @@ const MANIFEST = [
   { id: 'ja12', area: 'japan', title: 'Dōtonbori' },
   { id: 'ja13', area: 'japan', title: 'Yanaka, Tokyo' },
   { id: 'ja14', area: 'japan', title: 'Golden Gai' },
-  { id: 'ja15', area: 'japan', title: 'Omoide Yokocho' },
+  { id: 'ja15', area: 'japan', title: 'Omoide Yokochō' },
   { id: 'ja16', area: 'japan', title: 'Shimokitazawa' },
   { id: 'ja17', area: 'japan', title: 'Nagashima Spa Land' },
   { id: 'ja18', area: 'japan', title: 'Hakone' },
@@ -170,6 +176,132 @@ const MANIFEST = [
   { id: 'jp-osaka-castle', area: 'map', title: 'Osaka Castle' },
   { id: 'jp-nara', area: 'map', title: 'Nara Park' },
   { id: 'jp-hakone', area: 'map', title: 'Hakone' },
+
+  // Japan leg build-out: one entry per new marker / guide card that has a real
+  // Commons subject. Venues with no article (ramen counters, clubs, single shops) are
+  // deliberately absent — the fetcher skips a miss and the card's onError fallback covers it.
+  // Shared titles are fetched once and copied into each target, same as the Nepal rows above.
+  { id: 'jp-kaiyukan', area: 'map', title: 'Osaka Aquarium Kaiyukan' },
+  { id: 'ja42', area: 'japan', title: 'Osaka Aquarium Kaiyukan' },
+  { id: 'jp-todaiji', area: 'map', title: 'Tōdai-ji' },
+  { id: 'ja38', area: 'japan', title: 'Tōdai-ji' },
+  { id: 'jp-himeji-castle', area: 'map', title: 'Himeji Castle' },
+  { id: 'ja39', area: 'japan', title: 'Himeji Castle' },
+  { id: 'jp-meriken-park', area: 'map', title: 'Meriken Park' },
+  { id: 'jp-nunobiki-herb', area: 'map', title: 'Nunobiki Falls' },
+  { id: 'ja41', area: 'japan', title: 'Nunobiki Falls' },
+  { id: 'jp-byodoin', area: 'map', title: 'Byōdō-in' },
+  { id: 'ja40', area: 'japan', title: 'Byōdō-in' },
+  { id: 'jp-kiyomizudera', area: 'map', title: 'Kiyomizu-dera' },
+  { id: 'ja32', area: 'japan', title: 'Kiyomizu-dera' },
+  { id: 'jp-sannenzaka', area: 'map', title: 'Sannenzaka' },
+  { id: 'jp-hanamikoji', area: 'map', title: 'Gion' },
+  { id: 'jp-pontocho', area: 'map', title: 'Pontochō' },
+  { id: 'jp-manga-museum', area: 'map', title: 'Kyoto International Manga Museum' },
+  { id: 'ja31', area: 'japan', title: 'Kyoto International Manga Museum' },
+  { id: 'jp-nijo-castle', area: 'map', title: 'Nijō Castle' },
+  { id: 'ja33', area: 'japan', title: 'Nijō Castle' },
+  { id: 'jp-tenryuji', area: 'map', title: 'Tenryū-ji' },
+  { id: 'ja34', area: 'japan', title: 'Tenryū-ji' },
+  { id: 'jp-togetsukyo', area: 'map', title: 'Katsura River' },
+  { id: 'jp-kyoto-station', area: 'map', title: 'Kyoto Station' },
+  { id: 'ja37', area: 'japan', title: 'Kyoto Station' },
+  { id: 'ja28', area: 'japan', title: 'Universal Studios Japan' },
+  { id: 'ja29', area: 'japan', title: 'Nipponbashi' },
+  { id: 'ja30', area: 'japan', title: 'Osaka Castle' },
+  { id: 'ja35', area: 'japan', title: 'Iwatayama Monkey Park' },
+  { id: 'ja36', area: 'japan', title: 'Nishiki Market' },
+  { id: 'jp-skytree', area: 'map', title: 'Tokyo Skytree' },
+  { id: 'ja43', area: 'japan', title: 'Tokyo Skytree' },
+  { id: 'jp-ameyoko', area: 'map', title: 'Ameyoko' },
+  { id: 'ja45', area: 'japan', title: 'Ameyoko' },
+  { id: 'jp-tokyo-national-museum', area: 'map', title: 'Tokyo National Museum' },
+  { id: 'ja46', area: 'japan', title: 'Tokyo National Museum' },
+  { id: 'jp-super-potato', area: 'map', title: 'Super Potato' },
+  { id: 'ja47', area: 'japan', title: 'Super Potato' },
+  { id: 'jp-mandarake-akihabara', area: 'map', title: 'Mandarake' },
+  { id: 'ja48', area: 'japan', title: 'Mandarake' },
+  { id: 'jp-radio-kaikan', area: 'map', title: 'Akihabara Radio Kaikan' },
+  { id: 'ja49', area: 'japan', title: 'Akihabara Radio Kaikan' },
+  { id: 'jp-animate-ikebukuro', area: 'map', title: 'Animate (retailer)' },
+  { id: 'ja50', area: 'japan', title: 'Animate (retailer)' },
+  { id: 'jp-nakano-broadway', area: 'map', title: 'Nakano Broadway' },
+  { id: 'jp-ginza-six', area: 'map', title: 'Ginza' },
+  { id: 'jp-marunouchi-lights', area: 'map', title: 'Marunouchi' },
+  { id: 'jp-tsukiji-outer', area: 'map', title: 'Tsukiji fish market' },
+  { id: 'jp-toyosu-market', area: 'map', title: 'Toyosu Market' },
+  { id: 'ja52', area: 'japan', title: 'Toyosu Market' },
+  { id: 'jp-yanaka-ginza', area: 'map', title: 'Yanaka, Tokyo' },
+  { id: 'jp-ghibli-museum', area: 'map', title: 'Ghibli Museum' },
+  { id: 'jp-metro-gov-decks', area: 'map', title: 'Tokyo Metropolitan Government Building' },
+  { id: 'ja56', area: 'japan', title: 'Tokyo Metropolitan Government Building' },
+  { id: 'jp-omoide-yokocho', area: 'map', title: 'Omoide Yokochō' },
+  { id: 'jp-golden-gai', area: 'map', title: 'Golden Gai' },
+  { id: 'jp-shinjuku-gyoen', area: 'map', title: 'Shinjuku Gyoen' },
+  { id: 'jp-hanazono-shrine', area: 'map', title: 'Hanazono Shrine' },
+  { id: 'ja57', area: 'japan', title: 'Hanazono Shrine' },
+  { id: 'jp-shibuya-sky', area: 'map', title: 'Shibuya Scramble Square' },
+  { id: 'ja55', area: 'japan', title: 'Shibuya Scramble Square' },
+  { id: 'jp-takeshita-dori', area: 'map', title: 'Takeshita Street' },
+  { id: 'jp-meiji-jingu', area: 'map', title: 'Meiji Shrine' },
+  { id: 'jp-tokyo-tower', area: 'map', title: 'Tokyo Tower' },
+  { id: 'jp-tokyo-midtown', area: 'map', title: 'Tokyo Midtown' },
+  { id: 'ja58', area: 'japan', title: 'Tokyo Midtown' },
+  { id: 'jp-mikan-shimokita', area: 'map', title: 'Shimokitazawa' },
+  { id: 'jp-pokemon-center', area: 'map', title: 'Pokémon Center' },
+  { id: 'jp-teamlab', area: 'map', title: 'teamLab' },
+  { id: 'ja51', area: 'japan', title: 'teamLab' },
+  { id: 'jp-disneysea', area: 'map', title: 'Tokyo DisneySea' },
+  { id: 'ja54', area: 'japan', title: 'Tokyo DisneySea' },
+  { id: 'ja53', area: 'japan', title: 'Warner Bros. Studio Tour Tokyo – The Making of Harry Potter' },
+  { id: 'jp-hakone-open-air', area: 'map', title: 'Hakone Open-Air Museum' },
+  { id: 'ja59', area: 'japan', title: 'Hakone Open-Air Museum' },
+  { id: 'jp-owakudani', area: 'map', title: 'Ōwakudani' },
+  { id: 'ja60', area: 'japan', title: 'Ōwakudani' },
+  { id: 'jp-chureito', area: 'map', title: 'Arakura Sengen Shrine' },
+  { id: 'jp-oishi-park', area: 'map', title: 'Lake Kawaguchi' },
+  { id: 'jp-nikko-toshogu', area: 'map', title: 'Nikkō Tōshō-gū' },
+  { id: 'ja63', area: 'japan', title: 'Nikkō Tōshō-gū' },
+  { id: 'jp-kotokuin', area: 'map', title: 'Kōtoku-in' },
+  { id: 'ja61', area: 'japan', title: 'Kōtoku-in' },
+  { id: 'jp-kamakurakokomae', area: 'map', title: 'Kamakurakōkōmae Station' },
+  { id: 'jp-cupnoodles', area: 'map', title: 'Cup Noodles Museum' },
+  { id: 'ja62', area: 'japan', title: 'Cup Noodles Museum' },
+  { id: 'jp-yokohama-chinatown', area: 'map', title: 'Yokohama Chinatown' },
+  { id: 'jf13', area: 'japan', title: 'Yokohama Chinatown' },
+  { id: 'jp-gala-yuzawa', area: 'map', title: 'Gala Yuzawa Station' },
+  { id: 'jp-ichiran-shibuya', area: 'map', title: 'Ichiran' },
+  { id: 'jp-sushi-zanmai', area: 'map', title: 'Sushi Zanmai' },
+  { id: 'jf7', area: 'japan', title: 'Sushi Zanmai' },
+  { id: 'jp-monja-kondo', area: 'map', title: 'Monjayaki' },
+  { id: 'jf11', area: 'japan', title: 'Monjayaki' },
+
+  // Nepal leg build-out: markers added with the Dec place pass that had no photo.
+  // Restaurants, cafes and bars are deliberately absent — no Commons subject exists for them.
+  { id: 'np-pottery-square', area: 'map', title: 'Bhaktapur' },
+  { id: 'np-dharahara', area: 'map', title: 'Dharahara' },
+  { id: 'np-rani-pokhari', area: 'map', title: 'Rani Pokhari' },
+  { id: 'np-kailashnath', area: 'map', title: 'Kailashnath Mahadev Statue' },
+  { id: 'np-bungamati', area: 'map', title: 'Bungamati' },
+  { id: 'np-khokana', area: 'map', title: 'Khokana' },
+  { id: 'np-kirtipur', area: 'map', title: 'Kirtipur' },
+  { id: 'np-panauti', area: 'map', title: 'Panauti' },
+  { id: 'np-sankhu', area: 'map', title: 'Sankhu' },
+  { id: 'np-chitlang', area: 'map', title: 'Chitlang' },
+  { id: 'np-tu-cricket', area: 'map', title: 'Tribhuvan University International Cricket Ground' },
+  { id: 'np-budhanilkantha', area: 'map', title: 'Budhanilkantha Temple' },
+  { id: 'np-changu-narayan', area: 'map', title: 'Changu Narayan' },
+  { id: 'np-asan', area: 'map', title: 'Asan, Kathmandu' },
+  { id: 'np-pharping', area: 'map', title: 'Pharping' },
+  { id: 'np-chobhar', area: 'map', title: 'Chobhar' },
+  { id: 'np-taudaha', area: 'map', title: 'Taudaha' },
+  { id: 'np-shivapuri', area: 'map', title: 'Shivapuri Nagarjun National Park' },
+  { id: 'np-phulchowki', area: 'map', title: 'Phulchowki' },
+  { id: 'np-chandragiri', area: 'map', title: 'Chandragiri Hills' },
+  { id: 'np-dhulikhel', area: 'map', title: 'Dhulikhel' },
+  { id: 'np-namo-buddha', area: 'map', title: 'Namo Buddha Stupa' },
+  { id: 'np-itum-bahal', area: 'map', title: 'Itum Bahal' },
+  { id: 'np-nag-bahal', area: 'map', title: 'Patan, Nepal' },
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -293,8 +425,130 @@ async function downloadBytes(url) {
   return buf;
 }
 
+// ── Credits ─────────────────────────────────────────────────────────────────
+// `--credits` rebuilds public/images/CREDITS.md from image-map.json and touches no
+// network. The tables are generated; the prose below is the hand-written part and is
+// the only thing in that file anyone edits by hand.
+
+const CREDITS_INTRO = `# Image Credits
+
+Almost every image bundled under \`public/images/\` is freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision D-015, sourced from Wikimedia Commons / Wikipedia via \`scripts/fetch-images.mjs\` and hosted locally (no hotlinking). Attribution in the tables below is captured automatically from each file's Wikimedia \`extmetadata\`.
+
+**The exception is \`public/images/landing/\` — see the last section. Those three are self-generated, not sourced, and no Wikimedia attribution applies to them.**`;
+
+const CREDITS_GROUPING_TAIL = `Grouping is by upstream file, not by bytes: a group is normally the same photograph fetched at the width each surface needs (\`scripts/fetch-images.mjs\`, \`CARD_WIDTH = 1200\` with a per-entry override), so collapsing one would either soften the large surface or bloat the small one. **The four Nagarkot copies (\`nepal/na17\`, \`photography/ps1\`, \`featured/nagarkot\`, \`map/np-nagarkot\`) are the exception**: all four are byte-identical at 1200×800, sha256 \`62dba067e92dfe15…\`, so that justification does not apply to them and they could be collapsed to one path if anyone wants the 3 × 276 KiB back.`;
+
+const CREDITS_HERO_NOTE = `There are TWO heroes because the hero photograph follows the trip leg: \`hero.jpg\` carries the Nepal leg and every day outside the trip window, \`hero-japan.jpg\` takes over for the Japan leg. See \`lib/hero-image.ts\`.
+
+**\`/images/hero/hero-japan.jpg\` and \`/images/map/jp-park-hyatt.jpg\` are the same upstream Wikimedia file** — \`Skyscrapers_of_Shinjuku_2009_January.jpg\` by Morio — bundled twice at two different widths: 1920×1023 for the hero (\`HERO_WIDTH\`) and 1200×639 for the map card (\`CARD_WIDTH\`, fetched from the 1280px Commons thumb). Confirmed by pixel comparison: greyscale RMS difference 7.5/255 at a common 1200×639, which is rescaling and JPEG noise on the building edges, not a different frame.
+
+**This duplication is deliberate and must not be "deduped".** The hero is the app's one full-bleed surface and the only place the extra pixels are actually spent; repointing it at the 1200px copy would visibly soften it on any desktop. Repointing the map card at the 1920px copy would put a 533 KiB raster behind a thumbnail.`;
+
+const CREDITS_LANDING = `## Landing screenshots
+
+These three are screenshots of **this app**, produced by \`e2e/landing-shots.spec.ts\` against a
+purpose-built **fictional** trip and fed through \`npm run gen:images\` like every other raster. No
+third party holds any right in them, so there is nothing to attribute and "freely licensed,
+Wikimedia-sourced" statement does not describe them.
+
+Two things worth knowing before regenerating them:
+
+- **The seeded trip must stay fictional.** They render on the PUBLIC logged-out landing page. The
+  itinerary, the expenses and the three names (Sam / Alex / Rina — deliberately *not* the \`TRAVELERS\`
+  roster) are authored inside the shoot spec. Re-shooting against real trip data would publish it to
+  every visitor, and **no test, lint or grep in this repo can read text inside a PNG** — every check
+  would stay green. \`lib/sample-itinerary.ts\` is *not* a demo fixture; it re-exports the real content
+  pack. Do not seed from it.
+- **One basemap frame carries third-party map data.** \`shot-3-map.png\` contains CARTO dark-matter
+  raster tiles rendered from OpenStreetMap data. The required attribution ("© OpenStreetMap
+  contributors © CARTO") is visible **inside the image**, as it is in the live map — that is the
+  attribution, and cropping it out would break the licence.
+
+| Local path | Subject | Author | License | Source |
+|---|---|---|---|---|
+| \`/images/landing/shot-1-day-planner.png\` | The day planner, a fictional morning in Kathmandu | This project | Own work | \`e2e/landing-shots.spec.ts\` |
+| \`/images/landing/shot-2-expenses.png\` | The shared expense list, a fictional split dinner | This project | Own work | \`e2e/landing-shots.spec.ts\` |
+| \`/images/landing/shot-3-map.png\` | The trip map, fictional stops pinned over CARTO/OSM tiles | This project; basemap © OpenStreetMap contributors © CARTO | Own work; basemap ODbL / CC BY | \`e2e/landing-shots.spec.ts\` |`;
+
+const CREDITS_SECTIONS = [
+  ['hero', 'Hero', CREDITS_HERO_NOTE],
+  ['nepal', 'Nepal (attractions & food)', ''],
+  ['japan', 'Japan (attractions & food)', ''],
+  ['photography', 'Photography guide', ''],
+  ['featured', 'Featured destinations', ''],
+  ['map', 'Map markers', ''],
+];
+
+const LANDING_PATHS = 3;
+const TABLE_HEAD = '| Local path | Subject | Author | License | Source |\n|---|---|---|---|---|';
+const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').trim();
+
+async function writeCredits() {
+  const map = JSON.parse(await readFile(path.join(__dirname, 'image-map.json'), 'utf8'));
+  const entries = Object.values(map);
+
+  const offList = entries.filter((e) => !LICENCE_ALLOWED.test(e.license));
+  for (const e of offList) {
+    console.error(`  LICENCE  ${e.path} — "${e.license}" is not on the allowlist`);
+  }
+
+  const upstream = new Map();
+  for (const e of entries) {
+    const key = parseFileRef(e.sourceUrl || '').fileName ?? e.path;
+    if (!upstream.has(key)) upstream.set(key, []);
+    upstream.get(key).push(e.path);
+  }
+  const groups = [...upstream.values()].filter((paths) => paths.length > 1);
+  const shared = groups.reduce((n, paths) => n + paths.length, 0);
+  const biggest = groups.slice().sort((a, b) => b.length - a.length)[0] ?? [];
+  const example = biggest
+    .map((p) => '`' + p.replace('/images/', '').replace(/\.\w+$/, '') + '`')
+    .join(', ');
+
+  const out = [CREDITS_INTRO];
+  out.push(
+    `Total assets: **${entries.length + LANDING_PATHS} paths / ${upstream.size + LANDING_PATHS} distinct images** — ${entries.length} Wikimedia-sourced paths (tabulated below) resolving to **${upstream.size} distinct upstream files**, plus ${LANDING_PATHS} self-generated landing screenshots.`,
+  );
+  out.push(
+    `Paths outnumber photographs because the same upstream file is deliberately bundled more than once at different widths for different surfaces — **${shared} of the ${entries.length} entries below share an upstream file with at least one other**, falling into ${groups.length} shared groups (the largest is ${example}). The remaining ${entries.length - shared} entries are one-of-a-kind, and ${shared} + ${entries.length - shared} = ${entries.length} rows just as ${groups.length} + ${entries.length - shared} = ${upstream.size} distinct upstream files. ${CREDITS_GROUPING_TAIL}`,
+  );
+
+  for (const [area, heading, note] of CREDITS_SECTIONS) {
+    const rows = entries.filter((e) => e.path.startsWith(`/images/${area}/`));
+    if (!rows.length) continue;
+    out.push(`## ${heading}`);
+    out.push(
+      [
+        TABLE_HEAD,
+        ...rows.map((e) => {
+          const licence = e.licenseUrl
+            ? `[${cell(e.license)}](${e.licenseUrl})`
+            : cell(e.license);
+          // thumb.wikimedia.org and upload.wikimedia.org serve the same thumb paths; the
+          // reader-facing link stays on the canonical host, minus the API's utm params.
+          const href = (e.sourceUrl || '')
+            .split('?')[0]
+            .replace('://thumb.wikimedia.org/', '://upload.wikimedia.org/');
+          const source = href ? `[file](${href})` : '—';
+          return `| \`${e.path}\` | ${cell(e.title) || '—'} | ${cell(e.artist) || 'Unknown'} | ${licence || '—'} | ${source} |`;
+        }),
+      ].join('\n'),
+    );
+    if (note) out.push(note);
+  }
+  out.push(CREDITS_LANDING);
+
+  await writeFile(path.join(IMAGES_DIR, 'CREDITS.md'), out.join('\n\n') + '\n', 'utf8');
+  console.log(
+    `  Wrote public/images/CREDITS.md — ${entries.length + LANDING_PATHS} paths, ${upstream.size + LANDING_PATHS} distinct images`,
+  );
+  if (offList.length) process.exitCode = 1;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
+  if (process.argv.includes('--credits')) return writeCredits();
+
   await mkdir(IMAGES_DIR, { recursive: true });
 
   // `--only=id1,id2` re-fetches JUST those manifest ids and MERGES the result into the existing
@@ -337,6 +591,9 @@ async function main() {
       if (!cached) {
         await sleep(POLITE_DELAY_MS);
         const { downloadUrl, attribution, ext } = await resolveSubject(title, width);
+        if (!LICENCE_ALLOWED.test(attribution.license)) {
+          throw new Error(`licence not allowed: ${attribution.license || '(none)'}`);
+        }
         const buf = await downloadBytes(downloadUrl);
         cached = { buf, ext, sourceUrl: downloadUrl, attribution };
         cache.set(title, cached);

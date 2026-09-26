@@ -253,7 +253,9 @@ describe('formatMoney / currencySymbol — grouped, no NaN ever', () => {
     expect(formatMoney(1200, 'USD')).toBe('$1,200');
     expect(formatMoney(165600, 'NPR')).toBe('Rs 165,600');
     expect(formatMoney(310000, 'JPY')).toBe('¥310,000');
-    expect(formatMoney(99.6, 'USD')).toBe('$99.6'); // fractional USD keeps its decimals
+    expect(formatMoney(99.6, 'USD')).toBe('$99.60'); // fractional USD keeps both decimals
+    expect(formatMoney(12.5, 'USD')).toBe('$12.50');
+    expect(formatMoney(99.999, 'USD')).toBe('$100'); // rounds to a whole cent first
   });
 
   it('a bad amount renders the symbol + 0, never NaN', () => {

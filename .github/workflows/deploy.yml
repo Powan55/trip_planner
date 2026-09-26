@@ -191,14 +191,22 @@ jobs:
     # The `secrets` context is NOT readable from a job-level `if:`, but it IS readable in `env:`,
     # and `env` IS readable from a step-level `if:`. That indirection is what lets this land
     # INERT: with no secret set the job runs, warns, and changes nothing about the live project.
+    #
+    # Only the BOOLEAN lives at job level, not the key (#478). The credential is step-level `env`
+    # on the single step that publishes, so checkout, setup-node, the toolchain install and the
+    # warning step below all run without it in their environment. The gate still reads from job
+    # scope, which is what keeps the step-level `if:`s working.
     env:
-      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      HAS_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Pinned, and not decoration: this is the one job that runs with a Google credential, and
-      # `npx firebase-tools` needs Node >= 20. Today's ubuntu-latest ships it, so leaving this
-      # off would work right up until the runner image moves and the publish breaks with the key
-      # already in hand. No npm cache: nothing here installs from a lockfile.
+      # firebase-tools needs Node >= 20. Today's ubuntu-latest ships it, so leaving this off
+      # would work right up until the runner image moves and the publish breaks with the key
+      # already in hand. No `cache: npm`: this job runs only on a release, and a cache restore is
+      # one more input next to the credential for about fifteen seconds.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
@@ -214,8 +222,13 @@ jobs:
       # since 2026-08-10, and publishing the members-gated ruleset before those live rosters are
       # inspected can permanently lock out a traveller whose device has not opened the app since
       # — after the publish, only an existing member can add anyone.
+      #
+      # `!= 'true'`, not `== 'false'`: the two steps have to partition every possible value of
+      # the gate between them. If the expression ever renders something unexpected, this branch
+      # takes it and the publish is skipped — rather than both `if:`s missing and the job going
+      # green having touched nothing and said nothing.
       - name: No credential — rules NOT published
-        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        if: env.HAS_FIREBASE_SERVICE_ACCOUNT != 'true'
         continue-on-error: true
         run: |
           echo "::error::FIREBASE_SERVICE_ACCOUNT is not set, so firestore.rules was NOT published. The live ruleset is whatever was last deployed by hand."
@@ -227,8 +240,26 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
+      # `npm ci` from a committed lockfile, not `npx --yes` (#478). Pinning the top-level version
+      # exactly still left npm re-resolving firebase-tools' ~750-package transitive graph from
+      # the registry on every run, in the one job that holds a Google credential: one compromised
+      # transitive publish and the key that rewrites the live ruleset walks. tools/package-lock.json
+      # pins all of them by integrity hash, and --ignore-scripts means none of them gets an
+      # install hook. firebase-tools publishes no lifecycle scripts of its own, so skipping them
+      # costs nothing — its bin still links and runs.
+      #
+      # Installed BEFORE the credential exists and in a step that cannot see it, on purpose: the
+      # window where unreviewed code and the key are both present is now one step long, and that
+      # step runs only code whose hashes were reviewed in this repo.
+      - name: Install the pinned publish toolchain
+        if: env.HAS_FIREBASE_SERVICE_ACCOUNT == 'true'
+        working-directory: tools
+        run: npm ci --ignore-scripts
+
       - name: Publish firestore.rules
-        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        if: env.HAS_FIREBASE_SERVICE_ACCOUNT == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
           # RUNNER_TEMP, never the workspace: the workspace is what gets built and uploaded as
           # the Pages artifact, and a service-account key that lands in it is published to the
@@ -240,11 +271,10 @@ jobs:
           # at the right project — rules-check proves the rules against an emulator, never
           # against a live project, so it cannot catch a publish pointed somewhere else.
           #
-          # EXACT version, not a range. Every action above is SHA-pinned so nothing unreviewed
-          # executes next to a credential, and `npx --yes` on a range resolves a fresh transitive
-          # tree on every run three lines after the key lands on disk. Keep this in step with
-          # ci.yml's emulator step, and bump the two together.
-          npx --yes firebase-tools@14.27.0 deploy --only firestore:rules --non-interactive
+          # Run from the repo root, not from tools/: the firebase CLI reads firebase.json and
+          # .firebaserc out of the working directory. The version now lives in tools/package.json
+          # — keep it in step with ci.yml's emulator step and bump the two together.
+          ./tools/node_modules/.bin/firebase deploy --only firestore:rules --non-interactive
 
   deploy:
     # publish-rules, not build: a failed publish must ship nothing (see the note above).

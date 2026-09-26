@@ -7,6 +7,7 @@ import {
   Search, X, SlidersHorizontal, SearchX, Star, Check, CalendarDays,
 } from 'lucide-react';
 import { NIGHTLIFE_VENUES, NightlifeVenue } from '@/lib/nightlife-data';
+import { cityOf } from '@/lib/leg-label';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
 import { nightlifeSourceId, formatPlacementSummary, type ItineraryDraft } from '@/lib/itinerary-adapter';
 import type { ItineraryStore } from '@/hooks/use-itinerary';
@@ -23,12 +24,6 @@ const CTRL =
 const FACET =
   'chip min-h-tap px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
-
-/** City = last comma segment of `location` ("Thamel, Kathmandu" → "Kathmandu"). */
-function cityOf(loc: string): string {
-  const parts = loc.split(',').map((s) => s.trim()).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : loc;
-}
 
 function VenueCard({
   venue,
@@ -180,7 +175,10 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   const cities = useMemo(() => {
     const set = new Set<string>();
-    venues.forEach((v) => set.add(cityOf(v.location)));
+    venues.forEach((v) => {
+      const c = cityOf(v.location);
+      if (c) set.add(c);
+    });
     return ['All', ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [venues]);
 

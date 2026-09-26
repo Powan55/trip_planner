@@ -12,6 +12,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
+import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { isConciergeConfigured } from '@/lib/concierge-config';
 import { FADE_FLOOR } from '@/lib/motion';
 import { useOnline } from '@/hooks/use-online';
@@ -49,6 +50,9 @@ const CODE_CLASS =
 const FENCE_CLASS =
   'my-2 block overflow-x-auto whitespace-pre-wrap rounded-r2 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-overlay))] px-3 py-2 font-code text-[0.9em] text-ink-hi outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
+// The Worker prompt asks for `Name -- why`; plain text only, so code spans keep a literal `--`.
+const dash = (s: string) => s.replace(/ -- /g, ' — ');
+
 /** Inline spans within ONE line. Non-recursive on purpose — INLINE is a global (stateful) regex. */
 function renderInline(text: string, keyPrefix: number): ReactNode[] {
   const out: ReactNode[] = [];
@@ -56,7 +60,7 @@ function renderInline(text: string, keyPrefix: number): ReactNode[] {
   let m: RegExpExecArray | null;
   INLINE.lastIndex = 0;
   while ((m = INLINE.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(dash(text.slice(last, m.index)));
     const key = `${keyPrefix}-${m.index}`;
     const [raw, code, linkText, href, bold, italic] = m;
     if (code !== undefined) {
@@ -82,18 +86,22 @@ function renderInline(text: string, keyPrefix: number): ReactNode[] {
         ),
       );
     } else if (bold !== undefined) {
-      out.push(<strong key={key}>{bold}</strong>);
+      out.push(
+        <strong key={key} className="font-semibold text-ink-hi">
+          {bold}
+        </strong>,
+      );
     } else {
       out.push(<em key={key}>{italic}</em>);
     }
     last = m.index + raw.length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(dash(text.slice(last)));
   return out;
 }
 
 interface Block {
-  type: 'fence' | 'ul' | 'ol' | 'heading' | 'para';
+  type: 'fence' | 'ul' | 'ol' | 'heading' | 'para' | 'hr';
   lines: string[];
 }
 
@@ -101,8 +109,42 @@ const FENCE_MARKER = /^\s*```/;
 const HEADING_RE = /^#{1,6}\s+(.*)$/;
 // Bullet/numbered markers REQUIRE trailing whitespace, so a line starting `*italic*` / `**bold**`
 // is never eaten as a list item.
-const BULLET_RE = /^\s*[*-]\s+(.*)$/;
+const BULLET_RE = /^\s*[*\-•–]\s+(.*)$/;
 const NUMBERED_RE = /^\s*\d+[.)]\s+(.*)$/;
+const HR_RE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/;
+const TABLE_SEP_RE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+const TABLE_ROW_RE = /^\s*\|(.*)\|\s*$/;
+// The `**` lookahead is what keeps "Dec 9 - 18", "2 - 3 hours" and "Day 2. **X**" from splitting.
+const BULLET_RUN = /(^|\s)-\s+(?=\*\*)/g;
+const NUMBERED_RUN = /(^|\s)(\d+)[.)]\s+(?=\*\*)/g;
+const CODE_SPAN = /`[^`]+`/g;
+
+/**
+ * JSON-mode replies often arrive with a whole list on one line ("Picks: - **A** -- x - **B** -- y").
+ * Split only a real run: at least two markers outside code spans, and numbered markers must count up.
+ */
+function splitRun(line: string): string[] {
+  const code = Array.from(line.matchAll(CODE_SPAN), (c) => [c.index!, c.index! + c[0].length]);
+  const outside = (i: number) => !code.some(([s, e]) => i >= s && i < e);
+  const cut = (re: RegExp, ok: (ms: RegExpMatchArray[]) => boolean) => {
+    const ms = Array.from(line.matchAll(re)).filter((mt) => outside(mt.index!));
+    if (ms.length < 2 || !ok(ms)) return null;
+    const parts: string[] = [];
+    let from = 0;
+    for (const mt of ms) {
+      parts.push(line.slice(from, mt.index!));
+      from = mt.index! + mt[1].length;
+    }
+    parts.push(line.slice(from));
+    return parts.filter((p) => p.trim());
+  };
+  return (
+    cut(BULLET_RUN, () => true) ??
+    cut(NUMBERED_RUN, (ms) => ms.every((mt, i) => i === 0 || Number(mt[2]) > Number(ms[i - 1][2]))) ?? [
+      line,
+    ]
+  );
+}
 
 /**
  * Pass 1 - split the raw reply into lines and group consecutive lines of the SAME kind into
@@ -145,22 +187,35 @@ function groupBlocks(text: string): Block[] {
       continue;
     }
 
-    const heading = HEADING_RE.exec(raw);
-    if (heading) {
-      open('heading', heading[1]);
-      continue;
+    for (const line of splitRun(raw)) {
+      if (HR_RE.test(line)) {
+        open('hr', '');
+        continue;
+      }
+      if (line.includes('|') && TABLE_SEP_RE.test(line)) continue;
+      const row = TABLE_ROW_RE.exec(line);
+      if (row) {
+        const cells = row[1].split('|').map((c) => c.trim()).filter(Boolean).join(' · ');
+        if (cells) open('para', cells);
+        continue;
+      }
+      const heading = HEADING_RE.exec(line);
+      if (heading) {
+        open('heading', heading[1]);
+        continue;
+      }
+      const bullet = BULLET_RE.exec(line);
+      if (bullet) {
+        open('ul', bullet[1]);
+        continue;
+      }
+      const numbered = NUMBERED_RE.exec(line);
+      if (numbered) {
+        open('ol', numbered[1]);
+        continue;
+      }
+      open('para', line);
     }
-    const bullet = BULLET_RE.exec(raw);
-    if (bullet) {
-      open('ul', bullet[1]);
-      continue;
-    }
-    const numbered = NUMBERED_RE.exec(raw);
-    if (numbered) {
-      open('ol', numbered[1]);
-      continue;
-    }
-    open('para', raw);
   }
   // An unterminated fence (reply cut off mid-block) still renders whatever it collected rather than
   // silently swallowing it.
@@ -207,7 +262,7 @@ export function renderAssistantContent(text: string): ReactNode[] {
         );
       case 'ul':
         return (
-          <ul key={i} className="my-2 space-y-1.5 pl-4 list-disc marker:text-ink-lo">
+          <ul key={i} className="my-2 space-y-2 pl-5 list-disc marker:text-ink-lo">
             {block.lines.map((line, j) => (
               <li key={j}>{renderInline(line, i * 1000 + j)}</li>
             ))}
@@ -215,7 +270,7 @@ export function renderAssistantContent(text: string): ReactNode[] {
         );
       case 'ol':
         return (
-          <ol key={i} className="my-2 space-y-1.5 pl-4 list-decimal marker:text-ink-lo">
+          <ol key={i} className="my-2 space-y-2 pl-5 list-decimal marker:text-ink-lo">
             {block.lines.map((line, j) => (
               <li key={j}>{renderInline(line, i * 1000 + j)}</li>
             ))}
@@ -223,13 +278,15 @@ export function renderAssistantContent(text: string): ReactNode[] {
         );
       case 'heading':
         return (
-          <strong key={i} className="pr pr--l mt-3 block text-ink-hi first:mt-0">
+          <strong key={i} className="pr pr--l mb-1 mt-4 block text-ink-hi first:mt-0">
             {renderLines(block.lines, i)}
           </strong>
         );
+      case 'hr':
+        return <hr key={i} className="my-4 border-t-hair border-[color:hsl(var(--border))]" />;
       case 'para':
         return (
-          <p key={i} className="mt-2 first:mt-0">
+          <p key={i} className="mt-3 first:mt-0">
             {renderLines(block.lines, i)}
           </p>
         );
@@ -244,11 +301,17 @@ export function renderAssistantContent(text: string): ReactNode[] {
 const PRIVACY_NOTE_ID = 'concierge-privacy-note';
 
 // Starter prompts — three real, tappable suggestions so a first-time user has something to
-// press instead of staring at an empty input.
-const STARTER_PROMPTS = [
+// press instead of staring at an empty input. #567: the default pack's prompts name places on
+// that itinerary, which read as broken on a custom trip — those get generic, still-tappable ones.
+const DEFAULT_STARTER_PROMPTS = [
   "What's the plan for tomorrow?",
   'Best clubs in Shibuya?',
   'Add ramen to the 20th',
+];
+const CUSTOM_STARTER_PROMPTS = [
+  'What should we do tomorrow?',
+  'Find a good dinner spot near our hotel',
+  "What's on the plan today?",
 ];
 
 /**
@@ -329,6 +392,10 @@ function dropMessage(code: DropCode): string {
  */
 export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' }) {
   const { traveler } = useActiveTraveler();
+  // #567 — the default pack's copy names Nepal/Japan by name; a custom trip gets its own label
+  // (or a neutral "your trip" when the pack has none) instead of somebody else's itinerary.
+  const defaultTrip = isDefaultTrip();
+  const tripLabel = defaultTrip ? '' : getActiveTrip().label;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const { messages, status, error, send, retry, reset, provider, setProvider } = useConciergeChat();
@@ -441,7 +508,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
       <SheetContent
         side={side}
         data-testid="concierge-panel"
-        className="sheet-surface flex h-[100dvh] w-full flex-col gap-0 p-0 sm:max-w-lg"
+        className="sheet-surface flex h-[100dvh] w-full flex-col gap-0 p-0 sm:max-w-xl"
       >
         <SheetHeader className="shrink-0 space-y-1.5 border-b-hair border-[color:hsl(var(--border))] px-gut pb-3 pr-16 pt-5 text-left">
           {/* Not `.sec`: its `.sec h2` (0,1,1) beats SheetTitle's own (0,1,0) type utilities and
@@ -456,7 +523,8 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
           </div>
           {/* Names both providers the Worker can use (D-535) and where the thread is kept (D-536). */}
           <SheetDescription className="text-t-sm">
-            Ask about the Nepal &amp; Japan itinerary. Your messages and trip details go to a
+            Ask about {defaultTrip ? 'the Nepal & Japan itinerary' : tripLabel ? `the ${tripLabel} itinerary` : 'your trip'}. Your
+            messages and trip details go to a
             third-party AI provider (Groq; picking Kimi sends them to NVIDIA first, with Groq as the
             fallback) that may retain and review them on free plans; the model that answers is
             named under each reply. Chats are saved on this
@@ -524,7 +592,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
                 changes to the plan — it never applies one until you press Apply.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {STARTER_PROMPTS.map((prompt) => (
+                {(defaultTrip ? DEFAULT_STARTER_PROMPTS : CUSTOM_STARTER_PROMPTS).map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
@@ -594,7 +662,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
                 <div
                   data-testid={`concierge-turn-${turn.role}`}
                   className={`mt-1 break-words text-t-body text-ink-hi ${
-                    turn.role === 'user' ? 'whitespace-pre-wrap' : ''
+                    turn.role === 'user' ? 'whitespace-pre-wrap' : 'max-w-[65ch] leading-relaxed'
                   }`}
                 >
                   {turn.role === 'assistant' ? (

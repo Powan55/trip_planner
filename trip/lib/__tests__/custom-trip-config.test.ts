@@ -360,7 +360,17 @@ describe('getTripConfig — prototype-pollution-shaped ids never leak a function
       // was TRIP_PACKS[poison] === the Object constructor (typeof 'function') pre-fix.
       expect(typeof cfg).not.toBe('function');
       expect(Array.isArray(cfg.legs)).toBe(true);
-      expect(cfg.legs[0].id).toBe('main'); // the placeholder, not NEPAL_JAPAN_2026's 'nepal'/'japan'
+      if (poison === '__proto__') {
+        // #476 moved the reserved-id check into `sanitizeTripMetaEntry`, which runs when the list
+        // is READ — so forcing the entry onto disk no longer registers it and this case collapses
+        // onto the never-joined one above. A-4's property (total, never a function, never a crash)
+        // is what this test is for and it is unchanged. Nor does the wider fallback leak anywhere:
+        // `getTripId()` is '' for a pointer of this shape, so the pack's day shells cannot be
+        // pushed to Firestore under it.
+        expect(cfg).toBe(NEPAL_JAPAN_2026);
+      } else {
+        expect(cfg.legs[0].id).toBe('main'); // the placeholder, not NEPAL_JAPAN_2026's 'nepal'/'japan'
+      }
       // The old bug crashed HERE: `activeTrip.legs.find(...)` at module load
       // (core/dates/trip-dates.ts:33) on a `.legs === undefined` config. Prove it no longer throws.
       expect(() => cfg.legs.find((l) => l.id === 'nepal')).not.toThrow();

@@ -91,8 +91,9 @@ export interface SyncPort<T> {
   /**
    * Open the remote→local subscription (merge + `savePlans()`+dispatch, never `commit()`).
    * Returns an unsubscribe fn; a no-op unsub when `isConfigured()` is false.
+   * `onDead` fires if the subscription failed to open and was not torn down first.
    */
-  subscribe(): () => void;
+  subscribe(onDead?: () => void): () => void;
   /** The dormant/config gate surfaced through the port. */
   isConfigured(): boolean;
 }

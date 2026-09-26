@@ -33,7 +33,7 @@ function conciergeOrigin(): string {
  * Everything the app actually opens a connection to at runtime:
  *
  * - `https://*.basemaps.cartocdn.com` — CARTO dark-matter raster tiles (lib/map-style.ts
- *   `CARTO_DARK_TILES`, subdomains a-d). MapLibre v5 pulls raster tiles through `fetch`,
+ *   `CARTO_DARK_TILES`, subdomains a-d). MapLibre pulls raster tiles through `fetch`,
  *   so this is the directive that governs them — NOT `img-src`. Verified by removing the
  *   origin from here: all 46 tile requests were blocked and the basemap went blank.
  * - `https://api.open-meteo.com` — forecasts (lib/weather.ts `OPEN_METEO_URL`).
@@ -118,7 +118,7 @@ export function buildCsp(): string {
     // `blob:` — photo object URLs (hooks/use-photo-object-url.ts).
     // `data:` — photos inlined into a vault backup (core/vault/backup.ts blobToDataUrl).
     // NO carto origin here, and the reason is a runtime OPTION, not a missing code path.
-    // maplibre-gl 5.24 does ship an `Image()` decoder (`getImageUsingHtmlImage` in
+    // maplibre-gl 6 still ships an `Image()` decoder (`getImageUsingHtmlImage` in
     // util/image_request.ts), but it is reached only when `supportImageRefresh === false`,
     // and raster_tile_source.ts feeds that from the Map's `refreshExpiredTiles` option,
     // which defaults to `true` (ui/map.ts). This app never passes it, so every tile goes
@@ -128,17 +128,9 @@ export function buildCsp(): string {
     // switch to `<img>` and the carto origin has to be added to this line.
     "img-src 'self' data: blob:",
 
-    // 🔴 `blob:` IS LOAD-BEARING, AND ITS FAILURE MODE IS SILENT. maplibre-gl builds its
-    // worker bundle as a string, wraps it in `new Blob([workerBundleString…])` and spawns
-    // `new Worker(URL.createObjectURL(…))`.
-    // MEASURED with `worker-src 'self'` (blob: removed) against this build: the basemap,
-    // the zoom/locate controls and the CARTO attribution ALL still render, so the page
-    // looks like a working map — but every GeoJSON cluster and place marker disappears,
-    // because clustering runs in that worker. A glance at the page does not catch it; the
-    // only signal is one console error ("Creating a worker from 'blob:…' violates the
-    // following Content Security Policy directive").
-    // `'self'` additionally covers the service worker at `/sw.js`.
-    "worker-src 'self' blob:",
+    // maplibre-gl 6 spawns its worker straight from the same-origin /maplibre/ URL set in
+    // trip-map.tsx (a blob wrapper only for cross-origin URLs). 'self' also covers /sw.js.
+    "worker-src 'self'",
 
     `connect-src ${connect}`,
 

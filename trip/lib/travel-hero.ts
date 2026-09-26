@@ -20,7 +20,12 @@
 // has no "next" to end it.
 
 import type { ItineraryItem } from '@/lib/trip-data';
-import { effectiveOffsetMin, effectiveStartMinutes, placeWallClockToUtcMs } from '@/core/dates';
+import {
+  effectiveDurationMinutes,
+  effectiveOffsetMin,
+  effectiveStartMinutes,
+  placeWallClockToUtcMs,
+} from '@/core/dates';
 import { nextUp, type NextUpContext } from '@/lib/whats-next';
 
 /** Cap for an open-ended (`durationMinutes`-absent) current activity — 2 hours. */
@@ -76,7 +81,7 @@ function timedItems(items: ItineraryItem[]): Timed[] {
  * hours away in reality.
  */
 function effectiveEndMs(t: Timed, startMs: number, sortedStartMs: number[]): number {
-  const d = t.item.durationMinutes;
+  const d = effectiveDurationMinutes(t.item);
   if (typeof d === 'number' && Number.isFinite(d) && d > 0) return startMs + d * 60000;
   const nextMs = sortedStartMs.find((s) => s > startMs);
   const gapMin = nextMs === undefined ? Infinity : (nextMs - startMs) / 60000;

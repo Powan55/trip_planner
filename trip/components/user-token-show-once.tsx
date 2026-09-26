@@ -56,9 +56,11 @@ export default function UserTokenShowOnce({
   heading = 'This is your key.',
   confirmLabel = 'Continue',
   testIdPrefix = 'user-token-show-once',
+  busy = false,
 }: {
   token: string;
   onConfirm: () => void;
+  busy?: boolean;
   heading?: string;
   confirmLabel?: string;
   testIdPrefix?: string;
@@ -221,7 +223,8 @@ export default function UserTokenShowOnce({
       <button
         type="button"
         onClick={onConfirm}
-        disabled={!acknowledged}
+        disabled={!acknowledged || busy}
+        aria-busy={busy || undefined}
         data-testid={`${testIdPrefix}-confirm`}
         className="btn w-full px-4"
       >

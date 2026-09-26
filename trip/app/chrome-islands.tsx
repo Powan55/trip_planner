@@ -7,6 +7,29 @@
 // into the layout. Behavior is unchanged: same `dynamic({ssr:false})` island
 // pattern, same tree positions in the layout.
 import dynamic from 'next/dynamic';
+import { openPalette, isPaletteMounted } from '@/lib/palette-open';
+import { isRemoteConfigured } from '@/lib/firebase-config';
+
+// D-598: once per page load, put the default pack on the account's shared trip. Outside the
+// itinerary provider so a re-mount can't run it twice.
+if (typeof window !== 'undefined' && isRemoteConfigured()) {
+  void import('@/lib/account-share').then((m) => m.syncDefaultShare(), () => {});
+}
+
+// (#505): CommandPalette itself owns the real ⌘K/Ctrl+K listener, but it's a
+// lazy chunk (below) and may not have attached it yet. This module IS always
+// loaded (imported directly by the Server Component layout), so a tiny
+// pre-load listener here catches the keystroke and hands it to
+// `openPalette()`'s pending flag; it's a no-op once the real listener is up.
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', (e) => {
+    if (isPaletteMounted()) return;
+    if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      openPalette();
+    }
+  });
+}
 
 // the Navbar + Footer are app-wide chrome — one persistent instance
 // around all routes (client-side route transitions keep layout state).
@@ -26,3 +49,7 @@ export const ExpenseLogHost = dynamic(() => import('@/components/expense-log-hos
 // null unless a `?trip=` link is opened — dynamic ssr:false so its Radix AlertDialog stays off
 // the per-route First Load budget.
 export const TripJoinHandshake = dynamic(() => import('@/components/trip-join-handshake'), { ssr: false });
+
+// ⌘K / Ctrl+K command palette (cmdk + Radix Dialog + lucide icons) — off the
+// per-route First Load budget, same as the other overlays above.
+export const CommandPalette = dynamic(() => import('@/components/command-palette'), { ssr: false });

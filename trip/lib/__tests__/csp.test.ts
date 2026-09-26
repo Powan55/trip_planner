@@ -26,13 +26,9 @@ describe('CSP policy', () => {
     expect(directive('default-src')).toBe("default-src 'self'");
   });
 
-  // The one most likely to be "tidied" by someone who does not know maplibre builds its
-  // worker from a Blob, and its failure is a SILENT PARTIAL one. Measured with blob:
-  // removed: the basemap, all 24 tiles, the controls and the attribution still render, so
-  // the map looks fine — only the clustered place markers vanish, and the sole signal is
-  // one console violation. Nothing about the page looks broken enough to investigate.
-  it('allows the blob: worker maplibre-gl spawns', () => {
-    expect(directive('worker-src')).toContain('blob:');
+  // If the worker is blocked, only the clustered markers vanish; the rest of the map renders.
+  it('allows the same-origin maplibre-gl worker', () => {
+    expect(directive('worker-src')).toBe("worker-src 'self'");
   });
 
   it('allows photo object URLs and backup data URIs as images', () => {

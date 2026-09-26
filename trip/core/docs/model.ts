@@ -141,6 +141,8 @@ export function sanitizeItem(value: unknown, opts: SanitizeOptions = {}): DocIte
   else delete item.updatedAt;
   if (typeof v.updatedBy === 'string') item.updatedBy = v.updatedBy;
   else delete item.updatedBy;
+  if (typeof v.doneHlc === 'string') item.doneHlc = v.doneHlc;
+  else delete item.doneHlc;
   return item;
 }
 

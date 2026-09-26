@@ -35,7 +35,7 @@
 // at runtime — the dependency direction is an accepted, existing pattern for the sync seam.)
 
 import type { StoragePort, SyncPort } from '@/core/ports';
-import { keyFor, readJson, writeJson, removeKey } from '@/core/storage/gateway';
+import { keyFor, keyForTrip, readJson, writeJson, removeKey } from '@/core/storage/gateway';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
@@ -67,6 +67,11 @@ interface OutboxSlot {
    * a traveler doesn't need to know WHICH domain acked most recently, only that the outbox is
    * making progress. Additive field, no `version` bump (old slots simply lack it). */
   lastAckAt?: string;
+  /** #544 (D-572): per-chunk enqueue counter. A push captures it with the state it sends and its
+   * ack clears the chunk only if nothing enqueued since, so another tab's newer edit stays dirty.
+   * Additive, no `version` bump: a missing counter reads as 0. Never pruned on ack, because a
+   * reset counter would let a stale push's ack match a fresh edit. */
+  seq?: Partial<Record<SyncDomain, Record<string, number>>>;
 }
 
 /** — same-tab liveness signal. Dispatched
@@ -85,8 +90,9 @@ function notifyChanged(): void {
 // SSR-safe / never-throw / corrupt-slot→empty are inherited from the gateway primitives; the
 // shape guard below folds a structurally-bad slot to empty too. ──────────────────────────────
 
-function loadSlot(): OutboxSlot {
-  const raw = readJson<OutboxSlot | null>('local', keyFor('syncOutbox'), null);
+function loadSlot(tripId?: string): OutboxSlot {
+  const key = tripId !== undefined ? keyForTrip(tripId, 'syncOutbox') : keyFor('syncOutbox');
+  const raw = readJson<OutboxSlot | null>('local', key, null);
   if (!raw || typeof raw !== 'object') return { version: 1, dirty: {} };
   // A version we do not understand is discarded rather than guessed at, but it is NOT discarded
   // silently (#439): dropping every pending chunk is exactly the kind of data-shaped event that
@@ -120,10 +126,25 @@ function loadSlot(): OutboxSlot {
   // tolerate an old slot that simply lacks `lastAckAt`, or a structurally-bad
   // value on it — never throw, just treat it as "no ack yet recorded".
   const lastAckAt = typeof raw.lastAckAt === 'string' ? raw.lastAckAt : undefined;
-  return { version: 1, dirty, lastAckAt };
+  const seq: NonNullable<OutboxSlot['seq']> = {};
+  if (raw.seq && typeof raw.seq === 'object') {
+    for (const [d, counters] of Object.entries(raw.seq)) {
+      if (!counters || typeof counters !== 'object') continue;
+      const kept: Record<string, number> = {};
+      for (const [chunk, n] of Object.entries(counters)) {
+        if (Number.isFinite(n)) kept[chunk] = n;
+      }
+      seq[d as SyncDomain] = kept;
+    }
+  }
+  return { version: 1, dirty, lastAckAt, seq };
 }
 
-function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string): void {
+function chunkSeq(slot: OutboxSlot, domain: SyncDomain, chunk: string): number {
+  return slot.seq?.[domain]?.[chunk] ?? 0;
+}
+
+function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSlot['seq']): void {
   // Prune empty domain arrays. A fully-clean outbox with NO ack timestamp yet REMOVES the key (so
   // "slot cleared" is literal and the byte footprint is zero) — but once ANY ack has ever been
   // recorded, the key persists (holding `{dirty:{}, lastAckAt}`) so the sync-status badge's
@@ -140,18 +161,22 @@ function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string): void {
   }
   const slot: OutboxSlot = { version: 1, dirty: pruned };
   if (lastAckAt !== undefined) slot.lastAckAt = lastAckAt;
+  if (seq && Object.keys(seq).length > 0) slot.seq = seq;
   writeJson('local', keyFor('syncOutbox'), slot);
   notifyChanged();
 }
 
 /** The dirty chunk keys currently recorded for a domain (a copy; empty when none). Read by the
- * first-snapshot dirty-chunk merge exception (subscribeRemote) —. */
-export function outboxDirty(domain: SyncDomain): string[] {
-  return [...(loadSlot().dirty[domain] ?? [])];
+ * first-snapshot dirty-chunk merge exception (subscribeRemote) —. `tripId` reads another pack's
+ * slot directly (D-561's confirm count needs the default pack's slot even when it is not the
+ * active trip) instead of the current-trip default. */
+export function outboxDirty(domain: SyncDomain, tripId?: string): string[] {
+  return [...(loadSlot(tripId).dirty[domain] ?? [])];
 }
 
-// ── The gate. Both enqueue and flush re-check it, so a traveler who signs out with
-// a dirty outbox keeps the entries and resumes on sign-in. #10: the gate is TRIP-scoped
+// ── The gate. Both enqueue and flush re-check it — but sign-out's `wipeAllTripData()` clears
+// every pack's slot regardless, so `SignOutConfirm` warns before that wipe instead (#623). #10:
+// the gate is TRIP-scoped
 // (`isTripRemoteConfigured`) because every chunk this outbox ever drives is a
 // `trips/{getTripId()}/…` write — on the local-only default pack (remote id retired, '') an
 // enqueue would otherwise record dirty chunks whose flush composes an invalid empty path and
@@ -249,27 +274,49 @@ export function outboxBlocked(): number {
  * preserved rather than clobbered. It narrows, not closes: two tabs are separate OS threads,
  * so a write from tab B landing in the gap between this read and `saveSlot`'s actual write can
  * still be lost. Closing that needs a real cross-tab lock (Web Locks API), which is out of
- * scope here. */
-function enqueue(domain: SyncDomain, chunks: string[]): void {
-  if (chunks.length === 0) return;
+ * scope here.
+ *
+ * #544: every enqueue bumps each chunk's counter (even an already-dirty one) and returns the new
+ * values, which the push carries to its ack. */
+function enqueue(domain: SyncDomain, chunks: string[]): Record<string, number> {
   const fresh = loadSlot();
   const set = new Set(fresh.dirty[domain] ?? []);
-  for (const c of chunks) set.add(c);
+  const counters = { ...fresh.seq?.[domain] };
+  for (const c of chunks) {
+    set.add(c);
+    counters[c] = (counters[c] ?? 0) + 1;
+  }
   fresh.dirty[domain] = [...set];
-  saveSlot(fresh.dirty, fresh.lastAckAt);
+  saveSlot(fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters });
+  return counters;
+}
+
+/**
+ * Queue chunks without pushing them (D-598): the device is about to point the default pack at an
+ * account's existing trip, and its own days must merge into that trip's first snapshot rather than
+ * be replaced by it. Deliberately not behind `enabled()`: the share id is written right after this,
+ * so the trip gate cannot be true yet. The caller checks the traveler.
+ */
+export function markOutboxDirty(domain: SyncDomain, chunks: string[]): void {
+  if (chunks.length > 0) enqueue(domain, chunks);
 }
 
 /** Ack: remove one confirmed chunk from the domain's dirty set, and stamp the single app-wide
  * `lastAckAt` to now — every real ack is progress worth surfacing, regardless of domain.
  *
+ * #544: only if the chunk's counter still equals `seq`, the value captured with the pushed state.
+ * A newer enqueue (this tab or another) means the push carried stale state, so the chunk stays
+ * dirty and the next flush pushes the fresh one.
+ *
  * #237: same fresh-read-immediately-before-write-back shape as `enqueue`, and the same
  * narrows-but-does-not-close caveat — see its comment. */
-function ack(domain: SyncDomain, chunk: string): void {
+function ack(domain: SyncDomain, chunk: string, seq: number): void {
   const fresh = loadSlot();
   const arr = fresh.dirty[domain];
   if (!arr) return;
+  if (chunkSeq(fresh, domain, chunk) !== seq) return;
   fresh.dirty[domain] = arr.filter((c) => c !== chunk);
-  saveSlot(fresh.dirty, new Date().toISOString());
+  saveSlot(fresh.dirty, new Date().toISOString(), fresh.seq);
 }
 
 // ── #124: at most ONE push in flight per (domain, chunk). ────────────────────────────────────
@@ -289,17 +336,20 @@ function ack(domain: SyncDomain, chunk: string): void {
 // editing the SAME chunk inside one push window can still race an ack against the other's
 // in-flight edit. Upgrade path if that ever matters: an in-flight lease written into the slot (or
 // a BroadcastChannel), which buys a cross-tab protocol and a lease-expiry problem; the per-tab
-// guard covers the real timeline this fixes — one tab, two edits a keystroke apart.
+// guard covers the real timeline this fixes — one tab, two edits a keystroke apart. #544's slot
+// counter covers the cross-tab ack half: an ack cannot clear a chunk another tab re-enqueued.
 interface ChunkRun {
   /** Newest state to push for this chunk; overwritten by every joiner. */
   latest: unknown;
+  /** #544: the enqueue counter captured with `latest`; its ack must match it. */
+  seq: number;
   /** Set by a joiner ⇒ the attempt currently in flight is stale and must NOT ack. */
   superseded: boolean;
   promise: Promise<void>;
 }
 const running = new Map<string, ChunkRun>();
 
-function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<void> {
+function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T, seq: number): Promise<void> {
   // #267: refused this page load ⇒ do not attempt it again. The guard sits HERE and not in
   // `flushOutbox` because this is the one choke point BOTH the commit path and the flush path
   // route through — one check covers every caller, present and future. The write-ahead enqueue has
@@ -313,10 +363,11 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<
   if (live) {
     // Hand the running loop the newer state and join it, instead of opening a second transaction.
     live.latest = current;
+    live.seq = seq;
     live.superseded = true;
     return live.promise;
   }
-  const run: ChunkRun = { latest: current, superseded: false, promise: Promise.resolve() };
+  const run: ChunkRun = { latest: current, seq, superseded: false, promise: Promise.resolve() };
   running.set(key, run);
   // The IIFE runs synchronously up to its first `await`, so `run.promise` is assigned before any
   // other job can observe the entry — a joiner never sees the placeholder.
@@ -324,6 +375,7 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<
     try {
       for (;;) {
         run.superseded = false;
+        const attemptSeq = run.seq;
         try {
           await cs.pushChunk(chunk, run.latest as T); // ② attempt
         } catch (err) {
@@ -348,7 +400,7 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<
           // AND every joiner, breaking this module's never-throws contract. A failed ack just leaves
           // the chunk dirty, which the next flush retries (idempotent merged write).
           try {
-            ack(cs.domain, chunk);
+            ack(cs.domain, chunk, attemptSeq);
           } catch {
             /* ignore — the chunk stays dirty and retries; never throw at the commit caller */
           }
@@ -369,8 +421,13 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<
 /** Attempt each chunk from `current`; ack on resolve, swallow on reject (chunk stays dirty). The
  * ack read-modify-write is fully synchronous, so concurrent acks under one flush never interleave
  * destructively (single-threaded JS). Same-chunk attempts are serialized by `pushChunkOnce`. */
-async function pushChunks<T>(cs: ChunkSync<T>, current: T, chunks: string[]): Promise<void> {
-  await Promise.all(chunks.map((chunk) => pushChunkOnce(cs, chunk, current)));
+async function pushChunks<T>(
+  cs: ChunkSync<T>,
+  current: T,
+  chunks: string[],
+  seqs: Record<string, number>,
+): Promise<void> {
+  await Promise.all(chunks.map((chunk) => pushChunkOnce(cs, chunk, current, seqs[chunk] ?? 0)));
 }
 
 /**
@@ -394,8 +451,8 @@ export function withOutbox<T>(cs: ChunkSync<T>): SyncPort<T>['push'] {
     if (!enabled()) return;
     const chunks = cs.chunkDiff(prev, next);
     if (chunks.length === 0) return;
-    enqueue(cs.domain, chunks); // ① write-ahead
-    await pushChunks(cs, next, chunks); // ②③④
+    const seqs = enqueue(cs.domain, chunks); // ① write-ahead
+    await pushChunks(cs, next, chunks, seqs); // ②③④
   };
 }
 
@@ -419,11 +476,13 @@ const inFlight = new Set<SyncDomain>();
 export async function flushOutbox<T>(cs: ChunkSync<T>, storage: StoragePort<T>): Promise<void> {
   if (!enabled()) return;
   if (inFlight.has(cs.domain)) return;
-  const chunks = outboxDirty(cs.domain);
+  const slot = loadSlot();
+  const chunks = slot.dirty[cs.domain] ?? [];
   if (chunks.length === 0) return;
   inFlight.add(cs.domain);
   try {
-    await pushChunks(cs, storage.load(), chunks);
+    // #544: counters read before the state, so the pushed state is at least as new as they are.
+    await pushChunks(cs, storage.load(), chunks, { ...slot.seq?.[cs.domain] });
   } finally {
     inFlight.delete(cs.domain);
   }

@@ -101,10 +101,19 @@ const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
-/** Lazily open + cache the DB connection. Resolves `null` on SSR / unavailable / blocked / rejected. */
+/**
+ * Lazily open + cache the DB connection. Resolves `null` on SSR / unavailable / blocked / rejected.
+ *
+ * ONLY A LIVE CONNECTION IS MEMOISED. `onblocked` is transient by nature (another tab holding the
+ * old connection) and a rejected open can succeed on the next try, so caching either answer took
+ * photos out for the rest of the page's life, and every later call returned the same
+ * `reason:'unavailable'` a browser with no IndexedDB returns. Likewise once the browser closes a
+ * connection out from under us: every later `tx()` throws `InvalidStateError` against a dead
+ * handle, so `onclose` drops it and the next call re-opens.
+ */
 function openDb(): Promise<IDBDatabase | null> {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise<IDBDatabase | null>((resolve) => {
+  const pending = new Promise<IDBDatabase | null>((resolve) => {
     if (typeof indexedDB === 'undefined') {
       resolve(null);
       return;
@@ -125,7 +134,15 @@ function openDb(): Promise<IDBDatabase | null> {
     req.onerror = () => resolve(null);
     req.onblocked = () => resolve(null);
   });
-  return dbPromise;
+  dbPromise = pending;
+  // Assigned first: the executor above can resolve SYNCHRONOUSLY (no `indexedDB`, or `open`
+  // throwing), and clearing the slot from inside it would be undone by that assignment.
+  void pending.then((db) => {
+    if (dbPromise !== pending) return;
+    if (db === null) dbPromise = null;
+    else db.onclose = () => { if (dbPromise === pending) dbPromise = null; };
+  });
+  return pending;
 }
 
 /** Best-effort, once: ask the browser to persist the origin so a blob is less likely evicted. */

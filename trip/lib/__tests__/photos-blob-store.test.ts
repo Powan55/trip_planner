@@ -6,8 +6,8 @@
 // CONTRACT: put/get/delete/list/usage round-trip, a simulated QuotaExceededError → {ok:false,quota},
 // and an evicted get → null. D-159/D-160 cited.
 
-import { describe, it, expect } from 'vitest';
-import { makeInMemoryBlobStore, mintPhotoId } from '@/core/photos/blob-store';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { defaultBlobStore, makeInMemoryBlobStore, mintPhotoId } from '@/core/photos/blob-store';
 
 function blobOf(bytes: number): Blob {
   return new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
@@ -78,5 +78,90 @@ describe('BlobStorePort (in-memory fake) — the port contract', () => {
     expect(await store.usage()).toEqual({ count: 0, bytes: 0 });
 
     await expect(store.clear()).resolves.toBeUndefined(); // idempotent, never rejects
+  });
+});
+
+// ── The NATIVE impl's connection memo, against a hand-rolled `indexedDB` stub (still no dep) ──
+//
+// jsdom has no IndexedDB, so the stub below is the smallest thing `openDb`/`tx` will drive: an
+// `open()` that can be told to block or succeed, and a db whose one transaction resolves with a
+// fixed key list. It exists to pin WHEN the connection promise is cached, which is the whole
+// defect: a blocked open (transient — another tab holds the old connection) was memoised, so
+// photos stayed dead until the page reloaded and every call reported `unavailable`.
+
+interface FakeTx {
+  objectStore: () => { getAllKeys: () => { result: string[] } };
+  oncomplete?: () => void;
+  onerror?: () => void;
+  onabort?: () => void;
+  error: null;
+}
+interface FakeDb {
+  onclose: null | (() => void);
+  transaction: () => FakeTx;
+}
+interface FakeOpenRequest {
+  result?: FakeDb;
+  onsuccess?: () => void;
+  onerror?: () => void;
+  onblocked?: () => void;
+  onupgradeneeded?: () => void;
+}
+
+function makeFakeDb(keys: string[]): FakeDb {
+  return {
+    onclose: null,
+    transaction() {
+      const t: FakeTx = { objectStore: () => ({ getAllKeys: () => ({ result: keys }) }), error: null };
+      queueMicrotask(() => t.oncomplete?.());
+      return t;
+    },
+  };
+}
+
+describe('defaultBlobStore — only a LIVE connection is memoised', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('re-opens after a blocked open, caches a good one, and drops it on close', async () => {
+    const db = makeFakeDb(['ph-1']);
+    let blocked = true;
+    let opens = 0;
+    vi.stubGlobal('indexedDB', {
+      open(): FakeOpenRequest {
+        opens++;
+        const req: FakeOpenRequest = {};
+        queueMicrotask(() => {
+          if (blocked) {
+            req.onblocked?.();
+          } else {
+            req.result = db;
+            req.onsuccess?.();
+          }
+        });
+        return req;
+      },
+    });
+
+    expect(await defaultBlobStore.list()).toEqual([]);
+    expect(opens).toBe(1);
+
+    // The blocking tab goes away. Without invalidation this second call never re-opens and
+    // photos stay unavailable for the life of the page.
+    blocked = false;
+    expect(await defaultBlobStore.list()).toEqual(['ph-1']);
+    expect(opens).toBe(2);
+
+    // A live connection IS cached — no third open.
+    expect(await defaultBlobStore.list()).toEqual(['ph-1']);
+    expect(opens).toBe(2);
+
+    // The browser closes the connection: every later `tx()` would throw InvalidStateError
+    // against the dead handle, so the memo is dropped and the next call re-opens.
+    expect(db.onclose).toBeTypeOf('function');
+    db.onclose!();
+    expect(await defaultBlobStore.list()).toEqual(['ph-1']);
+    expect(opens).toBe(3);
   });
 });

@@ -1,10 +1,7 @@
-import { beforeAll, describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import ts from 'typescript';
-import postcss from 'postcss';
-import tailwindcss from 'tailwindcss';
-import tailwindConfig from '../../tailwind.config';
 
 /**
  * The `.plate` ramp is the legibility scrim over photography, and it only has a size because
@@ -94,48 +91,68 @@ describe('.plate ramp — the scrim only has a height inside a .frame', () => {
     const orphans = sites.filter((s) => !s.framed).map((s) => `${s.file}:${s.line}`);
     expect(orphans).toEqual([]);
   });
-});
 
-describe('.plate ramp — every interior stop tracks the caption split (#382)', () => {
-  let stops: string[];
+  /**
+   * The other half of the same defect. The ramp spans both grid rows, so the alpha under the
+   * caption is decided by where row 2 starts — literal stops were correct for the 56% default
+   * and dropped the 42% modifiers to 0.307. Written as offsets from `--plate-split` both splits
+   * land on 0.753.
+   *
+   * `contrast-check` cannot see a regression here any more: scripts/contrast-tokens.mjs derives
+   * both plate rows from one `PLATE_ROW_TOP`, so re-hardcoded stops print identically and stay
+   * green. This is the only check left that reads the stops themselves.
+   */
+  it('the ramp stops are offsets from --plate-split, not literal percentages (#382)', () => {
+    const css = readFileSync(resolve(ROOT, 'app/globals.css'), 'utf8');
+    const body = css.slice(css.indexOf('.plate .ramp {'));
+    const grad = body.slice(0, body.indexOf('}')).match(/linear-gradient\(([\s\S]*)\)/)?.[1] ?? '';
 
-  beforeAll(async () => {
-    // Compile the real recipe with its real token config. Do not inspect comments or
-    // copy the gradient into the test: neither would detect a hardcoded stop in the CSS.
-    const from = resolve(ROOT, 'app/globals.css');
-    const result = await postcss([
-      tailwindcss({
-        ...tailwindConfig,
-        content: [{ raw: '<div class="plate plate--band plate--wide frame ramp lay"></div>' }],
-      }),
-    ]).process(readFileSync(from, 'utf8'), { from });
-    const gradients: string[] = [];
-    result.root.walkRules('.plate .ramp', (rule) => {
-      rule.walkDecls('background', (decl) => { gradients.push(decl.value); });
+    // `var(--plate-split, 56%)` carries a comma of its own, so split the stop list at depth 0.
+    const args: string[] = [];
+    let depth = 0;
+    let cur = '';
+    for (const ch of grad) {
+      if (ch === '(') depth += 1;
+      if (ch === ')') depth -= 1;
+      if (ch === ',' && depth === 0) {
+        args.push(cur);
+        cur = '';
+      } else cur += ch;
+    }
+    args.push(cur);
+
+    const stops = args.flatMap((arg) => {
+      const m = arg
+        .replace(/\s+/g, ' ')
+        .trim()
+        .match(/^rgb\(\s*var\(--scrim-ink-rgb\)\s*\/\s*([\d.]+)\s*\)\s*(.+)$/);
+      return m ? [{ alpha: Number(m[1]), pos: m[2] }] : [];
     });
-    // Fail closed if the selector or declaration disappears from the compiled output.
-    expect(gradients).toHaveLength(1);
-    expect(gradients[0]).toMatch(/^linear-gradient\([\s\S]*\)$/);
-    stops = postcss.list.comma(gradients[0].slice('linear-gradient('.length, -1))
-      .map((stop) => stop.replace(/\s+/g, ' ').trim());
-    expect(stops).toHaveLength(7); // direction + six colour stops, including both endpoints
-  });
 
-  it('keeps the fixed endpoints at 0% and 100%', () => {
-    expect(stops[0]).toBe('to bottom');
-    expect(stops[1]).toBe('rgb(var(--scrim-ink-rgb) / 0) 0%');
-    expect(stops[6]).toBe('rgb(var(--surface)) 100%');
-  });
+    // Fails CLOSED: a moved selector or a reworded colour would empty the sweep below.
+    expect(stops.map((s) => s.alpha), 'the scan no longer finds the ramp stops').toEqual([
+      0, 0, 0.69, 0.88, 0.97,
+    ]);
 
-  it.each([
-    [2, '0', '- 22%'],
-    [3, '0.69', '- 4%'],
-    [4, '0.88', '+ 8%'],
-    [5, '0.97', '+ 24%'],
-  ])('stop %i stays relative to --plate-split', (index, alpha, offset) => {
-    // Pin alpha AND offset: contrast-tokens models these exact bracketing values.
-    expect(stops[index]).toBe(
-      `rgb(var(--scrim-ink-rgb) / ${alpha}) calc(var(--plate-split, 56%) ${offset})`,
+    // Structural, not an exact string — only `0%`, the top anchor, may be a literal.
+    const relative = /^calc\(\s*var\(--plate-split[^)]*\)\s*[-+]\s*[\d.]+%\s*\)$/;
+    const hardcoded = stops
+      .filter((s) => s.pos !== '0%' && !relative.test(s.pos))
+      .map((s) => `${s.alpha} at ${s.pos}`);
+    expect(
+      hardcoded,
+      `ramp stops no longer track --plate-split:\n  ${hardcoded.join('\n  ')}\n` +
+        'A literal percentage is correct for one split and wrong for the modifiers.',
+    ).toEqual([]);
+
+    // The bracketing pair specifically: contrast-tokens.mjs weights the row line 4/12 of the way
+    // from 0.69 to 0.88, which is only true while these two offsets are -4% and +8%.
+    const posOf = (alpha: number) => stops.find((s) => s.alpha === alpha)?.pos;
+    expect(posOf(0.69), 'the 0.69 stop moved off split-4%').toMatch(
+      /^calc\(\s*var\(--plate-split[^)]*\)\s*-\s*4%\s*\)$/,
+    );
+    expect(posOf(0.88), 'the 0.88 stop moved off split+8%').toMatch(
+      /^calc\(\s*var\(--plate-split[^)]*\)\s*\+\s*8%\s*\)$/,
     );
   });
 });

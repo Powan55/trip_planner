@@ -1,0 +1,10 @@
+{
+  "name": "trip-planner-ci-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CI-only toolchain, not part of the app. firebase-tools is here so the firestore.rules publish installs from a committed lockfile instead of letting npx re-resolve a few hundred transitive packages from the registry three lines after the service-account key lands on disk. See issue #478. Nothing under trip/ depends on this.",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "firebase-tools": "14.27.0"
+  }
+}

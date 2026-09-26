@@ -144,15 +144,16 @@ describe('D-542 — the default pack can be shared without moving its data', () 
       expect(keyFor('itinerary')).toBe('nepal_japan_itinerary');
     });
 
-    it('re-pointing at a DIFFERENT shared plan still leaves the local plan on disk', async () => {
-      const { savePlans, loadPlans, setDefaultTripShareId } = await loadWithEnv();
+    it('re-pointing at a DIFFERENT shared plan drops the local copy of the old one (D-561)', async () => {
+      const { savePlans, setDefaultTripShareId, ITINERARY_STORAGE_KEY } = await loadWithEnv();
+      setDefaultTripShareId(ID);
       savePlans([{ date: '2026-12-09', city: 'New York', country: 'nepal' as const, items: [] }]);
-      const before = loadPlans();
 
       setDefaultTripShareId(ID);
-      setDefaultTripShareId('a-different-trip-code');
+      expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).not.toBeNull();
 
-      expect(loadPlans()).toEqual(before);
+      setDefaultTripShareId('a-different-trip-code');
+      expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBeNull();
     });
   });
 

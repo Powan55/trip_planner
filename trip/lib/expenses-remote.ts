@@ -36,11 +36,30 @@ import { LEGS, isLeg, type Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './firebase-remote';
-import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
+import { mergeItems, gcTombstoneRows, DEFAULT_GC_HORIZON_MS } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { setReadDenied } from '@/core/sync/read-denied';
 import { realClock } from './trip-now';
+import { compareHlc, parse, seedHlcFromLegacy } from '@/core/sync/hlc';
+
+const hlcOf = (e: Expense) => parse(e.hlc ?? seedHlcFromLegacy());
+
+/**
+ * One row per id across legs (#532). A leg change used to leave the old leg's remote copy live, so
+ * the per-leg rebuild kept both. Highest hlc wins; on an exact tie the live row wins, because the
+ * only cross-leg tie is a move tombstone carrying the moved row's own stamp.
+ */
+export function dedupeAcrossLegs(rows: Expense[]): Expense[] {
+  const byId = new Map<string, Expense>();
+  for (const e of rows) {
+    const cur = byId.get(e.id);
+    if (!cur) { byId.set(e.id, e); continue; }
+    const cmp = compareHlc(hlcOf(e), hlcOf(cur));
+    if (cmp > 0 || (cmp === 0 && cur.deleted === true && e.deleted !== true)) byId.set(e.id, e);
+  }
+  return rows.filter((e) => byId.get(e.id) === e);
+}
 
 /**
  * Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc).
@@ -86,15 +105,29 @@ export async function pushChunkMerged(
   fs: Pick<FirestoreMod, 'doc' | 'runTransaction'>,
   leg: Leg,
   localRows: Expense[],
+  otherLegRows: Expense[] = [],
 ): Promise<void> {
   const { doc, runTransaction } = fs;
   const ref = doc(db, 'trips', getTripId(), 'expenses', leg);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const remoteRows: Expense[] = snap.exists() ? chunkDocToRows(snap.data() as Record<string, unknown>) : [];
+    // #532: a remote live row this device holds in ANOTHER leg at a newer hlc was moved out of this
+    // leg — tombstone it here at the move's stamp, or the old leg keeps it live forever.
+    const rows = [...localRows];
+    const elsewhere = new Map(otherLegRows.map((e) => [e.id, e]));
+    for (const r of remoteRows) {
+      const moved = elsewhere.get(r.id);
+      if (moved && r.deleted !== true && compareHlc(hlcOf(moved), hlcOf(r)) > 0) {
+        rows.push({ ...r, deleted: true, rev: moved.rev, hlc: moved.hlc });
+      }
+    }
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstone rows
     // from the MERGED leg before writing — the `pushDayMerged` gc analog over `gcTombstoneRows`.
-    const merged = gcTombstoneRows(mergeItems(remoteRows, localRows), realClock.now().getTime());
+    // otherLegRows: a live row in ANOTHER leg (a pre-fix stale copy, or #532's own move) must keep
+    // this leg's tombstone for the same id from aging out, or GC lets the stale copy resurface.
+    const otherLiveIds = new Set(otherLegRows.filter((e) => e.deleted !== true).map((e) => e.id));
+    const merged = gcTombstoneRows(mergeItems(remoteRows, rows), realClock.now().getTime(), undefined, otherLiveIds);
     tx.set(ref, { leg, items: sanitizeRowsForWrite(merged) });
   });
 }
@@ -110,14 +143,16 @@ export async function pushExpenseChunk(current: Expense[], leg: string): Promise
   if (!LEGS.includes(leg)) return; // not a chunk of the ACTIVE pack → ack (never a bad write)
   const legRows = current.filter((e) => e.leg === leg);
   const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
-  await pushChunkMerged(db, fs, leg, legRows); // rejects on transport error → stays dirty
+  await pushChunkMerged(db, fs, leg, legRows, current.filter((e) => e.leg !== leg)); // rejects on transport error → stays dirty
 }
 
 /**
  * Subscribe to remote expense changes (remote → local). Opens ONE `onSnapshot` on
  * `trips/{TRIP_ID}/expenses` (2 docs). Per-chunk first-snapshot marker = DOC PRESENCE:
- * - chunk PRESENT → first snapshot authoritative for that leg (verbatim incl. empty —/
- * parity), EXCEPT an outbox-dirty leg.
+ * - chunk PRESENT, first snapshot, leg clean → merge, then drop local rows absent from remote and
+ *   older than the GC horizon (#561: a signed-out add is stamped but never queued, so taking remote
+ *   verbatim wiped it). Rows this device holds newer than remote are pushed up.
+ * - chunk PRESENT, leg dirty → plain merge; the outbox pushes it.
  * - chunk ABSENT → never synced → seed that leg from local rows (push up; local untouched).
  * - steady state → `mergeItems(localLeg, remoteLeg)`, applied via `saveExpenses()`+dispatch.
  *
@@ -163,9 +198,10 @@ export function subscribeRemoteExpenses(): () => void {
     remoteByLeg: Map<Leg, Expense[]>,
     presentLegs: Set<Leg>,
     first: boolean,
-    seedUp: (leg: Leg, rows: Expense[]) => void,
+    seedUp: (leg: Leg, rows: Expense[], otherLegRows: Expense[]) => void,
   ) => {
     const local = loadExpenses();
+    const nowPt = realClock.now().getTime();
     const dirty = new Set(outboxDirty('expenses'));
     // A row whose leg this build's pack does not declare is RETAINED verbatim by `sanitizeExpense`
     // on purpose; the per-leg rebuild below would delete it on the first snapshot. Carried across
@@ -175,24 +211,47 @@ export function subscribeRemoteExpenses(): () => void {
     for (const leg of LEGS) {
       const localLeg = local.filter((e) => e.leg === leg);
       const remoteLeg = remoteByLeg.get(leg) ?? [];
+      const others = local.filter((e) => e.leg !== leg);
+      // otherLiveIds (#532): a live row this device holds for the SAME id in a sibling leg — from
+      // local or from that leg's own remote snapshot — must keep this leg's tombstone from aging
+      // out, or GC here lets a pre-fix stale copy elsewhere resurface.
+      const otherLiveIds = new Set(
+        LEGS.filter((l) => l !== leg).flatMap((l) => [
+          ...local.filter((e) => e.leg === l && e.deleted !== true).map((e) => e.id),
+          ...(remoteByLeg.get(l) ?? []).filter((e) => e.deleted !== true).map((e) => e.id),
+        ]),
+      );
       if (first && !dirty.has(leg)) {
         if (presentLegs.has(leg)) {
-          // Authoritative: remote verbatim incl. empty (a deliberately-emptied leg is a real
-          // state, not a reseed trigger — across devices).
-          result.push(...remoteLeg);
+          // A row missing from remote and older than the GC horizon may be one whose tombstone was
+          // already dropped there. Newer ones are signed-out adds that never reached the outbox
+          // (#561), so they stay. Unstamped rows carry no age and stay too.
+          const remoteById = new Map(remoteLeg.map((e) => [e.id, e]));
+          const cutoff = nowPt - DEFAULT_GC_HORIZON_MS;
+          // A malformed hlc parses to pt 0 — no real age, so it stays like an unstamped row.
+          const kept = gcTombstoneRows(mergeItems(localLeg, remoteLeg), nowPt, undefined, otherLiveIds).filter((e) => {
+            const pt = e.hlc ? parse(e.hlc).pt : 0;
+            return remoteById.has(e.id) || !e.hlc || pt === 0 || pt >= cutoff;
+          });
+          result.push(...kept);
+          const newerHere = kept.some((e) => {
+            const r = remoteById.get(e.id);
+            return !r || compareHlc(hlcOf(e), hlcOf(r)) > 0;
+          });
+          if (newerHere) seedUp(leg, kept, others);
         } else {
           // Never synced for this leg → seed from local (push up), keep local as-is.
           result.push(...localLeg);
-          seedUp(leg, localLeg);
+          seedUp(leg, localLeg, others);
         }
       } else {
         // Steady-state (or a dirty leg on first snapshot): item-level merge so an unpushed local
         // edit and a peer's edits both survive. GC BOUNDARY ②: prune
         // past-horizon, unreferenced tombstone rows from the MERGED leg before persist.
-        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), realClock.now().getTime()));
+        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), nowPt, undefined, otherLiveIds));
       }
     }
-    persistAndDispatch([...result, ...foreign]);
+    persistAndDispatch([...dedupeAcrossLegs(result), ...foreign]);
   };
 
   const attemptSetup = async () => {
@@ -228,10 +287,10 @@ export function subscribeRemoteExpenses(): () => void {
             }
             const first = !firstSnapshotHandled;
             firstSnapshotHandled = true;
-            applySnapshot(remoteByLeg, presentLegs, first, (leg, rows) => {
-              // Seed an absent chunk up. Best-effort; a failure
-              // stays local-only (the local rows are untouched, so nothing is lost).
-              void pushChunkMerged(db, fs, leg, rows).catch((err) =>
+            applySnapshot(remoteByLeg, presentLegs, first, (leg, rows, others) => {
+              // Seed an absent chunk, or rows only this device has, up. Best-effort; a failure
+              // stays local-only (the local rows are kept, so nothing is lost).
+              void pushChunkMerged(db, fs, leg, rows, others).catch((err) =>
                 console.warn('[expenses-remote] chunk seed failed, staying local-only:', err),
               );
             });

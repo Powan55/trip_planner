@@ -16,6 +16,7 @@ function item(
     title?: string;
     done?: boolean;
     durationMinutes?: number;
+    duration?: string;
     category?: ItineraryCategory;
     time?: string;
     tzOffsetMin?: number; // S391: D-225 per-item zone override, for the mixed-zone cases
@@ -28,6 +29,7 @@ function item(
     ...(startMin !== undefined ? { startMinutes: startMin } : {}),
     ...(opts.time !== undefined ? { time: opts.time } : {}),
     ...(opts.durationMinutes !== undefined ? { durationMinutes: opts.durationMinutes } : {}),
+    ...(opts.duration !== undefined ? { duration: opts.duration } : {}),
     ...(opts.done !== undefined ? { done: opts.done } : {}),
     ...(opts.tzOffsetMin !== undefined ? { tzOffsetMin: opts.tzOffsetMin } : {}),
   };
@@ -75,6 +77,14 @@ describe('deriveTravelHero — the seven core phase cases', () => {
     expect(at.progress).toBeCloseTo(0, 5);
     // At the exact start instant the item is the "now", never double-listed as "next".
     expect(at.next).toBeNull();
+  });
+
+  it('#585 — a text-only duration ("1h") ends the item, not the gap-to-next fallback', () => {
+    const items = [item(510, { id: 'breakfast', duration: '1h' }), item(600, { id: 'museum' })]; // 08:30 (+1h=09:30), 10:00
+    const s = deriveTravelHero(items, ctxAt(585)); // 09:45 — past the 1h duration, before the museum
+    expect(s.phase).toBe('upcoming');
+    expect(s.current).toBeNull();
+    expect(s.next?.id).toBe('museum');
   });
 
   it('4. done day: every timed item is past/done -> phase "done", no current, no next', () => {

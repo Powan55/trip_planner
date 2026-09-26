@@ -3,6 +3,7 @@ import {
   effectiveDurationMinutes,
   effectiveOffsetMin,
   effectiveStartMinutes,
+  hasRealGeography,
   offsetForCountry,
   placeWallClockToUtcMs,
 } from '@/core/dates/item-time';
@@ -21,11 +22,15 @@ import {
  *
  * A timed item becomes a UTC DTSTART/DTEND pair (no VTIMEZONE needed — every calendar app
  * renders a UTC instant in the viewer's own local time, which is what a lock-screen alarm wants
- * anyway). An untimed item becomes an all-day `VALUE=DATE` event; DTEND is EXCLUSIVE per RFC
- * 5545 so a single-day all-day event's DTEND is the NEXT calendar day. A multi-day span
- * (`item.endDate`) only widens the all-day DTEND — a timed item with an endDate is rare enough
- * (and not part of this ticket's ask) that it is left as a single DEFAULT_DURATION_MIN block on
- * its start day rather than modelled as a multi-day timed span.
+ * anyway) — UNLESS the active pack has no real geography (a custom trip whose legs still carry
+ * the placeholder `utcOffsetMin: 0`) and the item has no explicit `tzOffsetMin` override, in
+ * which case there is no honest UTC instant to anchor on and the event is emitted as a FLOATING
+ * local time (`YYYYMMDDTHHMMSS`, no `Z`) instead — the wall-clock the traveller typed, exactly,
+ * with no DST/offset math to get wrong. An untimed item becomes an all-day `VALUE=DATE` event;
+ * DTEND is EXCLUSIVE per RFC 5545 so a single-day all-day event's DTEND is the NEXT calendar day.
+ * A multi-day span (`item.endDate` past the rendered day) widens the all-day DTEND to match —
+ * this applies to a TIMED item too, since a multi-day span has no single wall-clock instant to
+ * anchor a timed VEVENT on either.
  *
  * KNOWN CEILING: no RFC 5545 75-octet line folding — every calendar app this was checked against
  * (and every major consumer app in practice) accepts an unfolded long SUMMARY/DESCRIPTION line;
@@ -61,6 +66,18 @@ function formatUtcStamp(ms: number): string {
   );
 }
 
+/** Wall-clock date + minutes-from-midnight → ICS FLOATING local datetime `YYYYMMDDTHHMMSS`
+ * (no trailing `Z`) — no offset applied, so day-rollover from a minutes count past 1439 is
+ * handled the same field-arithmetic way `placeWallClockToUtcMs` handles a real offset. */
+function formatFloatingStamp(dateStr: string, minutes: number): string {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d, 0, minutes));
+  return (
+    `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}` +
+    `T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}${pad(dt.getUTCSeconds())}`
+  );
+}
+
 /** ISO `YYYY-MM-DD` shifted by `days` (may be negative/zero) → ICS all-day date `YYYYMMDD`. */
 function formatIcsDate(dateStr: string, days: number): string {
   const [y, mo, d] = dateStr.split('-').map(Number);
@@ -72,10 +89,15 @@ function eventLines(day: DayPlan, item: ItineraryItem, dtstamp: string): string[
   const lines = ['BEGIN:VEVENT', `UID:${item.id}@trip-planner.local`, `DTSTAMP:${dtstamp}`];
 
   const startMin = effectiveStartMinutes(item);
-  if (startMin === undefined) {
+  const spansDays = Boolean(item.endDate && item.endDate > day.date);
+  if (startMin === undefined || spansDays) {
     lines.push(`DTSTART;VALUE=DATE:${formatIcsDate(day.date, 0)}`);
-    const endDate = item.endDate && item.endDate > day.date ? item.endDate : day.date;
+    const endDate = spansDays ? item.endDate! : day.date;
     lines.push(`DTEND;VALUE=DATE:${formatIcsDate(endDate, 1)}`);
+  } else if (!hasRealGeography && typeof item.tzOffsetMin !== 'number') {
+    const durationMin = effectiveDurationMinutes(item) ?? DEFAULT_DURATION_MIN;
+    lines.push(`DTSTART:${formatFloatingStamp(day.date, startMin)}`);
+    lines.push(`DTEND:${formatFloatingStamp(day.date, startMin + durationMin)}`);
   } else {
     const startMs = placeWallClockToUtcMs(
       day.date,

@@ -6,6 +6,7 @@ import { LogOut, Search } from 'lucide-react';
 import { navItemsForActiveTrip, primaryItemsForActiveTrip, type NavItem } from '@/lib/nav-items';
 import SignOutConfirm from '@/components/sign-out-confirm';
 import { useViewTransition } from '@/hooks/use-view-transition';
+import { openPalette } from '@/lib/palette-open';
 
 /**
  * MoreList — the body of the mobile `/more/` route: the long-tail companion
@@ -99,7 +100,7 @@ export default function MoreList() {
             <button
               type="button"
               data-testid="more-search"
-              onClick={() => window.dispatchEvent(new CustomEvent('palette:open'))}
+              onClick={() => openPalette()}
               className={ROW}
             >
               <Search className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />

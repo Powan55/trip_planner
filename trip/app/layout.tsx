@@ -5,7 +5,6 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { ItineraryProvider } from '@/components/itinerary-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
-import CommandPalette from '@/components/command-palette'
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
@@ -25,6 +24,7 @@ import {
   QuickAddHost,
   ExpenseLogHost,
   TripJoinHandshake,
+  CommandPalette,
 } from './chrome-islands'
 
 // TWO faces — a text family and a machine family.
@@ -39,8 +39,11 @@ const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
 // — it is what keeps the second face off the critical path.
 //
 // This replaces Instrument Serif, which rendered a browser-synthesised bold at 70 of its
-// 91 `font-display` sites. `--font-display` is re-pointed at Geist on <body> below rather
-// than dropped, so those sites keep a real family with a real weight axis. Net +7,080 B.
+// 91 `font-display` sites at the time of the flip — history, not a live count; the sweeps
+// since have moved most headings onto the `text-display-*` / `text-editorial-*` scales, and
+// only 4 `font-display` class sites remain today. `--font-display` is re-pointed at Geist on
+// <body> below rather than dropped, so those sites keep a real family with a real weight
+// axis. Net +7,080 B.
 const plexMono = IBM_Plex_Mono({
   weight: '600',
   subsets: ['latin'],

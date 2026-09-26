@@ -24,12 +24,21 @@ import {
 
 // A tiny in-memory StoragePort so the factory can be exercised free of any domain (items/ids/
 // tombstones). `save` records what was written; `load` returns the freshest saved value.
-function makeStorage(initial: number[]): { port: StoragePort<number[]>; disk: { v: number[] } } {
+function makeStorage(initial: number[]): {
+  port: StoragePort<number[]>;
+  disk: { v: number[] };
+  loads: { n: number };
+} {
   const disk = { v: initial };
+  const loads = { n: 0 };
   return {
     disk,
+    loads,
     port: {
-      load: () => disk.v,
+      load: () => {
+        loads.n += 1;
+        return disk.v;
+      },
       save: (value: number[]) => {
         disk.v = value;
       },
@@ -174,6 +183,76 @@ describe('createReactiveStore — the shared hydrate/listen/commit skeleton (D-1
     const h = render(useStore);
     await expect(h.run((c) => c.commit((cur) => [...cur, 2]))).resolves.toBeUndefined();
     expect(disk.v).toEqual([1, 2]);
+    h.unmount();
+  });
+
+  // The committer re-reads its own event (D-604, reverting D-521's skip): it costs one extra
+  // `load()` per instance, but a save that didn't land (quota) snaps the UI back to what is stored.
+  it('commit loads twice per instance: the fresh base, then its own re-read', async () => {
+    const { port, loads } = makeStorage([1]);
+    const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });
+    const h = render(useStore);
+
+    loads.n = 0; // ignore the mount seed + hydrate load
+    await h.run((c) => c.commit((cur) => [...cur, 2]));
+    expect(loads.n).toBe(2);
+
+    h.unmount();
+  });
+
+  it('with two instances mounted, one commit costs 3 loads', async () => {
+    const { port, loads } = makeStorage([1]);
+    const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });
+    const a = render(useStore);
+    const b = render(useStore);
+
+    loads.n = 0;
+    await a.run((c) => c.commit((cur) => [...cur, 2]));
+
+    // a's fresh base + a's own re-read + b hearing the event.
+    expect(loads.n).toBe(3);
+    expect(a.current.value).toEqual([1, 2]);
+    expect(b.current.value).toEqual([1, 2]);
+    a.unmount();
+    b.unmount();
+  });
+
+  it('a save that does not land snaps the committer back to the stored value', async () => {
+    const { port } = makeStorage([1]);
+    const useStore = createReactiveStore<number[]>({
+      eventName: EVENT,
+      storageKeys: [KEY],
+      storage: { ...port, save: () => {} },
+    });
+    const h = render(useStore);
+    await h.run((c) => c.commit((cur) => [...cur, 2]));
+    expect(h.current.value).toEqual([1]);
+    h.unmount();
+  });
+
+  it('a later same-tab or cross-tab event re-reads the committer', async () => {
+    const { port, disk, loads } = makeStorage([1]);
+    const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });
+    const h = render(useStore);
+    await h.run((c) => c.commit((cur) => [...cur, 2]));
+
+    // Same-tab event from somewhere else (another instance's commit, a domain-side dispatch).
+    disk.v = [5];
+    loads.n = 0;
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(EVENT));
+      await Promise.resolve();
+    });
+    expect(loads.n).toBe(1);
+    expect(h.current.value).toEqual([5]);
+
+    // ...and so does the cross-tab layer, which never went through commit at all.
+    disk.v = [6];
+    await act(async () => {
+      window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+      await Promise.resolve();
+    });
+    expect(h.current.value).toEqual([6]);
     h.unmount();
   });
 });

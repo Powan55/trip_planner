@@ -31,6 +31,11 @@ export interface SyncedRow {
    * Optional and unused by the domains that have no user-visible order (expenses, docs, places).
    */
   ord?: string;
+  /**
+   * Stamp of the last done/checked toggle, serialized HLC like `ord`. Lets the done state merge
+   * apart from the body winner (D-569). Written on tick AND untick, so an untick can win too.
+   */
+  doneHlc?: string;
   deleted?: boolean;
   /** Legacy HLC seed source when `hlc` is absent (seedHlcFromLegacy). */
   updatedAt?: string;
@@ -78,10 +83,44 @@ function rowHlc(row: SyncedRow): Hlc {
  * itself, so every merge over pre-split data is byte-identical to before.
  */
 export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R {
-  const win = resolveWinner(a, b, policy);
+  const win = mergeDone(resolveWinner(a, b, policy), a, b);
   const ord =
     a.ord === undefined ? b.ord : b.ord === undefined ? a.ord : a.ord > b.ord ? a.ord : b.ord;
   return ord === undefined || ord === win.ord ? win : { ...win, ord };
+}
+
+// Itinerary rows carry done/doneBy/doneAt, docs rows carry checked; a row never has both.
+const DONE_KEYS = ['done', 'doneBy', 'doneAt', 'checked', 'doneHlc'] as const;
+
+/**
+ * Join the done state as one unit, from whichever row has the higher `doneHlc` (#541). Same
+ * reasoning as `ord`: a tick and a later notes edit from another device are independent, so the
+ * body winner must not carry the stale done state over the tick. A tombstone winner is returned
+ * untouched, and a tie or no `doneHlc` on either side keeps the body winner's state.
+ */
+function mergeDone<R extends SyncedRow>(win: R, a: R, b: R): R {
+  if (win.deleted === true) return win;
+  const ka = doneKey(a);
+  const kb = doneKey(b);
+  if (ka === kb) return win;
+  const src = ka > kb ? a : b;
+  if (src === win || src.deleted === true) return win;
+  const out = { ...win } as Record<string, unknown>;
+  const from = src as unknown as Record<string, unknown>;
+  for (const k of DONE_KEYS) {
+    if (k in from) out[k] = from[k];
+    else delete out[k];
+  }
+  return out as unknown as R;
+}
+
+/**
+ * When the row's done state last changed. A row with no `doneHlc` (written by an older build,
+ * which never stamps it) falls back to its `hlc`, so an old build's untick still beats an older tick.
+ * Current builds write this into `doneHlc` on non-toggle edits so the edit doesn't claim the tick.
+ */
+export function doneKey(row: SyncedRow): string {
+  return row.doneHlc ?? row.hlc ?? seedHlcFromLegacy(row.updatedAt);
 }
 
 /** The per-row CONTENT winner: tombstone policy, then HLC, then the equal-HLC tie-breaks. */
@@ -112,12 +151,16 @@ function resolveWinner<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R 
   //
   // KNOWN CEILING (#152): step 2 is commutative and idempotent but NOT associative — three-plus
   // rows sharing one exact HLC, mutually incomparable by key set, can resolve to different winners
-  // depending on fold order. Unreachable today: `actor` is unique per device, so an exact-HLC tie
-  // only ever appears as the two-row case this was written for (a peer's copy vs. this device's own
-  // strict-sanitized re-read); a three-way needs two devices minting the same actor. A key-COUNT
-  // total order would restore associativity but would let a row with more keys beat one holding
-  // keys it lacks — real data loss traded for tidiness, not worth it. Revisit only if `actor` stops
-  // being unique per device.
+  // depending on fold order. REACHABLE AND ACCEPTED. The old text here called it unreachable
+  // because "`actor` is unique per device"; that premise is false and has been for as long as it
+  // was written — `actor` is the traveller's display NAME in all five hooks, so two devices signed
+  // in as the same traveller mint the same one. What keeps the ceiling effectively unreachable is
+  // the conjunction it actually needs: three same-name devices minting one identical
+  // `{pt, ct, actor}` stamp whose key sets are mutually incomparable. A key-COUNT total order would
+  // restore associativity but would let a row with more keys beat one holding keys it lacks — real
+  // data loss traded for tidiness, not worth it. A device-scoped actor (`deviceStore.getId()`,
+  // synchronous and firebase-free) would restore the premise, at the cost of the human-readable
+  // attribution the same field carries. That trade is what to revisit — not the retired trigger.
   if (aDel !== bDel) return aDel ? a : b;
   const richer = supersetRow(a, b);
   if (richer) return richer;
@@ -206,11 +249,13 @@ export function mergeItems<R extends SyncedRow>(
 
 /**
  * Default tombstone GC horizon: a tombstone may drop once its `hlc.pt` is
- * older than 30 days — comfortably past any realistic offline window. Lives here (the id-keyed
+ * older than 365 days. 30 days was shorter than a device can sit idle between trip planning and
+ * the trip itself, and a tombstone GC'd before a stale device syncs lets it resurrect the row
+ * (#539, D-567). Tombstones are tiny and trips are months long. Lives here (the id-keyed
  * layer) so BOTH the itinerary `gcTombstones` (day-shaped) and the expenses `gcTombstoneRows`
  * (chunk-shaped) share ONE horizon; `merge-day.ts` re-exports it for its existing public API.
  */
-export const DEFAULT_GC_HORIZON_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const DEFAULT_GC_HORIZON_MS = 365 * 24 * 60 * 60 * 1000; // 365 days
 
 /**
  * Garbage-collect old, unreferenced tombstones from ONE id-keyed row-set —
@@ -219,10 +264,13 @@ export const DEFAULT_GC_HORIZON_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
  * merge boundaries only (never in the hot merge path, never as its own write). PURE: `nowPt` is
  * INJECTED.
  *
- * Drop a row iff BOTH:
+ * Drop a row iff ALL:
  * - it is a tombstone (`deleted === true`), AND
  * - its `hlc.pt` is older than `cutoff = min(nowPt, dataNow) - horizonMs`, AND
- * - no LIVE row shares its `id` (nothing references/supersedes it).
+ * - no LIVE row shares its `id` in `rows` OR in `otherLiveIds` (#532: a chunked domain runs GC
+ *   per-chunk, so a tombstone for an id a SIBLING chunk still holds live — e.g. an expense moved
+ *   to another leg after this leg's copy predates the move fix — must survive here too, or the
+ *   stale live row in the other chunk resurfaces once this chunk's tombstone ages out).
  * Structurally unable to drop a live row (the first guard returns it untouched) or a recent
  * tombstone (still inside the horizon). Conservative + convergent: every client GCs the same row
  * at the same logical point; cross-client `nowPt` skew only delays a drop, never loses data.
@@ -245,6 +293,7 @@ export function gcTombstoneRows<R extends SyncedRow>(
   rows: readonly R[],
   nowPt: number,
   horizonMs: number = DEFAULT_GC_HORIZON_MS,
+  otherLiveIds?: ReadonlySet<string>,
 ): R[] {
   const liveRows = (rows ?? []).filter((r) => r.deleted !== true);
   const liveIds = new Set(liveRows.map((r) => r.id));
@@ -253,7 +302,8 @@ export function gcTombstoneRows<R extends SyncedRow>(
   return (rows ?? []).filter((r) => {
     if (r.deleted !== true) return true; // never drop a live row
     const tooOld = rowHlc(r).pt < cutoff;
-    const referenced = liveIds.has(r.id); // a live row resurrected this id → keep the ghost paired
+    // a live row resurrected this id — here or in a sibling chunk (#532) — keeps the ghost paired
+    const referenced = liveIds.has(r.id) || (otherLiveIds?.has(r.id) ?? false);
     return !(tooOld && !referenced);
   });
 }

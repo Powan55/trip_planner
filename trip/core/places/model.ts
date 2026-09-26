@@ -26,6 +26,7 @@
 
 import { z } from 'zod';
 import type { TripConfig } from '@/core/trips/model';
+import { compareHlc, parse, seedHlcFromLegacy } from '@/core/sync/hlc';
 
 /** Hard cap on stored places; overflow drops the oldest. */
 export const PLACES_CAP = 200;
@@ -168,14 +169,28 @@ export function sanitizePlace(value: unknown, opts: SanitizeOptions = {}): MyPla
  * Apply `PLACES_CAP` to LIVE rows and to TOMBSTONES INDEPENDENTLY, so a tombstone can never
  * evict a real place (and the stored value still can't grow unbounded — it is bounded by 2×cap).
  * Under the cap on both counts the input array is returned VERBATIM, so the local-only path —
- * which never produces a tombstone — is byte-for-byte unchanged. Order is otherwise preserved;
- * both halves are already newest-first by the time they get here (`addPlace` prepends,
- * `mergePlaces` sorts), so slicing keeps the NEWEST. TOTAL.
+ * which never produces a tombstone — is byte-for-byte unchanged. Live rows are already
+ * newest-by-import-order by the time they get here (`addPlace` prepends, `mergePlaces` sorts), so
+ * slicing keeps the newest import. TOMBSTONES instead keep the most-recently-DELETED (issue #533):
+ * a delete stamps `hlc` at deletion time (`nextSyncStamp`, `hooks/use-my-places.ts`) — sorting by
+ * it before slicing evicts the STALEST deletions instead of the oldest-imported ones, so a peer
+ * who was offline for the evicted delete can't resurrect a place someone deleted more recently.
+ * A tombstone with no `hlc` (pre-#17 legacy row) is seeded via `seedHlcFromLegacy` (`addedAt` as
+ * `pt`, `ct=0`, `actor=''`) — the SAME legacy-seed convention `mergePlaces`/`mergeItems` already
+ * use — and compared STRUCTURALLY with `compareHlc`, never as a raw string: an `hlc`'s `pt` is
+ * ms-since-epoch while a bare `addedAt` ISO string sorts lexicographically by calendar digits, so
+ * comparing the two as strings put every legacy tombstone ahead of every real one. TOTAL.
  */
+function deletionHlc(p: MyPlace) {
+  return parse(p.hlc ?? seedHlcFromLegacy(p.addedAt));
+}
+
 function capPlaces(rows: MyPlace[]): MyPlace[] {
   const live = rows.filter((p) => p.deleted !== true);
   if (live.length <= PLACES_CAP && rows.length === live.length) return rows;
-  const dead = rows.filter((p) => p.deleted === true);
+  const dead = rows
+    .filter((p) => p.deleted === true)
+    .sort((a, b) => compareHlc(deletionHlc(b), deletionHlc(a)));
   return [...live.slice(0, PLACES_CAP), ...dead.slice(0, PLACES_CAP)];
 }
 

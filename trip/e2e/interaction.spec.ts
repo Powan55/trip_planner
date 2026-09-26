@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPalette } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -139,23 +139,6 @@ async function openFilters(page: Page) {
 async function closeFilters(page: Page) {
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('guide-filters-sheet')).toHaveCount(0);
-}
-
-/**
- * Open the ⌘K/Ctrl+K command palette, tolerating the post-hydration listener
- * race. The global keydown listener is attached in a `useEffect`
- * (command-palette.tsx) that runs AFTER hydration; under the loaded single-worker
- * harness a Ctrl+K pressed too early can land before the listener exists and is
- * simply lost (the palette is mounted but not yet listening). We re-press until
- * the dialog appears — this doesn't mask a bug: the palette genuinely opens once
- * its effect has run; we're only absorbing the hydration-timing jitter.
- */
-async function openPalette(page: Page) {
-  const palette = page.getByRole('dialog', { name: 'Command palette' });
-  await expect(async () => {
-    await page.keyboard.press('Control+k');
-    await expect(palette).toBeVisible({ timeout: 1500 });
-  }).toPass({ timeout: 15_000 });
 }
 
 test.describe('S83 · guide filters + search + sort (RecommendationSection, /nepal/)', () => {
@@ -377,16 +360,19 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
     const fab = page.getByTestId('quick-add-fab');
     await expect(fab).toBeVisible();
 
-    // Opening the custom dialog sets body[data-dialog-open]='1'; the FAB observes
-    // that and unmounts itself (seam 2) so it never floats over the scrim.
+    // Opening the custom dialog sets body[data-dialog-open]='1'; the FAB observes that and
+    // goes opacity-0 + pointer-events-none (seam 2), but stays MOUNTED (#594): quick-add-host.tsx
+    // refocuses this element on dialog close, and a disconnected node would swallow that
+    // .focus() call, dropping focus to <body>.
     await fab.click();
     await expect(page.getByTestId('add-item-dialog')).toBeVisible();
-    await expect(page.getByTestId('quick-add-fab')).toHaveCount(0);
+    await expect(fab).toHaveCSS('opacity', '0');
+    await expect(fab).toHaveCSS('pointer-events', 'none');
 
     // Closing the dialog restores the FAB.
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('add-item-dialog')).toHaveCount(0);
-    await expect(page.getByTestId('quick-add-fab')).toBeVisible();
+    await expect(fab).toBeVisible();
   });
 
   /**

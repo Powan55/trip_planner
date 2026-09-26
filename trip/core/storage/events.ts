@@ -27,4 +27,5 @@ export const JOURNAL_CHANGED_EVENT = 'journal:changed';
 export const MY_PLACES_CHANGED_EVENT = 'myplaces:changed';
 export const PACKING_CHANGED_EVENT = 'packing:changed';
 export const PHOTOS_CHANGED_EVENT = 'photos:changed';
+export const PRIOR_NAMES_CHANGED_EVENT = 'prior-names:changed';
 export const SHARE_CHANGED_EVENT = 'share:changed';

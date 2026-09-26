@@ -37,6 +37,14 @@ type DocData = Record<string, unknown>;
 class FakeFirestore {
   docs = new Map<string, DocData>();
   errorListeners: Array<(err: unknown) => void> = [];
+  snapshotListeners: Array<(snap: unknown) => void> = [];
+  emitServerSnapshot() {
+    const prefix = `trips/${TRIP_ID}/expenses/`;
+    const docs = [...this.docs.entries()]
+      .filter(([p]) => p.startsWith(prefix))
+      .map(([p, data]) => ({ id: p.slice(prefix.length), data: () => data }));
+    for (const cb of this.snapshotListeners) cb({ metadata: { fromCache: false, hasPendingWrites: false }, docs });
+  }
   setDocData(path: string, data: DocData) {
     this.docs.set(path, JSON.parse(JSON.stringify(data)));
   }
@@ -78,11 +86,13 @@ vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
   onSnapshot: (
     _q: unknown,
-    _onNext: (snap: unknown) => void,
+    onNext: (snap: unknown) => void,
     onError?: (e: unknown) => void,
   ) => {
     if (onError) fake.errorListeners.push(onError);
+    fake.snapshotListeners.push(onNext);
     return () => {
+      fake.snapshotListeners.splice(fake.snapshotListeners.indexOf(onNext), 1);
       if (onError) {
         const i = fake.errorListeners.indexOf(onError);
         if (i >= 0) fake.errorListeners.splice(i, 1);
@@ -115,6 +125,9 @@ import { expensesSyncPort } from '@/lib/expenses-ports';
 import { isReadDenied, setReadDenied } from '@/core/sync/read-denied';
 import type { Firestore } from 'firebase/firestore';
 import * as fs from 'firebase/firestore';
+import { saveExpenses, loadExpenses } from '@/core/budget/storage';
+import { expensesToSpent } from '@/core/budget/expenses';
+import { keyFor } from '@/core/storage/gateway';
 
 function exp(id: string, over: Partial<Expense> = {}): Expense {
   return { id, leg: 'nepal', category: 'food', amount: 1000, createdAt: 't', rev: 1, hlc: `000000000001000:000000:${id}`, ...over };
@@ -129,6 +142,7 @@ beforeEach(() => {
   localStorage.clear();
   fake.docs.clear();
   fake.errorListeners = [];
+  fake.snapshotListeners = [];
   writeLog.length = 0;
 });
 afterEach(() => {
@@ -307,5 +321,163 @@ describe('#345 — a permission-denied READ stream is classified, not endlessly 
     expect(isReadDenied()).toBe(false);
     expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(true);
     unsub();
+  });
+});
+
+describe('#532 — moving an expense to another leg leaves one row, not two', () => {
+  const NEPAL = `trips/${TRIP_ID}/expenses/nepal`;
+  const JAPAN = `trips/${TRIP_ID}/expenses/japan`;
+  // Fresh stamps: an epoch-1970 tombstone is past the GC horizon and would be pruned on write.
+  const now = Date.now();
+  const h = (n: number) => `${String(now + n * 1000).padStart(15, '0')}:000000:me`;
+  const items = (path: string) => (fake.docs.get(path) as { items: Expense[] }).items;
+
+  async function reload(): Promise<Expense[]> {
+    const unsub = subscribeRemoteExpenses();
+    await flush();
+    fake.emitServerSnapshot();
+    unsub();
+    return loadExpenses();
+  }
+
+  it('a move tombstones the old leg on push, and a reload shows one row outside leg A', async () => {
+    const before = exp('X', { leg: 'nepal', amount: 100, hlc: h(1) });
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [before] });
+    const after = { ...before, leg: 'japan', rev: 2, hlc: h(2) };
+
+    await expensesSyncPort.push([before], [after]);
+    await flush();
+    expect(items(NEPAL)).toEqual([expect.objectContaining({ id: 'X', deleted: true, hlc: after.hlc })]);
+    expect(items(JAPAN)).toEqual([expect.objectContaining({ id: 'X', leg: 'japan' })]);
+
+    saveExpenses([after]);
+    const rows = await reload();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: 'X', leg: 'japan' });
+    expect(rows[0].deleted).toBeUndefined();
+    expect(expensesToSpent(rows).byLeg).toEqual({ japan: 100 });
+  });
+
+  it('already-duplicated remote data heals: newest copy wins on read, the stale leg is tombstoned on its next push', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('X', { leg: 'nepal', hlc: h(1) })] });
+    fake.setDocData(JAPAN, { leg: 'japan', items: [exp('X', { leg: 'japan', hlc: h(2) })] });
+
+    const rows = await reload();
+    expect(rows.map((e) => [e.id, e.leg])).toEqual([['X', 'japan']]);
+    expect(expensesToSpent(rows).byLeg).toEqual({ japan: 1000 });
+
+    await pushExpenseChunk(rows, 'nepal');
+    expect(items(NEPAL)).toEqual([expect.objectContaining({ id: 'X', deleted: true })]);
+  });
+
+  it('a delete after a move does not resurrect the old leg copy', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('X', { leg: 'nepal', hlc: h(1) })] });
+    const moved = exp('X', { leg: 'japan', rev: 2, hlc: h(2) });
+    fake.setDocData(JAPAN, { leg: 'japan', items: [moved] });
+    const deleted = { ...moved, rev: 3, hlc: h(3), deleted: true };
+
+    await expensesSyncPort.push([moved], [deleted]);
+    await flush();
+    saveExpenses([deleted]);
+    const rows = await reload();
+    // What useExpenses hands the budget views: the live rows of the persisted list.
+    expect(expensesToSpent(rows.filter((e) => e.deleted !== true))).toEqual({});
+
+    await pushExpenseChunk(rows, 'nepal');
+    expect(items(NEPAL).every((e) => e.deleted === true)).toBe(true);
+  });
+
+  it('device A moves X to japan while device B, offline, edits X in nepal at an older hlc: exactly one live X survives, newest hlc wins, nepal stays tombstoned', async () => {
+    const stale = exp('X', { leg: 'nepal', hlc: h(1) });
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [stale] });
+
+    // Device A's move syncs first.
+    const moved = { ...stale, leg: 'japan', rev: 2, hlc: h(3) };
+    await expensesSyncPort.push([stale], [moved]);
+    await flush();
+    expect(items(NEPAL)).toEqual([expect.objectContaining({ id: 'X', deleted: true, hlc: moved.hlc })]);
+
+    // Device B never learned of the move (offline since before it) and pushes its own older edit to
+    // the leg it still thinks X lives in. It has no japan row locally.
+    const bEdit = { ...stale, amount: 250, rev: 2, hlc: h(2) };
+    await pushChunkMerged(fake as unknown as Firestore, fs, 'nepal', [bEdit]);
+
+    // The tombstone's hlc (h3) beats B's stale edit (h2) — tombstone-wins-by-hlc — so nepal stays
+    // deleted and japan is untouched.
+    expect(items(NEPAL)).toEqual([expect.objectContaining({ id: 'X', deleted: true, hlc: moved.hlc })]);
+    expect(items(JAPAN)).toEqual([expect.objectContaining({ id: 'X', leg: 'japan' })]);
+
+    saveExpenses([moved]);
+    const rows = await reload();
+    const live = rows.filter((r) => r.deleted !== true);
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({ id: 'X', leg: 'japan' });
+  });
+});
+
+describe('#561 — the first snapshot merges instead of taking remote verbatim', () => {
+  const NEPAL = `trips/${TRIP_ID}/expenses/nepal`;
+  const JAPAN = `trips/${TRIP_ID}/expenses/japan`;
+  const DAY = 24 * 60 * 60 * 1000;
+  const ago = (ms: number) => `${String(Date.now() - ms).padStart(15, '0')}:000000:me`;
+  const items = (path: string) => (fake.docs.get(path) as { items: Expense[] }).items;
+
+  async function firstSnapshot(): Promise<Expense[]> {
+    const unsub = subscribeRemoteExpenses();
+    await flush();
+    fake.emitServerSnapshot();
+    await flush();
+    unsub();
+    return loadExpenses();
+  }
+
+  it('keeps a signed-out add from a day ago and pushes it up', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(10 * DAY) })] });
+    saveExpenses([exp('L', { hlc: ago(DAY) })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['L', 'R']);
+    expect(items(NEPAL).map((e) => e.id).sort()).toEqual(['L', 'R']);
+  });
+
+  it('drops a 400-day-old row missing from remote, and keeps an unstamped one', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(DAY) })] });
+    saveExpenses([exp('OLD', { hlc: ago(400 * DAY) }), exp('RAW', { hlc: undefined })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['R', 'RAW']);
+    expect(items(NEPAL).map((e) => e.id).sort()).toEqual(['R', 'RAW']);
+  });
+
+  it('a dirty leg still merges, old rows included', async () => {
+    localStorage.setItem(keyFor('syncOutbox'), JSON.stringify({ version: 1, dirty: { expenses: ['nepal'] } }));
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(DAY) })] });
+    saveExpenses([exp('OLD', { hlc: ago(400 * DAY) })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['OLD', 'R']);
+  });
+
+  it('a row moved to another leg is not resurrected in the old leg', async () => {
+    const moved = exp('X', { leg: 'japan', rev: 2, hlc: ago(DAY) });
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [{ ...exp('X', { hlc: ago(2 * DAY) }), deleted: true, rev: 2, hlc: moved.hlc }] });
+    fake.setDocData(JAPAN, { leg: 'japan', items: [moved] });
+    saveExpenses([exp('X', { leg: 'nepal', hlc: ago(2 * DAY) })]); // stale copy, still in the old leg
+
+    const rows = await firstSnapshot();
+    expect(rows.filter((e) => e.deleted !== true).map((e) => [e.id, e.leg])).toEqual([['X', 'japan']]);
+    expect(writeLog).toEqual([]);
+  });
+
+  it('keeps a row with a malformed hlc', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('R', { hlc: ago(DAY) })] });
+    saveExpenses([exp('BAD', { hlc: 'garbage' })]);
+
+    expect((await firstSnapshot()).map((e) => e.id).sort()).toEqual(['BAD', 'R']);
+  });
+
+  it('a tombstone past the horizon survives while the same id is live in another leg', async () => {
+    fake.setDocData(NEPAL, { leg: 'nepal', items: [exp('X', { deleted: true, rev: 2, hlc: ago(400 * DAY) })] });
+    fake.setDocData(JAPAN, { leg: 'japan', items: [exp('X', { leg: 'japan', hlc: ago(401 * DAY) })] });
+
+    const rows = await firstSnapshot();
+    expect(rows.map((e) => [e.id, e.leg, e.deleted])).toEqual([['X', 'nepal', true]]);
   });
 });

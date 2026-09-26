@@ -62,7 +62,7 @@ describe('S350 — renderAssistantContent: lists become real <ul>/<ol>, not type
   it('consecutive bullets get REAL, CSS-driven spacing — not conditional on a blank line', () => {
     // No blank line between bullets (the common case the old renderer got wrong — zero spacing).
     const tight = blocks(render('- one\n- two'))[0];
-    expect(tight.className).toContain('space-y-1.5'); // spacing is a fixed class on <ul>, not per-item margin
+    expect(tight.className).toContain('space-y-2'); // spacing is a fixed class on <ul>, not per-item margin
     expect(tight.querySelectorAll('li')).toHaveLength(2);
   });
 
@@ -145,6 +145,72 @@ describe('S350 — renderAssistantContent: paragraphs / blank lines / empty inpu
     expect(b[2].querySelectorAll('li')).toHaveLength(2);
     expect(b[2].querySelector('strong')!.textContent).toBe('Boudhanath');
     expect(b[3].querySelector('a')!.getAttribute('href')).toBe('https://example.com');
+  });
+});
+
+describe('renderAssistantContent: one-line runs, dashes, rules, pipe rows', () => {
+  it('splits a one-line bullet run into a real <ul>', () => {
+    const b = blocks(render('Picks: - **Senso-ji** -- old temple - **Ueno** -- museums - **Yanaka** -- quiet streets'));
+    expect(b.map((el) => el.tagName)).toEqual(['P', 'UL']);
+    expect(Array.from(b[1].querySelectorAll('li')).map((li) => li.textContent)).toEqual([
+      'Senso-ji — old temple',
+      'Ueno — museums',
+      'Yanaka — quiet streets',
+    ]);
+  });
+
+  it('splits a two-item run that starts with the marker', () => {
+    const b = blocks(render('- **A** x - **B** y'));
+    expect(b.map((el) => el.tagName)).toEqual(['UL']);
+    expect(b[0].querySelectorAll('li')).toHaveLength(2);
+  });
+
+  it('splits a one-line numbered run into a real <ol>', () => {
+    const b = blocks(render('1. **Senso-ji** early 2. **Ueno** after lunch 3. **Yanaka** at dusk'));
+    expect(b).toHaveLength(1);
+    expect(b[0].tagName).toBe('OL');
+    expect(b[0].querySelectorAll('li')).toHaveLength(3);
+  });
+
+  it.each([
+    'We fly Dec 9 - 18 and stay two nights',
+    'The hike takes 2 - 3 hours each way',
+    'A well-known spot',
+    'Nights drop to -5°C up there',
+    'Day 2. **Tsukiji** is great, Day 3. something else',
+    'Stop by the market - **Nishiki** is worth it',
+    'Type `x - **a** - **b** - **c**` there',
+  ])('leaves "%s" as one paragraph', (text) => {
+    const b = blocks(render(text));
+    expect(b).toHaveLength(1);
+    expect(b[0].tagName).toBe('P');
+  });
+
+  it('turns ` -- ` into an em dash in text but not inside a code span', () => {
+    const c = render('Go early -- it fills up. Run `a -- b` first');
+    expect(c.textContent).toBe('Go early — it fills up. Run a -- b first');
+    expect(c.querySelector('code')!.textContent).toBe('a -- b');
+  });
+
+  it('accepts • and – bullets', () => {
+    const b = blocks(render('• one\n– two\n• three'));
+    expect(b).toHaveLength(1);
+    expect(b[0].tagName).toBe('UL');
+    expect(b[0].querySelectorAll('li')).toHaveLength(3);
+  });
+
+  it('renders --- as an <hr>', () => {
+    const b = blocks(render('Above\n\n---\n\nBelow'));
+    expect(b.map((el) => el.tagName)).toEqual(['P', 'HR', 'P']);
+  });
+
+  it('flattens a pipe table into rows joined by ·, dropping the separator row', () => {
+    const c = render('| Day | Place |\n| --- | :---: |\n| 1 | Asakusa |');
+    const b = blocks(c);
+    expect(b).toHaveLength(1);
+    expect(b[0].tagName).toBe('P');
+    expect(b[0].innerHTML).toBe('Day · Place<br>1 · Asakusa');
+    expect(c.querySelector('table')).toBeNull();
   });
 });
 

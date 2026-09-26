@@ -34,7 +34,7 @@ class FakeFirestore {
   }
 }
 const fake = new FakeFirestore();
-const writeLog: { path: string; data: DocData }[] = [];
+const writeLog: { path: string; data: DocData; opts?: { merge?: boolean } }[] = [];
 let getDocCalls = 0;
 let getDocFromServerCalls = 0;
 // Per-test override for the SERVER read (probeAccountIdentity, #10): null = read fake.docs like
@@ -70,9 +70,9 @@ vi.mock('firebase/firestore', () => ({
   initializeFirestore: () => fake,
   persistentLocalCache: () => ({}),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
-  setDoc: async (ref: { path: string }, data: DocData) => {
+  setDoc: async (ref: { path: string }, data: DocData, opts?: { merge?: boolean }) => {
     if (fake.failWrites) throw new Error('transport down');
-    writeLog.push({ path: ref.path, data });
+    writeLog.push({ path: ref.path, data, opts });
     fake.setDocData(ref.path, data);
   },
   getDoc: async (ref: { path: string }) => {
@@ -88,6 +88,11 @@ vi.mock('firebase/firestore', () => ({
   },
   // `pushTripList` is transactional, so `seedAccountDocs` needs this to write anything at all.
   // One in-memory attempt, no contention — enough to prove which paths get written.
+  updateDoc: async (ref: { path: string }, data: DocData) => {
+    if (fake.failWrites) throw new Error('transport down');
+    writeLog.push({ path: ref.path, data });
+  },
+  deleteField: () => '__deleteField__',
   runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<void>) => {
     await fn({
       get: async (ref: { path: string }) => {
@@ -108,6 +113,7 @@ import {
   fetchTripMeta,
   probeAccountIdentity,
   seedAccountDocs,
+  addTripMember,
 } from '@/lib/trips-remote';
 import { DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 
@@ -146,6 +152,24 @@ describe('pushTripMeta — writes trips/{tripId}/meta/info', () => {
     await pushTripMeta(TRIP_ID, { name: 'K', config: config({ currency: undefined }) });
     const written = writeLog[0].data.config as Record<string, unknown>;
     expect('currency' in written).toBe(false);
+  });
+
+  it('merges rather than overwriting, so a joiner renaming with no local config cannot wipe the creator\'s (#543)', async () => {
+    await pushTripMeta(TRIP_ID, { name: 'Renamed by joiner' });
+    expect(writeLog[0].opts).toEqual({ merge: true });
+    expect('config' in writeLog[0].data).toBe(false);
+  });
+
+  it('does NOT merge when config is present, so a deleted nested key does not survive (#543)', async () => {
+    await pushTripMeta(TRIP_ID, { name: 'Creator edit', config: config() });
+    expect(writeLog[0].opts).toEqual({});
+  });
+
+  it('D-600: carries updatedAt, and fetch reads it back for LWW', async () => {
+    await pushTripMeta(TRIP_ID, { name: 'Renamed', updatedAt: 1234 });
+    expect(writeLog[0].data).toEqual({ name: 'Renamed', updatedAt: 1234 });
+    fake.setDocData(DOC_PATH, writeLog[0].data);
+    expect(await fetchTripMeta(TRIP_ID)).toEqual({ name: 'Renamed', updatedAt: 1234 });
   });
 
   it('no-ops (no Firestore call) when dormant', async () => {
@@ -235,6 +259,11 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
     // TWO reads now, not one: an absent identity doc alone is no longer sufficient evidence —
     // see the legacy-account block below for why, and for the cost note.
     expect(getDocFromServerCalls).toBe(2);
+  });
+
+  it("a key that is not one path segment ⇒ 'missing' with no read (#476)", async () => {
+    expect(await probeAccountIdentity('A/B/C')).toEqual({ verdict: 'missing' });
+    expect(getDocFromServerCalls).toBe(0);
   });
 
   it("read rejects ⇒ 'unavailable' (offline/error must admit, never lock a real user out)", async () => {
@@ -353,6 +382,19 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
         vi.useRealTimers();
       }
     });
+  });
+});
+
+// ── #516 — a dotted/slashed uid must never reach a field-path write ─────────────────────────────
+describe('addTripMember — rejects a uid outside the Firebase uid alphabet', () => {
+  it('a dotted uid is refused before updateDoc, never nests into the members map', async () => {
+    expect(await addTripMember(TRIP_ID, 'foo.bar')).toBe('failed');
+    expect(writeLog).toHaveLength(0);
+  });
+
+  it('a plain uid still writes the flat field path', async () => {
+    expect(await addTripMember(TRIP_ID, 'abc123_-XYZ')).toBe('ok');
+    expect(writeLog).toEqual([{ path: `trips/${TRIP_ID}`, data: { 'members.abc123_-XYZ': 'member' } }]);
   });
 });
 

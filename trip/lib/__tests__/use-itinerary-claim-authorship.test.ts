@@ -23,6 +23,7 @@
 // equivalent mechanism. They are NOT rewritten.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { firebaseConfigMock } from './firebase-config-mock';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -33,13 +34,8 @@ const state = vi.hoisted(() => ({
   remoteOn: false,
   pushCalls: [] as Array<{ prev: DayPlan[]; next: DayPlan[] }>,
 }));
-vi.mock('@/lib/firebase-config', () => ({
-  FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
-  isRemoteConfigured: () => state.remoteOn,
-  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
-  isTripRemoteConfigured: () => state.remoteOn,
-  getTripId: () => 'nepal-japan-2026',
-}));
+vi.mock('@/lib/firebase-config', (io) =>
+  firebaseConfigMock(io, () => state.remoteOn, 'nepal-japan-2026'));
 vi.mock('@/lib/itinerary-ports', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/itinerary-ports')>();
   return {

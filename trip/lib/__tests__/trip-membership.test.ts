@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 //
 // #10 — the opt-in member lock, against a FAKE Firestore + a fake anonymous session. Covers the
-// three seams that share the `permission-denied` contract:
+// four seams that share the `permission-denied` contract:
 //
 //   1. `createTripDoc` mints `members: { <uid>: 'owner' }` on the trip doc (the ONLY moment the
 //      rules accept a members map being created).
 //   2. `ensureMembership`'s four branches — absent doc, already enrolled, grandfathered
-//      members-less trip (first enroller takes `owner`), and a refusal (⇒ `trip:access-pending`,
-//      never a throw) — plus the FIELD-PATH shape of its write, which is what the rules' add-only
-//      diff requires (a whole-document overwrite is refused for a non-owner).
-//   3. The presence heartbeat STOPS on a refusal instead of retrying every 60s forever.
+//      members-less trip (#477: NO write at all), and a refusal (⇒ `trip:access-pending`, never a
+//      throw) — plus the FIELD-PATH shape of its write, which is what the rules' add-only diff
+//      requires (a whole-document overwrite is refused for a non-owner).
+//   3. `fetchTripMembers` keeps "no roster" and "could not find out" as DIFFERENT answers (#477),
+//      because the settings surface hides a control on the first and must not on the second.
+//   4. The presence heartbeat STOPS on a refusal instead of retrying every 60s forever.
 //
 // ⚠ Assertions count writes and reads, not only outcomes: every function here swallows failure to
 // a console.warn, so "nothing bad happened" is indistinguishable from "the mock was bypassed"
@@ -54,6 +56,9 @@ const fake = vi.hoisted(() => ({
   writes: [] as { op: 'set' | 'update' | 'delete'; path: string; data: Record<string, unknown> }[],
   serverReads: 0,
   serverReadPaths: [] as string[],
+  /** `getDocFromServer` REJECTS offline rather than serving the cache — the state #477's third
+   *  roster answer exists for. Not a `permission-denied`: no rule refused anything. */
+  offline: false,
 }));
 
 /** The exact rejection Firestore raises when the rules refuse an operation. */
@@ -82,9 +87,16 @@ vi.mock('firebase/firestore', () => ({
     if (fake.denied.has(ref.path)) throw permissionDenied();
     fake.writes.push({ op: 'delete', path: ref.path, data: {} });
   },
+  getDoc: async (ref: { path: string }) => {
+    fake.serverReads += 1;
+    fake.serverReadPaths.push(ref.path);
+    const data = fake.docs.get(ref.path);
+    return { exists: () => data !== undefined, data: () => data };
+  },
   getDocFromServer: async (ref: { path: string }) => {
     fake.serverReads += 1;
     fake.serverReadPaths.push(ref.path);
+    if (fake.offline) throw Object.assign(new Error('Failed to get document because the client is offline.'), { code: 'unavailable' });
     if (fake.denied.has(ref.path)) throw permissionDenied();
     const data = fake.docs.get(ref.path);
     return { exists: () => data !== undefined, data: () => data };
@@ -95,11 +107,13 @@ import {
   createTripDoc,
   ensureMembership,
   ensureKnownTripMemberships,
+  fetchTripMembers,
+  fetchTripMeta,
   TRIP_ACCESS_PENDING_EVENT,
 } from '@/lib/trips-remote';
 import { startPresence, stopPresence, HEARTBEAT_MS } from '@/lib/presence';
 import { signIn } from '@/lib/token-auth';
-import { deviceStore } from '@/core/storage/gateway';
+import { deviceStore, markTripCreatedHere } from '@/core/storage/gateway';
 import { upsertKnownTrip } from '@/core/trips/registry';
 
 const TRIP = 'trip-abc';
@@ -115,6 +129,7 @@ beforeEach(() => {
   fake.writes.length = 0;
   fake.serverReads = 0;
   fake.serverReadPaths.length = 0;
+  fake.offline = false;
   gate.on = true;
   gate.tripId = TRIP;
   window.localStorage.clear();
@@ -160,13 +175,19 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     expect(fake.writes).toHaveLength(0);
   });
 
-  it('MEMBERS-LESS legacy trip ⇒ the first enroller takes owner, via a FIELD PATH', async () => {
+  it('MEMBERS-LESS legacy trip ⇒ NO write: the reader does not become its owner (#477)', async () => {
     fake.docs.set(TRIP_PATH, { schemaVersion: 1, createdAt: 1, seededFrom: 'sample' });
+    await ensureMembership(TRIP);
+    expect(fake.serverReads).toBe(1); // the read ran — a measurement, not a bypassed mock
+    expect(writesTo(TRIP_PATH)).toHaveLength(0);
+  });
+
+  it('MEMBERS-LESS trip created on THIS device ⇒ reclaims owner by field path (#501)', async () => {
+    fake.docs.set(TRIP_PATH, { schemaVersion: 1, createdAt: 1, seededFrom: 'sample' });
+    markTripCreatedHere(TRIP);
     await ensureMembership(TRIP);
     const writes = writesTo(TRIP_PATH);
     expect(writes).toHaveLength(1);
-    // FIELD PATH, not a whole-document overwrite: the rules refuse any non-owner edit that touches
-    // a key other than `members`, so the write must name `members.<uid>` and nothing else.
     expect(writes[0].op).toBe('update');
     expect(writes[0].data).toEqual({ [`members.${UID}`]: 'owner' });
   });
@@ -176,7 +197,12 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     // refusal test below). It is pinned because the client must never assume itself an owner.
     fake.docs.set(TRIP_PATH, { schemaVersion: 1, members: { someone: 'owner' } });
     await ensureMembership(TRIP);
-    expect(writesTo(TRIP_PATH)[0].data).toEqual({ [`members.${UID}`]: 'member' });
+    const writes = writesTo(TRIP_PATH);
+    expect(writes).toHaveLength(1);
+    // FIELD PATH, not a whole-document overwrite: the rules refuse any non-owner edit that touches
+    // a key other than `members`, so the write must name `members.<uid>` and nothing else.
+    expect(writes[0].op).toBe('update');
+    expect(writes[0].data).toEqual({ [`members.${UID}`]: 'member' });
   });
 
   it('REFUSED ⇒ dispatches trip:access-pending, writes nothing, never throws', async () => {
@@ -192,37 +218,98 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     expect(fake.writes).toHaveLength(0);
   });
 
-  it('a MALFORMED members field degrades to "members-less", it does not lock the user out', async () => {
+  // #453 + #477: the rules read a roster naming no owner as OPEN, and `rosterIsWellFormed()`
+  // refuses any update that leaves it owner-less — so 'member' would be denied here, and 'owner'
+  // would hand the trip to whoever opened the forwarded link first. Neither: write nothing. The
+  // trip stays open to every token holder, which is what these shapes already mean.
+  it.each([
+    ['NO members field', undefined],
+    ['a non-map members field', 'not-a-map'],
+    ['an EMPTY map', {}],
+    ['an all-member map', { a: 'member', b: 'member' }],
+    ['a map already listing this uid, but no owner', { [UID]: 'member', other: 'Owner' }],
+  ])('%s reads as open ⇒ no write, no access-pending (#477)', async (_label, members) => {
     const seen: Event[] = [];
     const onPending = (e: Event) => seen.push(e);
     window.addEventListener(TRIP_ACCESS_PENDING_EVENT, onPending);
 
-    fake.docs.set(TRIP_PATH, { schemaVersion: 1, members: 'not-a-map' });
+    fake.docs.set(TRIP_PATH, { schemaVersion: 1, ...(members === undefined ? {} : { members }) });
     await ensureMembership(TRIP);
 
     window.removeEventListener(TRIP_ACCESS_PENDING_EVENT, onPending);
-    expect(seen).toHaveLength(0); // junk in the doc is never read as "you have no access"
-    expect(writesTo(TRIP_PATH)[0].data).toEqual({ [`members.${UID}`]: 'owner' });
+    expect(fake.serverReads).toBe(1);
+    expect(writesTo(TRIP_PATH)).toHaveLength(0);
+    expect(seen).toHaveLength(0); // an open trip is readable and writable — nothing to ask for
   });
 
-  // #453: the rules read a roster naming no owner as OPEN and refuse any write that leaves it
-  // owner-less, so enrolling as 'member' here would be denied and show access-pending wrongly.
-  it.each([
-    ['an EMPTY map', {}],
-    ['an all-member map', { a: 'member', b: 'member' }],
-    ['a map already listing this uid, but no owner', { [UID]: 'member', other: 'Owner' }],
-  ])('%s reads as open ⇒ enrols as owner', async (_label, members) => {
-    fake.docs.set(TRIP_PATH, { schemaVersion: 1, members });
-    await ensureMembership(TRIP);
-    const writes = writesTo(TRIP_PATH);
-    expect(writes).toHaveLength(1);
-    expect(writes[0].data).toEqual({ [`members.${UID}`]: 'owner' });
+  it('a multi-segment pointer (A/B/C) is refused before any read or write (#476)', async () => {
+    fake.docs.set('trips/A/B/C', { schemaVersion: 1, members: { someone: 'owner' } });
+    fake.docs.set('trips/A/B/C/meta/info', { name: 'x' });
+    await ensureMembership('A/B/C');
+    expect(await fetchTripMeta('A/B/C')).toBeUndefined();
+    expect(fake.serverReads).toBe(0);
+    expect(fake.writes).toHaveLength(0);
   });
 
   it('no-ops with NO read when the trip is not remote (the local-only sample)', async () => {
     gate.tripId = '';
     await ensureMembership('');
     expect(fake.serverReads).toBe(0);
+  });
+});
+
+// #477 — the settings surface hides "Add device" on `'open'`, so "this trip has no roster" and "I
+// could not find out" must not be the same answer. They were one `undefined` before, and an owner
+// of a properly gated trip opening Settings offline was told their trip predates per-device access
+// and lost the control. `getDocFromServer` REJECTS offline rather than serving the cache, so that
+// is an ordinary path, not an exotic one.
+describe('fetchTripMembers separates "no roster" from "could not find out" (#477)', () => {
+  it('a FAILED read answers unknown — never open — and warns', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fake.docs.set(TRIP_PATH, { schemaVersion: 1, members: { [UID]: 'owner' } });
+    fake.offline = true;
+
+    expect(await fetchTripMembers(TRIP)).toEqual({ state: 'unknown' });
+
+    expect(fake.serverReads).toBe(1); // the read was attempted — not a bypassed mock
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('a REFUSED read answers unknown too (a gated trip this device is not in)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fake.denied.add(TRIP_PATH);
+    expect(await fetchTripMembers(TRIP)).toEqual({ state: 'unknown' });
+    warn.mockRestore();
+  });
+
+  it('a DORMANT build answers unknown with no read at all', async () => {
+    gate.on = false;
+    expect(await fetchTripMembers(TRIP)).toEqual({ state: 'unknown' });
+    expect(fake.serverReads).toBe(0);
+  });
+
+  it('a successful read of a well-formed roster answers it verbatim', async () => {
+    fake.docs.set(TRIP_PATH, { schemaVersion: 1, members: { [UID]: 'owner', pal: 'member' } });
+    expect(await fetchTripMembers(TRIP)).toEqual({
+      state: 'roster',
+      members: { [UID]: 'owner', pal: 'member' },
+    });
+  });
+
+  it('a successful read of NO trip doc answers absent (#501)', async () => {
+    expect(await fetchTripMembers(TRIP)).toEqual({ state: 'absent' });
+    expect(fake.serverReads).toBe(1);
+  });
+
+  it.each([
+    ['no members key', { schemaVersion: 1 }],
+    ['a non-map members field', { schemaVersion: 1, members: 'not-a-map' }],
+    ['a roster naming no owner', { schemaVersion: 1, members: { a: 'member' } }],
+  ])('a successful read of %s answers open', async (_label, doc) => {
+    fake.docs.set(TRIP_PATH, doc);
+    expect(await fetchTripMembers(TRIP)).toEqual({ state: 'open' });
+    expect(fake.serverReads).toBe(1);
   });
 });
 

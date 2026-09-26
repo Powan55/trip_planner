@@ -319,13 +319,13 @@ describe('SettleUpSummary — a USD balance under half a unit is NOT settled', (
     const r = render();
     const debtor = r.container.querySelector('[data-testid="settle-up-balance-nepal-Ana"]');
     const creditor = r.container.querySelector('[data-testid="settle-up-balance-nepal-Bo"]');
-    expect(debtor?.textContent).toContain('owes $0.3');
-    expect(creditor?.textContent).toContain('is owed $0.3');
+    expect(debtor?.textContent).toContain('owes $0.30');
+    expect(creditor?.textContent).toContain('is owed $0.30');
     expect(r.container.textContent).not.toContain('settled');
     // The transfer is still there — this is the line the chip used to contradict.
     expect(
       r.container.querySelector('[data-testid="settle-up-transfer-nepal-Ana-Bo"]')?.textContent,
-    ).toContain('$0.3');
+    ).toContain('$0.30');
     r.unmount();
   });
 

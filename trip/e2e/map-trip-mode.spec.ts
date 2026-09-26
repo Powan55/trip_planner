@@ -44,6 +44,7 @@ test.describe('S151 · map trip-mode upgrades', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoMap(page);
+    await waitForCamera(page);
 
     const toggle = page.getByTestId('map-search-toggle');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -75,6 +76,7 @@ test.describe('S151 · map trip-mode upgrades', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoMap(page);
+    await waitForCamera(page);
 
     await page.getByTestId('map-search-toggle').click();
     await page.getByTestId('map-search-input').fill('Fushimi');
@@ -90,6 +92,7 @@ test.describe('S151 · map trip-mode upgrades', () => {
 
   test('search: Esc closes the panel', async ({ page }) => {
     await gotoMap(page);
+    await waitForCamera(page);
     const toggle = page.getByTestId('map-search-toggle');
     await toggle.click();
     const input = page.getByTestId('map-search-input');
@@ -103,6 +106,7 @@ test.describe('S151 · map trip-mode upgrades', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoMap(page);
+    await waitForCamera(page);
 
     // Filter to Hotel — Boudhanath (Cultural) is excluded from the visible set.
     await page.getByTestId('map-filter-hotel').click();
@@ -126,6 +130,7 @@ test.describe('S151 · map trip-mode upgrades', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoMap(page);
+    await waitForCamera(page);
 
     await page.getByTestId('map-search-toggle').click();
     await page.getByTestId('map-search-input').fill('Boudhanath');

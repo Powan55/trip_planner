@@ -4,98 +4,20 @@
  * Zod is already a dependency — this adds NO new dep.
  *
  * VALIDATION-TOLERANCE RULE:
- * on READ these schemas are deliberately *lenient* —
- * - `category` and `sourceType` are validated as `z.string()` (NOT `z.enum`), because real
- * deployed data may contain a value a future/older build didn't know about;
- * - objects `.passthrough()` unknown keys, so unknown future fields survive a read.
- * The app already produces well-typed `ItineraryItem`s on WRITE (strict via TypeScript),
- * so the write path is naturally strict. A read that fails even this lenient schema is
- * genuinely corrupt → quarantine (see `./load-save.ts`). This mirrors the existing
- * defensive tolerance of `docToDayPlan` in `lib/itinerary-remote.ts`.
+ * on READ these schemas are deliberately *lenient* — objects `.passthrough()` unknown keys, so
+ * unknown future fields survive a read. The app already produces well-typed data on WRITE (strict
+ * via TypeScript), so the write path is naturally strict. A read that fails even this lenient
+ * schema is genuinely corrupt → quarantine (see `./load-save.ts`). This mirrors the existing
+ * defensive tolerance of `docToDayPlan` in `lib/itinerary-remote.ts`. The per-ITEM half of that
+ * rule lives in `./item-schema.ts` — see its header for why it is its own file.
  */
 import { z } from 'zod';
 import type { DayPlan } from '@/lib/trip-data';
-// Cycle by design: that module wraps `itineraryItemSchema` below so the per-item drop rule has
-// ONE definition. Safe because neither side reads the other at module-init time (#123).
+import { itineraryItemSchema } from './item-schema';
 import { sanitizeItineraryItems } from '@/core/itinerary/model';
 
-// Mirrors lib/trip-data.ts `ItineraryItem`. `category` kept permissive (see note above).
-export const itineraryItemSchema = z
-  .object({
-    id: z.string(),
-    title: z.string(),
-    category: z.string(), // permissive on read — NOT z.enum
-    time: z.string().optional(),
-    duration: z.string().optional(),
-    // Structured time model. Declared-surface style like
-    // `done`. Deliberately PLAIN `z.number().optional()` — NO `.int().min().max()` on the read
-    // path: an out-of-range value from a buggy client must degrade to "untimed" at
-    // `effectiveStartMinutes` (the ONE runtime range check), never quarantine a whole vault.
-    startMinutes: z.number().optional(),
-    durationMinutes: z.number().optional(),
-    notes: z.string().optional(),
-    location: z.string().optional(),
-    sourceId: z.string().optional(),
-    // Permissive on read — NOT z.enum (#139). It was the one non-lenient field here, so a fifth
-    // sourceType from a newer build dropped the whole row at both the on-disk and remote
-    // boundaries. `isSourceType` (lib/itinerary-adapter.ts) is the runtime narrow to use if a
-    // consumer ever needs the union; nothing in production reads this field as one today.
-    sourceType: z.string().optional(),
-    createdBy: z.string().optional(),
-    updatedBy: z.string().optional(),
-    updatedAt: z.string().optional(),
-    // Sync v2 per-item merge fields. All optional +
-    // `.passthrough()` retained, so the lenient-read rule is preserved and every
-    // pre-v4 item (fields absent) stays valid. A v4 blob read by an old build hits the
-    // forward-version lenient branch and is never quarantined.
-    rev: z.number().optional(),
-    hlc: z.string().optional(),
-    deleted: z.boolean().optional(),
-    // done-tracking. NO
-    // migration and NO version bump: an item with `done` absent is trivially "not done"
-    // (falsy), so no on-disk backfill is required (unlike the Sync-v2 fields, which needed a
-    // deterministic hlc backfill). CURRENT_ITINERARY_VERSION STAYS 4 — the `schemaVersion`
-    // assertions remain `toBe(4)`. `.passthrough()` already tolerated it on read; declaring it
-    // makes the accepted surface explicit + typed.
-    done: z.boolean().optional(),
-    // Completion attribution.
-    // NO migration and NO version bump — CURRENT_ITINERARY_VERSION STAYS 5. Both absent = no
-    // completion attribution (like `done` absent = not done). `.passthrough()` already tolerated
-    // them on read; declaring them makes the surface explicit + typed.
-    doneBy: z.string().optional(),
-    doneAt: z.string().optional(),
-    // Manual pin-drop ( — additive OPTIONAL, per lenient-read rule, mirrors the
-    // `done` entry above). NO migration and NO version bump: an item with lat/lng absent is
-    // trivially un-pinned, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION STAYS
-    // 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated
-    // these on read; declaring them makes the accepted surface explicit + typed. Deliberately
-    // plain `z.number().optional()` (no `.min()/.max()` range clamp) — the lat/lng range check
-    // lives once, in the ItemEditor UI, matching the startMinutes precedent above.
-    lat: z.number().optional(),
-    lng: z.number().optional(),
-    // Multi-day span ( — additive OPTIONAL, per lenient-read rule, mirrors the
-    // lat/lng entry above). NO migration and NO version bump: an item with `endDate` absent is
-    // trivially single-day, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION STAYS
-    // 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated it
-    // on read; declaring it makes the accepted surface explicit + typed. ISO date string; the
-    // ">= startDay & in-trip-range" check lives once, in the ItemEditor UI (matching lat/lng).
-    endDate: z.string().optional(),
-    // Per-item place-offset override ( — additive OPTIONAL, per lenient-read rule, mirrors the
-    // `lat`/`lng`/`endDate` entry above). NO migration and NO version bump: an item with `tzOffsetMin`
-    // absent is trivially offset-by-day, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION
-    // STAYS 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated it
-    // on read; declaring it makes the accepted surface explicit + typed. Minutes east of UTC; plain
-    // `z.number().optional()` (no range clamp) matching the startMinutes/lat/lng precedent.
-    tzOffsetMin: z.number().optional(),
-    // Day-order key, split off `hlc` (additive OPTIONAL, per lenient-read rule, mirrors the
-    // `tzOffsetMin` entry above). NO migration and NO version bump: an item with `ord` absent
-    // orders by its `hlc` exactly as before, so no on-disk backfill is required.
-    // CURRENT_ITINERARY_VERSION STAYS 5 — the `schemaVersion` assertions remain `toBe(5)`.
-    // `.passthrough()` already tolerated it on read; declaring it makes the surface explicit.
-    // Serialized-HLC shape; plain `z.string().optional()` like `hlc` above.
-    ord: z.string().optional(),
-  })
-  .passthrough(); // tolerate unknown future fields on read
+// Re-exported so `@/core/vault/schema` stays the import path it has always been for this symbol.
+export { itineraryItemSchema };
 
 export const dayPlanSchema = z
   .object({
@@ -176,8 +98,8 @@ export const itineraryEnvelopeV5 = z.object({
  * use (`sanitizeExpenses`, `sanitizePlaces`, `sanitizeItems`).
  *
  * The per-item rule is NOT restated here — `sanitizeItineraryItems` wraps `itineraryItemSchema`
- * above, so the on-disk boundary and the remote-snapshot boundary (`docToDayPlan`) drop exactly
- * the same rows. A day whose `items` is absent or not an array is still DROPPED whole rather
+ * (`./item-schema.ts`), so the on-disk boundary and the remote-snapshot boundary (`docToDayPlan`)
+ * drop exactly the same rows. A day whose `items` is absent or not an array is still DROPPED whole rather
  * than emptied: substituting `[]` there would be defaulting, which this read path does not do.
  *
  * `.passthrough()` keeps unknown keys, so the returned objects retain any forward fields; the

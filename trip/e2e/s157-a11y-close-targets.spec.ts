@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, openPalette } from './fixtures';
 import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -245,9 +245,8 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
       )
       .catch(() => {});
 
-    await page.keyboard.press('Control+k');
+    await openPalette(page);
     const dialog = page.getByTestId('command-palette-dialog');
-    await expect(dialog).toBeVisible();
 
     const closeBtn = dialog.getByRole('button', { name: 'Close' });
     await assertHitArea44(closeBtn);

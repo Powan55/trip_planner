@@ -13,7 +13,8 @@
 // read→merge→set of the one doc. Invoked ONLY from the outbox decorator. MUST REJECT on failure so
 // the outbox keeps the `'list'` chunk dirty (the decorator swallows).
 // READ (remote → local): `subscribeRemotePlaces` opens `onSnapshot` on the single doc.
-// PRESENT ⇒ `mergePlaces(local, remote)`; ABSENT on the first snapshot ⇒ seed from local (push up;
+// PRESENT ⇒ `mergePlaces(local, remote)`, and on the first server snapshot with the `'list'` chunk
+// clean, local rows absent from remote and older than the GC horizon are dropped; ABSENT on the first snapshot ⇒ seed from local (push up;
 // local untouched). Applied via `saveMyPlaces()` + the `myplaces:changed` CustomEvent DIRECTLY,
 // never through the store's `commit()`, so the snapshot path can never re-push.
 //
@@ -36,6 +37,9 @@ import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './firebase-remote';
 import { realClock } from './trip-now';
 import { isPermissionDenied } from '@/core/sync/denied';
+import { outboxDirty } from '@/core/sync/outbox';
+import { DEFAULT_GC_HORIZON_MS } from '@/core/sync/merge-items';
+import { parse } from '@/core/sync/hlc';
 import { setReadDenied } from '@/core/sync/read-denied';
 
 /**
@@ -104,9 +108,11 @@ export async function pushPlacesChunk(current: MyPlace[], chunk: string): Promis
 
 /**
  * Subscribe to remote places changes (remote → local). Opens ONE `onSnapshot` on the singleton doc
- * `trips/{tripId}/places/list`. PRESENT ⇒ `mergePlaces(local, remote)` (always merge — the merge
- * preserves an unpushed local import AND an unpushed local tombstone, so no separate dirty-chunk
- * exception is needed); ABSENT on first snapshot ⇒ seed from local. Applied DIRECTLY via
+ * `trips/{tripId}/places/list`. PRESENT ⇒ `mergePlaces(local, remote)`, which keeps an unpushed
+ * local import or tombstone. On the first server snapshot with the `'list'` chunk clean, local rows
+ * absent from remote and older than the GC horizon are also dropped (#539: a device idle past the
+ * horizon would otherwise merge a long-deleted place back in). ABSENT on first snapshot ⇒ seed
+ * from local. Applied DIRECTLY via
  * `saveMyPlaces()`+dispatch (never `commit()`) so it can never re-push. Gated + lazy +
  * self-degrading: no-op unsubscribe when dormant or on the default pack; any failure → local-only
  * via console.warn, never throws. Mirrors `subscribeRemoteDocs`.
@@ -170,7 +176,21 @@ export function subscribeRemotePlaces(): () => void {
             const local = loadMyPlaces();
             if (snap.exists()) {
               const remoteRows = docToPlaceRows(snap.data() as Record<string, unknown>);
-              persistAndDispatch(mergePlaces(local, remoteRows, realClock.now().getTime(), { keepUnknownKeys: true }));
+              const nowPt = realClock.now().getTime();
+              let merged = mergePlaces(local, remoteRows, nowPt, { keepUnknownKeys: true });
+              if (first && !outboxDirty('places').includes('list')) {
+                // A row missing from remote and older than the GC horizon may be one whose tombstone
+                // was already dropped there (#539). Newer ones are signed-out adds that never
+                // reached the outbox, so they stay. Unstamped or malformed stamps (parse → pt 0)
+                // carry no age and stay too.
+                const remoteIds = new Set(remoteRows.map((p) => p.id));
+                const cutoff = nowPt - DEFAULT_GC_HORIZON_MS;
+                merged = merged.filter((p) => {
+                  const pt = p.hlc ? parse(p.hlc).pt : 0;
+                  return remoteIds.has(p.id) || pt === 0 || pt >= cutoff;
+                });
+              }
+              persistAndDispatch(merged);
             } else if (first) {
               // Never synced → seed the doc from local. Best-effort; a failure stays local-only
               // (local is untouched, so nothing is lost).

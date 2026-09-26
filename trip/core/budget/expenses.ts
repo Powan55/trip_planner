@@ -25,6 +25,7 @@
 import type { ItineraryCategory } from '@/lib/trip-data';
 import type { Leg, SpentInput } from '@/core/budget/model';
 import { BUDGET_CATEGORIES, isLeg, safeAmount } from '@/core/budget/model';
+import { compareHlc, parse, seedHlcFromLegacy } from '@/core/sync/hlc';
 
 // ── The Expense shape (gateway key 11 stores an `Expense[]`) ─────────────────────────────
 /**
@@ -336,10 +337,23 @@ export function updateExpense(
   patch: Partial<NewExpenseInput>,
   stamp: ExpenseStamper = noStamp,
 ): Expense[] {
-  return expenses.map((e) => {
-    if (e.id !== id) return e;
+  // #532: pre-fix data can hold two LIVE rows sharing an id (a leg move raced an edit before the
+  // cross-leg tombstone existed) — patch only the newest-hlc survivor and drop the other live
+  // copy(ies), or the stale one keeps counting toward spend forever.
+  const liveDupes = expenses.filter((e) => e.id === id && e.deleted !== true);
+  const survivor =
+    liveDupes.length > 1
+      ? liveDupes.reduce((a, b) =>
+          compareHlc(parse(a.hlc ?? seedHlcFromLegacy()), parse(b.hlc ?? seedHlcFromLegacy())) >= 0 ? a : b,
+        )
+      : null;
+  return expenses.flatMap((e) => {
+    // #532: a leg move can leave this id's tombstone in the old leg; patching it too would tie the
+    // live row's hlc and the tombstone would win.
+    if (e.id !== id || e.deleted === true) return [e];
+    if (survivor && e !== survivor) return []; // stale duplicate live row — drop, don't patch
     const merged = sanitizeExpense({ ...e, ...patch, id: e.id, createdAt: e.createdAt });
-    return merged ? stamp(merged) : e;
+    return [merged ? stamp(merged) : e];
   });
 }
 

@@ -9,7 +9,7 @@ import {
   subscribeAuthorFilter,
 } from '@/lib/author-filter';
 import { getPriorUserNames, getUserName } from '@/lib/identity';
-import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
+import { ITINERARY_CHANGED_EVENT, PRIOR_NAMES_CHANGED_EVENT } from '@/core/storage/events';
 import { IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
 /**
@@ -68,10 +68,12 @@ export function useAuthorFilter() {
     // the account-identity reconciler ADOPTING the account's name on mount. Without this listener
     // "My edits" keeps resolving against the old name until an unrelated edit happens to fire.
     window.addEventListener(IDENTITY_CHANGED_EVENT, sync);
+    window.addEventListener(PRIOR_NAMES_CHANGED_EVENT, sync);
     return () => {
       window.removeEventListener(ITINERARY_CHANGED_EVENT, sync);
       window.removeEventListener('storage', sync);
       window.removeEventListener(IDENTITY_CHANGED_EVENT, sync);
+      window.removeEventListener(PRIOR_NAMES_CHANGED_EVENT, sync);
     };
   }, []);
 

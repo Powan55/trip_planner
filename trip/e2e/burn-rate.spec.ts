@@ -124,7 +124,7 @@ test.describe('S103 Burn-rate vs plan — pace figures over the live budget + cl
 
     // Daily average = 50 spent / 4 elapsed days = $12.50, shown with cents since formatMoney now
     // keeps USD fractional precision.
-    await expect(page.getByTestId('burn-rate-daily-avg')).toHaveText('$12.5');
+    await expect(page.getByTestId('burn-rate-daily-avg')).toHaveText('$12.50');
 
     // Projected total at this pace = (50/4) * 32 = $400 — double the $200 budget → OVER pace.
     await expect(page.getByTestId('burn-rate-projected')).toHaveText('$400');

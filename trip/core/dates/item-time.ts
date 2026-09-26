@@ -28,7 +28,7 @@ export const JST_OFFSET_MIN = offsetForLeg('japan');
 // A pack with no leg carrying a real offset (every leg's utcOffsetMin is the "unknown
 // geography" placeholder 0) has no basis for a UTC anchor — fall back to the device's own
 // offset, the same convention lib/trip-now.ts's tripOffsetMinFor already uses for this case.
-const hasRealGeography = activeTrip.legs.some((l) => l.utcOffsetMin !== 0);
+export const hasRealGeography = activeTrip.legs.some((l) => l.utcOffsetMin !== 0);
 
 /**
  * The offset the PACK ITSELF declares for a leg — no device substitution, ever. Looks the leg up

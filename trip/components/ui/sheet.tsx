@@ -56,7 +56,7 @@ const SHEET_CONTENT_SIDE = {
   right:
     'inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm',
   // `mx-auto` is inert at full width and only bites once a caller caps it (the concierge's
-  // `sm:max-w-lg`), which centres the sheet on a desktop viewport instead of pinning it left.
+  // `sm:max-w-xl`), which centres the sheet on a desktop viewport instead of pinning it left.
   bottom:
     'inset-x-0 bottom-0 mx-auto w-full border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
 } as const;

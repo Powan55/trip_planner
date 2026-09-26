@@ -1,6 +1,7 @@
 'use client';
 
 import { FIREBASE_CONFIG, isRemoteConfigured } from './firebase-config';
+import { syncPausedPrefs } from '@/core/storage/gateway';
 
 // ---------------------------------------------------------------------------
 // Shared lazy firebase handle. Both the read (subscribe) and write (push) paths
@@ -36,6 +37,18 @@ export interface RemoteHandle {
 let remotePromise: Promise<RemoteHandle> | null = null;
 
 /**
+ * Rejection `getRemote()` gives while "Sync this device" is off (#600). Not a permission error on
+ * purpose: the outbox keeps the chunk dirty and retries it later instead of marking it refused.
+ */
+export class SyncPausedError extends Error {
+  readonly code = 'sync-paused';
+  constructor() {
+    super('sync paused on this device');
+    this.name = 'SyncPausedError';
+  }
+}
+
+/**
  * Lazily initialize firebase (app + firestore) ONCE, behind the `isRemoteConfigured()` gate.
  * Rejects (caller degrades to local-only) if the gate is off or any step fails; never throws
  * synchronously.
@@ -46,6 +59,14 @@ let remotePromise: Promise<RemoteHandle> | null = null;
  * before any caller issues a read or a write.
  */
 export function getRemote(): Promise<RemoteHandle> {
+  if (isRemoteConfigured() && syncPausedPrefs.get()) {
+    return Promise.reject(new SyncPausedError());
+  }
+  return getAuthHandle();
+}
+
+// Sign-in only, for the auth helpers below: they move no trip data, so pausing sync leaves them be.
+function getAuthHandle(): Promise<RemoteHandle> {
   if (!isRemoteConfigured()) {
     return Promise.reject(new Error('remote not configured'));
   }
@@ -119,10 +140,68 @@ export function getRemote(): Promise<RemoteHandle> {
 export async function getAuthIdToken(): Promise<string | null> {
   if (!isRemoteConfigured()) return null;
   try {
-    const { auth } = await getRemote();
+    const { auth } = await getAuthHandle();
     return (await auth.currentUser?.getIdToken()) ?? null;
   } catch {
     return null; // unreachable firebase must degrade to "no header", never to a thrown turn
+  }
+}
+
+const CLEAR_CACHE_TIMEOUT_MS = 3000;
+const FLUSH_WAIT_MS = 1500;
+
+function deleteDatabase(name: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(name);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Drop this device's Firestore cache before a sign-out wipe (#571, D-576): the cached trip docs
+ * and any queued writes. `signOutAuth` also drops the anonymous session, so the next person on a
+ * handed-on device gets a fresh uid. Best-effort and bounded: never throws, never waits more than
+ * a few seconds, because sign-out has to finish even when this cannot.
+ *
+ * When Firebase never started on this page load, the leftovers of an earlier one are deleted by
+ * name (the SDK's names for the default app and database) rather than starting the SDK just to
+ * clear it.
+ */
+export async function clearRemoteCache({ signOutAuth = false } = {}): Promise<void> {
+  if (!isRemoteConfigured()) return;
+  const pending = remotePromise;
+  remotePromise = null;
+  const work = (async () => {
+    const handle = pending ? await pending.catch(() => null) : null;
+    if (handle) {
+      // Give queued offline writes a short chance to reach the server before they are dropped.
+      await Promise.race([
+        handle.fs.waitForPendingWrites(handle.db).catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, FLUSH_WAIT_MS)),
+      ]);
+      if (signOutAuth) await handle.auth.signOut();
+      await handle.fs.terminate(handle.db);
+      await handle.fs.clearIndexedDbPersistence(handle.db);
+    } else {
+      await Promise.all([
+        deleteDatabase(`firestore/[DEFAULT]/${FIREBASE_CONFIG.projectId}/main`),
+        signOutAuth ? deleteDatabase('firebaseLocalStorageDb') : null,
+      ]);
+    }
+  })();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      work,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timed out')), CLEAR_CACHE_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (err) {
+    console.warn('[firebase-remote] could not clear the local Firestore cache', err);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -160,7 +239,7 @@ export type LinkResult = 'linked' | 'adopted' | 'popup-blocked' | 'failed';
 export async function linkGoogleAccount(): Promise<LinkResult> {
   if (!isRemoteConfigured()) return 'failed';
   try {
-    const { auth } = await getRemote();
+    const { auth } = await getAuthHandle();
     const { GoogleAuthProvider, linkWithPopup, signInWithCredential } = await import('firebase/auth');
     const user = auth.currentUser;
     if (!user) return 'failed';
@@ -198,7 +277,7 @@ export async function linkGoogleAccount(): Promise<LinkResult> {
 export async function isGoogleLinked(): Promise<boolean> {
   if (!isRemoteConfigured()) return false;
   try {
-    const { auth } = await getRemote();
+    const { auth } = await getAuthHandle();
     return auth.currentUser?.providerData.some((p) => p.providerId === 'google.com') ?? false;
   } catch {
     return false;

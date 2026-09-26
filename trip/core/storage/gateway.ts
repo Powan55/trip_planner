@@ -537,7 +537,58 @@ export const STORAGE_KEYS = {
    * slices have collided on "next free key" before, so re-check before reusing 45.
    */
   defaultTripShare: 'nepal_japan_default_trip_share',
+  /**
+   * localStorage — JSON `string[]` of remote trip ids CREATED on this device (created-here, key 46;
+   * D-551). The first-snapshot seed names this device `owner` only for these, so a joiner who
+   * reaches a trip before its creator's doc landed cannot seed themselves owner. APP-SCOPED and
+   * deliberately NOT on the trip registry: that syncs across devices and drops unknown fields.
+   */
+  tripsCreatedHere: 'nepal_japan_trips_created_here',
+  /**
+   * localStorage — boolean-as-string, `'true'` when the traveler switched sync off on THIS device
+   * (sync-paused, key 47; D-594). APP-SCOPED and per device: it is never synced, and sign-out
+   * leaves it alone, because it describes the device rather than the person.
+   */
+  syncPaused: 'nepal_japan_sync_paused',
+  /**
+   * localStorage — JSON `{ [field]: { v, hlc } }`, the local mirror of the account's
+   * `trips/{userToken}/profile/prefs` doc (person-prefs, key 48; D-594). Person data, so
+   * `wipeAllTripData` removes it on sign-out. Shape owned by `lib/account-prefs-remote.ts`.
+   */
+  personPrefs: 'nepal_japan_person_prefs',
+  /**
+   * sessionStorage — comma-joined `string[]` of trip ids this tab has already reloaded for after
+   * joining their roster itself (self-join reload, key 49; D-595). Same shape as
+   * `tripMetaSelfHeal`. APP-SCOPED.
+   */
+  selfJoinReload: 'nepal_japan_self_join_reload',
+  /**
+   * localStorage — JSON `{ [date]: { hlc, dirty?, deletedAt? } }`, the per-entry sync stamps for
+   * the journal's account copy (journal-sync, key 50; D-596). TRIP-SCOPED beside key 12. Sync
+   * machinery, not content: the backup leaves it out. Shape owned by `lib/journal-remote.ts`.
+   */
+  journalSync: 'nepal_japan_journal_sync',
+  /**
+   * sessionStorage — `'1'` once this tab has reloaded onto the account's default-pack share id
+   * (default-share reload, key 51; D-598). APP-SCOPED. Stops a write that never sticks from
+   * reloading forever.
+   */
+  defaultShareReload: 'nepal_japan_default_share_reload',
 } as const;
+
+function tripsCreatedHere(): unknown[] {
+  const ids = readJson<unknown>('local', STORAGE_KEYS.tripsCreatedHere, []);
+  return Array.isArray(ids) ? ids : [];
+}
+
+export function markTripCreatedHere(id: string): void {
+  const ids = tripsCreatedHere();
+  if (!ids.includes(id)) writeJson('local', STORAGE_KEYS.tripsCreatedHere, [...ids, id]);
+}
+
+export function wasTripCreatedHere(id: string): boolean {
+  return tripsCreatedHere().includes(id);
+}
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
 /**
@@ -548,6 +599,42 @@ export const STORAGE_KEYS = {
  * returns '' for it; the old NEXT_PUBLIC_TRIP_ID remote id is retired).
  */
 export const DEFAULT_TRIP_ID = 'nepal-japan-2026';
+
+/**
+ * The floor a trip id must clear before it can become a Firestore path segment (#476).
+ *
+ * THE INVARIANT, stated exactly: the id must occupy EXACTLY ONE path segment, so that `{tripId}`
+ * in the ruleset binds the whole id and the membership subject is the same document the write
+ * lands under. It is NOT about depth — `match /{sub}/{document=**}` is recursive and `{document=**}`
+ * matches zero or more segments, so `trips/A/B/C/days/d` still binds `tripId=A` and `isMember()`
+ * still resolves against `trips/A`. Rejecting `/` is the whole of what delivers the invariant; the
+ * rest is hygiene on values that would silently name a neighbouring trip (`.`/`..` resolve away,
+ * `__x__` is reserved by Firestore, whitespace/control bytes compose an empty one).
+ *
+ * Not a shape lock — a hand-made id stays legal.
+ *
+ * Lives here, beside the pointer accessors, so every place that needs it agrees by construction:
+ * `core/trips/registry.ts` refuses such a token at the join AND drops it out of a parsed/merged
+ * known-trips entry, and `lib/firebase-config.ts` refuses to compose a path out of a value already
+ * on disk from before that guard existed.
+ */
+export function isSafeTripSegment(id: string): boolean {
+  if (id === '' || id.length > 128) return false;
+  if (id === '.' || id === '..') return false;
+  if (id.includes('/') || id.includes(' ')) return false;
+  // `[\s\S]`, not `.`: JS `.` does not match the two line-separator code points (U+2028,
+  // U+2029), so an id of that form would slip past the `__*__` name Firestore reserves. Neither
+  // character is written literally here, on purpose: one of them inside a line comment ENDS the
+  // line, and the rest of it is then parsed as code.
+  if (/^__[\s\S]*__$/.test(id)) return false;
+  // Control bytes by code point rather than a character class: an escape in a regex literal here
+  // has been written through as the raw byte before now, which silently changes what is matched.
+  for (let i = 0; i < id.length; i += 1) {
+    const code = id.charCodeAt(i);
+    if (code < 32 || code === 127) return false;
+  }
+  return true;
+}
 
 /**
  * Read the active pack id, or `DEFAULT_TRIP_ID` when the pointer is unset / SSR / unreadable.
@@ -579,6 +666,27 @@ export function getDefaultTripShareId(): string {
   return (readString('local', STORAGE_KEYS.defaultTripShare) ?? '').trim();
 }
 
+const DEFAULT_SHARE_SYNCED_SLOTS = [
+  'syncOutbox',
+  'itinerary',
+  'expenses',
+  'budget',
+  'docsChecklist',
+  'myPlaces',
+] as const satisfies readonly TripScopedSlot[];
+
+/** True when the default pack holds any synced slot a join would replace (D-561). */
+export function defaultPackHasSyncedData(): boolean {
+  return DEFAULT_SHARE_SYNCED_SLOTS.some(
+    (slot) => readString('local', keyForTrip(DEFAULT_TRIP_ID, slot)) !== null,
+  );
+}
+
+/** Drop the default pack's synced slots so a join starts from the remote trip (D-561). */
+export function dropDefaultPackSyncedData(): void {
+  for (const slot of DEFAULT_SHARE_SYNCED_SLOTS) removeKey('local', keyForTrip(DEFAULT_TRIP_ID, slot));
+}
+
 /**
  * Point the default pack at a remote trip id, or clear it with `''`. Write-ONLY — the CALLER
  * performs the full page reload, mirroring `setActiveTripId`. The reload is not optional: the
@@ -586,6 +694,10 @@ export function getDefaultTripShareId(): string {
  */
 export function setDefaultTripShareId(id: string): void {
   const trimmed = id.trim();
+  // D-561 — the outbox and the synced slots belong to the trip they were edited under, not to the
+  // pack. Moving from one shared trip to another would otherwise push them into the new one.
+  const prev = getDefaultTripShareId();
+  if (prev !== '' && trimmed !== '' && prev !== trimmed) dropDefaultPackSyncedData();
   if (trimmed === '') removeKey('local', STORAGE_KEYS.defaultTripShare);
   else writeString('local', STORAGE_KEYS.defaultTripShare, trimmed);
 }
@@ -624,6 +736,8 @@ export function getSyncCode(): string | null {
 }
 
 export function setSyncCode(code: string): void {
+  // Per-person prefs (key 48) belong to one account; never carry them, dirty edits included, into another.
+  if ((getSyncCode()?.trim() ?? '') !== code.trim()) removeKey('local', STORAGE_KEYS.personPrefs);
   writeString('local', STORAGE_KEYS.syncCode, code);
 }
 
@@ -664,7 +778,8 @@ export type TripScopedSlot =
   | 'myPlaces'
   | 'expensesCorrupt'
   | 'backupPromptLeg'
-  | 'conciergeChat';
+  | 'conciergeChat'
+  | 'journalSync';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -693,6 +808,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'expensesCorrupt',
   'backupPromptLeg',
   'conciergeChat',
+  'journalSync',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -730,7 +846,7 @@ export function keyForTrip(id: string, slot: TripScopedSlot): string {
  * Full local teardown for sign-out. Clears
  * EVERY on-disk trace of the previous traveler's TRIP DATA on this device — not just the active pack:
  *
- * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the 15 bare
+ * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the bare
  * `STORAGE_KEYS[slot]` literals from `TRIP_SCOPED_SLOTS` (the default pack's data — `keyFor`
  * grandfathers it to the UNPREFIXED literal, so a `trip:` sweep ALONE misses it entirely;
  * the default pack is the common case on a fresh/shared device, not an edge case).
@@ -787,6 +903,8 @@ export function wipeAllTripData(): void {
   // SHARED plan, so a sign-out that left it behind would silently sync the next person on this
   // device straight into that trip. Same reasoning as `syncCode` two lines up.
   removeKey('local', STORAGE_KEYS.defaultTripShare);
+  removeKey('local', STORAGE_KEYS.tripsCreatedHere);
+  removeKey('local', STORAGE_KEYS.personPrefs);
 }
 
 /**
@@ -995,6 +1113,13 @@ export const identityStore = {
     if (list.includes(prev)) return;
     writeJson('local', STORAGE_KEYS.priorNames, [...list, prev]);
   },
+  /** Adopt names synced from the account (D-601). Union only; returns whether anything was added. */
+  mergePriorNames(names: readonly string[]): boolean {
+    const list = identityStore.getPriorNames();
+    const add = names.filter((n, i) => n.trim() && !list.includes(n) && names.indexOf(n) === i);
+    if (add.length) writeJson('local', STORAGE_KEYS.priorNames, [...list, ...add]);
+    return add.length > 0;
+  },
   /**
    * Clear token, name AND the prior-name history (sign-out). Order is immaterial — all
    * best-effort. The history MUST go with the identity: leaving it behind would let the next
@@ -1187,6 +1312,32 @@ export const tripMetaSelfHealGuard = {
   },
 } as const;
 
+/** At most one reload per trip per session after a roster self-join (key 49; D-595). */
+export const selfJoinReloadGuard = {
+  hasRun(tripId: string): boolean {
+    const raw = readString('session', STORAGE_KEYS.selfJoinReload);
+    return raw !== null && raw.split(',').includes(tripId);
+  },
+  markRun(tripId: string): void {
+    const raw = readString('session', STORAGE_KEYS.selfJoinReload);
+    const ids = raw ? raw.split(',') : [];
+    if (!ids.includes(tripId)) ids.push(tripId);
+    writeString('session', STORAGE_KEYS.selfJoinReload, ids.join(','));
+  },
+} as const;
+
+/** At most one reload per session onto the account's default share (key 51; D-598). */
+export const defaultShareReloadGuard = {
+  hasRun(): boolean {
+    return readString('session', STORAGE_KEYS.defaultShareReload) !== null;
+  },
+  /** False when the flag did not stick (storage blocked), so the caller must not reload. */
+  markRun(): boolean {
+    writeString('session', STORAGE_KEYS.defaultShareReload, '1');
+    return this.hasRun();
+  },
+} as const;
+
 /**
  * Entrance ledger (key 33) — the once-per-session record behind D-293 rule 7. Mirrors
  * `tripMetaSelfHealGuard` exactly: a comma-joined id set in the SESSION store, read as a
@@ -1333,6 +1484,16 @@ export const mapWakeLockPrefs = {
   },
   set(value: boolean): void {
     writeString('local', STORAGE_KEYS.mapWakeLockEnabled, String(value));
+  },
+} as const;
+
+/** "Sync this device" off switch (key 47). Same `String(boolean)` shape; absent reads as not paused. */
+export const syncPausedPrefs = {
+  get(): boolean {
+    return readString('local', STORAGE_KEYS.syncPaused) === 'true';
+  },
+  set(value: boolean): void {
+    writeString('local', STORAGE_KEYS.syncPaused, String(value));
   },
 } as const;
 

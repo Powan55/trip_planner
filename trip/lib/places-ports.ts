@@ -52,7 +52,7 @@ export const placesSyncPort: SyncPort<MyPlace[]> = {
   // guest never write the slot). Never throws.
   push: withOutbox(placesChunkSync),
 
-  subscribe() {
+  subscribe(onDead?: () => void) {
     // Dormant / default-pack gate: no remote trip ⇒ no firebase import, a no-op unsubscribe.
     if (!isTripRemoteConfigured()) return () => {};
 
@@ -66,6 +66,7 @@ export const placesSyncPort: SyncPort<MyPlace[]> = {
       })
       .catch((err) => {
         console.warn('[places] remote subscribe unavailable:', err);
+        if (!cancelled) onDead?.();
       });
 
     return () => {

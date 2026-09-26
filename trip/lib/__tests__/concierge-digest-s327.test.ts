@@ -372,39 +372,42 @@ describe('buildTripDigest (S327)', () => {
     });
   });
 
-  // KNOWN CEILING: the 164-item seed digests to 10113 chars, over the 9500 cap, so the last days
-  // are cut. Fix = raise DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH together.
-  it.skip('S362: the fully-planned SAMPLE trip STILL fits under the raised 9500 cap, times and all', () => {
-    // key absent => loadPlans() seeds SAMPLE_ITINERARY (items on every trip date). At the OLD 2000
-    // cap this truncated mid-trip; S328/S329 raised it to 7000 for the ` #<id>` tags, and S362 to
-    // 9500 for the `HH:MM category ` prefixes — the enriched digest MEASURES 9025 chars (asserted
-    // exactly in the MEASUREMENT test below), so 7000 would have cut a third of the trip.
+  // #546: the 164-item seed digests to ~10113 chars uncondensed, over the 9500 cap. The old fix
+  // here would have been "raise DIGEST_CAP" (a Worker deploy, off the table — see the constant's
+  // comment). Instead `buildTripDigest` now degrades gracefully under the SAME cap: it drops
+  // already-past day lines whole (nothing to protect there), then condenses remaining days'
+  // `category` token, before ever falling back to a tail slice. This asserts the cap always holds
+  // AND that no day at-or-after "today" is ever dropped whole, on every possible trip day.
+  it("S362/#546: the fully-planned SAMPLE trip fits under the 9500 cap by condensing, never by dropping a future day", () => {
+    // key absent => loadPlans() seeds SAMPLE_ITINERARY (items on every trip date).
     const digest = buildTripDigest();
     expect(digest.length).toBeLessThanOrEqual(DIGEST_CAP);
-    expect(digest.endsWith('…')).toBe(false); // no truncation — the whole trip fits now
     // sanity: the last trip date's day is present (nothing got cut off the end)
     const lastPlannedDate = [...SAMPLE_ITINERARY].reverse().find((d) => d.items.length > 0)!.date;
     expect(digest).toContain(lastPlannedDate);
-    // and it would NOT have fit at the old ceiling — this is what justifies the raise
-    expect(digest.length).toBeGreaterThan(7000);
+    expect(digest.length).toBeGreaterThan(7000); // it really needed the degrade, not a no-op
 
-    // #12: the cap has to hold on EVERY day, not just whatever day the suite runs on. The date
-    // line is unconditional now and its in-window form ("… (Day 31 of 32, Tokyo).") is the LONGER
-    // of the two branches, so the real worst case is inside the trip, not outside it. DIGEST_CAP
-    // cannot be raised without the Worker's CONTEXT_TRUNCATE_LENGTH moving with it (they are
-    // deliberately equal, see hooks/use-concierge-chat.ts), and that is a separate manual
-    // deploy, so an overflow here is a genuine blocker rather than a number to nudge.
+    // The cap has to hold on EVERY day, not just whatever day the suite runs on, and every
+    // FUTURE/current day's items must still be individually addressable by #id — condensed
+    // (category token dropped) is fine, dropped whole is not.
     let worst = 0;
     for (const date of TRIP_DATES) {
       vi.useFakeTimers();
       vi.setSystemTime(new Date(`${date}T06:00:00Z`)); // mid-day at both leg offsets, no day edge
       const d = buildTripDigest();
       worst = Math.max(worst, d.length);
-      expect(d.endsWith('…'), `truncated with the clock on ${date}`).toBe(false);
+      expect(d.length, `over cap with clock on ${date}`).toBeLessThanOrEqual(DIGEST_CAP);
+      for (const day of SAMPLE_ITINERARY) {
+        if (day.date < date) continue; // already-past day may legitimately be dropped whole
+        for (const item of day.items) {
+          if (item.deleted) continue;
+          expect(d, `future item ${item.id} missing with clock on ${date}`).toContain(`#${item.id}`);
+        }
+      }
       vi.useRealTimers();
     }
     expect(worst).toBeLessThanOrEqual(DIGEST_CAP);
-    console.log(`[#12] worst-case in-window digest: ${worst} chars, ${DIGEST_CAP - worst} under DIGEST_CAP`);
+    console.log(`[#546] worst-case digest: ${worst} chars, ${DIGEST_CAP - worst} under DIGEST_CAP`);
   });
 
   it('still enforces the cap: a digest exceeding 9500 chars truncates with an ellipsis', () => {

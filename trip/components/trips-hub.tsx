@@ -8,6 +8,10 @@ import {
   renameKnownTrip,
   removeKnownTrip,
   joinTrip,
+  isOwnAccountToken,
+  OWN_ACCOUNT_TOKEN_COPY,
+  joinReplacesLocalPlan,
+  replaceLocalPlanCopy,
   setTripConfig,
   getKnownTrip,
   TRIP_DAYS_MAX,
@@ -16,7 +20,13 @@ import {
 } from '@/core/trips/registry';
 import { VIBES, DEFAULT_VIBE } from '@/core/trips/custom';
 import { formatDateLong } from '@/core/dates/trip-dates';
-import { getActiveTripId, DEFAULT_TRIP_ID, getSyncCode, setSyncCode } from '@/core/storage/gateway';
+import {
+  getActiveTripId,
+  DEFAULT_TRIP_ID,
+  getSyncCode,
+  setSyncCode,
+  markTripCreatedHere,
+} from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import UserTokenShowOnce from '@/components/user-token-show-once';
@@ -91,7 +101,7 @@ function settleWithin(pushes: Promise<unknown>[], ms: number): Promise<unknown> 
  *
  * 1. YOUR TRIPS — `listKnownTrips()` rows (default pack always first). The current row
  * (id-equal `getActiveTripId()`) links Home; any other row's main action is the
- * switch primitive VERBATIM: `joinTrip(id)` then a full navigation to Home. Pencil =
+ * switch primitive: `joinTrip(id)`, then a full navigation to Home only if the switch landed. Pencil =
  * inline rename via `renameKnownTrip`. Per-row "Copy link"
  * builds the same `?trip=` share URL as Settings: for a non-default pack the id
  * IS the capability token. The DEFAULT pack is a LOCAL-ONLY SAMPLE (#10 —
@@ -124,6 +134,9 @@ export default function TripsHub() {
   const [renameValue, setRenameValue] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
+  /** #547 — clipboard write can reject (insecure origin / denied permission); when it does, show
+   * the raw value as selectable text instead of silently doing nothing. */
+  const [copyFailure, setCopyFailure] = useState<{ id: string; value: string } | null>(null);
   /**: a grandfathered traveler signed in before accounts existed — no User Token yet. */
   const [needsAccount, setNeedsAccount] = useState(false);
   const [mintedUserToken, setMintedUserToken] = useState<string | null>(null);
@@ -180,8 +193,9 @@ export default function TripsHub() {
   const pushMetaFor = (id: string, name: string, config?: TripConfigBlock): Promise<void> => {
     const token = shareTokenFor(id);
     if (!token) return Promise.resolve();
+    const updatedAt = getKnownTrip(id)?.updatedAt;
     return import('@/lib/trips-remote')
-      .then(({ pushTripMeta }) => pushTripMeta(token, { name, config }))
+      .then(({ pushTripMeta }) => pushTripMeta(token, { name, config, updatedAt }))
       .catch((err) => console.warn('[trips-hub] trip meta push unavailable:', err));
   };
 
@@ -231,9 +245,11 @@ export default function TripsHub() {
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(id);
+      setCopyFailure(null);
       setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 2000);
     } catch {
-      /* clipboard blocked (permissions / insecure context) — non-fatal, no state change. */
+      // clipboard blocked (permissions / insecure context) — fall back to selectable text.
+      setCopyFailure({ id, value: url });
     }
   };
 
@@ -247,9 +263,11 @@ export default function TripsHub() {
     try {
       await navigator.clipboard.writeText(token);
       setCopiedTokenId(id);
+      setCopyFailure(null);
       setTimeout(() => setCopiedTokenId((c) => (c === id ? null : c)), 2000);
     } catch {
-      /* clipboard blocked (permissions / insecure context) — non-fatal, no state change. */
+      // clipboard blocked (permissions / insecure context) — fall back to selectable text.
+      setCopyFailure({ id, value: token });
     }
   };
 
@@ -277,7 +295,9 @@ export default function TripsHub() {
   // switch primitive: register + write the pointer, then a FULL navigation to Home so the
   // pack re-hydrates fresh and the switcher lands oriented (same target as the ?trip= handshake).
   const switchTo = (id: string) => {
-    joinTrip(id);
+    // A row written before `joinTrip` refused it (the account key, say) can still be listed;
+    // navigating anyway would land Home on the trip it never left.
+    if (!joinTrip(id)) return;
     window.location.assign(withBasePath('/'));
   };
 
@@ -333,7 +353,13 @@ export default function TripsHub() {
       vibe,
       updatedAt: 0, // setTripConfig stamps its own updatedAt
     };
-    joinTrip(id, name);
+    markTripCreatedHere(id);
+    // D-546 — same result check as join()/switchTo(): a minted uuid should always land, but
+    // if it doesn't, surface the create error instead of pushing config for a trip nothing switched to.
+    if (!joinTrip(id, name)) {
+      setCreateError('Could not create the trip. Please try again.');
+      return;
+    }
     setTripConfig(id, config);
     // — the trip is registered locally above; the remote meta doc is what a JOINER reads to
     // learn the trip's dates/destinations. Navigating without awaiting the push aborted it in
@@ -381,13 +407,16 @@ export default function TripsHub() {
     e.preventDefault();
     const id = joinKey.trim();
     if (!id) return;
+    if (joinReplacesLocalPlan(id) && !window.confirm(replaceLocalPlanCopy())) return;
     // D-546 — `joinTrip` resolves which namespace the token names (a `pack:` share id keeps the
     // browser on the default pack with its legs, offsets and guides; anything else is a custom
     // trip) and reports whether the pointer landed. Navigating regardless used to look like the
     // paste had worked while leaving the browser exactly where it was.
     if (!joinTrip(id, joinName.trim() || undefined)) {
       setJoinError(
-        'That Trip Token can’t be used. Check it was copied whole — chat apps often cut long codes short.',
+        isOwnAccountToken(id)
+          ? OWN_ACCOUNT_TOKEN_COPY
+          : 'That Trip Token can’t be used. Check it was copied whole — chat apps often cut long codes short.',
       );
       return;
     }
@@ -450,7 +479,7 @@ export default function TripsHub() {
                         maxLength={40}
                         autoFocus
                         autoComplete="off"
-                        className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                        className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                       />
                       <button
                         type="submit"
@@ -535,6 +564,21 @@ export default function TripsHub() {
                             {copiedId === t.id ? 'Copied' : 'Copy link'}
                           </button>
                         </>
+                      )}
+                      {copyFailure?.id === t.id && (
+                        <div className="flex w-full flex-col gap-1.5 pt-1">
+                          <p role="alert" data-testid={`trips-hub-copy-error-${i}`} className="err text-t-sm">
+                            Couldn&rsquo;t copy automatically. Select the value below and copy it by hand.
+                          </p>
+                          <input
+                            readOnly
+                            value={copyFailure.value}
+                            onFocus={(e) => e.currentTarget.select()}
+                            aria-label={`Value to copy for ${t.name}`}
+                            data-testid={`trips-hub-copy-fallback-${i}`}
+                            className="min-h-tap w-full min-w-0 break-all rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-sm text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                          />
+                        </div>
                       )}
                       {canManage && t.id !== DEFAULT_TRIP_ID && (
                         <button
@@ -651,7 +695,7 @@ export default function TripsHub() {
                 maxLength={40}
                 required
                 autoComplete="off"
-                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
             </div>
 
@@ -670,7 +714,7 @@ export default function TripsHub() {
                     setCreateStart(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -690,7 +734,7 @@ export default function TripsHub() {
                     setCreateEnd(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 />
               </div>
             </div>
@@ -715,7 +759,7 @@ export default function TripsHub() {
                 placeholder="e.g. Kochi, Munnar, Alleppey"
                 required
                 autoComplete="off"
-                className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
             </div>
 
@@ -783,7 +827,7 @@ export default function TripsHub() {
               spellCheck={false}
               aria-invalid={joinError !== null || undefined}
               aria-describedby={joinError ? 'trips-hub-join-error' : undefined}
-              className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             />
             <div className="flex flex-col gap-2 sm:flex-row">
               <label htmlFor="trips-hub-join-name" className="sr-only">
@@ -797,7 +841,7 @@ export default function TripsHub() {
                 placeholder="Shared trip"
                 maxLength={40}
                 autoComplete="off"
-                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
               <button
                 type="submit"

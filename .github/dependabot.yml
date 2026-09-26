@@ -2,9 +2,9 @@ version: 2
 
 # Two things here are easy to get wrong and silent when you do.
 #
-# `directory: /trip` — the only package.json in this repo is trip/package.json.
-# The default `/` would watch nothing and report nothing, which looks identical
-# to "no updates available".
+# `directory:` — one entry per package.json, and there are two: `/trip` (the app) and
+# `/tools` (the CI-only firebase-tools pin). The default `/` would watch neither and
+# report nothing, which looks identical to "no updates available".
 #
 # `target-branch: dev` — every change lands on dev first, and main deploys on
 # merge. Note the trade this makes: with target-branch set, this config no
@@ -26,6 +26,23 @@ updates:
       npm-minor-and-patch:
         patterns: ['*']
         update-types: [minor, patch]
+
+  # tools/package-lock.json pins the firestore.rules publish toolchain by integrity hash
+  # (#478). That closed a supply-chain hole and froze the patch path in the same move: the
+  # `npx --yes` re-resolution it replaced was what used to carry transitive fixes in, and the
+  # lock landed reporting 8 advisories, one of them critical. This entry is now the ONLY thing
+  # that bumps that tree, which is why it exists rather than being folded into /trip above.
+  #
+  # No `groups` block, unlike /trip: there is one direct dependency here, so everything is
+  # ungrouped anyway — which is what that block's "majors get read on their own" intent asks
+  # for. A firebase-tools major needs the same care ci.yml's comment describes; v15 changes
+  # `emulators:exec` semantics, and the two pins still have to move together.
+  - package-ecosystem: npm
+    directory: /tools
+    target-branch: dev
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
 
   # Every `uses:` is pinned to a commit SHA. Dependabot rewrites the SHA and the
   # trailing `# vX.Y.Z` comment, so the pin keeps its meaning and stops being a

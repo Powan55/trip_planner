@@ -12,7 +12,7 @@ import { getActiveTraveler, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
  * differing. Behavior is byte-identical to those five effects:
  * flush the outbox, then open the subscribe; both on mount and reactively on
  * `IDENTITY_CHANGED_EVENT` (D-240 — sign-out fires it without a reload, so this must
- * teardown/re-activate, never mount-once); `online`/tab-return flush too.
+ * teardown/re-activate, never mount-once); `online`/tab-return flush and reopen a dead subscribe.
  *
  * The outer gate is `syncPort.isConfigured()`, not a hardcoded `isRemoteConfigured()` — every
  * `SyncPort` already surfaces its own dormant/config gate (`core/ports.ts`), and places'
@@ -39,16 +39,31 @@ export function useDomainSync<T>(
       void flushOutbox(outboxSync, storagePort);
     };
 
-    const activate = () => {
-      if (!(syncPort.isConfigured() && getActiveTraveler())) return;
-      if (unsubscribe) return; // already subscribed for the current identity
-      flush(); // ① flush the outbox before ② opening the subscribe (push-before-subscribe)
-      unsubscribe = syncPort.subscribe();
+    const gated = () => syncPort.isConfigured() && !!getActiveTraveler();
+
+    // Only a dead subscribe is reopened; reopening a healthy one re-reads every doc (D-591).
+    const open = () => {
+      if (unsubscribe) return;
+      let mine: (() => void) | null = null;
+      mine = syncPort.subscribe(() => {
+        if (unsubscribe === mine) unsubscribe = null;
+      });
+      unsubscribe = mine;
     };
 
-    const onOnline = () => flush();
+    const activate = () => {
+      if (!gated() || unsubscribe) return;
+      flush(); // ① flush the outbox before ② opening the subscribe (push-before-subscribe)
+      open();
+    };
+
+    const onOnline = () => {
+      if (!gated()) return;
+      flush();
+      open();
+    };
     const onVisible = () => {
-      if (document.visibilityState === 'visible') flush();
+      if (document.visibilityState === 'visible') onOnline();
     };
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisible);

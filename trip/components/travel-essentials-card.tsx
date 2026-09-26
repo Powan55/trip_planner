@@ -447,7 +447,7 @@ function CurrencyRow({ currency, rate }: { currency: string; rate: CurrencyRateR
           )}
         </span>
       }
-      value={`${d.source === 'reference' ? '≈' : ''}${d.rate.toLocaleString()}`}
+      value={`${d.source === 'reference' ? '≈' : ''}${d.rate.toLocaleString('en-US')}`}
       unit={`${currency} per USD`}
     />
   );

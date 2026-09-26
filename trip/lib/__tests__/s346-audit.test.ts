@@ -67,7 +67,7 @@ vi.mock('@/lib/trips-remote', () => ({
   // door-account-name.test.ts.
   probeAccountIdentity: async () => ({ verdict: 'unavailable' as const }),
   // Still the provider's own path (`runAccountIdentitySync`), which has no probe to ride on.
-  fetchAccountIdentity: async () => undefined,
+  fetchAccountIdentity: async () => ({ status: 'error' }),
 }));
 // sonner's toast — spy so A5 can assert one call.
 const toastMock = vi.fn();

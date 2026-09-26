@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { openPalette } from './fixtures';
 
 /**
  * S217 — command-palette discoverability for `/checklist`. The route is deliberately off the navbar/
@@ -21,8 +22,7 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
 test.describe('S217 command palette — the Documents entry navigates to /checklist', () => {
   test('open ⌘K, type "documents", select, land on /checklist', async ({ page }) => {
     await gotoAsTraveler(page, '/');
-    await page.keyboard.press('Control+k');
-    await expect(page.getByTestId('command-palette-dialog')).toBeVisible();
+    await openPalette(page);
 
     const input = page.getByPlaceholder('Jump to a section…');
     await input.fill('documents');
@@ -38,8 +38,7 @@ test.describe('S217 command palette — the Documents entry navigates to /checkl
 
   test('the "passport" keyword alias also surfaces the Documents entry', async ({ page }) => {
     await gotoAsTraveler(page, '/');
-    await page.keyboard.press('Control+k');
-    await expect(page.getByTestId('command-palette-dialog')).toBeVisible();
+    await openPalette(page);
     await page.getByPlaceholder('Jump to a section…').fill('passport');
     await expect(page.getByRole('option', { name: /Documents/ }).first()).toBeVisible();
   });

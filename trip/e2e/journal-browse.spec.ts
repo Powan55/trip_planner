@@ -130,9 +130,11 @@ test.describe('S153 journal browse — edit round trip persists across reload', 
     await page.getByTestId('journal-text-input').fill('Edited from the browse view.');
     await page.getByTestId('journal-save').click();
 
-    // The card's own read view confirms the save immediately (no reload needed yet).
-    await expect(page.getByTestId('journal-read')).toBeVisible();
-    await expect(page.getByTestId('journal-highlight-display')).toContainText('Updated highlight via /journal');
+    // Save closes the editor (#530) — the row swaps back to its read-only summary immediately,
+    // confirming the save without a reload yet.
+    await expect(page.getByTestId('journal-card')).toHaveCount(0);
+    await expect(page.getByTestId('journal-browse-row-2026-12-10')).toBeVisible();
+    await expect(page.getByTestId('journal-browse-highlight-2026-12-10')).toContainText('Updated highlight via /journal');
 
     // THE HARD GUARANTEE: reload, and the edit survives — re-render as the browse row again
     // (a fresh page load resets the in-page `editingDate` state) showing the persisted edit.

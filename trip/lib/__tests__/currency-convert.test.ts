@@ -103,7 +103,19 @@ describe('convertCurrency (total; reuses fetchCurrencyRate, D-189-aware)', () =>
       expect(result.converted).toBeCloseTo(1381, 5);
       expect(result.stale).toBe(true);
       expect(result.source).toBe('live');
+      // #588: asOf is the older of the two sides, not always today's USD anchor date.
+      expect(result.asOf).toBe('2026-07-01');
     }
+  });
+
+  it('#588: NPR→USD also takes the older asOf, not the USD side\'s today date', async () => {
+    localStorage.setItem(
+      'nepal_japan_currency_rate_cache',
+      JSON.stringify({ NPR: { currency: 'NPR', rate: 138.1, asOf: '2026-07-01', stale: false, fetchedAt: 'x' } }),
+    );
+    const result = await convertCurrency({ amount: 1000, from: 'NPR', to: 'USD' });
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') expect(result.asOf).toBe('2026-07-01');
   });
 
   it('offline + no cache on a non-NPR side → unavailable, never throws', async () => {

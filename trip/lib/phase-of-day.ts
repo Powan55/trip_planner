@@ -36,11 +36,16 @@ export function phaseOfItem(item: ItineraryItem): DayPhase {
   return 'evening';
 }
 
+const PHASE_RANK: Record<DayPhase, number> = { morning: 0, afternoon: 1, evening: 2, anytime: 3 };
+
 export interface PhaseGroupedItem<T extends ItineraryItem = ItineraryItem> {
   item: T;
   phase: DayPhase;
-  /** True when this item's phase differs from the previous rendered item's (or is first) —
-   * the render layer shows a phase header exactly when this is true. */
+  /** True when this item's phase rank is higher than the last-headed rank (or is first) —
+   * the render layer shows a phase header exactly when this is true. A day crossing into an
+   * earlier phase (e.g. a manually reordered item, or timezone travel) does not repeat that
+   * phase's header — it renders under the last header shown, with its own time chip still
+   * correct. */
   isNewPhase: boolean;
 }
 
@@ -54,11 +59,12 @@ export function groupItemsByPhase<T extends ItineraryItem>(items: T[]): PhaseGro
   const untimed = items.filter((i) => phaseOfItem(i) === 'anytime');
   const ordered = [...timed, ...untimed];
 
-  let prevPhase: DayPhase | null = null;
+  let lastHeadedRank = -1;
   return ordered.map((item) => {
     const phase = phaseOfItem(item);
-    const isNewPhase = phase !== prevPhase;
-    prevPhase = phase;
+    const rank = PHASE_RANK[phase];
+    const isNewPhase = rank > lastHeadedRank;
+    if (isNewPhase) lastHeadedRank = rank;
     return { item, phase, isNewPhase };
   });
 }

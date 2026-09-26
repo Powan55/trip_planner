@@ -117,3 +117,14 @@ export function placeLabelForDate(dateStr: string): string {
 export function countryLabelForDate(dateStr: string): string {
   return dayLabel(dateStr, getCountryForDate(dateStr));
 }
+
+/**
+ * Parse a free-text location string into the city name. Locations read like "Thamel, Kathmandu"
+ * or "Boudha, Lalitpur" — the LAST comma-separated segment is the city. Returns `undefined` when
+ * the input is empty/undefined or contains no non-empty segments after trimming.
+ */
+export function cityOf(loc: string | undefined): string | undefined {
+  if (!loc) return undefined;
+  const parts = loc.split(',').map((s) => s.trim()).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : undefined;
+}

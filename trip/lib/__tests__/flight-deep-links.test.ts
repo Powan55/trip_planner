@@ -33,6 +33,15 @@ describe('buildFlightTrackerUrl (pure)', () => {
     expect(buildFlightTrackerUrl('United 123')).toBeNull();
   });
 
+  // #439 / D-307 family: `AIRLINE_IATA['toString']` is a FUNCTION, so a truthiness-only guard lets
+  // it through and `.toLowerCase()` throws — the one input that broke the docblock's "never throws".
+  for (const poison of ['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty']) {
+    it(`returns null for the prototype key name '${poison}', never a throw`, () => {
+      expect(() => buildFlightTrackerUrl(`${poison} 123`)).not.toThrow();
+      expect(buildFlightTrackerUrl(`${poison} 123`)).toBeNull();
+    });
+  }
+
   it('returns null for a malformed flight-number string', () => {
     expect(buildFlightTrackerUrl('NoSpaceHere')).toBeNull();
     expect(buildFlightTrackerUrl('Delta ABC')).toBeNull();

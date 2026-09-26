@@ -6,6 +6,8 @@ import {
   getActiveTripId,
   getDefaultTripShareId,
   DEFAULT_TRIP_ID,
+  STORAGE_KEYS,
+  syncPausedPrefs,
 } from '@/core/storage/gateway';
 import { outboxBlocked, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
 import { isReadDenied } from '@/core/sync/read-denied';
@@ -60,6 +62,8 @@ export interface SyncStatus {
    * env) sharing is not merely off, it is impossible, so offering it would be a dead end.
    */
   localOnly: boolean;
+  /** #600: "Sync this device" is off. Edits still queue in `pending`; nothing is sent or received. */
+  paused: boolean;
 }
 
 const SSR_DEFAULT: SyncStatus = {
@@ -68,6 +72,7 @@ const SSR_DEFAULT: SyncStatus = {
   readBlocked: false,
   lastAckAt: null,
   localOnly: false,
+  paused: false,
 };
 
 function readStatus(): SyncStatus {
@@ -85,6 +90,7 @@ function readStatus(): SyncStatus {
       isRemoteConfigured() &&
       getActiveTripId() === DEFAULT_TRIP_ID &&
       getDefaultTripShareId() === '',
+    paused: isRemoteConfigured() && syncPausedPrefs.get(),
   };
 }
 
@@ -101,6 +107,11 @@ export function useSyncStatus(): SyncStatus {
       setStatus(readStatus());
     };
     const onStorage = (e: StorageEvent) => {
+      // Another tab flipped sync on or off: this tab's listeners were armed under the old state.
+      if (e.key === STORAGE_KEYS.syncPaused) {
+        window.location.reload();
+        return;
+      }
       if (e.key === keyFor('syncOutbox') || e.key === null) reread();
     };
     window.addEventListener(SYNC_OUTBOX_CHANGED_EVENT, reread);
