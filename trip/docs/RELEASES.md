@@ -29,7 +29,7 @@ edits, and the Firestore cache cleared on sign-out (#524, #525, #536-#538, #550-
 (#634).
 
 Also: Japan places, markers and photo plates (#482); maplibre 6 with a map-unavailable panel
-(#504, #506); lazy command palette and photos (#508, #560); money fixes for rate chips, USD
+(#504, #506), which also clears the maplibre-gl sanitizer advisory open against 5.x; lazy command palette and photos (#508, #560); money fixes for rate chips, USD
 cents and JPY decimals (#580, #610); ICS exports custom-trip times as floating (#607); focus
 and contrast fixes (#615, #616, #618, #619); the concierge says when it's rate limited and
 renders one-line lists properly (#637, #640). CI now fails on uncredited images, and the rules
