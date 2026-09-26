@@ -86,6 +86,8 @@
  *  10b. restored    — membership back on, the denials deny again.
  *  11. NEGATIVE CONTROL — the 7g self-join denials (D-593) with selfJoinsAsMember() REMOVED must
  *                     all be ALLOWED.
+ *  12. users/{uid}  — the email/password account doc is owner-only get/create, fixed
+ *                     {username, accountId} shape, no update, no list, no delete.
  */
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -730,6 +732,33 @@ for (const [name, fn] of SELF_JOIN_DENIALS) {
 const phase11 = flush('PHASE 11 (self-join REMOVED)  <-- MUST be red');
 await loadRules(shipped);
 
+// ── 12. users/{uid}: the email/password account doc ─────────────────────────
+console.log('\n\n=== 12. users/{uid}: owner-only, fixed shape, username immutable ===');
+const USER = { username: 'powan_55', accountId: ACCT };
+const me = (d = db) => doc(d, 'users', O);
+await expect('O creates users/{O} {username, accountId}', 'ALLOWED', () => setDoc(me(), USER));
+await expect('O gets users/{O}', 'ALLOWED', () => getDoc(me()));
+await expect('O repoints accountId on update', 'DENIED', () => setDoc(me(), { ...USER, accountId: TRIP }));
+await expect('O changes username on update', 'DENIED', () => setDoc(me(), { ...USER, username: 'someone_else' }));
+await expect('O deletes users/{O}', 'DENIED', () => deleteDoc(me()));
+await expect('stranger S gets users/{O}', 'DENIED', () => getDoc(me(dbS)));
+await expect('stranger S writes users/{O}', 'DENIED', () => setDoc(me(dbS), USER));
+await expect('stranger S creates users/{M} (not yet existing)', 'DENIED', () => setDoc(doc(dbS, 'users', M), USER));
+await expect('UNAUTH gets users/{O}', 'DENIED', () => getDoc(me(dbU)));
+await expect('authed LIST /users', 'DENIED', () => getDocs(collection(db, 'users')));
+const bad = (label, data) => expect(`S creates users/{S} with ${label}`, 'DENIED', () => setDoc(doc(dbS, 'users', S), data));
+await bad('an extra field', { ...USER, role: 'owner' });
+await bad('username too short', { ...USER, username: 'ab' });
+await bad('username with uppercase', { ...USER, username: 'Powan' });
+await bad('username 21 chars', { ...USER, username: 'a'.repeat(21) });
+await bad('username not a string', { ...USER, username: 12345 });
+await bad('accountId 35 chars', { ...USER, accountId: ACCT.slice(1) });
+await bad('accountId not a string', { ...USER, accountId: 1 });
+await bad('no accountId', { username: 'powan_55' });
+await expect('S creates users/{S} with a valid shape (control for the above)', 'ALLOWED',
+  () => setDoc(doc(dbS, 'users', S), { username: 'stranger', accountId: K }));
+const phase12 = flush('PHASE 12 (users/{uid})');
+
 console.log('\n──────────────────────────────────────────────────────────────');
 console.log(`  phase 3   shape guard PRESENT   ${phase3.pass} passed, ${phase3.fail} failed`);
 console.log(`  phase 4   shape guard REMOVED   ${phase4.pass} passed, ${phase4.fail} failed   <- negative control`);
@@ -741,15 +770,17 @@ console.log(`  phase 9   the door + account    ${phase9.pass} passed, ${phase9.f
 console.log(`  phase 10  membership REMOVED    ${phase10.pass} passed, ${phase10.fail} failed   <- negative control`);
 console.log(`  phase 10b membership RESTORED   ${phase10b.pass} passed, ${phase10b.fail} failed`);
 console.log(`  phase 11  self-join REMOVED     ${phase11.pass} passed, ${phase11.fail} failed   <- negative control`);
+console.log(`  phase 12  users/{uid}           ${phase12.pass} passed, ${phase12.fail} failed`);
 const shapeProven = phase3.fail === 0 && phase4.fail === HOSTILE.length && phase5.fail === 0;
 const memberProven = phase6.fail === 0 && phase7.fail === 0 && phase8.fail === 0 && phase9.fail === 0
   && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0
   && phase11.fail === SELF_JOIN_DENIALS.length;
-const proven = shapeProven && memberProven;
+const usersProven = phase12.fail === 0 && phase12.pass === 19;
+const proven = shapeProven && memberProven && usersProven;
 console.log(`  VERDICT: ${proven
   ? `BOTH GUARDS BITE — all ${HOSTILE.length} hostile writes flip DENIED->ALLOWED without boundedWrite(), `
     + `and all ${MEMBER_DENIALS.length} member denials flip DENIED->ALLOWED without the membership predicates`
-  : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'})`}`);
+  : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'}, users ${usersProven ? 'ok' : 'BAD'})`}`);
 console.log('──────────────────────────────────────────────────────────────\n');
 
 for (const c of [owner, memberApp, strangerApp, anonApp]) {
