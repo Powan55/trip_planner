@@ -9,6 +9,7 @@ import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { realClock } from '@/lib/trip-now';
 import { stampCreated, stampUpdated, stampDone } from '@/lib/attribution';
 import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted, reorderSyncStamps } from '@/core/sync/stamp';
+import { doneKey } from '@/core/sync/merge-items';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { generateItemId } from '@/lib/item-id';
@@ -127,7 +128,7 @@ function syncActor(): string {
 // duplicate is byte-for-byte the same fresh-id-copy mechanics as a sync-on move target —
 // always a new id, never the source id.
 export function freshCopyOf(item: ItineraryItem): ItineraryItem {
-  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, ...content } = item;
+  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, doneHlc: _dh, ...content } = item;
   return { ...content, id: generateItemId() } as ItineraryItem;
 }
 
@@ -199,9 +200,9 @@ export function useItinerary(): ItineraryStore {
           // real transition today; if a future writer ever sets `done` idempotently, switch to a
           // prev→next compare inside core.updateItem.
           const attributed = stampDone(stampUpdated(i, getUserName), patch, getUserName);
-          return syncEnabled()
-            ? stampSyncUpdated(attributed, realClock.now().getTime(), syncActor())
-            : attributed;
+          if (!syncEnabled()) return attributed;
+          const synced = stampSyncUpdated(attributed, realClock.now().getTime(), syncActor());
+          return { ...synced, doneHlc: 'done' in patch ? synced.hlc : doneKey(i) };
         }),
       );
     },
@@ -357,7 +358,7 @@ export function useItinerary(): ItineraryStore {
       const actor = syncActor();
       commit((current) => {
         // (a) Tombstone every live item on every current day (raw base — tombstones already dead
-        // are left as-is; gcTombstones prunes them past the 30-day horizon).
+        // are left as-is; gcTombstones prunes them past the 365-day horizon).
         let next = current;
         for (const day of current) {
           for (const it of day.items) {
@@ -580,7 +581,9 @@ export function useItinerary(): ItineraryStore {
               ...(i.updatedBy === from ? { updatedBy: to } : {}),
               ...(i.doneBy === from ? { doneBy: to } : {}),
             };
-            return sync ? stampSyncUpdated(renamed, realClock.now().getTime(), actor) : renamed;
+            return sync
+              ? { ...stampSyncUpdated(renamed, realClock.now().getTime(), actor), doneHlc: doneKey(i) }
+              : renamed;
           });
         }
       }

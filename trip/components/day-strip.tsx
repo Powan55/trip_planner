@@ -47,6 +47,23 @@ function parseDay(dateStr: string): { weekday: string; dayNum: number; long: str
   };
 }
 
+// Center a given chip in the scroller via manual scrollLeft math (not scrollIntoView) so a
+// horizontal centering never nudges the vertical page position (scrollIntoView can scroll
+// ancestors). Reduced-motion -> instant jump; otherwise smooth. Shared by the selection
+// auto-center effect and by keyboard/focus navigation (Tab), which can land on a chip
+// scrolled off-screen. Module-level (not a closure) so it needs no dep array: it takes every
+// value it reads as a parameter.
+function centerChip(
+  scroller: HTMLDivElement | null,
+  chip: HTMLButtonElement | null,
+  prefersReducedMotion: boolean | null,
+) {
+  if (!scroller || !chip) return;
+  const target = chip.offsetLeft - scroller.clientWidth / 2 + chip.clientWidth / 2;
+  const left = Math.max(0, target);
+  scroller.scrollTo({ left, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+}
+
 export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDate }: DayStripProps) {
   const prefersReducedMotion = useReducedMotion();
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -54,17 +71,9 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
 
   const metaByDate = new Map(meta.map((m) => [m.date, m]));
 
-  // Auto-center the selected chip on mount and whenever the selection changes. We
-  // scroll the SCROLLER (not the page) via manual scrollLeft math so a horizontal
-  // centering never nudges the vertical page position (scrollIntoView can scroll
-  // ancestors). Reduced-motion → instant jump; otherwise smooth.
+  // Auto-center the selected chip on mount and whenever the selection changes.
   useEffect(() => {
-    const scroller = scrollerRef.current;
-    const chip = selectedRef.current;
-    if (!scroller || !chip) return;
-    const target = chip.offsetLeft - scroller.clientWidth / 2 + chip.clientWidth / 2;
-    const left = Math.max(0, target);
-    scroller.scrollTo({ left, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+    centerChip(scrollerRef.current, selectedRef.current, prefersReducedMotion);
   }, [selectedDate, prefersReducedMotion]);
 
   return (
@@ -97,6 +106,15 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             ref={isSelected ? selectedRef : undefined}
             type="button"
             onClick={() => onSelect(date)}
+            // Keyboard focus only (`:focus-visible`) — a pointer/touch tap already lands its own
+            // click and the chip's `snap-center` scroll-snap settles it, so re-centering here too
+            // races that gesture: on touch, scrolling the strip mid-tap can make the browser treat
+            // the tap as a scroll and drop the click (TM-11 day-strip clicks silently no-op'd).
+            onFocus={(e) => {
+              if (e.currentTarget.matches(':focus-visible')) {
+                centerChip(scrollerRef.current, e.currentTarget, prefersReducedMotion);
+              }
+            }}
             aria-pressed={isSelected}
             aria-label={`${long}${todayLabel}${activityLabel}${shadeLabel(shade)}`}
             data-testid={`day-strip-${date}`}

@@ -5,7 +5,7 @@ import { m } from 'framer-motion';
 import { BookOpen, Camera, ImageOff, Sparkles, Wallet } from 'lucide-react';
 import { formatDateLong } from '@/lib/trip-data';
 import { getCityForDate, getCountryForDate, TRIP_DATES } from '@/core/dates';
-import { getNow } from '@/lib/trip-now';
+import { getNowAtTrip } from '@/lib/trip-now';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
@@ -15,6 +15,7 @@ import { legCurrency, formatMoney, LEGS, isLeg, type Leg } from '@/core/budget/m
 import { legLabel } from '@/lib/leg-label';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
+import { useInView } from '@/hooks/use-in-view';
 import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta } from '@/core/photos/model';
 import SectionSkeleton from '@/components/section-skeleton';
@@ -52,14 +53,8 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   rough: { glyph: '😮‍💨', label: 'Rough' },
 };
 
-/** The resolved clock's LOCAL calendar day as 'YYYY-MM-DD' (matches trip-recap.tsx's helper). */
-function nowDateString(): string {
-  const d = getNow();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 const LAST_TRIP_DATE = TRIP_DATES[TRIP_DATES.length - 1];
+const LAST_TRIP_COUNTRY = legLabel(getCountryForDate(LAST_TRIP_DATE));
 
 export default function TripStoryRecap() {
   const { getDayPlan, hydrated: itineraryHydrated } = useItineraryContext();
@@ -68,10 +63,12 @@ export default function TripStoryRecap() {
   const { photosFor, hydrated: photosHydrated } = usePhotos();
 
   // '' until mount (SSR-safe default) — a single mount read is enough (post-trip status doesn't
-  // change second-to-second; no interval needed, by design).
+  // change second-to-second; no interval needed, by design). The trip day comes from
+  // `getNowAtTrip().date`, the DESTINATION-offset day every other trip-day surface reads; the
+  // device's own calendar day diverges from it for most of the day on a device left on home time.
   const [nowDateStr, setNowDateStr] = useState<string>('');
   useEffect(() => {
-    setNowDateStr(nowDateString());
+    setNowDateStr(getNowAtTrip().date);
   }, []);
 
   const hydrated =
@@ -204,7 +201,7 @@ function StoryLocked({ nowDateStr }: { nowDateStr: string }) {
           Your story unlocks after the trip
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-t-lead leading-relaxed text-ink-mid">
-          Once the last day in Japan wraps on {formatDateLong(LAST_TRIP_DATE)}, this page becomes a
+          Once the last day in {LAST_TRIP_COUNTRY} wraps on {formatDateLong(LAST_TRIP_DATE)}, this page becomes a
           full day-by-day narrative of the trip — weaving what was planned, what actually happened,
           your journal reflections, and what was spent.
         </p>
@@ -419,10 +416,12 @@ export function StoryPhotos({
  * only opens the full-size lightbox (#225).
  */
 function StoryPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => void }) {
-  const { url, missing } = usePhotoObjectUrl(meta.id);
+  const { ref, inView } = useInView({ rootMargin: '200px', skip: false });
+  const { url, missing } = usePhotoObjectUrl(meta.id, { skip: !inView });
 
   return (
     <li
+      ref={ref}
       data-testid={`story-photo-${meta.id}`}
       data-missing={missing ? 'true' : 'false'}
       className="relative aspect-square w-20 flex-shrink-0 overflow-hidden border-hair border-border bg-surface-low sm:w-24"

@@ -395,11 +395,11 @@ function PlaceGroup({
               <li
                 key={name}
                 data-trip-claimed={claimed ? 'true' : undefined}
-                className={`chip gap-0 py-0 pe-0 ps-2 normal-case tracking-normal ${
+                className={`chip gap-0 py-0 pe-0 ps-2 normal-case tracking-normal whitespace-normal break-words max-w-full ${
                   claimed ? 'chip--hollow' : 'chip--struck'
                 }`}
               >
-                <span className="text-t-body">{name}</span>
+                <span className="min-w-0 text-t-body">{name}</span>
                 {claimed && <span className="pr pr--lo ms-1.5">In your trip</span>}
                 {/* The house tap-target floor — a delete is the one control nobody should hit by
                     accident or miss by a pixel. */}

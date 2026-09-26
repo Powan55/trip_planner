@@ -50,7 +50,6 @@ const eslintConfig = [
       "test-results/**",
       "playwright-report/**",
       "graphify-out/**",
-      "public/sw.js",
       "next-env.d.ts",
     ],
   },
@@ -78,6 +77,23 @@ const eslintConfig = [
       "react-hooks/use-memo": "off",
       "react-hooks/immutability": "off",
       "react-hooks/purity": "off",
+    },
+  },
+  {
+    // A zero-argument `toLocale*` formats in the DEVICE's locale, so an FX rate renders
+    // `152,7` on a de-DE phone beside money from a pinned 'en-US' formatter. Three manual
+    // sweeps have each missed a site; this is what stops the fourth being needed.
+    files: ["app/**", "components/**", "hooks/**", "lib/**", "core/**"],
+    ignores: ["**/__tests__/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.property.name=/^toLocale/][arguments.length=0]",
+          message:
+            "Pass an explicit locale — toLocale*() with no argument formats in the device's locale, not the app's. Use 'en-US'.",
+        },
+      ],
     },
   },
   {

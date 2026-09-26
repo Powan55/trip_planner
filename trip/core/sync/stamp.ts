@@ -13,15 +13,16 @@
  * `physicalNow` (ms) and `actor` (uid) are INJECTED. No clock read, no firebase, no window.
  * Imports only the domain type and the pure HLC helpers. Testable in isolation.
  *
- * ── STORE INTEGRATION ──────────────────────────────────────────────────
- * `hooks/use-itinerary.ts` calls these helpers on create, update, delete and reorder.
- * Content edits advance `rev`/`hlc`; reorders advance only `ord`.
+ * ── WIRED, BEHIND EACH CALLER'S SYNC GATE ──────────────────────────────
+ * Called from the store mutators: `hooks/use-itinerary.ts` (add / update / delete / copy-day /
+ * reorder), plus `use-docs.ts`, `use-expenses.ts`, `use-my-places.ts` and
+ * `core/budget/flatten.ts` through the `firstSyncStamp`/`nextSyncStamp` primitives.
  *
- * ── DORMANT GATE ────────────────────────────────────────────────────────
- * The store's `syncEnabled()` delegates to `isTripRemoteConfigured()`: local mutations
- * stamp sync fields only when the active trip has remote sync configured. A no-Firebase
- * build or local-only sample pack skips this path; legacy `rev`/`hlc` defaults still belong
- * to the migration / `docToDayPlan` read boundary. These pure helpers do not own the gate.
+ * ── DORMANT GATE ───────────────────────────────────────────────────────
+ * Every caller gates on its own `syncEnabled()` — `isTripRemoteConfigured()`, the TRIP-scoped
+ * gate — so a dormant build (no firebase env, or the local-only sample pack) stamps nothing and
+ * receives `rev`/`hlc` ONLY at the migration / `docToDayPlan` defaulting boundary. The helpers
+ * below are gate-agnostic (pure); the GATE stays the caller's.
  */
 
 import type { ItineraryItem } from '@/lib/trip-data';
@@ -113,7 +114,7 @@ export function stampSyncDeleted(item: ItineraryItem, physicalNow: number, actor
  *
  * Array position is not a merge-visible fact. `mergeItems` re-sorts every merged row-set by
  * `ord ?? hlc` ascending, and that sort runs at BOTH sync boundaries (`pushDayMerged` →
- * `mergeDay(remoteNow, localDay)`, and the server-acked snapshot → `mergeDays`). So a reorder
+ * `mergeDay(localDay, remoteNow)`, and the server-acked snapshot → `mergeDays`). So a reorder
  * that leaves the order key alone is silently reverted by the very next merge — including a
  * self-merge of a snapshot the device produced itself. Making the new order ascend in `ord` is
  * what makes it survive, WITHOUT touching the sort rule that four other synced domains share.

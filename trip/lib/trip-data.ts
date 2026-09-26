@@ -59,10 +59,10 @@ export interface ItineraryItem {
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: string; // ISO timestamp
-  // Sync v2 per-item merge fields (additive-optional; existing items stay valid without
-  // them). hooks/use-itinerary.ts stamps local mutations when isTripRemoteConfigured()
-  // is true. See core/sync/{stamp,hlc,merge-day}.ts. Legacy merge fields are defaulted
-  // losslessly at the Vault v3→v4 migration / read boundary; ord needs no migration.
+  // Sync v2 per-item merge fields (additive-optional; every existing item stays valid with
+  // all three absent). See core/sync/{hlc,merge-day}.ts. Stamped by the store mutators when
+  // sync is on (core/sync/stamp.ts), and defaulted losslessly at the Vault v3→v4 migration /
+  // read boundary.
   rev?: number; // monotonic per-item revision counter; starts at 1 on create.
   hlc?: string; // Hybrid Logical Clock stamp (serialized) — the cross-client CONFLICT key.
   // The day-ORDER key, split off `hlc` so a content edit can advance the conflict key without
@@ -85,6 +85,7 @@ export interface ItineraryItem {
   // absent = no completion attribution.
   doneBy?: string;
   doneAt?: string; // ISO timestamp of the completion
+  doneHlc?: string; // HLC of the last done toggle (tick or untick), sync only; merge key for done (D-569)
   // Manual pin-drop ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
   // `done` precedent above). Absent = un-pinned (the item plots, if at all, via the existing
   // sourceId/name-match join in lib/itinerary-map.ts). When BOTH are defined the item plots at

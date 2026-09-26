@@ -73,7 +73,7 @@ function newestFirst(a: MyPlace, b: MyPlace): number {
  * ready to hand straight to `saveMyPlaces` — newest-first, tombstones retained (the hook filters
  * them out of the exposed value) and capped.
  *
- * @param nowPt injected ms-since-epoch, the anchor for the 30-day tombstone GC horizon.
+ * @param nowPt injected ms-since-epoch, the anchor for the tombstone GC horizon.
  * @param opts threaded to the closing `sanitizePlaces`; absent ⇒ STRICT, the declared-field
  * rebuild every LOCAL caller must keep (D-376). `lib/places-remote.ts` passes
  * `{ keepUnknownKeys: true }` at both of its call sites, because the result of THIS merge is what

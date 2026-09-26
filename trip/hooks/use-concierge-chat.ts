@@ -134,11 +134,16 @@ export interface TripDescriptor {
  *
  * THREE FIELDS ONLY. `vibe` / `legs` / `currency` / `id` are ignored by `normalizeTrip` and would
  * only eat body budget, and the date range and cities are already on the wire inside the digest.
+ *
+ * `label` is the one field here this device does not author — it comes off the trip's meta doc,
+ * which any member of the trip writes. The slice bounds its LENGTH; `oneLine` (below) is what
+ * bounds its STRUCTURE, and the prompt it lands in is line-oriented. `start`/`end` need neither:
+ * `sanitizeTripConfig` already pins them to `YYYY-MM-DD`.
  */
 export function buildTripDescriptor(): TripDescriptor | null {
   if (isDefaultTrip()) return null;
   const trip = getActiveTrip();
-  return { label: trip.label.slice(0, TRIP_LABEL_MAX), start: trip.start, end: trip.end };
+  return { label: oneLine(trip.label).slice(0, TRIP_LABEL_MAX), start: trip.start, end: trip.end };
 }
 
 /**
@@ -171,7 +176,7 @@ export function buildTripDescriptor(): TripDescriptor | null {
  * Hard-capped at `DIGEST_CAP` chars (truncate + '…') — a token-budget guard for the Worker call.
  */
 // The digest is a LINE-oriented format ("date city: item; item") assembled by interpolation, and
-// item titles / day cities reach storage from paths no `<input>` constrains: a restored backup
+// every field it interpolates reaches storage from paths no `<input>` constrains: a restored backup
 // (`parseItineraryPayloadStrict`'s per-item rule is a bare `z.string()`) and a Firestore snapshot
 // written by the other member's device. A stored title carrying `\n` therefore forged its own row,
 // indistinguishable to the model from a real one — enough to steer the reply into a phishing link
@@ -217,18 +222,34 @@ export function buildTripDigest(): string {
   const stamp = `Today is ${now.date} ${formatTimeAmPm(now.minutes)}`;
   lines.push(
     today
-      ? `${stamp} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${today.city}).`
+      // `today.city` resolves to a custom trip's own `destinations[0]`, which reaches the device
+      // from its meta doc — the same kind of value as the day lines below, so the same strip.
+      ? `${stamp} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${oneLine(today.city)}).`
       : `${stamp} (${now.date < TRIP_DATES[0] ? 'before' : 'after'} the trip).`,
   );
 
   const plans = itineraryStoragePort.load();
   const byDate = new Map(plans.map((d) => [d.date, d]));
 
-  for (const date of TRIP_DATES) {
-    const day = byDate.get(date);
-    const items = (day?.items ?? []).filter((i) => i.deleted !== true);
-    if (items.length === 0) continue; // omit unplanned days (frame already covers them)
-    const city = day?.city ?? getCityForDate(date);
+  // #546 fix: a fully-planned trip's per-day lines can exceed DIGEST_CAP on their own (the
+  // 164-item sample runs to ~10.1K), and the old single `slice(0, CAP)` fallback below always
+  // cut the TAIL — the trip's LAST days — regardless of which days the traveller still needs.
+  // Instead of tail-cutting first, degrade in two passes that both prefer to keep future days
+  // whole: (1) drop already-past day lines entirely, earliest first — nobody needs an itinerary
+  // for a day that already happened; (2) if that alone isn't enough (no past days exist yet, e.g.
+  // browsing before the trip starts), condense the remaining days' items by dropping the
+  // `category` token, farthest-out day first — the days nearest "today" stay uncondensed since
+  // those are what the traveller is most likely asking about — which keeps every item's
+  // time/title/#id but shortens the line. The hard slice+ellipsis at the bottom still exists as
+  // the last resort so the cap is
+  // never actually exceeded.
+  interface DigestDay {
+    date: string;
+    full: string;
+    condensed: string;
+  }
+
+  const renderDay = (date: string, city: string, items: (typeof plans)[number]['items'], condense: boolean) => {
     const entries = items
       .map((i) => {
         // `effectiveStartMinutes`, not a raw `i.startMinutes` read: it is the ONE range-validation
@@ -243,13 +264,45 @@ export function buildTripDigest(): string {
         // D-138 canonical STORAGE format and stays that, in the `time` field, untouched.
         const minutes = effectiveStartMinutes(i);
         const time = minutes === undefined ? '' : `${formatTimeAmPm(minutes)} `;
-        return `${time}${i.category} ${oneLine(i.title)} #${i.id}`;
+        // Every field of a stored item is a bare `z.string()` at the read boundary (permissive on
+        // read, deliberately), so `category` and `id` reach this line as freely as `title` does.
+        const category = condense ? '' : `${oneLine(i.category)} `;
+        return `${time}${category}${oneLine(i.title)} #${oneLine(i.id)}`;
       })
       .join('; ');
-    lines.push(`${date} ${oneLine(city)}: ${entries}`);
+    return `${date} ${oneLine(city)}: ${entries}`;
+  };
+
+  const days: DigestDay[] = [];
+  for (const date of TRIP_DATES) {
+    const day = byDate.get(date);
+    const items = (day?.items ?? []).filter((i) => i.deleted !== true);
+    if (items.length === 0) continue; // omit unplanned days (frame already covers them)
+    const city = day?.city ?? getCityForDate(date);
+    days.push({ date, full: renderDay(date, city, items, false), condensed: renderDay(date, city, items, true) });
   }
 
-  const digest = lines.join('\n');
+  const dropped = new Set<number>();
+  const condensed = new Set<number>();
+  const assemble = () =>
+    [
+      ...lines,
+      ...days
+        .map((d, i) => (dropped.has(i) ? null : condensed.has(i) ? d.condensed : d.full))
+        .filter((l): l is string => l !== null),
+    ].join('\n');
+
+  // KNOWN CEILING: O(days²) re-assembly, fine at 32 trip days; revisit only if TRIP_DATES grows a lot.
+  for (let i = 0; i < days.length && assemble().length > DIGEST_CAP; i++) {
+    if (days[i].date < now.date) dropped.add(i); // already-happened day: drop it whole
+  }
+  // Still over budget: condense from the FARTHEST-out remaining day backward, so the days
+  // nearest to "today" (the ones a traveller is most likely asking about) stay uncondensed.
+  for (let i = days.length - 1; i >= 0 && assemble().length > DIGEST_CAP; i--) {
+    if (!dropped.has(i)) condensed.add(i);
+  }
+
+  const digest = assemble();
   return digest.length > DIGEST_CAP ? `${digest.slice(0, DIGEST_CAP - 1)}…` : digest;
 }
 
@@ -301,9 +354,10 @@ export type ChatStatus = 'idle' | 'streaming' | 'error';
  */
 function statusMessage(status: number): string {
   if (status === 401 || status === 403) {
-    return 'The concierge couldn’t confirm this trip is yours. Sign in again, or open the trip from your trips list.';
+    return "The concierge couldn't confirm this trip is yours. Sign in again, or open the trip from your trips list.";
   }
   if (status === 413) return 'That message was too long to send. Shorten it and try again.';
+  if (status === 429) return "You've sent a lot of messages in a short time. Wait a minute, then try again.";
   return 'The concierge is having trouble right now. Try again in a moment.';
 }
 
@@ -394,7 +448,14 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
 
       const history = historyRef.current;
       const userTurn: ChatTurn = { role: 'user', content: trimmed };
-      setMessages((prev) => [...prev, userTurn, { role: 'assistant', content: '' }]);
+      // #566 — retry() re-sends the same message through this same path, and a prior attempt's
+      // `fail()` leaves the user turn standing (only the in-flight assistant bubble is popped). Skip
+      // re-appending it when it's already the last message, or a retry shows the user's turn twice.
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        const base = last?.role === 'user' && last.content === trimmed ? prev : [...prev, userTurn];
+        return [...base, { role: 'assistant', content: '' }];
+      });
       setStatus('streaming');
       setError(null);
 

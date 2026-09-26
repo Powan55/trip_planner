@@ -42,7 +42,8 @@ rules_version = '2';
 // ROLES. `owner` = the creator: may remove members, change roles (short of leaving no
 // owner), and delete the trip.
 // `member` = full content read+write, and may ADD other members (add-only; a member can
-// never remove or re-role an existing entry). `viewer` (read, no write) is the named
+// never remove or re-role an existing entry). Anyone signed in who holds the tripId may add
+// ITSELF as `member` and nothing else (D-593, selfJoinsAsMember). `viewer` (read, no write) is the named
 // upgrade path and is deliberately NOT built: it needs a second predicate on every write
 // rule plus UI to assign it, and nothing needs it yet.
 //
@@ -85,7 +86,7 @@ rules_version = '2';
 //
 // ⚠ MATCHES ARE ADDITIVE (OR), NEVER SUBTRACTIVE. An operation is allowed if ANY matching
 // rule allows it; a later block can only ever WIDEN what an earlier one granted. That is
-// what makes the `profile/**` and `meta/**` carve-outs below work at all — each sits
+// what makes the `profile/{identity,tripList,prefs,journal_*}` and `meta/**` carve-outs below work at all — each sits
 // alongside the member-gated subtree block, not instead of it — and it is also the trap
 // D-219 fell into. There is no way to write "members only, EXCEPT nobody may…" here.
 //
@@ -140,7 +141,7 @@ service cloud.firestore {
     //   …/expenses/{leg}       {leg, items[]}                           2 fields
     //   …/budget/model         {version, fields{}}                      2 fields
     //   …/docs/checklist       {version, items[]}                       2 fields
-    //   …/meta/info            {name, config{}}                         1-2 fields
+    //   …/meta/info            {name, config{}, updatedAt}              1-3 fields
     //   …/profile/tripList     {version, trips[], removed[]}            3 fields
     //   …/presence/{deviceId}  {name, lastSeen}                         2 fields
     // Container lengths: a packed day is ~20 items, a heavily-used expense leg ~400-500
@@ -158,7 +159,13 @@ service cloud.firestore {
         && len('trips') <= 5000      // profile/tripList rows
         && len('removed') <= 5000    // profile/tripList tombstones
         && len('fields') <= 5000     // budget leaf-field map
-        && len('members') <= 200;    // uid → role roster
+        && len('members') <= 200     // uid → role roster
+        && len('entries') <= 1000;   // journal date → row map (max 730 days + margin)
+    }
+
+    // Account docs under trips/{userToken}/profile/ (D-605). matches() is a full match.
+    function isAccountDoc(docId) {
+      return docId in ['identity', 'tripList', 'prefs'] || docId.matches('journal_.{1,128}');
     }
 
     // The trip doc itself: reachable and writable by direct id only — never listable.
@@ -228,6 +235,18 @@ service cloud.firestore {
           && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0;
       }
 
+      // D-593 (#599): a signed-in non-member holding the trip id may add exactly its own uid, as
+      // 'member', and change nothing else. The trip id is therefore the whole capability again:
+      // a removed member can re-add itself, and real revocation means a new trip id.
+      function selfJoinsAsMember() {
+        return request.auth != null && !isOpen() && role() == ''
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.diff(resource.data.members).addedKeys() == [request.auth.uid].toSet()
+          && request.resource.data.members.diff(resource.data.members).removedKeys().size() == 0
+          && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0
+          && request.resource.data.members[request.auth.uid] == 'member';
+      }
+
       // ── the trip doc ──────────────────────────────────────────────────────────
       // `list` is granted by NOTHING, here or anywhere below (D-219).
       allow get: if isMember();
@@ -236,11 +255,12 @@ service cloud.firestore {
         (isOpen() && request.auth != null)   // grandfathered capability trip
         || isOwner()                         // owner: anything, incl. removing members
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else
+        || selfJoinsAsMember()               // id holder: may add itself as 'member' (D-593)
       );
       allow delete: if (isOpen() && request.auth != null) || isOwner();
 
       // ── CARVE-OUT: the account path + the login door ──────────────────────────
-      // `trips/{userToken}/profile/{identity,tripList}` is not trip content at all: the
+      // `trips/{userToken}/profile/{identity,tripList,prefs,journal_*}` is not trip content: the
       // userToken IS the capability (D-239's two-token model), and there is no members map
       // on an account. It MUST keep capability semantics, auth floor only:
       //   · the door validates a pasted User Token by reading trips/{code}/profile/identity
@@ -250,15 +270,30 @@ service cloud.firestore {
       //     loudly broken. That is the failure mode this block exists to prevent.
       //   · the trip-list sync writes here on a device that is a member of nothing.
       // Matches are additive, so this WIDENS the subtree block below for this one prefix.
-      // COST, ACCEPTED: on a MEMBER-GATED trip this one subtree therefore stays
-      // capability-only — a non-member holding the tripId can read and write
-      // trips/{tripId}/profile/**. The app keeps nothing there for a trip id (the account
-      // documents live under a userToken, D-239), and the alternative is circular: the door
-      // would have to know a membership before it is allowed to check whether the account
-      // exists at all.
-      match /profile/{document=**} {
-        allow get: if request.auth != null;
-        allow create, update: if request.auth != null && boundedWrite();
+      // Named document ids, not a subtree: identity, tripList (lib/trips-remote.ts), prefs
+      // (lib/account-prefs-remote.ts) and journal_{tripId} (lib/journal-remote.ts) are the only
+      // profile paths the app touches. D-605: prefs/journal_* were missing, so on an account
+      // token that is also a gated trip id they fell to the member-only subtree block (#644).
+      // A recursive carve-out would let any tripId holder create at any depth.
+      // COST, ACCEPTED: on a MEMBER-GATED trip these documents stay capability-only —
+      // a non-member holding the tripId can read and write them. The app keeps nothing
+      // there for a trip id (the account documents live under a userToken, D-239), and the
+      // alternative is circular: the door would have to know a membership before it is
+      // allowed to check whether the account exists at all.
+      match /profile/{docId} {
+        allow get: if request.auth != null && isAccountDoc(docId);
+        allow create, update: if request.auth != null && boundedWrite() && isAccountDoc(docId);
+      }
+
+      // The subtree block below refuses `delete` for the whole profile prefix. These two give
+      // it back to members everywhere except identity/tripList themselves, so nothing else
+      // planted under profile/ (prefs and journal_* included) is permanent. The second covers anything nested below a
+      // profile document, where the id says nothing about what the document is.
+      match /profile/{docId}/{rest=**} {
+        allow delete: if isMember() && !(docId in ['identity', 'tripList']);
+      }
+      match /profile/{docId}/{subCollection}/{rest=**} {
+        allow delete: if isMember();
       }
 
       // ── CARVE-OUT: the trip name, for someone who is not in yet ───────────────
@@ -284,12 +319,26 @@ service cloud.firestore {
         // mean this wildcard would otherwise re-grant the delete the carve-out above just
         // narrowed away — `isMember()` is trivially true here on any trip id with no
         // top-level doc yet, which is exactly the account-path shape (D-296) the carve-out
-        // exists for. `get, list` are unaffected: that capability-only read/write exposure
-        // on `profile/**` is the accepted cost stated in the carve-out's own header.
+        // exists for. `get, list` are unaffected: the capability-only exposure of the two
+        // profile ids is the accepted cost stated in the carve-out's own header. The pair of
+        // blocks above hands delete back for everything else under profile/.
         allow get, list: if isMember();
         allow delete: if isMember() && sub != 'profile';
         allow create, update: if isMember() && boundedWrite();
       }
+    }
+
+    // Email/password account: {username, accountId}, owner-only. accountId names
+    // trips/{accountId}/profile/*. Create-only: repointing accountId would hand over
+    // another account's profile once profile access keys off this doc.
+    match /users/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['username', 'accountId'])
+        && request.resource.data.username is string
+        && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.accountId is string
+        && request.resource.data.accountId.size() == 36;
     }
   }
 }

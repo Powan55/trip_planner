@@ -43,6 +43,7 @@ import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/
 import { isDefaultTrip } from '@/core/trips';
 import { normalizePath, routeLabel } from '@/lib/nav-items';
 import { prefersReducedMotion } from '@/lib/motion';
+import { markPaletteMounted, consumePendingPaletteOpen } from '@/lib/palette-open';
 
 /**
  * ⌘K / Ctrl+K command palette.
@@ -242,10 +243,19 @@ function subsequenceScore(target: string, q: string): number {
 // How long typing has to settle before the converter goes to the network.
 const CONVERSION_DEBOUNCE_MS = 400;
 
-// Trims a converted amount to a readable 2-decimal-max display (no new dependency —
-// Intl.NumberFormat is a native platform feature).
-function formatConvertedAmount(n: number): string {
-  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+// Trims a converted amount to a readable display, capped at the currency's own decimal
+// convention (JPY has none) rather than a hardcoded 2 — Intl already knows this per currency.
+function formatConvertedAmount(n: number, currency: string): string {
+  let maximumFractionDigits = 2;
+  try {
+    maximumFractionDigits = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).resolvedOptions().maximumFractionDigits;
+  } catch {
+    // unrecognized currency code — fall back to 2
+  }
+  return n.toLocaleString('en-US', { maximumFractionDigits });
 }
 
 // Issue #24: the local copy of the media-query read is gone — `prefersReducedMotion`
@@ -274,10 +284,9 @@ export default function CommandPalette() {
   const [plansSnapshot, setPlansSnapshot] = React.useState<DayPlan[]>([]);
   const [query, setQuery] = React.useState('');
 
-  // (Plan D10): CommandPalette is imported directly into the root layout (a Server
-  // Component), so — unlike Navbar/BottomTabBar — it DOES render server-side. SSR always
-  // resolves the default pack (`core/trips/index.ts`), so the un-mounted render below must
-  // keep the full SECTIONS list to match; after mount we re-evaluate against the real
+  // (#505): mounted via `dynamic(..., {ssr:false})` in chrome-islands.tsx, so this never
+  // renders server-side. The mounted-gate below still applies: the un-mounted render must
+  // keep the full SECTIONS list, then after mount we re-evaluate against the real
   // active-trip pointer and drop the N×J-specific entries on a custom trip.
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -377,6 +386,17 @@ export default function CommandPalette() {
     };
     window.addEventListener('palette:open', onPaletteOpen);
     return () => window.removeEventListener('palette:open', onPaletteOpen);
+  }, [snapshotTrigger]);
+
+  // (#505): mark mounted, then drain any `openPalette()` call that fired
+  // before this lazy chunk attached the listener above — otherwise that
+  // first click is silently lost.
+  React.useEffect(() => {
+    markPaletteMounted();
+    if (consumePendingPaletteOpen()) {
+      snapshotTrigger();
+      setOpen(true);
+    }
   }, [snapshotTrigger]);
 
   const handleOpenChange = React.useCallback((next: boolean) => {
@@ -624,7 +644,8 @@ export default function CommandPalette() {
                       <h3 role="presentation" className="num truncate">
                         {conversionResult.source === 'reference' ? '≈ ' : ''}
                         {parsedConversion.amount} {parsedConversion.from} ={' '}
-                        {formatConvertedAmount(conversionResult.converted)} {parsedConversion.to}
+                        {formatConvertedAmount(conversionResult.converted, parsedConversion.to)}{' '}
+                        {parsedConversion.to}
                       </h3>
                       {conversionResult.source === 'reference' ? (
                         <span className="mt">

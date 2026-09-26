@@ -13,7 +13,6 @@ const config: Config = {
   content: {
     transform: { DEFAULT: stripJsNegation },
     files: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     // 🔴 — `lib/` IS a class-name source and must stay scanned. DO NOT prune this as an

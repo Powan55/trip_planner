@@ -80,5 +80,6 @@ export async function convertCurrency(
   if (toRate === 'unavailable') return { status: 'unavailable', currency: parsed.to };
   const converted = (parsed.amount / fromRate.rate) * toRate.rate;
   const source = fromRate.source === 'reference' || toRate.source === 'reference' ? 'reference' : 'live';
-  return { status: 'ok', converted, asOf: toRate.asOf, stale: fromRate.stale || toRate.stale, source };
+  const asOf = fromRate.asOf < toRate.asOf ? fromRate.asOf : toRate.asOf;
+  return { status: 'ok', converted, asOf, stale: fromRate.stale || toRate.stale, source };
 }

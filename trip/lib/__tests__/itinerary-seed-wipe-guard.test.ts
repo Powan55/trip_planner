@@ -25,6 +25,8 @@ const gate = vi.hoisted(() => ({
   failDayWrites: false,
   /** Called at the START of every day-doc transaction, before it writes anything. */
   onTxStart: null as null | ((path: string) => void),
+  /** When set, getDocFromServer waits on it before answering. */
+  holdServerRead: null as null | Promise<void>,
 }));
 
 vi.mock('@/lib/firebase-config', () => ({
@@ -103,6 +105,7 @@ vi.mock('firebase/firestore', () => ({
     return { exists: () => data !== undefined, data: () => data };
   },
   getDocFromServer: async (ref: { path: string }) => {
+    if (gate.holdServerRead) await gate.holdServerRead;
     const data = fake.docs.get(ref.path);
     return { exists: () => data !== undefined, data: () => data };
   },
@@ -172,6 +175,7 @@ beforeEach(() => {
   writeLog.length = 0;
   gate.failDayWrites = false;
   gate.onTxStart = null;
+  gate.holdServerRead = null;
 });
 
 afterEach(() => {
@@ -304,5 +308,30 @@ describe('D-544 — a failed seed push is retryable, not silently dropped', () =
     ]);
     const slot = JSON.parse(localStorage.getItem(STORAGE_KEYS.syncOutbox)!);
     expect(slot.dirty).toEqual({});
+  });
+});
+
+describe('#542 — first-load reconcile never overwrites a newer snapshot', () => {
+  it("a snapshot delivered while the marker read is in flight survives the first-load apply", async () => {
+    savePlans(LOCAL_TRIP);
+    fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+    fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, day("2026-12-09", [item("old")]) as unknown as DocData);
+    let release!: () => void;
+    gate.holdServerRead = new Promise<void>((r) => (release = r));
+
+    const unsub = subscribeRemote();
+    await flush();
+    fake.emitServerSnapshot(); // first snapshot: [old], reconcile now blocked on the marker read
+    await flush();
+    fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, day("2026-12-09", [item("new")]) as unknown as DocData);
+    fake.emitServerSnapshot(); // newer snapshot lands during the await
+    await flush();
+    release();
+    await flush();
+
+    const ids = loadPlans().flatMap((d) => d.items.filter((i) => !i.deleted).map((i) => i.id));
+    expect(ids).toContain("new");
+    expect(ids).not.toContain("old");
+    unsub();
   });
 });

@@ -336,7 +336,7 @@ export function readClockChecks(): PreflightCheck[] {
  * true in every one of those cases — but it never claims a server confirmed anything.
  */
 export function evaluateSync(
-  status: { pending: number; blocked?: number; lastAckAt: string | null },
+  status: { pending: number; blocked?: number; lastAckAt: string | null; paused?: boolean },
   now: Date = new Date()
 ): PreflightCheck {
   const base = { id: 'sync', label: 'Trip data' };
@@ -345,6 +345,17 @@ export function evaluateSync(
   // sentence is false: no amount of connectivity lands it. This module's whole rule is that
   // anything unknown or stuck has to say so, so a refusal gets its own row rather than hiding
   // inside a count that reads as merely offline. Optional so existing callers are unaffected.
+  // #600: while sync is off nothing uploads on its own, so neither the pending nor the synced row
+  // below would be true.
+  if (status.paused) {
+    const n = status.pending;
+    return {
+      ...base,
+      state: 'attention',
+      headline: 'Sync is off on this device',
+      detail: `${n > 0 ? `${n} change${n === 1 ? ' is' : 's are'}` : 'Changes are'} saved here and upload when sync is turned back on in Settings.`,
+    };
+  }
   const blocked = status.blocked ?? 0;
   if (blocked > 0) {
     return {

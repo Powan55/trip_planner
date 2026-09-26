@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
 import { downloadTripBackup } from '@/lib/trip-backup';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 import { defaultBlobStore } from '@/core/photos/blob-store';
-import { getSyncCode } from '@/core/storage/gateway';
+import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import { unsyncedEditCount } from '@/core/trips/registry';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -32,9 +34,10 @@ import {
  * stay available.
  *
  * `forgetDevice` escalates to ALSO clear every locally
- * stored photo blob (IndexedDB, app-scoped) via `defaultBlobStore.clear()` before signing out —
- * strictly more destructive than a plain sign-out, which deliberately leaves photos alone (a photo
- * is expensive to re-acquire and is not identity-linked).
+ * stored photo blob (IndexedDB, app-scoped) via `defaultBlobStore.clear()`, and the three
+ * lifetime-scoped keys (`lifetimeVisits`, `visitConfirmations`, `passportStamps`) that
+ * `wipeAllTripData()` leaves behind, before signing out (D-503). Strictly more destructive than a
+ * plain sign-out, which leaves photos and that travel history alone.
  *
  * Reload after teardown (Ruling 3): the local domain stores (`hooks/create-reactive-store.ts`) only
  * re-read on their own event or a cross-tab `storage` event, which never fires in the tab that made
@@ -70,6 +73,9 @@ export default function SignOutConfirm({
   // Read post-open, never at mount: this is a client-only storage read, and the key can be minted
   // (Settings, /trips) while the page is still up.
   const [code, setCode] = useState<string | null>(null);
+  const [unsynced, setUnsynced] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
 
   const handleBackup = async () => {
     try {
@@ -81,8 +87,26 @@ export default function SignOutConfirm({
   };
 
   const handleConfirm = () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
     void (async () => {
-      if (forgetDevice) await defaultBlobStore.clear();
+      if (forgetDevice) {
+        await defaultBlobStore.clear();
+        // D-503: the lifetime keys stay out of `wipeAllTripData()` on purpose (D-314/D-320);
+        // this is the one path that clears them, for a device changing hands.
+        removeKey('local', STORAGE_KEYS.lifetimeVisits);
+        removeKey('local', STORAGE_KEYS.visitConfirmations);
+        removeKey('local', STORAGE_KEYS.passportStamps);
+      }
+      if (isRemoteConfigured()) {
+        try {
+          const { clearRemoteCache } = await import('@/lib/firebase-remote');
+          await clearRemoteCache({ signOutAuth: forgetDevice });
+        } catch {
+          // a failed chunk load must not block sign-out
+        }
+      }
       signOut();
       // Reload after teardown (Ruling 3) — every mounted local store re-hydrates fresh; precedent.
       window.location.reload();
@@ -96,6 +120,7 @@ export default function SignOutConfirm({
         setBackup('idle'); // fresh dialog, fresh backup-offer state
         setStep('confirm');
         setCode(getSyncCode());
+        setUnsynced(unsyncedEditCount());
       }}
     >
       <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
@@ -116,11 +141,17 @@ export default function SignOutConfirm({
               ? 'Signing out erases this key from this device, and nothing can re-issue it. Save it now — it is the only way back into your account.'
               : code
                 ? forgetDevice
-                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device. It erases your key too, so you'll get one last look at it next — neither the plan nor these photos come back unless the trip was synced elsewhere first."
+                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). It erases your key too, so you'll get one last look at it next. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device, and your key along with it. You'll get one last look at the key next — it's the only way back into your account, and the plan itself won't come back unless it's synced to another device."
                 : forgetDevice
-                  ? 'This does everything signing out does, and also permanently deletes every photo stored on this device. There is no key stored here, so nothing signs back in afterwards, and neither the plan nor these photos come back unless the trip was synced elsewhere first.'
+                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). There is no key stored here, so nothing signs back in afterwards. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device. There is no key stored here, so nothing signs back in afterwards, and the plan won't come back unless it's synced to another device."}
+            {step !== 'key' && unsynced > 0 && (
+              <span className="mt-2 block font-semibold text-[color:var(--text-hi)]" data-testid={`${testId}-unsynced`}>
+                {unsynced} {unsynced === 1 ? 'change' : 'changes'} on this device{' '}
+                {unsynced === 1 ? "hasn't" : "haven't"} synced yet and will be lost.
+              </span>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -132,6 +163,7 @@ export default function SignOutConfirm({
               confirmLabel={forgetDevice ? 'Forget this device' : 'Sign out'}
               testIdPrefix={`${testId}-key`}
               onConfirm={handleConfirm}
+              busy={busy}
             />
             <AlertDialogFooter>
               <AlertDialogCancel data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
@@ -166,10 +198,13 @@ export default function SignOutConfirm({
               <AlertDialogAction
                 data-testid={`${testId}-confirm`}
                 // `preventDefault` keeps Radix from closing the dialog: with a key stored, this
-                // button advances to the show-once step rather than tearing down.
+                // button advances to the show-once step; without one, the dialog stays up (busy)
+                // until the teardown reloads the page.
+                disabled={busy}
+                aria-busy={busy || undefined}
                 onClick={(e) => {
-                  if (!code) return handleConfirm();
                   e.preventDefault();
+                  if (!code) return handleConfirm();
                   setStep('key');
                 }}
                 className="btn btn--danger"

@@ -343,7 +343,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('#13 — the copy follows the status CLASS: too-long, auth, and everything else differ', async () => {
+  it('#13 — the copy follows the status CLASS: too-long, auth, rate-limit, and everything else differ', async () => {
     const at = async (status: number) => {
       const h = renderConciergeChat(
         vi.fn(async () => jsonResponse({ error: 'context must be a string' }, status)) as unknown as typeof fetch,
@@ -356,6 +356,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
 
     expect(await at(413)).toBe('That message was too long to send. Shorten it and try again.');
     expect(await at(403)).toContain('Sign in again');
+    expect(await at(429)).toBe('You\'ve sent a lot of messages in a short time. Wait a minute, then try again.');
     expect(await at(502)).toBe('The concierge is having trouble right now. Try again in a moment.');
     // …and no status leaks the body it came with.
     for (const status of [400, 401, 403, 405, 413, 429, 500, 502]) {
@@ -515,7 +516,9 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     await h.retry();
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(h.status).toBe('idle');
-    // The failed turn left only the user's message; the retry appends a fresh user+assistant pair.
+    // #566 — the failed attempt already left the user's turn standing; retry must reuse it rather
+    // than appending a second copy of the same message.
+    expect(h.messages.filter((m) => m.role === 'user')).toHaveLength(1);
     expect(h.messages.at(-1)!.content).toBe('second time lucky');
     h.unmount();
   });

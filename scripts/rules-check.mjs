@@ -51,7 +51,7 @@
  * So CI runs `node scripts/rules-check.mjs && touch "$RUNNER_TEMP/rules-ok"`, discards the CLI's
  * exit code, and asserts the file. Wiring the bare command in gives a RED gate on GREEN rules.
  *
- * WHAT IT PROVES, in eleven phases:
+ * WHAT IT PROVES, in twelve phases:
  *   0. control      — deny-all really denies, allow-all really allows (else every PASS is noise)
  *   1. D-251        — `request.resource.size()` is Cloud STORAGE syntax; in Firestore it is a
  *                     CONSTANT 3 (the {data,id,__name__} wrapper's member count), so the
@@ -66,7 +66,8 @@
  *   5. restored     — shape guard back on, hostile writes denied again.
  *   6. MEMBERSHIP, positive — owner creates a trip carrying a members map and can do every job;
  *                     a member has full content read+write and may ADD a third member.
- *   7. MEMBERSHIP, negative — a stranger reaches nothing; a member cannot remove or re-role the
+ *   7. MEMBERSHIP, negative — a stranger reaches nothing, not one content doc by read, write
+ *                     or delete; a member cannot remove or re-role the
  *                     owner, cannot delete the trip, and cannot create a trip owning nobody; an
  *                     UNAUTHENTICATED client reaches nothing at all (the new floor); and D-219
  *                     still holds under auth (no /trips list, no collection group). A roster
@@ -75,14 +76,18 @@
  *   8. GRANDFATHER  — a trip with NO members map keeps capability semantics for any signed-in
  *                     holder of the tripId. This is the opt-in lock: it is what stops a rules
  *                     deploy (instant, global) bricking every legacy trip and every ?trip= link.
- *   9. THE DOOR     — profile/** keeps capability semantics behind the auth floor, so the login
- *                     door's probe of an ABSENT trips/{code}/profile/identity resolves to
+ *   9. THE DOOR     — profile/identity, tripList, prefs and journal_* keep capability semantics behind the
+ *                     auth floor, so the login door's probe of an ABSENT trips/{code}/profile/identity resolves to
  *                     "missing" rather than to permission-denied (D-296: a 403 there would make
  *                     token validation silently vacuous), and meta/** is readable by a
- *                     not-yet-member joiner.
+ *                     not-yet-member joiner. Nothing else planted under profile/ is permanent.
  *  10. NEGATIVE CONTROL — the same member denials with the membership predicates REMOVED must
  *                     all be ALLOWED. Same reason as phase 4, for the other half of the file.
  *  10b. restored    — membership back on, the denials deny again.
+ *  11. NEGATIVE CONTROL — the 7g self-join denials (D-593) with selfJoinsAsMember() REMOVED must
+ *                     all be ALLOWED.
+ *  12. users/{uid}  — the email/password account doc is owner-only get/create, fixed
+ *                     {username, accountId} shape, no update, no list, no delete.
  */
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -113,6 +118,7 @@ const L = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';      // phases 6-10: the membe
 const K = 'ffffffff-0000-1111-2222-333333333333';      // phase 8: a legacy, members-less trip
 const ACCT = '99999999-8888-7777-6666-555555555555';   // phase 9: a User Token — never a trip
 const THIRD = 'third-friend-uid-000000000000';         // a uid that is only ever a map key
+const GATED_DAY = '2026-12-14';                        // one content doc under the gated trip
 const BRICK = '00000000-1111-2222-3333-444444444444';  // phase 7f: a trip carrying a malformed roster
 
 let pass = 0, fail = 0;
@@ -213,10 +219,17 @@ function neuter(src, fnName, body, why) {
 // Put a fixture document in place with the rules under test having NO say, so one phase's
 // setup can never be a hostage to what the phase before it was allowed to do (phase 10
 // deliberately mutates and deletes trips/L).
-async function seed(path, data) {
+async function seed(path, data, rules = shipped) {
   await loadRules(ALLOW_ALL);
   await setDoc(doc(db, ...path), data);
-  await loadRules(shipped);
+  await loadRules(rules);
+}
+
+// Phase 10 overwrites and deletes both, so every phase running MEMBER_DENIALS rebuilds them.
+async function seedGated(rules = shipped) {
+  await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } }, rules);
+  await seed(['trips', L, 'days', GATED_DAY],
+    { date: GATED_DAY, city: 'Kathmandu', country: 'nepal', items: bigList(2) }, rules);
 }
 
 console.log(`\nfirestore.rules harness — emulator ${HOST}, auth ${AUTH_HOST}, project ${PROJECT}`);
@@ -298,6 +311,10 @@ const shipped = readFileSync(RULES, 'utf8');
 console.log('\n  -- 3a. D-219 REGRESSION: the two-block split still holds --');
 await expect('LIST /trips (enumerate every capability token)', 'DENIED', () => getDocs(collection(db, 'trips')));
 await expect('collectionGroup("days") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'days')));
+// #439: only `days` was asserted here — the expenses and presence collection listeners had no
+// cross-trip enumeration check at all, positive or negative.
+await expect('collectionGroup("expenses") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'expenses')));
+await expect('collectionGroup("presence") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'presence')));
 await expect('GET /trips/{knownId} by direct id', 'ALLOWED', () => getDoc(doc(db, 'trips', TRIP)));
 await expect('LIST /trips/{knownId}/days (subcollection query)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'days')));
 // The OTHER two collection listeners in the client (#450). `days` was the only one asserted, so
@@ -386,6 +403,7 @@ const HOSTILE = [
   ['removed[] with 20,000 elements', () => setDoc(doc(db, 'trips', TRIP, 'profile', 'tripList'), { version: 1, removed: bigList(20000) })],
   ['budget fields{} with 20,000 entries', () => setDoc(doc(db, 'trips', TRIP, 'budget', 'model'), { version: 1, fields: bigMap(20000) })],
   ['members{} with 20,000 entries', () => setDoc(doc(db, 'trips', TRIP, 'days', 'b5'), { date: 'b5', members: bigMap(20000, 'uid') })],
+  ['entries{} with 1001 entries (one over the ceiling)', () => setDoc(doc(db, 'trips', TRIP, 'profile', 'journal_' + TRIP), { entries: bigMap(1001) })],
   ['items as a 200,000-char string (scalar in a list slot)', () => setDoc(doc(db, 'trips', TRIP, 'days', 'x'), { date: 'x', items: 'z'.repeat(200000) })],
   ['items[5001] (one over the ceiling)', () => setDoc(doc(db, 'trips', TRIP, 'days', 'b2'), { date: 'b2', items: bigList(5001) })],
   ['members{201} (one over the roster ceiling)', () => setDoc(doc(db, 'trips', TRIP, 'days', 'b6'), { date: 'b6', members: bigMap(201, 'uid') })],
@@ -450,13 +468,20 @@ await expect('O deletes trips/L', 'ALLOWED', () => deleteDoc(doc(db, 'trips', L)
 const phase6 = flush('PHASE 6 (membership, positive)');
 
 // ── 7. MEMBERSHIP, the negative path ─────────────────────────────────────────
-// These seven are the control set: phase 10 re-runs them with membership neutered and every
+// This is the control set: phase 10 re-runs them with membership neutered and every
 // one of them MUST flip to ALLOWED.
 let createN = 0;
 const MEMBER_DENIALS = [
   ['stranger S gets trips/L', () => getDoc(doc(dbS, 'trips', L))],
   ['stranger S lists trips/L/days', () => getDocs(collection(dbS, 'trips', L, 'days'))],
-  ['stranger S adds ITSELF to members', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' })],
+  // create/update and delete are separate allow lines on the subtree wildcard; without these,
+  // relaxing either one leaves every other denial here passing (#395).
+  ['stranger S gets trips/L/days/{date}', () => getDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
+  ['stranger S writes trips/L/days/{date}',
+    () => setDoc(doc(dbS, 'trips', L, 'days', GATED_DAY), { date: GATED_DAY, city: 'Tokyo', country: 'japan', items: bigList(2) })],
+  ['stranger S deletes trips/L/days/{date}', () => deleteDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
+  // Self-adding as 'member' is allowed since D-593 (phase 7g); as 'owner' it never is.
+  ['stranger S adds ITSELF to members as "owner"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'owner' })],
   ['member M removes the owner', () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: deleteField() })],
   ["member M changes the owner's role", () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'member' })],
   ['member M deletes trips/L', () => deleteDoc(doc(dbM, 'trips', L))],
@@ -466,8 +491,23 @@ const MEMBER_DENIALS = [
     () => setDoc(doc(dbS, 'trips', `not-owner-${++createN}`), { schemaVersion: 1, members: { [S]: 'member' } })],
 ];
 
+// Each is denied by selfJoinsAsMember() alone: phase 11 neuters it and every one must flip.
+const SELF_JOIN_DENIALS = [
+  ['stranger S self-adds as "owner"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'owner' })],
+  ['stranger S adds another uid as "member"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${THIRD}`]: 'member' })],
+  ['stranger S adds itself AND another uid',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', [`members.${THIRD}`]: 'member' })],
+  ['stranger S self-adds and removes member M',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', [`members.${M}`]: deleteField() })],
+  ["stranger S self-adds and changes M's role",
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', [`members.${M}`]: 'owner' })],
+  ['stranger S self-adds and touches another trip-doc field',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', seededFrom: 'x' })],
+  ['member M re-adds itself as "owner"', () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: 'owner' })],
+];
+
 console.log('\n\n=== 7. MEMBERSHIP (negative): everyone else is out ===');
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 console.log(`  -- 7a. the ${MEMBER_DENIALS.length} member denials (phase 10 re-runs exactly these) --`);
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 
@@ -512,7 +552,7 @@ await expect('...writes its content', 'ALLOWED', () => setDoc(doc(dbS, 'trips', 
 await expect('...and overwrites the roster with a valid one (the repair)', 'ALLOWED',
   () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
 await seed(['trips', BRICK], { schemaVersion: 1, members: 'x' });
-await expect('...or self-enrols as owner by field path (ensureMembership)', 'ALLOWED',
+await expect('...or writes an owner by field path (rules still allow it; no client does it since #477)', 'ALLOWED',
   () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'owner' }));
 await seed(['trips', BRICK], { schemaVersion: 1, members: {} });
 await expect('authed reads a trip whose stored members map is EMPTY', 'ALLOWED', () => getDoc(doc(dbS, 'trips', BRICK)));
@@ -524,11 +564,31 @@ await expect('authed reads a trip whose roster names NO owner', 'ALLOWED', () =>
 await expect('...writes its content', 'ALLOWED', () => setDoc(doc(dbS, 'trips', BRICK, 'days', '2026-12-15'), BRICK_DAY));
 await expect('...but self-enrolling as "member" still names no owner', 'DENIED',
   () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'member' }));
-await expect('...self-enrols as owner by field path (ensureMembership)', 'ALLOWED',
+await expect('...writes an owner by field path (rules still allow it; no client does it since #477)', 'ALLOWED',
   () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'owner' }));
 await seed(['trips', BRICK], NO_OWNER);
 await expect('...or overwrites the roster with a valid one (the repair)', 'ALLOWED',
   () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
+
+console.log('\n  -- 7g. SELF-JOIN (D-593): a trip-id holder may add only itself, only as "member" --');
+for (const [name, fn] of SELF_JOIN_DENIALS) {
+  await seedGated();
+  await expect(name, 'DENIED', fn);
+}
+await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', ...bigMap(199, 'uid') } });
+await expect('stranger S self-adds as "member" to a full roster (cap 200)', 'DENIED',
+  () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' }));
+await expect('UNAUTH self-adds as "member"', 'DENIED',
+  () => updateDoc(doc(dbU, 'trips', L), { 'members.unauth-uid': 'member' }));
+await seedGated();
+await expect('stranger S self-adds as "member"', 'ALLOWED',
+  () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' }));
+await expect('...and can now read trips/L and its content', 'ALLOWED', async () => {
+  const snap = await getDoc(doc(dbS, 'trips', L));
+  if (snap.data().members[S] !== 'member') throw new Error('fixture: S must be stored as member');
+  await getDoc(doc(dbS, 'trips', L, 'days', GATED_DAY));
+});
+await seedGated();   // phase 9 relies on S being a non-member of L
 const phase7 = flush('PHASE 7 (membership, negative)');
 
 // ── 8. THE GRANDFATHER CLAUSE ────────────────────────────────────────────────
@@ -553,8 +613,9 @@ const phase8 = flush('PHASE 8 (grandfathered capability trip)');
 // D-296: the door validates a pasted User Token with ONE server read of
 // trips/{code}/profile/identity, BEFORE any membership can exist, and its tri-state ADMITS on
 // 'unavailable'. So a permission-denied there would not fail loudly — it would make token
-// validation silently vacuous. profile/** therefore keeps capability semantics behind the
-// auth floor, and this phase is the tripwire on that.
+// validation silently vacuous. The carved profile ids (identity, tripList, prefs, journal_*,
+// D-605) therefore keep capability semantics behind the auth floor, and this phase is the
+// tripwire on that.
 console.log('\n\n=== 9. THE DOOR: profile/** and meta/** keep capability semantics ===');
 await expect('authed get on an ABSENT trips/{acct}/profile/identity -> MISSING', 'ALLOWED', async () => {
   const snap = await getDoc(doc(db, 'trips', ACCT, 'profile', 'identity'));
@@ -568,7 +629,7 @@ await expect('authed get on the PRESENT identity doc -> EXISTS', 'ALLOWED', asyn
   const snap = await getDoc(doc(db, 'trips', ACCT, 'profile', 'identity'));
   if (!snap.exists()) throw new Error('fixture: the probe target must exist by now');
 });
-await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-9: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
+await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-341: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
   () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity')));
 await expect('UNAUTH gets trips/{acct}/profile/identity', 'DENIED',
   () => getDoc(doc(dbU, 'trips', ACCT, 'profile', 'identity')));
@@ -580,10 +641,76 @@ await expect('authed NON-MEMBER gets trips/L/meta/info (the join preview)', 'ALL
   () => getDoc(doc(dbS, 'trips', L, 'meta', 'info')));
 await expect('authed NON-MEMBER reads trips/L/profile/identity (the door)', 'ALLOWED',
   () => getDoc(doc(dbS, 'trips', L, 'profile', 'identity')));
+// D-605 (#644): prefs and journal_* are account docs like identity/tripList. The account token
+// can also be a gated trip id, so they must not fall through to the member-only subtree block.
+for (const id of ['prefs', 'journal_x']) {
+  await expect(`authed NON-MEMBER sets trips/L/profile/${id}`, 'ALLOWED',
+    () => setDoc(doc(dbS, 'trips', L, 'profile', id), { version: 1 }));
+  await expect(`authed NON-MEMBER gets trips/L/profile/${id}`, 'ALLOWED', async () => {
+    if (!(await getDoc(doc(dbS, 'trips', L, 'profile', id))).exists()) throw new Error('fixture: must exist');
+  });
+}
 await expect('...but the same NON-MEMBER still cannot list trips/L/days', 'DENIED',
   () => getDocs(collection(dbS, 'trips', L, 'days')));
 await expect('...and still cannot list trips/L/meta', 'DENIED',
   () => getDocs(collection(dbS, 'trips', L, 'meta')));
+
+console.log('\n  -- 9c. the carve-out is three ids plus journal_*, and nothing planted under profile/ is permanent (#398) --');
+await expect('authed deletes trips/{acct}/profile/tripList -> DENIED (same reason as identity)', 'DENIED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'tripList')));
+await expect('stranger S creates trips/L/profile/planted   (gated trip, uncarved id)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'planted'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/identity/deep/doc  (any depth)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'identity', 'deep', 'doc'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/journal   (no suffix)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'journal'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/journal_   (empty suffix)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'journal_'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/prefsx', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'prefsx'), { junk: 1 }));
+await expect('stranger S gets trips/L/profile/prefsx', 'DENIED',
+  () => getDoc(doc(dbS, 'trips', L, 'profile', 'prefsx')));
+await expect('stranger S gets trips/L/profile/planted', 'DENIED',
+  () => getDoc(doc(dbS, 'trips', L, 'profile', 'planted')));
+await seed(['trips', ACCT, 'profile', 'planted'], { junk: 1 });
+await expect('authed deletes a planted trips/{acct}/profile/planted', 'ALLOWED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'planted')));
+await seed(['trips', ACCT, 'profile', 'identity', 'deep', 'doc'], { junk: 1 });
+await expect('authed deletes a planted trips/{acct}/profile/identity/deep/doc', 'ALLOWED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity', 'deep', 'doc')));
+
+// D-565: every loaded device creates a missing identity doc, create-only in a transaction. If the
+// rules stop allowing this, legacy keys get locked out at the door again with nothing failing.
+console.log('\n  -- 9d. the identity self-heal (D-565): any anonymous device can create a missing doc --');
+const healKeys = ['a1', 'a2', 'a3', 'a4', 'a5'].map((p) => `${p}a1a1a1-0000-4000-8000-000000000529`);
+const healRef = (i) => doc(dbS, 'trips', healKeys[i], 'profile', 'identity');
+const heal = (i, data) => runTransaction(dbS, async (tx) => {
+  if ((await tx.get(healRef(i))).exists()) throw new Error('fixture: heal target must be absent');
+  tx.set(healRef(i), data);
+});
+await expect('anon S gets an ABSENT identity doc', 'ALLOWED', async () => {
+  if ((await getDoc(healRef(0))).exists()) throw new Error('fixture: must be absent');
+});
+await expect('anon S creates identity {version:1}', 'ALLOWED', () => setDoc(healRef(0), { version: 1 }));
+await expect("anon S creates identity {version:1,name:'X'}", 'ALLOWED', () => setDoc(healRef(1), { version: 1, name: 'X' }));
+await expect('anon S heals {version:1} inside a transaction', 'ALLOWED', () => heal(2, { version: 1 }));
+await expect("anon S heals {version:1,name:'X'} inside a transaction", 'ALLOWED', () => heal(3, { version: 1, name: 'X' }));
+// D-565's client-side heal gate (any evidence of a real account) is app code, not a rule — the
+// auth floor is the only backstop Firestore itself can enforce, so pin it here: a signed-out
+// device must not be able to mint an identity doc for a key it merely typed, gated app or not.
+await expect('UNAUTH creates a missing identity doc -> DENIED (no client heal gate can substitute for the auth floor)', 'DENIED',
+  () => setDoc(doc(dbU, 'trips', healKeys[4], 'profile', 'identity'), { version: 1 }));
+
+// Carved out by id since D-605; before that they passed here only because isMember() is true
+// when no trip doc exists at an account path. 9b covers the gated-trip case.
+console.log('\n  -- 9e. account docs profile/prefs and profile/journal_<id> (D-593) --');
+for (const id of ['prefs', 'journal_x']) {
+  await expect(`authed sets trips/{acct}/profile/${id}`, 'ALLOWED',
+    () => setDoc(doc(dbS, 'trips', ACCT, 'profile', id), { version: 1 }));
+  await expect(`authed gets trips/{acct}/profile/${id}`, 'ALLOWED', async () => {
+    if (!(await getDoc(doc(dbS, 'trips', ACCT, 'profile', id))).exists()) throw new Error('fixture: must exist');
+  });
+}
 const phase9 = flush('PHASE 9 (the door + the account path)');
 
 // ── 10. NEGATIVE CONTROL for membership ──────────────────────────────────────
@@ -595,7 +722,7 @@ for (const fn of ['isMember', 'isOwner', 'claimsSelfAsOwner', 'rosterIsWellForme
   membersOff = neuter(membersOff, fn, 'return request.auth != null;',
     'without a working phase 10 the suite cannot distinguish member gating from a bare auth floor.');
 }
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 {
   const r = await loadRules(membersOff);
   console.log(`  membership-removed rules compile: HTTP ${r.status}`);
@@ -608,9 +735,47 @@ const phase10 = flush('PHASE 10 (membership REMOVED)  <-- MUST be red');
 // seed() reloads the shipped rules, and phase 10 mutated and then deleted trips/L, so the
 // fixture is rebuilt rather than assumed.
 console.log('\n\n=== 10b. MEMBERSHIP RESTORED ===');
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 const phase10b = flush('PHASE 10b (membership RESTORED)');
+
+// ── 11. NEGATIVE CONTROL for self-join ───────────────────────────────────────
+console.log('\n\n=== 11. NEGATIVE CONTROL: self-join denials, selfJoinsAsMember() REMOVED ===');
+const selfJoinOff = neuter(shipped, 'selfJoinsAsMember', 'return request.auth != null;',
+  'without a working phase 11 the 7g denials could be passing for some other reason.');
+for (const [name, fn] of SELF_JOIN_DENIALS) {
+  await seedGated(selfJoinOff);
+  await expect(name, 'DENIED', fn);
+}
+const phase11 = flush('PHASE 11 (self-join REMOVED)  <-- MUST be red');
+await loadRules(shipped);
+
+// ── 12. users/{uid}: the email/password account doc ─────────────────────────
+console.log('\n\n=== 12. users/{uid}: owner-only, fixed shape, username immutable ===');
+const USER = { username: 'powan_55', accountId: ACCT };
+const me = (d = db) => doc(d, 'users', O);
+await expect('O creates users/{O} {username, accountId}', 'ALLOWED', () => setDoc(me(), USER));
+await expect('O gets users/{O}', 'ALLOWED', () => getDoc(me()));
+await expect('O repoints accountId on update', 'DENIED', () => setDoc(me(), { ...USER, accountId: TRIP }));
+await expect('O changes username on update', 'DENIED', () => setDoc(me(), { ...USER, username: 'someone_else' }));
+await expect('O deletes users/{O}', 'DENIED', () => deleteDoc(me()));
+await expect('stranger S gets users/{O}', 'DENIED', () => getDoc(me(dbS)));
+await expect('stranger S writes users/{O}', 'DENIED', () => setDoc(me(dbS), USER));
+await expect('stranger S creates users/{M} (not yet existing)', 'DENIED', () => setDoc(doc(dbS, 'users', M), USER));
+await expect('UNAUTH gets users/{O}', 'DENIED', () => getDoc(me(dbU)));
+await expect('authed LIST /users', 'DENIED', () => getDocs(collection(db, 'users')));
+const bad = (label, data) => expect(`S creates users/{S} with ${label}`, 'DENIED', () => setDoc(doc(dbS, 'users', S), data));
+await bad('an extra field', { ...USER, role: 'owner' });
+await bad('username too short', { ...USER, username: 'ab' });
+await bad('username with uppercase', { ...USER, username: 'Powan' });
+await bad('username 21 chars', { ...USER, username: 'a'.repeat(21) });
+await bad('username not a string', { ...USER, username: 12345 });
+await bad('accountId 35 chars', { ...USER, accountId: ACCT.slice(1) });
+await bad('accountId not a string', { ...USER, accountId: 1 });
+await bad('no accountId', { username: 'powan_55' });
+await expect('S creates users/{S} with a valid shape (control for the above)', 'ALLOWED',
+  () => setDoc(doc(dbS, 'users', S), { username: 'stranger', accountId: K }));
+const phase12 = flush('PHASE 12 (users/{uid})');
 
 console.log('\n──────────────────────────────────────────────────────────────');
 console.log(`  phase 3   shape guard PRESENT   ${phase3.pass} passed, ${phase3.fail} failed`);
@@ -622,14 +787,18 @@ console.log(`  phase 8   grandfathered trip    ${phase8.pass} passed, ${phase8.f
 console.log(`  phase 9   the door + account    ${phase9.pass} passed, ${phase9.fail} failed`);
 console.log(`  phase 10  membership REMOVED    ${phase10.pass} passed, ${phase10.fail} failed   <- negative control`);
 console.log(`  phase 10b membership RESTORED   ${phase10b.pass} passed, ${phase10b.fail} failed`);
+console.log(`  phase 11  self-join REMOVED     ${phase11.pass} passed, ${phase11.fail} failed   <- negative control`);
+console.log(`  phase 12  users/{uid}           ${phase12.pass} passed, ${phase12.fail} failed`);
 const shapeProven = phase3.fail === 0 && phase4.fail === HOSTILE.length && phase5.fail === 0;
 const memberProven = phase6.fail === 0 && phase7.fail === 0 && phase8.fail === 0 && phase9.fail === 0
-  && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0;
-const proven = shapeProven && memberProven;
+  && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0
+  && phase11.fail === SELF_JOIN_DENIALS.length;
+const usersProven = phase12.fail === 0 && phase12.pass === 19;
+const proven = shapeProven && memberProven && usersProven;
 console.log(`  VERDICT: ${proven
   ? `BOTH GUARDS BITE — all ${HOSTILE.length} hostile writes flip DENIED->ALLOWED without boundedWrite(), `
     + `and all ${MEMBER_DENIALS.length} member denials flip DENIED->ALLOWED without the membership predicates`
-  : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'})`}`);
+  : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'}, users ${usersProven ? 'ok' : 'BAD'})`}`);
 console.log('──────────────────────────────────────────────────────────────\n');
 
 for (const c of [owner, memberApp, strangerApp, anonApp]) {

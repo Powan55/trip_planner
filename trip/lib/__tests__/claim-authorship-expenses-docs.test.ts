@@ -24,6 +24,7 @@
 // copy, with a negative control showing what happens WITHOUT the bump.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { firebaseConfigMock } from './firebase-config-mock';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -33,13 +34,8 @@ import type { Expense } from '@/core/budget/expenses';
 import type { DocItem } from '@/core/docs/model';
 
 const state = vi.hoisted(() => ({ remoteOn: true }));
-vi.mock('@/lib/firebase-config', () => ({
-  FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
-  isRemoteConfigured: () => state.remoteOn,
-  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
-  isTripRemoteConfigured: () => state.remoteOn,
-  getTripId: () => 'nepal-japan-2026',
-}));
+vi.mock('@/lib/firebase-config', (io) =>
+  firebaseConfigMock(io, () => state.remoteOn, 'nepal-japan-2026'));
 // Keep the fan-out off firebase — this suite exercises the STORES' local rewrite + stamping only.
 vi.mock('@/lib/expenses-ports', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/expenses-ports')>();
@@ -425,6 +421,7 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
     const hd = renderStore(useDocs);
     await hd.run((s) => s.claimAuthorship(OLD));
     expect(changedKeys(seedDocs()[0], storedDoc('passport-validity') as DocItem)).toEqual([
+      'doneHlc', // pinned to the pre-claim hlc (#541)
       'hlc',
       'rev',
       'updatedBy',
@@ -552,6 +549,14 @@ describe('S408 — the claim SURVIVES a remote merge (run, not asserted)', () =>
 
     expect(local.rev).toBe(2);
     expect((local.hlc ?? '') > SEED_HLC).toBe(true);
+
+    // #541: the claim does not claim the tick. A peer's untick made before the claim landed
+    // (older hlc than the claim) still wins the checked state.
+    const untickAt = serialize({ pt: Date.parse('2026-01-06T09:00:00.000Z'), ct: 0, actor: 'peer-device' });
+    const peerUntick: DocItem = { ...stalePeerDoc(), checked: false, hlc: untickAt, doneHlc: untickAt };
+    for (const m of [mergeItems([local], [peerUntick])[0], mergeItems([peerUntick], [local])[0]]) {
+      expect(m).toMatchObject({ checked: false, updatedBy: ME });
+    }
     h.unmount();
   });
 

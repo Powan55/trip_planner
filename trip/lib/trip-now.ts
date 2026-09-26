@@ -119,6 +119,17 @@ export function getNow(): Date {
 }
 
 /**
+ * True when the display clock is running the `?today=` demo override rather than the real
+ * clock. #590: this is a WRITE gate — anything that persists a "you were here" record (lifetime
+ * visits) must check this and refuse, or demoing the countdown against a fake day accrues a real
+ * travel history for a trip nobody took.
+ */
+export function isClockOverridden(): boolean {
+  resolveOverrideOnce();
+  return overrideMs !== null;
+}
+
+/**
  * The ClockPort adapter instance. `now()` delegates to `getNow()`,
  * so the port and the standalone function share ONE resolution path. Exposed for
  * core-boundary consumers that want the clock as a port; existing callers keep using

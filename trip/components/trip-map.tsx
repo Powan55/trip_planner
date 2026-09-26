@@ -38,6 +38,8 @@ import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
 import { footprintsToGeoJSON, type CountryFootprint } from '@/lib/visited-footprint';
 import { MAP_PIN_DND_TYPE } from '@/lib/day-anchor';
 import { prefersReducedMotion } from '@/lib/motion';
+import { withBasePath } from '@/lib/base-path';
+import { getActiveTrip } from '@/core/trips';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -524,6 +526,14 @@ export interface TripMapProps {
   countryFills?: CountryFootprint[];
 }
 
+// #596: TripMap is only ever mounted via dynamic(ssr:false) — no server render, no hydration
+// mismatch to guard against — so this reads the active trip directly, module-load, the same
+// pattern as `lib/leg-label.ts` and `components/wrapped-story.tsx`. Default pack ⇒ byte-identical
+// to the old literal.
+const TRIP_MAP_ARIA_LABEL = `Interactive map of trip destinations across ${getActiveTrip()
+  .legs.map((leg) => leg.countryLabel)
+  .join(' and ')}`;
+
 // ── TripMap: the reusable MapLibre engine ─────────────────────────────────────
 // Owns the container, lazy maplibre-gl load, style/controls, the browse-marker
 // source/layers, the itinerary route source/layers, popups, and reduced-motion
@@ -553,6 +563,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   ref,
 ) {
   const [mapReady, setMapReady] = useState(false);
+  // Issue #502 — set when the WebGL2 context can't be created; renders the
+  // unavailable message in place of the canvas instead of leaving it blank.
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   // The marker whose popup is currently open — drives the React portal content.
   const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
   // The DOM node inside the open popup that we portal React content into.
@@ -689,15 +702,30 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       if (cancelled || !containerRef.current) return;
       mapLibreRef.current = maplibregl;
 
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: buildMapStyle() as never,
-        bounds: ALL_BOUNDS,
-        fitBoundsOptions: { padding: 48 },
-        attributionControl: false, // added explicitly below (compact)
-        maxZoom: 17,
-        minZoom: 2,
-      });
+      // Issue #503 — the worker path is versioned by the installed engine's own
+      // version (copy-maplibre-worker.mjs copies into the same path), so a
+      // maplibre-only bump can never run against a stale cached worker.
+      maplibregl.setWorkerUrl(
+        withBasePath(`/maplibre/${maplibregl.getVersion()}/maplibre-gl-worker.mjs`),
+      );
+      // Issue #502 — `new Map` throws synchronously when the browser can't give it a
+      // WebGL2 context (old device, disabled GPU, too many contexts already open).
+      // Uncaught here it would just leave the panel blank forever post-mount.
+      try {
+        map = new maplibregl.Map({
+          container: containerRef.current,
+          style: buildMapStyle() as never,
+          bounds: ALL_BOUNDS,
+          fitBoundsOptions: { padding: 48 },
+          attributionControl: false, // added explicitly below (compact)
+          maxZoom: 17,
+          minZoom: 2,
+        });
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setMapUnavailable(true);
+        return;
+      }
       mapRef.current = map;
 
       map.addControl(
@@ -1192,12 +1220,29 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       <div
         ref={containerRef}
         className="h-full w-full"
-        aria-label="Interactive map of trip destinations across Nepal and Japan"
+        aria-label={TRIP_MAP_ARIA_LABEL}
         role="region"
       />
 
+      {/* Issue #502 — WebGL2 unavailable. `role="status"` since this fires post-mount
+          (unlike MapIslandBoundary's chunk-load case, there's nothing static about it —
+          the rest of the page already rendered around a map that then failed). No motion. */}
+      {mapUnavailable && (
+        <div
+          data-testid="map-unavailable"
+          role="status"
+          className="empty-frame absolute inset-0 mx-auto flex max-w-md flex-col items-center justify-center p-gut py-6 text-center"
+        >
+          <p className="pr pr--l err mb-2">Map unavailable on this device</p>
+          <p className="empty">
+            This device or browser can&apos;t create the map engine&apos;s WebGL2
+            context. Everything else on this page still works.
+          </p>
+        </div>
+      )}
+
       {/* Loading skeleton until the GL canvas is ready. */}
-      {!mapReady && (
+      {!mapUnavailable && !mapReady && (
         // The word is a real text node, not a `content:` string — a static block is
         // indistinguishable from an empty one, and generated content is not reliably
         // announced. The pulse goes with it: the word carries the state.
@@ -1211,7 +1256,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
       {/* Popup content portal: stays in this React tree so context flows
           to AddToPlanButton, while its DOM lives inside the MapLibre Popup.
-          a popup opened on a marker that is NOT one of the 27 curated places is an
+          a popup opened on a marker that is NOT one of the 73 curated places is an
           ITINERARY STOP — a synthesized pin or a derived position — so it gets the stop
           popup instead of the curated one (which would offer Directions to a city centroid
           and "add this place to your plan" for a plan that already exists). */}
