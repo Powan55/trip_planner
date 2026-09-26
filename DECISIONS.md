@@ -5906,3 +5906,27 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 **Why.** Entries written before the input cap, or restored from a backup, lost everything past 4000 characters on every device the first time they synced. Lifting the cap instead would let one long entry push the trip's journal doc past Firestore's 1 MiB limit and stop all its journal pushes.
 
 **Trade-off.** Other devices see only the first 4000 characters. If one of them edits the text, that capped edit comes back to the author's device and replaces the full text. Accepted.
+
+### D-603 · Amends D-598 · (issue #642, 2026-09-25) · Adopting the account's default trip asks before replacing a local plan
+
+**Decision.** When a device with no share id claims and the account already holds a different one, it no longer marks its local plan dirty and merges it in. If the default pack holds no synced data it adopts silently as before. If it does, and the tab is visible, it asks through `replaceLocalPlanCopy` with its own lead line, since the join box's "Their plan" reads wrong for the person's own account and the prompt appears on load unasked. Yes sets the share id, confirms it stuck, then drops the pack's outbox and synced slots and reloads. No marks the session guard and changes nothing, so it is not asked again until the next session. A hidden tab does nothing and leaves the guard unset, so the next load asks. Only a device whose own mint won still marks its plan dirty.
+
+**Why.** Merging on adopt pushed a second device's sample or stale plan into the account's real trip without the person ever seeing a choice.
+
+**Trade-off.** Answering No leaves that device on its own local plan, unsynced, and it asks again next session. The id is written before the drop, so a failed write keeps the local data.
+
+### D-604 · Amends D-521 · (issue #634, 2026-09-25) · `commit()` re-reads its own event again
+
+**Decision.** The `dispatching` ref is removed. The committing instance hears its own CustomEvent and re-reads storage, as it did before D-521. Everything else in D-148's skeleton is unchanged, including where `sync.push` fires.
+
+**Why.** When `save` fails (quota), the committer kept showing an edit that was never stored. Re-reading snaps it back to what storage holds. D-521's skip was only a performance saving.
+
+**Trade-off.** One extra `load()` per mounted instance per commit, which is the full vault chain for the itinerary. With storage fully blocked, every edit now snaps straight back, which is the intended pre-D-521 behaviour.
+
+### D-605 · (issue #644, 2026-09-26) · Profile carve-out covers prefs and journal docs
+
+**Decision.** The `profile/{docId}` carve-out goes through `isAccountDoc()`: exactly `identity`, `tripList` or `prefs`, or `journal_` plus 1-128 characters. Same signed-in floor and `boundedWrite()` shape check, including the 1000-entry journal cap. Delete is unchanged, so members can still remove them (#398).
+
+**Why.** Only identity and tripList were carved out, so `profile/prefs` and `profile/journal_*` fell to the member-only subtree block and were denied whenever the account token was also a member-gated trip id.
+
+**Trade-off.** A stranger holding a gated trip id can plant these two docs under it, the same accepted cost as identity and tripList. rules-check 9b/9c pin the allows and the near-miss ids (`journal`, `journal_`, `prefsx`), and the allows fail against the pre-D-605 rules.

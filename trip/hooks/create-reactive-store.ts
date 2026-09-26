@@ -30,9 +30,8 @@ import type { StoragePort, SyncPort } from '@/core/ports';
  * 2. REACTIVITY, BOTH LAYERS — every commit dispatches the CustomEvent; the hook
  * listens to that event AND the cross-tab `storage` event (key-match via the exported key
  * constants, or `key === null` full-clear), re-reading from the StoragePort — never a stale
- * closure. The one instance that DISPATCHED skips its own re-read: it already set `next`, and
- * the listener runs synchronously inside `dispatchEvent`, so the re-read was a second full
- * parse of the value just written (a third, with two instances mounted) inside the handler.
+ * closure. The committing instance re-reads too (D-604): if `save` failed, it shows what is
+ * actually stored rather than an edit that was never kept.
  * 3. FRESH-BASE COMMIT — `compute` receives `storage.load()`, so chained mutations in
  * one handler compose (each sees the prior's already-persisted write).
  * 4. PUSH PLACEMENT — `sync.push(prev, next)` fires ONLY from `commit()`, AFTER the
@@ -79,10 +78,6 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
     const [value, setValue] = useState<T>(() => storage.load());
     const [hydrated, setHydrated] = useState(false);
     const hydratedRef = useRef(false);
-    // Set only while THIS instance dispatches, so its own listener skips the re-read (commit
-    // already holds `next`). Per-instance, never module scope — every OTHER listener, which is
-    // what the event exists for, still fires.
-    const dispatching = useRef(false);
 
     // Load from storage on mount. SSR-safe: `storage.load()` returns the impl's no-window
     // fallback under SSR; the real read happens here after mount.
@@ -101,20 +96,16 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
         if (!hydratedRef.current) return;
         setValue(storage.load());
       };
-      const onCustom = () => {
-        if (dispatching.current) return;
-        reread();
-      };
       const onStorage = (e: StorageEvent) => {
         // Resolve the match set at event time so a pack-dependent key (function-form
         // `storageKeys`) reflects the ACTIVE pack, not a value frozen at module load.
         const keys = typeof storageKeys === 'function' ? storageKeys() : storageKeys;
         if (e.key === null || keys.includes(e.key)) reread();
       };
-      window.addEventListener(eventName, onCustom);
+      window.addEventListener(eventName, reread);
       window.addEventListener('storage', onStorage);
       return () => {
-        window.removeEventListener(eventName, onCustom);
+        window.removeEventListener(eventName, reread);
         window.removeEventListener('storage', onStorage);
       };
     }, []);
@@ -131,12 +122,7 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
       const next = compute(prev);
       storage.save(next);
       setValue(next);
-      dispatching.current = true;
-      try {
-        window.dispatchEvent(new CustomEvent(eventName));
-      } finally {
-        dispatching.current = false;
-      }
+      window.dispatchEvent(new CustomEvent(eventName));
       if (sync) void sync.push(prev, next);
     }, []);
 
