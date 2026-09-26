@@ -38,7 +38,7 @@ describe('CSP policy', () => {
   });
 
   it.each([
-    ['https://*.basemaps.cartocdn.com', 'CARTO raster tiles'],
+    ['https://tiles.openfreemap.org', 'OpenFreeMap vector tiles'],
     ['https://api.open-meteo.com', 'weather'],
     ['https://air-quality-api.open-meteo.com', 'air quality'],
     ['https://api.frankfurter.dev', 'FX rates'],
@@ -51,14 +51,9 @@ describe('CSP policy', () => {
   });
 
   it('governs map tiles via connect-src, and does not carry them in img-src', () => {
-    // maplibre 5.24 DOES have a `new Image()` decoder, but it is gated on
-    // `supportImageRefresh === false`, fed by the Map's `refreshExpiredTiles` option, which
-    // defaults to true and which this app never sets. So tiles go through fetch and
-    // img-src never sees the tile origin. Measured in Chromium: dropping it from img-src
-    // still loads every tile. Keep img-src free of it unless the app starts passing
-    // `refreshExpiredTiles: false`.
-    expect(directive('connect-src')).toContain('basemaps.cartocdn.com');
-    expect(directive('img-src')).not.toContain('cartocdn.com');
+    expect(directive('connect-src')).toContain('tiles.openfreemap.org');
+    expect(directive('img-src')).not.toContain('openfreemap');
+    expect(directive('connect-src')).not.toContain('cartocdn');
   });
 
   it('allows the Firebase auth script and its authDomain iframe', () => {

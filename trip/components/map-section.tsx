@@ -1078,7 +1078,7 @@ export default function MapSection() {
             tile or map availability.
             the engine is precached now, so offline the canvas, the marker circles
             and the day route DO render — what is missing is the basemap imagery, because
-            basemaps.cartocdn.com is cross-origin and hits the SW's untouched
+            tiles.openfreemap.org is cross-origin and hits the SW's untouched
             cross-origin passthrough. The wording says exactly that and no more; the old
             "the map needs a connection" now overstates the loss the same way v5.9.2's
             "showing cached map tiles" overstated the win. */}

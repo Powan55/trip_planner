@@ -38,7 +38,7 @@ devices when the build is wired to Firebase.
 - **More than one trip** – the Nepal × Japan pack ships with the app; you can also create your
   own trip from dates and destinations, or add someone else's with their Trip Token, and switch
   between them from **Trips**.
-- **Interactive map** – a real MapLibre GL map on free CARTO dark tiles (no API key),
+- **Interactive map** – a real MapLibre GL map on free OpenFreeMap vector tiles (no API key),
   with category-filterable markers, rich popups, an itinerary overlay, and fullscreen mode.
 - **Installable PWA** – web app manifest + a hand-rolled service worker precache the app
   shell, so the app installs to a home screen and keeps working offline; updates surface as
@@ -55,7 +55,7 @@ devices when the build is wired to Firebase.
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/) with [shadcn/ui](https://ui.shadcn.com/) (Radix UI)
 - [Framer Motion](https://www.framer.com/motion/) for animation
-- [MapLibre GL](https://maplibre.org/) for the map (CARTO raster basemap)
+- [MapLibre GL](https://maplibre.org/) for the map ([OpenFreeMap](https://openfreemap.org/) vector basemap)
 - [date-fns](https://date-fns.org/) for date math
 - Optional [Firebase](https://firebase.google.com/) (Firestore for the data, Firebase Auth for
   the signed-in floor the rules enforce) for cross-device sync, entirely inert unless configured
@@ -153,6 +153,9 @@ plain `getDocs(collection('trips'))` must fail with permission-denied).
 The trip dates live in the trip pack (`trip/core/trips/packs/nepal-japan-2026.ts`); change its
 `start` / `end` (and its legs) to retarget the countdown. `TRIP_START` / `TRIP_END` in
 `trip/lib/trip-data.ts` are re-exports of values derived from that pack, not editable constants.
-The map needs no key: the CARTO basemap is free with attribution. To enable cross-device sync,
+The map needs no key: the OpenFreeMap basemap is free with attribution. To enable cross-device sync,
 copy `trip/.env.local.example` to `trip/.env.local` and fill in a Firebase web config; without
 it the app is local-only.
+
+The map's label glyphs under `trip/public/font/` are Noto Sans (Copyright The Noto Project
+Authors), licensed under the [SIL Open Font License 1.1](https://openfontlicense.org).

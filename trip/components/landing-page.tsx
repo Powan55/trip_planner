@@ -242,9 +242,9 @@ const TOKENS = [
  * is in frame now), and the Nepal row is back inside shot 2's crop, so "yen and rupees" is true of
  * the picture again — the exact reverse of the correction above.
  *
- * Shot 3 is NOT from that re-shoot and is deliberately older than the other two: CARTO now stamps
- * "API KEY REQUIRED" across the free dark-matter tiles `lib/map-style.ts` requests, so a fresh
- * capture shows the watermark. Re-shoot it once the basemap serves clean tiles again.
+ * Shot 3 is NOT from that re-shoot and is deliberately older than the other two: it was taken on
+ * the CARTO basemap, before CARTO started stamping "API KEY REQUIRED" on keyless tiles. The map is
+ * on OpenFreeMap now (D-606), so a re-shoot would show that basemap and need a new credit.
  */
 const SHOTS = [
   {
