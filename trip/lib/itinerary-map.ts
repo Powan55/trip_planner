@@ -413,10 +413,16 @@ export function tripDayNumber(date: string): number | null {
 }
 
 // Flatten plans → one row PER ITEM, numbered by trip day. `chrono` picks the ordering:
-// • true — the day's rows are sorted by TIME, using `sortItemsByTime`. Since #94
-// deleted the timeline island this is that function's only production consumer.
-// • false (/plan, /travel) — the STORED order, which on those surfaces is the user's own
-// manually dragged order; re-sorting it there would silently override the drag.
+// • true — the day's rows are sorted by TIME, using `sortItemsByTime`.
+// • false — the STORED order.
+//
+// EVERY production caller now passes `true`. /plan and /travel used to pass `false`, back when
+// their day LISTS rendered the stored manual drag order and a re-sort here would have made the
+// map disagree with the list beside it. Those lists are chronological now
+// (`lib/phase-of-day.ts`, and the two agenda surfaces), so `false` is what would produce the
+// disagreement: the numbered route would start at a row halfway down the list. The parameter
+// stays because it is what makes that coupling explicit and testable — the day a surface wants
+// stored order back, it asks for it here rather than silently inheriting it.
 function buildRows(plans: DayPlan[], chrono: boolean): PlacementRow[] {
   const sorted = [...plans].sort((a, b) => a.date.localeCompare(b.date));
   const rows: PlacementRow[] = [];
@@ -525,5 +531,8 @@ export function stopsForDay(stops: DayStop[], date: string | null): DayStop[] {
  * the ladder to them needs their counters re-pointed at exact-vs-total in the same change.
  */
 export function buildItineraryStops(plans: DayPlan[]): DayStop[] {
-  return placementStops(buildRows(plans, false).filter((r) => r.placement.kind === 'exact'));
+  // `true` — CHRONOLOGICAL, so the drawn stop numbers and the polyline follow the same order as
+  // the day list these maps sit beside (see `buildRows`). It was `false` while those lists were
+  // in stored order.
+  return placementStops(buildRows(plans, true).filter((r) => r.placement.kind === 'exact'));
 }

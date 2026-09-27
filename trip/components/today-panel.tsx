@@ -11,6 +11,7 @@ import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-
 import { offsetForCountry } from '@/core/dates';
 import { dayShade } from '@/lib/city-palette';
 import { nextUp } from '@/lib/whats-next';
+import { sortItemsByTime } from '@/lib/sort-items-by-time';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { generateItemId } from '@/lib/item-id';
 import QuickAddInput from '@/components/quick-add-input';
@@ -115,7 +116,14 @@ export default function TodayPanel() {
   }
 
   const dayPlan = getDayPlan(todayInTrip.date);
-  const items = dayPlan.items;
+  // CHRONOLOGICAL (owner-instructed), the same order the planner's day list renders: timed items
+  // ascend by absolute instant, untimed ones sink to a stable trailing run. Today's agenda used to
+  // print the STORED order, so a 3pm plan entered before a 10am one led the list. Pure view-level
+  // projection — `sortItemsByTime` returns a new array and never writes the store.
+  //
+  // Not a `useMemo`: this sits after the hydration early-return above, where a hook would break
+  // the call-order rule. A 32-day trip's single day is a handful of rows, so the sort is free.
+  const items = sortItemsByTime(dayPlan.items, todayInTrip.date, offsetForCountry(todayInTrip.country));
   const doneCount = items.filter((it) => it.done === true).length;
   // The next upcoming, not-done, timed item by the resolved place-clock (pure `nextUp`,
   // /). `null` when everything is done/past or nothing is timed → the rail shows "all

@@ -2,6 +2,7 @@
 
 import { useItineraryContext } from '@/components/itinerary-provider';
 import PrintButton from '@/components/print-button';
+import { offsetForCountry } from '@/core/dates';
 import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { JOURNEYS, BOOKED_STAYS } from '@/lib/booking-data';
 import { describeItemTime } from '@/lib/item-time-display';
@@ -21,7 +22,8 @@ import { TRIP_DATES, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
  * passport pocket. So /plan hides the planner in print and prints this instead: the same
  * store, read straight through `getDayPlan` for every trip date, so the sheet can never
  * disagree with the screen. Item order is `groupItemsByPhase`, the SAME derivation the
- * planner renders — never a re-sort, so the manual drag order survives onto the page.
+ * planner renders — so the printed day is chronological exactly as the planner's day is,
+ * and the sheet a traveller carries cannot file a 10am plan under Afternoon.
  *
  * THE BOOKINGS BLOCK is here rather than on a print-styled /flights because a traveller
  * carries ONE piece of paper, not three, and "proof of onward travel" is only proof if it
@@ -112,7 +114,14 @@ export default function PrintItinerary() {
           // 'main' for the whole of a custom trip — one leg, so no break ever fires and a
           // custom trip prints continuously. That is the right answer, not a fallback.
           const legStart = i > 0 && day.country !== days[i - 1].country;
-          const items = groupItemsByPhase(day.items ?? []).map((g) => g.item);
+          // Same args the planner passes (`lib/phase-of-day.ts`): the day's own date plus its
+          // place offset, so the chronological sort is instant-accurate on the legs and on the
+          // date-line day rather than a raw wall-clock guess.
+          const items = groupItemsByPhase(
+            day.items ?? [],
+            day.date,
+            offsetForCountry(day.country),
+          ).map((g) => g.item);
           const shade = dayShade(day.date);
 
           return (

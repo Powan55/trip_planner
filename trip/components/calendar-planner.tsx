@@ -1162,12 +1162,22 @@ export default function CalendarPlanner() {
   // those warnings are fatal now that lint runs at --max-warnings 0. It also pins the property
   // so a future nullable-items change can't silently un-memoize them.
   const visibleItems = useMemo(() => visiblePlan.items ?? [], [visiblePlan]);
-  // phase-of-day grouping: NEVER re-sorts
-  // timed items — the calendar view's manual/stored order stays untouched (sort-clash.spec.ts's
-  // regression net) — only moves untimed items to a trailing "Anytime" run. `isNewPhase` marks
-  // where the render layer inserts a subtle phase header. SortableContext's `items` below is
-  // this GROUPED order so dnd-kit's index math matches the actual DOM order.
-  const phaseGroups = useMemo(() => groupItemsByPhase(visibleItems), [visibleItems]);
+  // The day's place offset, for every instant-level derivation below (the grouping sort, the
+  // clash badge and the unplanned rules all take it). Declared here because the phase grouping
+  // is the first consumer — it used to sit further down, next to the clash badge alone.
+  const dayOffsetMin = offsetForCountry(getCountryForDate(selectedDate));
+  // phase-of-day grouping, CHRONOLOGICAL (owner-instructed): timed items ascend by absolute
+  // instant, untimed items form one trailing "Anytime" run. `isNewPhase` marks where the render
+  // layer inserts a subtle phase header — which is the whole point of the sort, since a day
+  // holding a 3pm plan before a 10am one used to print "Afternoon" and then render the morning
+  // plan underneath it. View-level only: `groupItemsByPhase` is pure and writes nothing, so the
+  // persisted order is untouched (the zero-writes proof in e2e/sort-clash.spec.ts still holds).
+  // SortableContext's `items` below is this GROUPED order so dnd-kit's index math matches the
+  // actual DOM order.
+  const phaseGroups = useMemo(
+    () => groupItemsByPhase(visibleItems, selectedDate, dayOffsetMin),
+    [visibleItems, selectedDate, dayOffsetMin],
+  );
   const allItemIds = phaseGroups.map((g) => g.item.id);
   // FILLED means committed: an item that carries a real start time is STRUCK, an untimed one is
   // still an idea and is drawn HOLLOW. The running head prints both counts.
@@ -1182,19 +1192,19 @@ export default function CalendarPlanner() {
   // weather are facts about the day, not about a person, so they are deliberately NOT filtered.)
   const firstTimedItem = useMemo(() => earliestTimedItem(visibleItems), [visibleItems]);
   const firstStartInfo = firstTimedItem ? describeItemTime(firstTimedItem, selectedDate) : null;
-  // warn-only clash badge, presentation-only — it never touches the manual
-  // drag-order (`handleDragEnd`/`arrayMove`/`SortableContext` are all untouched below).
+  // warn-only clash badge, presentation-only — it never writes and never affects ordering.
   // computed over the VISIBLE set. A badge warning about a collision with an item that is
   // not on screen is unreadable; clash detection is order-independent so this is a pure narrowing.
   // The overlap is judged on the absolute instant, so the day and its offset
-  // come along — a day can hold items in another zone.
-  const dayOffsetMin = offsetForCountry(getCountryForDate(selectedDate));
+  // come along (`dayOffsetMin`, declared above the grouping) — a day can hold items in
+  // another zone.
   const dayClashIds = useMemo(
     () => clashingItemIds(visibleItems, selectedDate, dayOffsetMin),
     [visibleItems, selectedDate, dayOffsetMin],
   );
   // the day's unplanned rules, keyed by the row each is drawn ABOVE. Measured in chronological
-  // order (stored order is append order), presentation-only — the rendered order stays stored.
+  // order, presentation-only — and since the rendered order is now chronological too, each rule
+  // lands between the two rows it actually describes.
   const dayGaps = useMemo(
     () => unplannedGapsByItemId(visibleItems, selectedDate, dayOffsetMin),
     [visibleItems, selectedDate, dayOffsetMin],
@@ -1780,9 +1790,10 @@ export default function CalendarPlanner() {
                         return (
                         <div key={item.id}>
                           {/* phase-of-day header — subtle, non-interactive, shown only at a
-                              phase boundary in the rendered order (: timed items keep their
-                              exact stored order; only untimed items move to the trailing "Anytime"
-                              run — see lib/phase-of-day.ts). Not a sortable/draggable node. */}
+                              phase boundary in the rendered (chronological) order; a phase whose
+                              rank has already been headed never repeats, which is what keeps a
+                              date-line day from printing "Afternoon" twice — see
+                              lib/phase-of-day.ts. Not a sortable/draggable node. */}
                           {isNewPhase && (
                             <p
                               data-testid={`calendar-phase-header-${phase}-${item.id}`}
@@ -1799,6 +1810,12 @@ export default function CalendarPlanner() {
                           <SortableItem
                             item={item}
                             date={selectedDate}
+                            /* A TIMED row's position is decided by its time, so its grip is
+                               disabled — a drag that silently snapped back would be worse than
+                               no drag at all. The untimed "Anytime" run stays draggable, and
+                               reordering it has a real effect because the sort preserves the
+                               relative order of untimed items. */
+                            dragDisabled={phase !== 'anytime'}
                             clashes={dayClashIds.has(item.id)}
                             selectMode={selectMode}
                             selected={selectedIds.has(item.id)}
