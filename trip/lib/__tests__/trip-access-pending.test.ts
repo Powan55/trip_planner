@@ -7,7 +7,7 @@
 // ⚠ Assertions count mock calls (the S378 rigour): `ensureMembership` swallows every failure, so
 // "no toast appeared" is indistinguishable from "the mocked module was bypassed" without a count.
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const gate = vi.hoisted(() => ({ on: true }));
 vi.mock('@/lib/firebase-config', async (importActual) => ({
@@ -17,7 +17,7 @@ vi.mock('@/lib/firebase-config', async (importActual) => ({
   getTripId: (await importActual<typeof import('@/lib/firebase-config')>()).getTripId,
 }));
 
-const ensureMembershipMock = vi.fn<(tripId: string) => Promise<'joined' | void>>(async () => {});
+const ensureMembershipMock = vi.fn<(tripId: string) => Promise<void>>(async () => {});
 vi.mock('@/lib/trips-remote', () => ({
   ensureMembership: (tripId: string) => ensureMembershipMock(tripId),
   // The provider's other effects reach for these; they are never exercised here.
@@ -107,37 +107,6 @@ describe('runTripMembership — when enrolment runs (#10)', () => {
     cleanup();
 
     expect(ensureMembershipMock).not.toHaveBeenCalled();
-  });
-});
-
-describe('runTripMembership — reload after a self-join (D-595)', () => {
-  const realLocation = window.location;
-  let reload: ReturnType<typeof vi.fn>;
-  beforeEach(() => {
-    reload = vi.fn();
-    Object.defineProperty(window, 'location', { value: { reload }, configurable: true, writable: true });
-  });
-  afterEach(() => {
-    Object.defineProperty(window, 'location', { value: realLocation, configurable: true, writable: true });
-  });
-
-  it('reloads once when enrolment answers joined', async () => {
-    ensureMembershipMock.mockResolvedValue('joined');
-    setActiveTripId(TRIP);
-    signIn('Powan');
-    const cleanup = runTripMembership();
-    await flush();
-    cleanup();
-    expect(reload).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not reload on any other answer', async () => {
-    setActiveTripId(TRIP);
-    signIn('Powan');
-    const cleanup = runTripMembership();
-    await flush();
-    cleanup();
-    expect(reload).not.toHaveBeenCalled();
   });
 });
 
