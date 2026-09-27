@@ -83,6 +83,8 @@ import {
   renameKnownTrip,
   setTripConfig,
   applyRemoteTripMeta,
+  removeKnownTrip,
+  listRemovedTrips,
   SHARED_NAME,
   TRIP_DAYS_MAX,
 } from '@/core/trips/registry';
@@ -357,6 +359,25 @@ describe('S375 half 2 — the self-heal guard marks only a FOUND doc', () => {
     await flush();
     expect(fetchTripMetaMock).toHaveBeenCalledTimes(2); // D-600: every load refetches
     expect(loc.reload).toHaveBeenCalledTimes(1); // nothing changed, so no loop
+  });
+
+  it('a trip forgotten while its fetch is in flight stays forgotten (#656)', async () => {
+    const pending = deferred<{ name: string; updatedAt?: number } | undefined>();
+    fetchTripMetaMock.mockReturnValue(pending.promise);
+    const loc = stubLocation();
+
+    runTripMetaSelfHeal();
+    await flush();
+    removeKnownTrip(TRIP);
+    pending.resolve({ name: 'Kerala 2027', updatedAt: Date.now() + 1000 });
+    await flush();
+
+    expect(getKnownTrip(TRIP)).toBeUndefined();
+    expect(listRemovedTrips().map((r) => r.id)).toContain(TRIP);
+    expect(loc.reload).not.toHaveBeenCalled();
+    // The registry guard on its own, for any other caller that lands after a forget.
+    expect(applyRemoteTripMeta(TRIP, { name: 'Kerala 2027', updatedAt: Date.now() + 1000 })).toBe(false);
+    expect(getKnownTrip(TRIP)).toBeUndefined();
   });
 
   it('does not touch the network for the default pack', async () => {

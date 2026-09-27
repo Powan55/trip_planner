@@ -163,7 +163,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('pushDayChunk — the itinerary ChunkSync write (present pushes, absent skips, offline rejects)', () => {
   it('pushes ONE present day through the merge-aware transactional write', async () => {
     const current = [day('2026-12-09', [item('A', { hlc: hlc(1000, 'me'), rev: 1 })])];
-    await pushDayChunk(current, '2026-12-09');
+    await pushDayChunk(current, '2026-12-09', TRIP_ID);
     expect(writeLog).toContain(`tx-set:trips/${TRIP_ID}/days/2026-12-09`);
     const written = fake.docs.get(`trips/${TRIP_ID}/days/2026-12-09`) as unknown as DayPlan;
     expect(written.items.map((i) => i.id)).toEqual(['A']);
@@ -171,14 +171,14 @@ describe('pushDayChunk — the itinerary ChunkSync write (present pushes, absent
 
   it('SKIPS a locally-absent day: resolves, issues NO write, never a deleteDoc', async () => {
     const current = [day('2026-12-09', [item('A')])];
-    await expect(pushDayChunk(current, '2026-12-31')).resolves.toBeUndefined();
+    await expect(pushDayChunk(current, '2026-12-31', TRIP_ID)).resolves.toBeUndefined();
     expect(writeLog).toEqual([]); // no tx-set, no delete
   });
 
   it('REJECTS when the remote is unreachable (so the outbox decorator keeps the chunk dirty)', async () => {
     gate.offline = true;
     const current = [day('2026-12-09', [item('A')])];
-    await expect(pushDayChunk(current, '2026-12-09')).rejects.toThrow();
+    await expect(pushDayChunk(current, '2026-12-09', TRIP_ID)).rejects.toThrow();
   });
 });
 

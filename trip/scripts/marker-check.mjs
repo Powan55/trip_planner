@@ -136,6 +136,28 @@ const EXEMPT_FILES = new Set([
   'trip/scripts/marker-check.mjs',
 ]);
 
+// A NUL in one of these is BOM-less UTF-16, not a binary to skip silently (#660).
+const TEXT_LIKE_EXT = new Set([
+  '.md', '.ts', '.tsx', '.js', '.mjs', '.cjs', '.json', '.yml', '.yaml',
+  '.txt', '.css', '.html', '.svg', '.sh', '.toml',
+]);
+
+const swap16 = (buf) => Buffer.from(buf.subarray(0, buf.length & ~1)).swap16();
+
+function decodeForScan(buf, rel) {
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) {
+    return { text: buf.subarray(2).toString('utf16le') };
+  }
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) {
+    return { text: swap16(buf.subarray(2)).toString('utf16le') };
+  }
+  if (buf.includes(0)) {
+    if (TEXT_LIKE_EXT.has(path.extname(rel).toLowerCase())) return { unscanned: true };
+    return { binary: true };
+  }
+  return { text: buf.toString('utf-8') };
+}
+
 // Above the cap a file is reported `unscanned` and the run exits 1 — so the cap is
 // not a performance knob, it is a hard stop for this check and for the first step of
 // CI on every branch. One tracked file grows monotonically (DECISIONS.md is
@@ -345,6 +367,21 @@ function selfTest() {
   assert.match(capWarning(1_700_000, 'DECISIONS.md'), /85% of the 2000000-byte read cap/);
   assert.equal(capWarning(2_400_000, 'DECISIONS.md'), null); // over the cap: a hit, not a warning
 
+  const utf16le = Buffer.concat([
+    Buffer.from([0xff, 0xfe]),
+    Buffer.from('// Apex reviewed this', 'utf16le'),
+  ]);
+  assert.deepEqual(scanText(decodeForScan(utf16le, 'x.md').text, 'x.md').map((h) => h.rule), ['role-word']);
+
+  const utf16be = Buffer.concat([
+    Buffer.from([0xfe, 0xff]),
+    swap16(Buffer.from('// Gate 2 passed', 'utf16le')),
+  ]);
+  assert.deepEqual(scanText(decodeForScan(utf16be, 'x.md').text, 'x.md').map((h) => h.rule), ['gate-word']);
+
+  assert.deepEqual(decodeForScan(Buffer.from('plain\0text'), 'x.md'), { unscanned: true });
+  assert.deepEqual(decodeForScan(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x00]), 'x.png'), { binary: true });
+
   console.log('self-test: all assertions passed');
 }
 
@@ -374,7 +411,17 @@ function main() {
     }
     // Skip binaries by content, not by extension, so an unknown text extension
     // is still scanned rather than silently ignored.
-    if (buf.includes(0)) continue;
+    const decoded = decodeForScan(buf, rel);
+    if (decoded.binary) continue;
+    if (decoded.unscanned) {
+      hits.push({
+        file: rel,
+        line: 0,
+        rule: 'unscanned',
+        text: 'contains a NUL byte but has a text extension — refusing to silently skip it as binary',
+      });
+      continue;
+    }
     if (buf.length > READ_CAP_BYTES) {
       hits.push({
         file: rel,
@@ -388,7 +435,7 @@ function main() {
     if (nearCap) warnings.push(nearCap);
     const ext = path.extname(rel).toLowerCase();
 
-    const text = buf.toString('utf-8');
+    const text = decoded.text;
     scanned++;
     hits.push(...scanText(text, rel));
     if (ext === '.md') {

@@ -34,9 +34,9 @@ const docsChunkSync: ChunkSync<DocItem[]> = {
   chunkDiff(prev, next) {
     return JSON.stringify(prev) !== JSON.stringify(next) ? ['checklist'] : [];
   },
-  async pushChunk(chunk, current) {
+  async pushChunk(chunk, current, tripId) {
     const { pushDocsChunk } = await import('./docs-remote');
-    await pushDocsChunk(current, chunk); // rejects on failure → outbox keeps the chunk dirty
+    await pushDocsChunk(current, chunk, tripId); // rejects on failure → outbox keeps the chunk dirty
   },
 };
 

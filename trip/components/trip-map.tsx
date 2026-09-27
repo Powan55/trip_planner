@@ -390,6 +390,26 @@ function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
   );
 }
 
+// Stops propagation so the fullscreen shell's document-level Esc doesn't also exit.
+export function onPopupKeyDown(e: KeyboardEvent, remove: () => void) {
+  if (e.key !== 'Escape') return;
+  e.stopPropagation();
+  remove();
+}
+
+// Only pulls focus back when it was inside the popup (now removed, so it sits on body):
+// a mouse click elsewhere that closed the popup keeps its own focus.
+export function restorePopupFocus(
+  popupEl: HTMLElement | null,
+  opener: HTMLElement | null,
+  fallback: HTMLElement | null,
+) {
+  const active = document.activeElement;
+  if (active && active !== document.body && !popupEl?.contains(active)) return;
+  const target = opener?.isConnected && opener !== document.body ? opener : fallback;
+  if (target?.isConnected) target.focus();
+}
+
 // Imperative handle the host chrome holds — used to force a canvas resize after
 // the host node is physically relocated (fullscreen enter/exit lives in the
 // parent; the map instance lives here, so the parent asks us to resize).
@@ -574,6 +594,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
   const popupRef = useRef<MLPopup | null>(null);
+  const popupElRef = useRef<HTMLElement | null>(null);
+  const popupOpenerRef = useRef<HTMLElement | null>(null);
   // The resolved maplibre-gl runtime module — stashed once the lazy
   // import in the init effect resolves, so imperative callers (focusMarker)
   // can reuse `openPopup` without re-importing or threading the module through
@@ -622,11 +644,22 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       popup.on('close', () => {
         setPopupMarker(null);
         setPopupNode(null);
+        restorePopupFocus(
+          popupElRef.current,
+          popupOpenerRef.current,
+          mapRef.current?.getCanvas() ?? null,
+        );
       });
       popupRef.current = popup;
     }
+    const opener = document.activeElement;
     const holder = document.createElement('div');
     popup.setLngLat([marker.lng, marker.lat]).setDOMContent(holder).addTo(map);
+    popupOpenerRef.current = opener instanceof HTMLElement ? opener : null;
+    const el = popup.getElement();
+    popupElRef.current = el ?? null;
+    const p = popup;
+    el?.addEventListener('keydown', (e) => onPopupKeyDown(e, () => p.remove()));
     setPopupNode(holder);
     setPopupMarker(marker);
     // seat the marker BELOW the container centre so the popup (anchored

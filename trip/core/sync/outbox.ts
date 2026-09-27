@@ -35,9 +35,9 @@
 // at runtime — the dependency direction is an accepted, existing pattern for the sync seam.)
 
 import type { StoragePort, SyncPort } from '@/core/ports';
-import { keyFor, keyForTrip, readJson, writeJson, removeKey } from '@/core/storage/gateway';
+import { DEFAULT_TRIP_ID, getActiveTripId, getDefaultTripShareId, keyFor, keyForTrip, readJson, writeJson, removeKey } from '@/core/storage/gateway';
 import { isPermissionDenied } from '@/core/sync/denied';
-import { isTripRemoteConfigured } from '@/lib/firebase-config';
+import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 
 export type SyncDomain = 'itinerary' | 'expenses' | 'budget' | 'docs' | 'places';
@@ -53,8 +53,8 @@ export interface ChunkSync<T> {
   chunkDiff(prev: T, next: T): string[];
   /** Merge-aware transactional write of ONE chunk from `current`. MUST REJECT on failure so the
    * decorator can keep the chunk dirty; resolving on a legitimately-absent chunk (a skip) is
-   * correct and acks the chunk. */
-  pushChunk(chunk: string, current: T): Promise<void>;
+   * correct and acks the chunk. `tripId` is the remote id captured when the push was queued. */
+  pushChunk(chunk: string, current: T, tripId: string): Promise<void>;
 }
 
 interface OutboxSlot {
@@ -144,7 +144,7 @@ function chunkSeq(slot: OutboxSlot, domain: SyncDomain, chunk: string): number {
   return slot.seq?.[domain]?.[chunk] ?? 0;
 }
 
-function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSlot['seq']): void {
+function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSlot['seq']): void {
   // Prune empty domain arrays. A fully-clean outbox with NO ack timestamp yet REMOVES the key (so
   // "slot cleared" is literal and the byte footprint is zero) — but once ANY ack has ever been
   // recorded, the key persists (holding `{dirty:{}, lastAckAt}`) so the sync-status badge's
@@ -155,14 +155,14 @@ function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSl
     if (arr && arr.length > 0) pruned[d] = arr;
   }
   if (Object.keys(pruned).length === 0 && lastAckAt === undefined) {
-    removeKey('local', keyFor('syncOutbox'));
+    removeKey('local', keyForTrip(packId, 'syncOutbox'));
     notifyChanged();
     return;
   }
   const slot: OutboxSlot = { version: 1, dirty: pruned };
   if (lastAckAt !== undefined) slot.lastAckAt = lastAckAt;
   if (seq && Object.keys(seq).length > 0) slot.seq = seq;
-  writeJson('local', keyFor('syncOutbox'), slot);
+  writeJson('local', keyForTrip(packId, 'syncOutbox'), slot);
   notifyChanged();
 }
 
@@ -225,14 +225,14 @@ export function outboxSnapshot(): { dirty: OutboxSlot['dirty']; lastAckAt: strin
 // trip's refusal into another across a switch that did not reload.
 const denied = new Set<string>();
 
-function deniedKey(domain: SyncDomain, chunk: string): string {
-  return JSON.stringify([keyFor('syncOutbox'), domain, chunk]);
+function deniedKey(packId: string, domain: SyncDomain, chunk: string): string {
+  return JSON.stringify([keyForTrip(packId, 'syncOutbox'), domain, chunk]);
 }
 
 /** Record a refusal and say so ONCE per chunk, then let the badge re-read via the same change
  * event every slot write already dispatches. */
-function markDenied(domain: SyncDomain, chunk: string): void {
-  const key = deniedKey(domain, chunk);
+function markDenied(packId: string, domain: SyncDomain, chunk: string): void {
+  const key = deniedKey(packId, domain, chunk);
   if (denied.has(key)) return;
   denied.add(key);
   console.warn(
@@ -251,11 +251,12 @@ function markDenied(domain: SyncDomain, chunk: string): void {
  */
 export function outboxBlocked(): number {
   if (!enabled() || denied.size === 0) return 0;
-  const { dirty } = loadSlot();
+  const packId = getActiveTripId();
+  const { dirty } = loadSlot(packId);
   let n = 0;
   for (const domain of Object.keys(dirty) as SyncDomain[]) {
     for (const chunk of dirty[domain] ?? []) {
-      if (denied.has(deniedKey(domain, chunk))) n += 1;
+      if (denied.has(deniedKey(packId, domain, chunk))) n += 1;
     }
   }
   return n;
@@ -278,8 +279,8 @@ export function outboxBlocked(): number {
  *
  * #544: every enqueue bumps each chunk's counter (even an already-dirty one) and returns the new
  * values, which the push carries to its ack. */
-function enqueue(domain: SyncDomain, chunks: string[]): Record<string, number> {
-  const fresh = loadSlot();
+function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<string, number> {
+  const fresh = loadSlot(packId);
   const set = new Set(fresh.dirty[domain] ?? []);
   const counters = { ...fresh.seq?.[domain] };
   for (const c of chunks) {
@@ -287,7 +288,7 @@ function enqueue(domain: SyncDomain, chunks: string[]): Record<string, number> {
     counters[c] = (counters[c] ?? 0) + 1;
   }
   fresh.dirty[domain] = [...set];
-  saveSlot(fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters });
+  saveSlot(packId, fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters });
   return counters;
 }
 
@@ -298,7 +299,7 @@ function enqueue(domain: SyncDomain, chunks: string[]): Record<string, number> {
  * so the trip gate cannot be true yet. The caller checks the traveler.
  */
 export function markOutboxDirty(domain: SyncDomain, chunks: string[]): void {
-  if (chunks.length > 0) enqueue(domain, chunks);
+  if (chunks.length > 0) enqueue(getActiveTripId(), domain, chunks);
 }
 
 /** Ack: remove one confirmed chunk from the domain's dirty set, and stamp the single app-wide
@@ -310,13 +311,13 @@ export function markOutboxDirty(domain: SyncDomain, chunks: string[]): void {
  *
  * #237: same fresh-read-immediately-before-write-back shape as `enqueue`, and the same
  * narrows-but-does-not-close caveat — see its comment. */
-function ack(domain: SyncDomain, chunk: string, seq: number): void {
-  const fresh = loadSlot();
+function ack(packId: string, domain: SyncDomain, chunk: string, seq: number): void {
+  const fresh = loadSlot(packId);
   const arr = fresh.dirty[domain];
   if (!arr) return;
   if (chunkSeq(fresh, domain, chunk) !== seq) return;
   fresh.dirty[domain] = arr.filter((c) => c !== chunk);
-  saveSlot(fresh.dirty, new Date().toISOString(), fresh.seq);
+  saveSlot(packId, fresh.dirty, new Date().toISOString(), fresh.seq);
 }
 
 // ── #124: at most ONE push in flight per (domain, chunk). ────────────────────────────────────
@@ -349,7 +350,21 @@ interface ChunkRun {
 }
 const running = new Map<string, ChunkRun>();
 
-function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T, seq: number): Promise<void> {
+/** #654: the pack and remote id a push belongs to, read synchronously when it is queued. The write,
+ * the ack, the run key and the refusal record all use these, because `pushChunk`'s dynamic import
+ * and `getRemote()` yield long enough for the active trip to change underneath them. */
+interface Target {
+  packId: string;
+  remoteId: string;
+  shareId: string;
+}
+
+function captureTarget(): Target | null {
+  const remoteId = getTripId();
+  return remoteId ? { packId: getActiveTripId(), remoteId, shareId: getDefaultTripShareId() } : null;
+}
+
+function pushChunkOnce<T>(cs: ChunkSync<T>, t: Target, chunk: string, current: T, seq: number): Promise<void> {
   // #267: refused this page load ⇒ do not attempt it again. The guard sits HERE and not in
   // `flushOutbox` because this is the one choke point BOTH the commit path and the flush path
   // route through — one check covers every caller, present and future. The write-ahead enqueue has
@@ -357,8 +372,8 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T, seq: numb
   // apply; it just stops burning a refused write on every flush trigger.
   // `denied.size` first so the ordinary path — nothing refused, ever, on most devices — does not
   // pay `deniedKey`'s gateway read on every single push.
-  if (denied.size > 0 && denied.has(deniedKey(cs.domain, chunk))) return Promise.resolve();
-  const key = `${cs.domain}\u0000${chunk}`; // NUL: chunk keys are dates / leg ids, never contain it
+  if (denied.size > 0 && denied.has(deniedKey(t.packId, cs.domain, chunk))) return Promise.resolve();
+  const key = [t.packId, t.remoteId, cs.domain, chunk].join('\u0000'); // NUL: none of these contain it
   const live = running.get(key);
   if (live) {
     // Hand the running loop the newer state and join it, instead of opening a second transaction.
@@ -377,7 +392,7 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T, seq: numb
         run.superseded = false;
         const attemptSeq = run.seq;
         try {
-          await cs.pushChunk(chunk, run.latest as T); // ② attempt
+          await cs.pushChunk(chunk, run.latest as T, t.remoteId); // ② attempt
         } catch (err) {
           // ④ rejection swallowed — the write-ahead record persists, so the chunk retries on the
           // next flush trigger (and across a reload). NEVER rethrow to the commit caller.
@@ -388,19 +403,22 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T, seq: numb
           // still swallows and still returns, it just stops pretending the next attempt is worth
           // making. `markDenied` is total (a Set add, a warn, a same-tab event) so it cannot turn
           // this catch into a throw.
-          if (isPermissionDenied(err)) markDenied(cs.domain, chunk);
+          if (isPermissionDenied(err)) markDenied(t.packId, cs.domain, chunk);
           return;
         }
         // ③ ack-on-resolve, but ONLY for the attempt that carried the newest state. Both the
         // supersede and this check are synchronous continuations (single-threaded JS), so there is
         // no window where a joiner's edit is lost between the resolve and the ack.
+        // A share switch wiped this pack's slot and restarted its counters, so the seq no longer
+        // identifies our push; leave whatever is queued now for its own run.
+        if (t.packId === DEFAULT_TRIP_ID && getDefaultTripShareId() !== t.shareId) return;
         if (!run.superseded) {
           // Guarded because this sits OUTSIDE the attempt's own try: `ack` writes localStorage, and
           // a throw here would reject `run.promise` — i.e. reject into the commit tail for the owner
           // AND every joiner, breaking this module's never-throws contract. A failed ack just leaves
           // the chunk dirty, which the next flush retries (idempotent merged write).
           try {
-            ack(cs.domain, chunk, attemptSeq);
+            ack(t.packId, cs.domain, chunk, attemptSeq);
           } catch {
             /* ignore — the chunk stays dirty and retries; never throw at the commit caller */
           }
@@ -423,11 +441,12 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T, seq: numb
  * destructively (single-threaded JS). Same-chunk attempts are serialized by `pushChunkOnce`. */
 async function pushChunks<T>(
   cs: ChunkSync<T>,
+  t: Target,
   current: T,
   chunks: string[],
   seqs: Record<string, number>,
 ): Promise<void> {
-  await Promise.all(chunks.map((chunk) => pushChunkOnce(cs, chunk, current, seqs[chunk] ?? 0)));
+  await Promise.all(chunks.map((chunk) => pushChunkOnce(cs, t, chunk, current, seqs[chunk] ?? 0)));
 }
 
 /**
@@ -448,18 +467,19 @@ async function pushChunks<T>(
  */
 export function withOutbox<T>(cs: ChunkSync<T>): SyncPort<T>['push'] {
   return async (prev: T, next: T): Promise<void> => {
-    if (!enabled()) return;
+    const t = enabled() ? captureTarget() : null;
+    if (!t) return;
     const chunks = cs.chunkDiff(prev, next);
     if (chunks.length === 0) return;
-    const seqs = enqueue(cs.domain, chunks); // ① write-ahead
-    await pushChunks(cs, next, chunks, seqs); // ②③④
+    const seqs = enqueue(t.packId, cs.domain, chunks); // ① write-ahead
+    await pushChunks(cs, t, next, chunks, seqs); // ②③④
   };
 }
 
-// One in-flight flag per domain: a concurrent flush for the same domain is a
+// One in-flight flag per trip and domain: a concurrent flush for the same pair is a
 // no-op; cross-tab double-flush is harmless (idempotent writes). Module-scope, matching the one
 // shared outbox.
-const inFlight = new Set<SyncDomain>();
+const inFlight = new Set<string>();
 
 /**
  * Flush a domain's dirty set. Called on `online` / visible / app-start. Reads the
@@ -474,16 +494,18 @@ const inFlight = new Set<SyncDomain>();
  * the domain flag, so neither path can deadlock or starve the other.
  */
 export async function flushOutbox<T>(cs: ChunkSync<T>, storage: StoragePort<T>): Promise<void> {
-  if (!enabled()) return;
-  if (inFlight.has(cs.domain)) return;
-  const slot = loadSlot();
+  const t = enabled() ? captureTarget() : null;
+  if (!t) return;
+  const fk = [t.packId, t.remoteId, cs.domain].join('\u0000');
+  if (inFlight.has(fk)) return;
+  const slot = loadSlot(t.packId);
   const chunks = slot.dirty[cs.domain] ?? [];
   if (chunks.length === 0) return;
-  inFlight.add(cs.domain);
+  inFlight.add(fk);
   try {
     // #544: counters read before the state, so the pushed state is at least as new as they are.
-    await pushChunks(cs, storage.load(), chunks, { ...slot.seq?.[cs.domain] });
+    await pushChunks(cs, t, storage.load(), chunks, { ...slot.seq?.[cs.domain] });
   } finally {
-    inFlight.delete(cs.domain);
+    inFlight.delete(fk);
   }
 }

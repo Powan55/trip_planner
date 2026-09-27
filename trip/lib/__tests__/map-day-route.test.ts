@@ -152,14 +152,17 @@ describe('issue #1 · seq — the pins are numbered 1, 2, 3 in itinerary order',
     expect(stops[1].seq).toBe(2);
   });
 
-  it('/plan and /travel number the STORED order (their drag is the itinerary order there)', () => {
+  it('/plan and /travel number the CHRONOLOGICAL order, matching the day list beside the map', () => {
+    // Was the stored order, back when those day lists rendered the manual drag order. Both
+    // lists are chronological now, so stored order here would draw stop 1 at a row halfway
+    // down the list — the map disagreeing with the list it sits next to.
     const stops = buildItineraryStops([
       day('2026-12-11', [
         pinned('late', 27.72, 85.32, 19 * 60),
         pinned('early', 27.70, 85.30, 8 * 60),
       ]),
     ]);
-    expect(stops.map((s) => `${s.seq}:${s.item.id}`)).toEqual(['1:late', '2:early']);
+    expect(stops.map((s) => `${s.seq}:${s.item.id}`)).toEqual(['1:early', '2:late']);
   });
 
   it('every day of the seed is numbered 1..n with no gap and no repeat', () => {

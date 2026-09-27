@@ -198,6 +198,52 @@ describe('account prefs', () => {
     expect(getCachedPrefs().homeCurrency).toBe('JPY');
   });
 
+  it('two quick taps end on the last one, even when the first commits late', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const run = fs.runTransaction;
+    fs.runTransaction = async (...args) => {
+      fs.runTransaction = run;
+      await gate;
+      return run(...args);
+    };
+    try {
+      const first = setPref('homeCurrency', 'USD');
+      await vi.waitFor(() => expect(fs.runTransaction).toBe(run));
+      await setPref('homeCurrency', 'EUR');
+      release();
+      await first;
+    } finally {
+      fs.runTransaction = run;
+    }
+    expect(field('homeCurrency')?.v).toBe('EUR');
+    expect(getCachedPrefs().homeCurrency).toBe('EUR');
+  });
+
+  it('USD, EUR, USD ends on USD when the first two commit after the third', async () => {
+    const gates: (() => void)[] = [];
+    const run = fs.runTransaction;
+    fs.runTransaction = async (...args) => {
+      if (gates.length === 1) fs.runTransaction = run;
+      await new Promise<void>((r) => gates.push(r));
+      return run(...args);
+    };
+    try {
+      const usd = setPref('homeCurrency', 'USD');
+      const eur = setPref('homeCurrency', 'EUR');
+      await vi.waitFor(() => expect(gates).toHaveLength(2));
+      await setPref('homeCurrency', 'USD');
+      gates[0]();
+      await usd;
+      gates[1]();
+      await eur;
+    } finally {
+      fs.runTransaction = run;
+    }
+    expect(field('homeCurrency')?.v).toBe('USD');
+    expect(getCachedPrefs().homeCurrency).toBe('USD');
+  });
+
   it('sign-out wipes the local mirror', async () => {
     await setPref('homeCurrency', 'EUR');
     wipeAllTripData();

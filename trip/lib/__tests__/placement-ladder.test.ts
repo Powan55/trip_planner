@@ -265,7 +265,7 @@ describe('S381 · the exact-only join (/plan, /travel) is unchanged in meaning',
     expect(stops.every((s) => s.placement.kind === 'exact')).toBe(true);
   });
 
-  it('…and it keeps the user’s manual order rather than re-sorting by time (D-018)', () => {
+  it('…and it orders the stops by TIME, matching the chronological day list beside the map', () => {
     const late: ItineraryItem = {
       id: 'late',
       title: 'Boudhanath Stupa',
@@ -278,7 +278,10 @@ describe('S381 · the exact-only join (/plan, /travel) is unchanged in meaning',
       category: 'sightseeing',
       startMinutes: 8 * 60,
     };
+    // Seeded late-then-early on purpose: the stored order must NOT survive here, because the
+    // day list this map sits beside is chronological and a route numbered in stored order
+    // would contradict it. The store itself is untouched — this is a read-only projection.
     const stops = buildItineraryStops([withItems(NEPAL_DAY, [late, early])]);
-    expect(stops.map((s) => s.item.id)).toEqual(['late', 'early']);
+    expect(stops.map((s) => s.item.id)).toEqual(['early', 'late']);
   });
 });

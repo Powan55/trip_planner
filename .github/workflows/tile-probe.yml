@@ -1,0 +1,77 @@
+name: Tile probe
+
+# Live-outage smoke test for the OpenFreeMap basemap (issue #673). e2e stubs
+# tiles (trip/e2e/fixtures.ts), so nothing else catches this. Not a required
+# check and never runs on PRs.
+#
+# GitHub disables a schedule after 60 days without any commit to the repo, and
+# a failed run emails whoever last edited this file.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: trip/lib/map-style.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Probe OpenFreeMap TileJSON and a sample tile
+        run: |
+          set -euo pipefail
+
+          URL=$(grep -oE "OPENFREEMAP_TILEJSON = '[^']+'" trip/lib/map-style.ts | sed -E "s/.*'([^']+)'/\1/")
+          if [ -z "$URL" ]; then
+            echo "::error::could not read OPENFREEMAP_TILEJSON from trip/lib/map-style.ts"
+            exit 1
+          fi
+          echo "TileJSON URL: $URL"
+
+          headers=$(mktemp)
+          body=$(mktemp)
+          status=$(curl -sS --max-time 15 --retry 2 -o "$body" -D "$headers" -w '%{http_code}' "$URL")
+          if [ "$status" != "200" ]; then
+            echo "::error::TileJSON returned HTTP $status"
+            exit 1
+          fi
+          if ! grep -qi '^content-type: application/json' "$headers"; then
+            echo "::error::TileJSON content-type was not application/json"
+            cat "$headers"
+            exit 1
+          fi
+
+          TILE_TMPL=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$body','utf8')).tiles[0] || '')")
+          if [ -z "$TILE_TMPL" ]; then
+            echo "::error::TileJSON has no tiles[0]"
+            exit 1
+          fi
+          echo "Tile template: $TILE_TMPL"
+
+          TILE_URL=$(echo "$TILE_TMPL" | sed -e 's/{z}/0/' -e 's/{x}/0/' -e 's/{y}/0/')
+          tile_headers=$(mktemp)
+          tile_body=$(mktemp)
+          tile_status=$(curl -sS --max-time 15 --retry 2 -o "$tile_body" -D "$tile_headers" -w '%{http_code}' "$TILE_URL")
+          if [ "$tile_status" != "200" ]; then
+            echo "::error::sample tile ($TILE_URL) returned HTTP $tile_status"
+            exit 1
+          fi
+          if ! grep -qi '^content-type: application/vnd.mapbox-vector-tile' "$tile_headers"; then
+            echo "::error::sample tile content-type was not application/vnd.mapbox-vector-tile"
+            cat "$tile_headers"
+            exit 1
+          fi
+
+          # TileJSON only: tile bytes contain "key" in place names.
+          if grep -aEi 'api.?key|unauthori[sz]' "$body" >/dev/null; then
+            echo "::error::TileJSON body matched a credential/auth-error pattern"
+            exit 1
+          fi
+
+          echo "OK: TileJSON and sample tile both healthy"

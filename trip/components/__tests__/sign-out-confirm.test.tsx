@@ -263,6 +263,15 @@ describe('SignOutConfirm — unsynced-edit warning', () => {
     expect(at(`t-unsynced`)!.textContent).toBe('1 change on this device hasn\'t synced yet and will be lost.');
   });
 
+  it('counts a person pref not yet on the account (#672)', async () => {
+    window.localStorage.setItem(
+      'nepal_japan_person_prefs',
+      JSON.stringify({ homeCurrency: { v: 'EUR', hlc: 'a', dirty: true }, units: { v: 'metric', hlc: 'b' } }),
+    );
+    await mount();
+    expect(at('t-unsynced')!.textContent).toBe('1 change on this device hasn\'t synced yet and will be lost.');
+  });
+
   it('sums journal days across the default pack and a known custom trip', async () => {
     window.localStorage.setItem('nepal_japan_journal_sync', JSON.stringify({ '2026-12-11': { hlc: 'a', dirty: true } }));
     window.localStorage.setItem(
