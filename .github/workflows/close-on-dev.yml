@@ -48,8 +48,12 @@ jobs:
           #
           # A keyword may be followed by a run of references, so `Closes: #1, #2 and #3` counts
           # for all three — batched pull requests here list many.
+          # Left boundary stops "Unresolved: #1" or "hotfix #2" matching. Tested by
+          # .github/scripts/close-refs.test.sh.
+          KW_RE='(^|[^[:alnum:]_])(clos(e|es|ed)|fix(es|ed)?|resolv(e|es|ed))[[:space:]]*:?[[:space:]]*(#[0-9]+([[:space:],]+(and[[:space:]]+)?#[0-9]+)*)'
+
           refs=$(printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" \
-                 | grep -oiE '(clos(e|es|ed)|fix(es|ed)?|resolv(e|es|ed))[[:space:]]*:?[[:space:]]*(#[0-9]+([[:space:],]+(and[[:space:]]+)?#[0-9]+)*)' \
+                 | grep -oiE "$KW_RE" \
                  | grep -oE '#[0-9]+' \
                  | tr -d '#' \
                  | sort -un \
