@@ -68,9 +68,9 @@ const itineraryChunkSync: ChunkSync<DayPlan[]> = {
     }
     return changed;
   },
-  async pushChunk(date, current) {
+  async pushChunk(date, current, tripId) {
     const { pushDayChunk } = await import('./itinerary-remote');
-    await pushDayChunk(current, date); // rejects on failure → outbox keeps the chunk dirty
+    await pushDayChunk(current, date, tripId); // rejects on failure → outbox keeps the chunk dirty
   },
 };
 

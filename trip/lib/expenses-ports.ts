@@ -39,9 +39,9 @@ const expensesChunkSync: ChunkSync<Expense[]> = {
     }
     return changed;
   },
-  async pushChunk(leg, current) {
+  async pushChunk(leg, current, tripId) {
     const { pushExpenseChunk } = await import('./expenses-remote');
-    await pushExpenseChunk(current, leg); // rejects on failure → outbox keeps the chunk dirty
+    await pushExpenseChunk(current, leg, tripId); // rejects on failure → outbox keeps the chunk dirty
   },
 };
 

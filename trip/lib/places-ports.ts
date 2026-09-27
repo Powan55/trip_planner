@@ -36,9 +36,9 @@ const placesChunkSync: ChunkSync<MyPlace[]> = {
   chunkDiff(prev, next) {
     return JSON.stringify(prev) !== JSON.stringify(next) ? ['list'] : [];
   },
-  async pushChunk(chunk, current) {
+  async pushChunk(chunk, current, tripId) {
     const { pushPlacesChunk } = await import('./places-remote');
-    await pushPlacesChunk(current, chunk); // rejects on failure → outbox keeps the chunk dirty
+    await pushPlacesChunk(current, chunk, tripId); // rejects on failure → outbox keeps the chunk dirty
   },
 };
 

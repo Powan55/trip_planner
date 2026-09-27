@@ -106,9 +106,10 @@ export async function pushChunkMerged(
   leg: Leg,
   localRows: Expense[],
   otherLegRows: Expense[] = [],
+  tripId = getTripId(),
 ): Promise<void> {
   const { doc, runTransaction } = fs;
-  const ref = doc(db, 'trips', getTripId(), 'expenses', leg);
+  const ref = doc(db, 'trips', tripId, 'expenses', leg);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const remoteRows: Expense[] = snap.exists() ? chunkDocToRows(snap.data() as Record<string, unknown>) : [];
@@ -139,11 +140,11 @@ export async function pushChunkMerged(
  * dirty. Unlike a day, an EMPTIED leg still writes `items:[]` ( parity — a deliberately
  * emptied leg is a real state, not a skip). Gated + lazy firebase stays behind `getRemote()`.
  */
-export async function pushExpenseChunk(current: Expense[], leg: string): Promise<void> {
+export async function pushExpenseChunk(current: Expense[], leg: string, tripId: string): Promise<void> {
   if (!LEGS.includes(leg)) return; // not a chunk of the ACTIVE pack → ack (never a bad write)
   const legRows = current.filter((e) => e.leg === leg);
   const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
-  await pushChunkMerged(db, fs, leg, legRows, current.filter((e) => e.leg !== leg)); // rejects on transport error → stays dirty
+  await pushChunkMerged(db, fs, leg, legRows, current.filter((e) => e.leg !== leg), tripId); // rejects on transport error → stays dirty
 }
 
 /**

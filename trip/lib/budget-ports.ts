@@ -28,9 +28,9 @@ const budgetChunkSync: ChunkSync<BudgetModel> = {
   chunkDiff(prev, next) {
     return JSON.stringify(flattenBudget(prev)) !== JSON.stringify(flattenBudget(next)) ? ['model'] : [];
   },
-  async pushChunk(chunk, current) {
+  async pushChunk(chunk, current, tripId) {
     const { pushBudgetChunk } = await import('./budget-remote');
-    await pushBudgetChunk(current, chunk); // rejects on failure → outbox keeps the chunk dirty
+    await pushBudgetChunk(current, chunk, tripId); // rejects on failure → outbox keeps the chunk dirty
   },
 };
 

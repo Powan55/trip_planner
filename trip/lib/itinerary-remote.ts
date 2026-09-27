@@ -219,6 +219,7 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
   // mirrors the subscribe gate: sync requires BOTH config AND an identified traveler.
   if (!isTripRemoteConfigured() || !getActiveTraveler()) return;
 
+  const tripId = getTripId();
   try {
     const { db, fs } = await getRemote();
     const { doc, deleteDoc } = fs;
@@ -231,14 +232,14 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
     // Changed or newly-added days → merge-aware transactional write of that single day-doc.
     for (const day of next) {
       if (!dayEquals(prevByDate.get(day.date), day)) {
-        writes.push(pushDayMerged(db, fs, day));
+        writes.push(pushDayMerged(db, fs, day, tripId));
       }
     }
 
     // Days removed entirely (in prev, gone from next) → deleteDoc that day-doc.
     for (const day of prev) {
       if (!nextByDate.has(day.date)) {
-        const ref = doc(db, 'trips', getTripId(), 'days', day.date);
+        const ref = doc(db, 'trips', tripId, 'days', day.date);
         writes.push(deleteDoc(ref));
       }
     }
@@ -262,9 +263,10 @@ export async function pushDayMerged(
   db: import('firebase/firestore').Firestore,
   fs: Pick<FirestoreMod, 'doc' | 'runTransaction'>,
   localDay: DayPlan,
+  tripId = getTripId(),
 ): Promise<void> {
   const { doc, runTransaction } = fs;
-  const ref = doc(db, 'trips', getTripId(), 'days', localDay.date);
+  const ref = doc(db, 'trips', tripId, 'days', localDay.date);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     // Read the remote-now day and merge the local day on top.
@@ -301,11 +303,11 @@ export async function pushDayMerged(
  * clobber a peer's re-created day, and whole-day removal is not a user-reachable op (trip dates
  * are fixed; `clearDay` keeps the day). Gated + lazy firebase stays behind `getRemote()`.
  */
-export async function pushDayChunk(current: DayPlan[], date: string): Promise<void> {
+export async function pushDayChunk(current: DayPlan[], date: string, tripId: string): Promise<void> {
   const day = current.find((d) => d.date === date);
   if (!day) return; // absent day → skip (ack), never a blind delete
   const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
-  await pushDayMerged(db, fs, day); // rejects on transport error → decorator keeps it dirty
+  await pushDayMerged(db, fs, day, tripId); // rejects on transport error → decorator keeps it dirty
 }
 
 /**
