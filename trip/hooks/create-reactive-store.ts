@@ -120,10 +120,11 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
       if (!hydratedRef.current) return;
       const prev = storage.load();
       const next = compute(prev);
-      storage.save(next);
+      const ok = storage.save(next);
       setValue(next);
       window.dispatchEvent(new CustomEvent(eventName));
-      if (sync) void sync.push(prev, next);
+      // A refused local save snaps back on re-read; pushing it would sync a change this device lost.
+      if (sync && ok !== false) void sync.push(prev, next);
     }, []);
 
     return { value, hydrated, commit };
