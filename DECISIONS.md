@@ -5955,3 +5955,9 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 **Trade-off.** Manual ordering of timed plans is gone — their time is now the only thing that places them, which is what was asked for. A drag of an untimed row past a timed one still rewrites stored order, so it can land the row at a different spot within the trailing untimed run than the drop point suggested; the run's own order is all that is observable, so this is cosmetic. On a date-line day the displayed times are correctly ordered but visually non-monotonic, with nothing on screen explaining why — the pre-existing accepted cost `lib/sort-items-by-time.ts` already records, now reachable from the day list rather than only the map.
 
 **Changes if.** Manual ordering of timed plans is wanted back: it returns as an explicit per-day "Time / Manual" toggle, never as a silent reversion, since the sort is what makes the phase headers trustworthy.
+
+### D-652 · (issue #674, 2026-09-27) · CI's `e2e` job runs a second, Firebase-configured build for `@firebase` specs
+
+**Decision.** After the behavioural suite, `e2e` rebuilds with `NEXT_PUBLIC_FIREBASE_*` set to fake, `demo-`-prefixed values (no emulator, no credential) and runs `--grep "@firebase"`. Specs tagged `@firebase` self-skip unless `E2E_FIREBASE` is set, so they no-op on every other build and on the first, dormant build in this same job.
+
+**Why.** Trip access and the Google link are gated on `isRemoteConfigured()`, a build-time env read; nothing in CI ever flipped it, so that surface had no real browser coverage at all.
