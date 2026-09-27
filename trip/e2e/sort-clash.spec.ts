@@ -8,7 +8,14 @@ import type { Page } from '@playwright/test';
  * (D-093). Presentation-only, zero store writes — the zero-writes-proof test is the
  * D-018 guarantee for this slice.
  *
- * 🔴 (#94) THE CHRONOLOGICAL-SORT NET LIVES IN `lib/__tests__/sort-items-by-time.test.ts` NOW.
+ * 🔴 THE CALENDAR IS CHRONOLOGICAL NOW (owner-instructed). The first describe below used to
+ * assert the opposite — that a day seeded out of order stayed in STORED order — because the day
+ * list rendered the manual drag order. A day holding a 3pm plan before a 10am one then printed
+ * "Afternoon" and filed the morning plan under it, so the ordering rule changed and these
+ * assertions were inverted with it. The zero-writes proof at the bottom of this file is
+ * UNCHANGED and still the D-018 guarantee: the sort is view-level, so stored order is untouched.
+ *
+ * 🔴 (#94) THE PURE-FUNCTION SORT NET LIVES IN `lib/__tests__/sort-items-by-time.test.ts` NOW.
  * Every test here used to have a second half that drove `#timeline` on /plan; #94 deleted that
  * section (it was an unsynced duplicate of the itinerary), so those halves are gone and each
  * test is retitled to name the surface it still proves — the calendar. The view-level
@@ -57,8 +64,8 @@ async function seedFixtureDay(page: Page, items: FixtureItem[]) {
   );
 }
 
-test.describe('S126 — the calendar keeps the STORED (manual) order (D-018)', () => {
-  test('a day seeded OUT of chronological order still renders in stored order in the calendar', async ({ page }) => {
+test.describe('the calendar day list is CHRONOLOGICAL (owner-instructed)', () => {
+  test('a day seeded OUT of chronological order renders sorted by time', async ({ page }) => {
     // Stored order: late (3pm), early (8am), mid (12pm) — deliberately NOT chronological.
     await gotoSettled(page, '/plan/');
     await seedFixtureDay(page, [
@@ -69,15 +76,76 @@ test.describe('S126 — the calendar keeps the STORED (manual) order (D-018)', (
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByTestId(`calendar-day-${FIXTURE_DAY}`).click();
 
-    // Calendar stays in STORED (manual) order — the persisted truth, untouched (D-018).
     const calendarIds = await page.locator('[data-testid^="calendar-item-s126-"]').evaluateAll(
       (els) => els.map((el) => el.getAttribute('data-testid')),
     );
     expect(calendarIds).toEqual([
-      'calendar-item-s126-late',
       'calendar-item-s126-early',
       'calendar-item-s126-mid',
+      'calendar-item-s126-late',
     ]);
+  });
+
+  test('the Morning header precedes the Afternoon header, and each plan sits under its own', async ({ page }) => {
+    // THE REPORTED DEFECT, end to end. A 10am plan stored after a 3pm one used to render with
+    // "Afternoon" as the day's first (and only) header and the morning plan beneath it. This
+    // walks the rendered day in DOM order and asserts headers and rows interleave correctly.
+    await gotoSettled(page, '/plan/');
+    await seedFixtureDay(page, [
+      { id: 's126-pm', title: 'S126 Three PM', startMinutes: 900 }, // 3:00 PM
+      { id: 's126-am', title: 'S126 Ten AM', startMinutes: 600 }, // 10:00 AM
+    ]);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByTestId(`calendar-day-${FIXTURE_DAY}`).click();
+    await expect(page.getByTestId('calendar-item-s126-am')).toBeVisible();
+
+    const sequence = await page
+      .locator('[data-testid^="calendar-phase-header-"], [data-testid^="calendar-item-s126-"]')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')));
+    expect(sequence).toEqual([
+      'calendar-phase-header-morning-s126-am',
+      'calendar-item-s126-am',
+      'calendar-phase-header-afternoon-s126-pm',
+      'calendar-item-s126-pm',
+    ]);
+  });
+
+  test('an untimed plan trails the timed ones under an Anytime header', async ({ page }) => {
+    await gotoSettled(page, '/plan/');
+    await seedFixtureDay(page, [
+      { id: 's126-idea', title: 'S126 Untimed Idea' }, // no time — an idea, not a commitment
+      { id: 's126-nine', title: 'S126 Nine AM', startMinutes: 540 },
+    ]);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByTestId(`calendar-day-${FIXTURE_DAY}`).click();
+
+    const ids = await page.locator('[data-testid^="calendar-item-s126-"]').evaluateAll(
+      (els) => els.map((el) => el.getAttribute('data-testid')),
+    );
+    expect(ids).toEqual(['calendar-item-s126-nine', 'calendar-item-s126-idea']);
+    await expect(page.getByTestId('calendar-phase-header-anytime-s126-idea')).toBeVisible();
+  });
+});
+
+test.describe('drag follows from the chronological order', () => {
+  test('a TIMED row has no reorder grip; an UNTIMED one still does', async ({ page }) => {
+    // A timed row's position is decided by its time, so offering a grip that snapped back would
+    // be worse than offering none. The untimed run keeps its grip, because reordering it has a
+    // real and lasting effect.
+    await gotoSettled(page, '/plan/');
+    await seedFixtureDay(page, [
+      { id: 's126-timed', title: 'S126 Timed Row', startMinutes: 540 },
+      { id: 's126-open', title: 'S126 Open Row' },
+    ]);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByTestId(`calendar-day-${FIXTURE_DAY}`).click();
+
+    await expect(page.getByTestId('calendar-item-s126-timed')).toHaveAttribute('data-drag-disabled', 'true');
+    await expect(page.getByRole('button', { name: 'Reorder S126 Timed Row' })).toHaveCount(0);
+    await expect(page.getByTestId('calendar-item-grip-locked-s126-timed')).toBeVisible();
+
+    await expect(page.getByTestId('calendar-item-s126-open')).not.toHaveAttribute('data-drag-disabled', 'true');
+    await expect(page.getByRole('button', { name: 'Reorder S126 Open Row' })).toBeVisible();
   });
 });
 
@@ -139,6 +207,8 @@ test.describe('S126 — zero-writes proof (D-018/D-142)', () => {
 
     const parsed = JSON.parse(after as string);
     const dayPlan = parsed.find((p: { date: string }) => p.date === FIXTURE_DAY);
+    // STILL late-then-early on disk, while the screen shows early-then-late: the chronological
+    // order is a render-time projection, and the persisted order is the persisted truth (D-018).
     expect(dayPlan.items.map((i: { id: string }) => i.id)).toEqual(['s126-zw-late', 's126-zw-early']);
   });
 });

@@ -40,8 +40,14 @@ function AttributionLine({ item }: { item: ItineraryItem }) {
 }
 
 // Sortable Item
-export function SortableItem({ item, date, clashes, selectMode, selected, highlighted, mapVisible, hasMarker, onToggleSelect, onEdit, onDelete, onDuplicate, onLocate }: { item: ItineraryItem; date: string; clashes: boolean; selectMode: boolean; selected: boolean; highlighted: boolean; mapVisible: boolean; hasMarker: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => void; onDuplicate: (targetDate: string) => void; onLocate: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+export function SortableItem({ item, date, clashes, selectMode, selected, highlighted, mapVisible, hasMarker, dragDisabled = false, onToggleSelect, onEdit, onDelete, onDuplicate, onLocate }: { item: ItineraryItem; date: string; clashes: boolean; selectMode: boolean; selected: boolean; highlighted: boolean; mapVisible: boolean; hasMarker: boolean; dragDisabled?: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => void; onDuplicate: (targetDate: string) => void; onLocate: () => void }) {
+  // `dragDisabled` is how the planner says "this row's place is decided by its time": the day
+  // list is chronological now, so a timed row cannot be dragged anywhere that would survive the
+  // next render. Telling dnd-kit itself (rather than only hiding the grip) is what keeps the
+  // KEYBOARD sensor consistent with the pointer one — a disabled row can neither be picked up
+  // nor be dropped onto. Defaults to false, so any caller that has no opinion behaves exactly
+  // as before.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled: dragDisabled });
   // duplicate-item ("same dinner, another day"): the Copy button reveals a native
   // <select> of trip days; picking one calls onDuplicate(targetDate) — a fresh-id copy of
   // this item's content lands on that day (defaults to "this day" for a one-off copy). Native
@@ -120,6 +126,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
       data-testid={`calendar-item-${item.id}`}
       data-highlighted={highlighted ? 'true' : undefined}
       data-mark={timeInfo ? undefined : 'hollow'}
+      data-drag-disabled={dragDisabled ? 'true' : undefined}
       aria-current={selected || highlighted ? 'true' : undefined}
       className="r group !flex flex-wrap items-start !gap-2"
     >
@@ -137,6 +144,25 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
             className="h-4 w-4 accent-primary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
           />
         </label>
+      ) : dragDisabled ? (
+        /* Same box, same alignment — but no button, so nothing invites a drag that the
+           chronological order would immediately undo, and no dead control lands in the tab
+           order or in the screen-reader tree. The dimmed glyph keeps the row's left edge
+           lined up with the draggable ones below it.
+
+           `text-ink-lo`, the flat dimmest tier — NOT `text-ink-lo/50`. The tiers are declared
+           as hex vars so Tailwind cannot attach an opacity modifier to them, and a `/50` there
+           emits no CSS at all, leaving the icon to inherit whatever the row's colour is (see the
+           note beside the token declarations in tailwind.config.ts). The draggable grip is
+           `text-ink-mid`, so one tier down reads as unavailable without going invisible. */
+        <span
+          aria-hidden="true"
+          title="Timed plans are ordered by time"
+          data-testid={`calendar-item-grip-locked-${item.id}`}
+          className="shrink-0 inline-flex min-h-tap min-w-tap items-start justify-center pt-1 cursor-default text-ink-lo"
+        >
+          <GripVertical className="w-4 h-4" />
+        </span>
       ) : (
         <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="shrink-0 inline-flex min-h-tap min-w-tap items-start justify-center pt-1 cursor-grab active:cursor-grabbing text-ink-mid hover:text-ink-hi touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded">
           <GripVertical className="w-4 h-4" />

@@ -19,7 +19,9 @@ devices when the build is wired to Firebase.
 - **Countdown dashboard** – live months/weeks/days/hours/minutes/seconds to departure plus
   trip stats (total days, countries, cities, planned vs. unplanned days). Once the trip is
   underway it switches to a day-by-day travel mode.
-- **Itinerary planner** – add, edit, and delete plans on any of the 32 days. Plans are saved on
+- **Itinerary planner** – add, edit, and delete plans on any of the 32 days. Each day sorts
+  itself by time, so a plan lands under the right Morning / Afternoon / Evening heading whatever
+  order it was entered in, and plans with no time yet gather under "Anytime" at the end. Plans are saved on
   the device (`localStorage`) and, when the build carries a Firebase web config, mirrored to
   Firestore under the trip's id, so every device signed in to that trip sees the same plan;
   with no config the app stays local-only. On mobile, a floating quick-add button opens the add

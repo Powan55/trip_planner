@@ -537,14 +537,20 @@ columns' single reachable stops, then Clear/Done/Close).
 
 S126. Two passive, non-destructive views on top of the structured time model (S124/S125):
 a pure view-level chronological sort (`sortItemsByTime`, stable, untimed items sink to the end
-preserving relative order; the calendar's manually-dragged order is never touched, D-018), and
-warn-only clash badges (`clashingItemIds`, half-open overlap on
+preserving relative order) and warn-only clash badges (`clashingItemIds`, half-open overlap on
 `effectiveStartMinutes`/`durationMinutes`). Zero store writes.
 
-Both functions are live; neither renders a `timeline-*` id any more. The sort's only production
-consumer is the map's per-day stop ordering (`lib/itinerary-map.ts`, one `sortItemsByTime` call,
-no second sort); the badge's is the calendar day-detail list, registered as
-`calendar-item-clash-<id>` in section 11 above. The net for the sort itself is a unit one —
+**D-606 widened the sort to every day list.** It was the map's per-day stop ordering alone; it is
+now the one order behind the planner's day detail (through `groupItemsByPhase`, section 23a), the
+Today panel, the Travel-Mode agenda, the printed sheet and the `/plan` + `/travel` day routes.
+Zero store writes still: it is a render-time projection, so the persisted order is untouched and
+D-018 holds — `e2e/sort-clash.spec.ts`'s zero-writes test asserts the stored bytes are still
+out of order while the screen is sorted. What D-606 retired is D-142's separate clause that the
+calendar RENDERS that stored order.
+
+Both functions are live; neither renders a `timeline-*` id any more. The badge's consumer is the
+calendar day-detail list, registered as `calendar-item-clash-<id>` in section 11 above. The net
+for the sort itself is a unit one —
 `lib/__tests__/sort-items-by-time.test.ts` :91 and :106 run the projection over the REAL seed
 content for the S377 Jan-9 date-line day (the DTW layover has to sort after the HND→DTW flight
 that produces it, and the rendered wall-clock stays deliberately non-monotonic), which is where a
@@ -558,6 +564,26 @@ proves only the calendar surface.
 > deleted that island: it held its own `selectedDate` and `LazyVisible` mounts islands prop-less,
 > so `/plan` shipped two 32-day day selectors that never synced. **Nothing replaced either id**,
 > and the behaviour they carried is asserted at the two consumers named above instead.
+
+### 23a. Chronological day lists and the locked grip (D-606)
+
+The planner's day detail renders `groupItemsByPhase(visibleItems, selectedDate, dayOffsetMin)` —
+`sortItemsByTime` first, then phase classification — so the `calendar-phase-header-<phase>-<id>`
+ids in section 11 appear in ascending phase order, each at most once. At most once is the part to
+hold on to: the sort key is the absolute INSTANT, so a date-line day can be correctly ordered
+with wall clocks running backwards, and the header rule stays rank-monotonic to keep "Afternoon"
+from printing a second time below "Evening" (#589).
+
+Because a timed row's place is decided by its time, drag now governs the untimed run only:
+
+| Id / attribute | Node | Notes |
+|---|---|---|
+| `data-drag-disabled="true"` | on `calendar-item-<id>` | Present only on a TIMED row. Absent (not `"false"`) on an untimed one, so assert with `not.toHaveAttribute`. The same boolean is passed to dnd-kit's `useSortable({ disabled })`, so the keyboard sensor and the pointer sensor agree — a timed row can neither be picked up nor dropped onto. |
+| `calendar-item-grip-locked-<id>` | the `<span>` replacing the grip on a timed row | Dimmed, `aria-hidden`, `title="Timed plans are ordered by time"`, same box as the button so the row's left edge stays aligned. NOT in the tab order or the a11y tree. |
+| `Reorder <title>` (role=button) | the grip `<button>` on an UNTIMED row | Unchanged, and still the keyboard-dnd entry point. The two keyboard-reorder specs (`e2e/mobile-planner.spec.ts`, `e2e/plan-map-split.spec.ts`) drive untimed fixtures, which is why they are untouched by D-606 — give either fixture a `startMinutes` and its grip disappears. |
+
+`e2e/sort-clash.spec.ts` owns the nets: the rendered order, the Morning-before-Afternoon header
+sequence (the reported defect), the trailing Anytime run, and the grip split above.
 
 The calendar's `calendar-item-clash-<id>` (added to section 11's table above) is the same badge
 pattern, computed at the day-render level (`clashingItemIds`, over the author-filtered
