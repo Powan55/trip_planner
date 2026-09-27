@@ -43,8 +43,8 @@ export interface ClockPort {
 export interface StoragePort<T> {
   /** The freshest persisted value (or the seed/fallback the impl defines when absent). */
   load(): T;
-  /** Persist a value verbatim — including an empty one; no length gate. */
-  save(value: T): void;
+  /** Persist a value verbatim — including an empty one; no length gate. `false` = the write was refused. */
+  save(value: T): boolean | void;
   /** Has a value ever been persisted to this browser? */
   has(): boolean;
 }

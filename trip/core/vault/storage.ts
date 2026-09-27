@@ -113,6 +113,6 @@ export function hasStoredPlans(): boolean {
  * everything" is a durable state and the on-disk format upgrades transparently on the
  * first save after a migration. No length gate. SSR-safe no-op when there is no window.
  */
-export function savePlans(plans: DayPlan[]): void {
-  saveItinerary(plans, itineraryVault());
+export function savePlans(plans: DayPlan[]): boolean {
+  return saveItinerary(plans, itineraryVault());
 }

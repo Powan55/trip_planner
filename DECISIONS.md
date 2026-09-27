@@ -5940,6 +5940,11 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 
 **Trade-off.** A stranger holding a gated trip id can plant these two docs under it, the same accepted cost as identity and tripList. rules-check 9b/9c pin the allows and the near-miss ids (`journal`, `journal_`, `prefsx`), and the allows fail against the pre-D-605 rules.
 
+### D-642 · (issue #667, 2026-09-26) · A member can add others only as `member`
+
+**Decision.** `addsMembersOnly()` also requires the count of non-`member` roster values to be unchanged. With no key removed or changed, that means every added value is `member`, so a member can no longer add an `owner` (or any other role). No extra reads. Supersedes ceiling (1) of D-300.
+
+**Status.** Repo only until the rules are actually published (#263). rules-check 7e now expects these adds to be denied.
 ### D-606 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
 
 **Decision.** A day's plans render in time order on every surface that lists them: the planner's day detail (`lib/phase-of-day.ts`'s `groupItemsByPhase`, which now sorts before it classifies), the Today panel, the Travel-Mode agenda card, the printed itinerary, and the numbered day route on the `/plan` and `/travel` maps (`buildItineraryStops` passes `chrono: true`). One key throughout: `sortItemsByTime`, so timed items ascend by absolute INSTANT, untimed items sink to a single trailing run preserving their own relative order, and equal instants keep their stored order. `groupItemsByPhase` therefore takes the day's date and place offset — an instant-accurate sort cannot be done without them, and there is no second time-math path.
@@ -5961,3 +5966,10 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 **Decision.** After the behavioural suite, `e2e` rebuilds with `NEXT_PUBLIC_FIREBASE_*` set to fake, `demo-`-prefixed values (no emulator, no credential) and runs `--grep "@firebase"`. Specs tagged `@firebase` self-skip unless `E2E_FIREBASE` is set, so they no-op on every other build and on the first, dormant build in this same job.
 
 **Why.** Trip access and the Google link are gated on `isRemoteConfigured()`, a build-time env read; nothing in CI ever flipped it, so that surface had no real browser coverage at all.
+### D-650 · Amends D-148, D-604 · (issue #666, 2026-09-27) · A refused local save is never pushed
+
+**Decision.** `writeString`, `writeJson` and `saveItinerary` return `true` only once `setItem` succeeds, and `false` on every failure (quota, storage disabled or absent, a stringify throw). The synced saves and their store `.set` methods pass that through, and `commit()` skips `sync.push` when `save` returns `false`. `StoragePort.save` is `boolean | void`, so a port that returns nothing still pushes as before. The D-604 snap-back and the `trip:quota-exceeded` toast are unchanged.
+
+**Why.** Local storage is the truth. A save refused for quota snapped back on screen but still synced, so the user re-added the expense and every member saw it twice.
+
+**Trade-off.** A change that fails locally never reaches other devices, even when the network is fine. Restore paths and the outbox flush still ignore the result.
