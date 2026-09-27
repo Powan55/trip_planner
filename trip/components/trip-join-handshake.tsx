@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   joinTrip,
   parseTripToken,
@@ -58,15 +58,26 @@ import {
  * denied or full write, so a browser with storage blocked used to reload straight back onto the
  * old trip with nothing said. The pointer is read back rather than assumed.
  *
+ * INVITES (#641). A link may also carry `&invite=<token>`: a single-use invite into a gated trip.
+ * The token is stripped from the address bar on mount and held in state; Join redeems it before
+ * the switch, and the dialog shows even when this browser is already on that trip (a device that
+ * opened the plain link first sits at access-pending until an invite arrives).
+ *
  * A11y: reuses the app's Radix `AlertDialog` (focus trap + Esc-to-cancel + labelled dialog for
  * free); both actions clear the tap floor through the shared control recipe. Renders `null`
  * (nothing mounts) on every normal load, so it costs nothing unless a `?trip=` link is opened.
  */
 export default function TripJoinHandshake() {
   const [token, setToken] = useState<TripToken | null>(null);
-  const [status, setStatus] = useState<'idle' | 'joining' | 'error' | 'unusable' | 'own-key'>(
-    'idle',
-  );
+  const [invite, setInvite] = useState<string | null>(null);
+  const [status, setStatus] = useState<
+    'idle' | 'joining' | 'error' | 'unusable' | 'own-key' | 'invite-invalid' | 'invite-failed'
+  >('idle');
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // The Join button unmounts on a dead invite; hand focus to Close rather than dropping it.
+  useEffect(() => {
+    if (status === 'invite-invalid') cancelRef.current?.focus();
+  }, [status]);
   const { traveler } = useActiveTraveler();
   // Depend on the BOOLEAN, not the traveler object: `useActiveTraveler` re-resolves a fresh object
   // on every identity:changed, which would re-run this effect for no reason.
@@ -80,9 +91,15 @@ export default function TripJoinHandshake() {
     // joins before its reload. Bailing here keeps a second, invisible dialog from mounting behind
     // the wall.
     if (!identified) return;
-    const raw = new URLSearchParams(window.location.search).get('trip');
-    const t = raw?.trim();
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('trip')?.trim();
     if (!t) return;
+    const inv = params.get('invite');
+    if (inv !== null) {
+      // The invite is a single-use secret: never leave it in the address bar or history.
+      stripParams(['invite']);
+      setInvite(inv.trim());
+    }
     // D-546 — resolve WHICH namespace the link carries before anything is written. A token that
     // can never be used (empty, path-unsafe, reserved) stops here with a stated refusal rather
     // than being pasted into a Firestore path and opening a silently-empty trip.
@@ -104,24 +121,27 @@ export default function TripJoinHandshake() {
       parsed.kind === 'default'
         ? getActiveTripId() === DEFAULT_TRIP_ID && getDefaultTripShareId() === parsed.id
         : getActiveTripId() === parsed.id;
-    if (!alreadyHere) setToken(parsed);
+    if (!alreadyHere || inv !== null) setToken(parsed);
   }, [identified]);
 
-  const stripParam = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('trip');
-    window.history.replaceState(window.history.state, '', url.toString());
-  };
-
   const handleCancel = () => {
-    stripParam();
+    stripParams(['trip', 'invite']);
     setToken(null);
     setStatus('idle');
   };
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!token) return;
     setStatus('joining');
+    if (invite !== null) {
+      const result = await import('@/lib/invites-remote')
+        .then(({ redeemInvite }) => redeemInvite(token.id, invite))
+        .catch(() => 'failed' as const);
+      if (result === 'invalid' || result === 'failed') {
+        setStatus(result === 'invalid' ? 'invite-invalid' : 'invite-failed');
+        return;
+      }
+    }
     // `joinTrip` writes the pointer AND reads it back (D-546): the storage layer SWALLOWS a denied
     // or full write, so a browser with storage blocked would otherwise reload straight back onto
     // the old trip with nothing said.
@@ -169,6 +189,7 @@ export default function TripJoinHandshake() {
   if (!token) return null;
 
   const joining = status === 'joining';
+  const inviteDead = status === 'invite-invalid';
   const isDefaultPack = token.kind === 'default';
   // Show a shortened form of the (secret) token in copy — enough to recognise the link, not the
   // whole key spilled into a dialog.
@@ -227,6 +248,33 @@ export default function TripJoinHandshake() {
             : 'A Trip Token can’t be checked before it is used. If the trip opens empty, it may be mistyped, or the trip is brand new.'}
         </p>
 
+        {invite !== null && !inviteDead && (
+          <p className="text-t-sm text-ink-mid" data-testid="trip-join-invite-note">
+            This link includes a one-time invite. Joining uses it up.
+          </p>
+        )}
+
+        {inviteDead && (
+          <p
+            role="alert"
+            data-testid="trip-join-invite-invalid"
+            className="err border-hair border-[color:hsl(var(--destructive))] px-gut py-2 text-t-body"
+          >
+            This invite has expired, was already used, or was cancelled. Ask the trip owner for a
+            new link.
+          </p>
+        )}
+
+        {status === 'invite-failed' && (
+          <p
+            role="alert"
+            data-testid="trip-join-invite-failed"
+            className="err border-hair border-[color:hsl(var(--destructive))] px-gut py-2 text-t-body"
+          >
+            Couldn&rsquo;t reach the trip to use this invite. Check your connection and try again.
+          </p>
+        )}
+
         {status === 'error' && (
           <p
             role="alert"
@@ -240,29 +288,37 @@ export default function TripJoinHandshake() {
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel data-testid="trip-join-cancel" disabled={joining}>
-            Cancel
+          <AlertDialogCancel ref={cancelRef} data-testid="trip-join-cancel" disabled={joining}>
+            {inviteDead ? 'Close' : 'Cancel'}
           </AlertDialogCancel>
-          <AlertDialogAction
-            data-testid="trip-join-confirm"
-            onClick={(e) => {
-              // Radix closes the dialog on action-click; the switch owns the navigation, and on
-              // the failure path the dialog has to stay up to carry the message.
-              e.preventDefault();
-              handleJoin();
-            }}
-            disabled={joining}
-          >
-            {joining
-              ? 'Switching…'
-              : status === 'error'
-                ? 'Try again'
-                : isDefaultPack
-                  ? 'Open shared plan'
-                  : 'Add trip'}
-          </AlertDialogAction>
+          {!inviteDead && (
+            <AlertDialogAction
+              data-testid="trip-join-confirm"
+              onClick={(e) => {
+                // Radix closes the dialog on action-click; the switch owns the navigation, and on
+                // the failure path the dialog has to stay up to carry the message.
+                e.preventDefault();
+                void handleJoin();
+              }}
+              disabled={joining}
+            >
+              {joining
+                ? 'Switching…'
+                : status === 'error' || status === 'invite-failed'
+                  ? 'Try again'
+                  : isDefaultPack
+                    ? 'Open shared plan'
+                    : 'Add trip'}
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+function stripParams(names: string[]) {
+  const url = new URL(window.location.href);
+  for (const n of names) url.searchParams.delete(n);
+  window.history.replaceState(window.history.state, '', url.toString());
 }
