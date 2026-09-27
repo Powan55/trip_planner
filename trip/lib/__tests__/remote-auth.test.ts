@@ -10,6 +10,9 @@
 //      scratch (the cold-start-while-offline case).
 //   3. `getAuthIdToken()` is TOTAL: `null` when remote is unconfigured — with NO firebase touched
 //      at all — and `null` on any failure; otherwise the SDK's own current token.
+//   4. The password helpers (D-660): sign-up LINKS an anonymous session (the uid survives), sign-in
+//      rebinds the cached handle to the account's uid, and `users/{uid}` reads/writes behave as the
+//      create-only claim flow needs.
 //
 // ⚠ THE ASSERTIONS COUNT MOCK CALLS, not only outcomes (the S378 rigour): every function under
 // test swallows failure to a `null`/warn, so "returned null" alone cannot distinguish "the gate
@@ -37,14 +40,17 @@ const authCtl = vi.hoisted(() => ({
   idTokenFails: false,
   /** Mirrors the SDK: whoever is signed in right now. */
   currentUid: null as string | null,
-  /** `providerData` on the current user — 'google.com' once linked. */
-  providers: [] as string[],
-  linkCalls: 0,
-  /** The `code` `linkWithPopup` rejects with, or null to succeed. */
-  linkErrorCode: null as string | null,
-  /** What `GoogleAuthProvider.credentialFromError` hands back. */
-  credentialFromError: { providerId: 'google.com' } as unknown,
-  credentialSignIns: 0,
+  anonymous: true,
+  calls: [] as string[],
+  /** The `code` the next password call rejects with, or null to succeed. */
+  errorCode: null as string | null,
+}));
+
+const docs = vi.hoisted(() => ({
+  store: new Map<string, Record<string, unknown>>(),
+  readFails: false,
+  /** Create-only, like the rules: a second write to an existing users doc is refused. */
+  writeFails: false,
 }));
 
 vi.mock('firebase/app', () => ({
@@ -57,7 +63,38 @@ vi.mock('firebase/firestore', () => ({
   initializeFirestore: () => ({ __type: 'db' }),
   persistentLocalCache: () => ({}),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: segs.join('/') }),
+  waitForPendingWrites: async () => {
+    authCtl.calls.push('flush');
+  },
+  getDocFromServer: async (ref: { path: string }) => {
+    if (docs.readFails) throw Object.assign(new Error('offline'), { code: 'unavailable' });
+    const data = docs.store.get(ref.path);
+    return { exists: () => data !== undefined, data: () => data };
+  },
+  setDoc: async (ref: { path: string }, data: Record<string, unknown>) => {
+    if (docs.writeFails || docs.store.has(ref.path)) {
+      throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+    }
+    docs.store.set(ref.path, data);
+  },
+  writeBatch: () => {
+    const ops: [string, Record<string, unknown>][] = [];
+    return {
+      set: (ref: { path: string }, data: Record<string, unknown>) => void ops.push([ref.path, data]),
+      commit: async () => {
+        if (docs.writeFails || ops.some(([p]) => docs.store.has(p))) {
+          throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+        }
+        for (const [p, d] of ops) docs.store.set(p, d);
+      },
+    };
+  },
 }));
+
+function fail() {
+  if (authCtl.errorCode) throw Object.assign(new Error('auth'), { code: authCtl.errorCode });
+}
+
 vi.mock('firebase/auth', () => ({
   getAuth: () => {
     authCtl.getAuthCalls += 1;
@@ -67,7 +104,8 @@ vi.mock('firebase/auth', () => ({
           ? null
           : {
               uid: authCtl.currentUid,
-              providerData: authCtl.providers.map((providerId) => ({ providerId })),
+              isAnonymous: authCtl.anonymous,
+              email: authCtl.anonymous ? null : 'powan@accounts.trip-planner.invalid',
               getIdToken: async () => {
                 if (authCtl.idTokenFails) throw new Error('token mint failed');
                 return authCtl.idToken;
@@ -93,27 +131,35 @@ vi.mock('firebase/auth', () => ({
     authCtl.signInCalls += 1;
     if (authCtl.signInFails) throw new Error('sign-in failed');
     authCtl.currentUid = 'anon-uid-new';
+    authCtl.anonymous = true;
     return { user: { uid: 'anon-uid-new' } };
   },
-  GoogleAuthProvider: class {
-    static credentialFromError() {
-      return authCtl.credentialFromError;
-    }
+  EmailAuthProvider: {
+    credential: (email: string, password: string) => ({ email, password }),
   },
-  linkWithPopup: async () => {
-    authCtl.linkCalls += 1;
-    if (authCtl.linkErrorCode) {
-      throw Object.assign(new Error('link failed'), { code: authCtl.linkErrorCode });
-    }
-    authCtl.providers.push('google.com'); // linking keeps the uid and adds a provider
-    return { user: { uid: authCtl.currentUid } };
+  linkWithCredential: async (user: { uid: string }, cred: { email: string }) => {
+    authCtl.calls.push(`link:${cred.email}`);
+    fail();
+    authCtl.anonymous = false; // linking keeps the uid
+    return { user: { uid: user.uid } };
   },
-  signInWithCredential: async () => {
-    authCtl.credentialSignIns += 1;
-    authCtl.currentUid = 'adopted-uid'; // adopting SWAPS the identity — the uid changes
-    authCtl.restored = { uid: 'adopted-uid' };
-    authCtl.providers = ['google.com'];
-    return { user: { uid: 'adopted-uid' } };
+  createUserWithEmailAndPassword: async (_auth: unknown, email: string) => {
+    authCtl.calls.push(`create:${email}`);
+    fail();
+    authCtl.currentUid = 'created-uid';
+    authCtl.anonymous = false;
+    return { user: { uid: 'created-uid' } };
+  },
+  signInWithEmailAndPassword: async (_auth: unknown, email: string) => {
+    authCtl.calls.push(`signin:${email}`);
+    fail();
+    authCtl.currentUid = 'account-uid';
+    authCtl.anonymous = false;
+    return { user: { uid: 'account-uid' } };
+  },
+  updatePassword: async (_user: unknown, password: string) => {
+    authCtl.calls.push(`update:${password}`);
+    fail();
   },
 }));
 
@@ -133,11 +179,13 @@ beforeEach(() => {
   authCtl.idToken = 'id-token-1';
   authCtl.idTokenFails = false;
   authCtl.currentUid = null;
-  authCtl.providers = [];
-  authCtl.linkCalls = 0;
-  authCtl.linkErrorCode = null;
-  authCtl.credentialFromError = { providerId: 'google.com' };
-  authCtl.credentialSignIns = 0;
+  authCtl.anonymous = true;
+  authCtl.calls = [];
+  authCtl.errorCode = null;
+  docs.store.clear();
+  docs.readFails = false;
+  docs.writeFails = false;
+  window.localStorage.clear();
 });
 
 describe('getRemote — anonymous sign-in is part of the handle (#10)', () => {
@@ -225,74 +273,189 @@ describe('getAuthIdToken — TOTAL: a token, or null (#10)', () => {
   });
 });
 
-describe('linkGoogleAccount — every branch says something, and none of them lose access (#10)', () => {
-  it('a successful link KEEPS the uid (the entire point) and reports it linked', async () => {
-    const { getRemote, linkGoogleAccount, isGoogleLinked } = await freshRemote();
-    const before = (await getRemote()).uid;
-
-    expect(await linkGoogleAccount()).toBe('linked');
-
-    expect(authCtl.linkCalls).toBe(1);
-    // A different uid here would mean this device just lost its place in every trip's roster.
-    expect((await getRemote()).uid).toBe(before);
-    expect(await isGoogleLinked()).toBe(true);
+describe('password accounts (D-660)', () => {
+  it('sign-up LINKS the anonymous session, so the uid already in trip rosters is the account', async () => {
+    const { getRemote, createPasswordAccount } = await freshRemote();
+    const before = await getRemote();
+    const uid = await createPasswordAccount('powan@x.invalid', 'longenough');
+    expect(authCtl.calls).toEqual(['link:powan@x.invalid']);
+    expect(uid).toBe(before.uid);
+    expect((await getRemote()).uid).toBe(before.uid);
   });
 
-  it('a blocked popup is reported as such — no adoption, no identity change', async () => {
-    authCtl.linkErrorCode = 'auth/popup-blocked';
-    const { getRemote, linkGoogleAccount } = await freshRemote();
-    const before = (await getRemote()).uid;
-
-    expect(await linkGoogleAccount()).toBe('popup-blocked');
-    expect(authCtl.credentialSignIns).toBe(0);
-    expect((await getRemote()).uid).toBe(before);
+  it('sign-up over a non-anonymous session creates a new user instead of linking onto it', async () => {
+    authCtl.restored = { uid: 'someone-else' };
+    authCtl.currentUid = 'someone-else';
+    authCtl.anonymous = false;
+    const { createPasswordAccount, getRemote } = await freshRemote();
+    expect(await createPasswordAccount('new@x.invalid', 'longenough')).toBe('created-uid');
+    expect(authCtl.calls).toEqual(['create:new@x.invalid']);
+    expect((await getRemote()).uid).toBe('created-uid');
   });
 
-  it('a popup the user closed reports the same actionable state, not a generic failure', async () => {
-    authCtl.linkErrorCode = 'auth/popup-closed-by-user';
-    const { linkGoogleAccount } = await freshRemote();
-    expect(await linkGoogleAccount()).toBe('popup-blocked');
+  it('a taken username rejects with the SDK code for the caller to word', async () => {
+    authCtl.errorCode = 'auth/email-already-in-use';
+    const { createPasswordAccount } = await freshRemote();
+    await expect(createPasswordAccount('taken@x.invalid', 'longenough')).rejects.toMatchObject({
+      code: 'auth/email-already-in-use',
+    });
   });
 
-  it('credential-already-in-use ADOPTS that identity and drops the stale cached uid', async () => {
-    authCtl.linkErrorCode = 'auth/credential-already-in-use';
-    const { getRemote, linkGoogleAccount } = await freshRemote();
-    const before = (await getRemote()).uid;
-    expect(before).toBe('anon-uid-new');
-
-    expect(await linkGoogleAccount()).toBe('adopted');
-
-    expect(authCtl.credentialSignIns).toBe(1);
-    // The cache MUST have been cleared: every caller reads `uid` off this handle, and a stale one
-    // would enrol the wrong identity in the trip's roster.
-    expect((await getRemote()).uid).toBe('adopted-uid');
+  it('sign-in rebinds the cached handle to the account uid (no stale anonymous uid)', async () => {
+    const { getRemote, signInWithPassword } = await freshRemote();
+    expect((await getRemote()).uid).toBe('anon-uid-new');
+    expect(await signInWithPassword('powan@x.invalid', 'pw')).toBe('account-uid');
+    expect((await getRemote()).uid).toBe('account-uid');
+    expect(authCtl.signInCalls).toBe(1); // the password session is never replaced by a new anon one
   });
 
-  it('credential-already-in-use with no recoverable credential fails without signing anything in', async () => {
-    authCtl.linkErrorCode = 'auth/credential-already-in-use';
-    authCtl.credentialFromError = null;
-    const { linkGoogleAccount } = await freshRemote();
-
-    expect(await linkGoogleAccount()).toBe('failed');
-    expect(authCtl.credentialSignIns).toBe(0);
+  it('a restored password session is reused, never signed in anonymously over', async () => {
+    authCtl.restored = { uid: 'account-uid' };
+    authCtl.currentUid = 'account-uid';
+    authCtl.anonymous = false;
+    const { getRemote } = await freshRemote();
+    expect((await getRemote()).uid).toBe('account-uid');
+    expect(authCtl.signInCalls).toBe(0);
   });
 
-  it('any other error leaves the device anonymous and unchanged', async () => {
-    authCtl.linkErrorCode = 'auth/network-request-failed';
-    const { getRemote, linkGoogleAccount, isGoogleLinked } = await freshRemote();
-    const before = (await getRemote()).uid;
-
-    expect(await linkGoogleAccount()).toBe('failed');
-    expect((await getRemote()).uid).toBe(before);
-    expect(await isGoogleLinked()).toBe(false);
+  it('readAccountLink: null when absent, the link when present, REJECTS when unreachable', async () => {
+    const { readAccountLink } = await freshRemote();
+    expect(await readAccountLink('u1')).toBeNull();
+    docs.store.set('users/u1', { username: 'powan', accountId: 'acct-1' });
+    expect(await readAccountLink('u1')).toEqual({ username: 'powan', accountId: 'acct-1' });
+    docs.readFails = true;
+    await expect(readAccountLink('u1')).rejects.toThrow('offline');
   });
 
-  it('never opens a popup on a dormant build', async () => {
+  const ID1 = '11111111-2222-4333-8444-555555555555';
+  const ID2 = '66666666-7777-4888-8999-aaaaaaaaaaaa';
+
+  it('writeAccountLink writes users + accountClaims once; a retry adopts what is there', async () => {
+    const { writeAccountLink } = await freshRemote();
+    expect(await writeAccountLink('u1', { username: 'powan', accountId: ID1 })).toBe(ID1);
+    expect(docs.store.get('users/u1')).toEqual({ username: 'powan', accountId: ID1 });
+    expect(docs.store.get(`accountClaims/${ID1}`)).toEqual({ uid: 'u1' });
+    expect(await writeAccountLink('u1', { username: 'powan', accountId: ID2 })).toBe(ID1);
+    expect(docs.store.get('users/u1')).toEqual({ username: 'powan', accountId: ID1 });
+    expect(docs.store.has(`accountClaims/${ID2}`)).toBe(false);
+  });
+
+  it('writeAccountLink says so when another user already claimed the id', async () => {
+    docs.store.set(`accountClaims/${ID1}`, { uid: 'someone-else' });
+    const { writeAccountLink } = await freshRemote();
+    await expect(writeAccountLink('u1', { username: 'p', accountId: ID1 })).rejects.toMatchObject({
+      code: 'account/claimed',
+    });
+    expect(docs.store.has('users/u1')).toBe(false);
+  });
+
+  it('writeAccountLink rejects when the write fails and nothing is there', async () => {
+    docs.writeFails = true;
+    const { writeAccountLink } = await freshRemote();
+    await expect(writeAccountLink('u1', { username: 'p', accountId: ID1 })).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+  });
+
+  it('writeAccountLink refuses an id that is not a lowercase UUID before writing', async () => {
+    const { writeAccountLink } = await freshRemote();
+    await expect(writeAccountLink('u1', { username: 'p', accountId: 'acct-1' })).rejects.toThrow(
+      'invalid account id',
+    );
+    expect(docs.store.size).toBe(0);
+  });
+
+  it('changePassword passes the SDK rejection through', async () => {
+    const { signInWithPassword, changePassword } = await freshRemote();
+    await signInWithPassword('powan@x.invalid', 'temp');
+    authCtl.errorCode = 'auth/weak-password';
+    await expect(changePassword('newpassword')).rejects.toMatchObject({ code: 'auth/weak-password' });
+  });
+
+  it('never touches firebase on a dormant build', async () => {
     gate.on = false;
-    const { linkGoogleAccount, isGoogleLinked } = await freshRemote();
-    expect(await linkGoogleAccount()).toBe('failed');
-    expect(await isGoogleLinked()).toBe(false);
-    expect(authCtl.linkCalls).toBe(0);
+    const { signInWithPassword } = await freshRemote();
+    await expect(signInWithPassword('a@x.invalid', 'pw')).rejects.toThrow('remote not configured');
     expect(authCtl.getAuthCalls).toBe(0);
+  });
+});
+
+describe('needsAccountUpgrade — fail-open (D-660)', () => {
+  it('anonymous for an anonymous session; null for a password user with users/{uid}', async () => {
+    const { needsAccountUpgrade } = await freshRemote();
+    expect(await needsAccountUpgrade()).toEqual({ kind: 'anonymous', claimed: false });
+
+    // key 28 already claimed by a username: the card must offer log-in only.
+    const id = '11111111-2222-4333-8444-555555555555';
+    window.localStorage.setItem('tripPlannerSyncCode', id);
+    docs.store.set(`accountClaims/${id}`, { uid: 'someone' });
+    expect(await needsAccountUpgrade()).toEqual({ kind: 'anonymous', claimed: true });
+
+    authCtl.restored = { uid: 'account-uid' };
+    authCtl.currentUid = 'account-uid';
+    authCtl.anonymous = false;
+    docs.store.set('users/account-uid', { username: 'powan', accountId: 'acct-1' });
+    const again = await freshRemote();
+    expect(await again.needsAccountUpgrade()).toBeNull();
+  });
+
+  it('a password user with NO users/{uid} resumes the claim', async () => {
+    authCtl.restored = { uid: 'account-uid' };
+    authCtl.currentUid = 'account-uid';
+    authCtl.anonymous = false;
+    const { needsAccountUpgrade } = await freshRemote();
+    expect(await needsAccountUpgrade()).toEqual({
+      kind: 'claim',
+      uid: 'account-uid',
+      username: 'powan',
+    });
+  });
+
+  it('null when the users/{uid} read fails, when auth is unreachable, and dormant', async () => {
+    authCtl.restored = { uid: 'account-uid' };
+    authCtl.currentUid = 'account-uid';
+    authCtl.anonymous = false;
+    docs.readFails = true;
+    const { needsAccountUpgrade } = await freshRemote();
+    expect(await needsAccountUpgrade()).toBeNull();
+
+    authCtl.observerFails = true;
+    const broken = await freshRemote();
+    expect(await broken.needsAccountUpgrade()).toBeNull();
+
+    gate.on = false;
+    authCtl.getAuthCalls = 0;
+    const dormant = await freshRemote();
+    expect(await dormant.needsAccountUpgrade()).toBeNull();
+    expect(authCtl.getAuthCalls).toBe(0);
+  });
+
+  it('null while the browser reports offline', async () => {
+    const spy = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      const { needsAccountUpgrade } = await freshRemote();
+      expect(await needsAccountUpgrade()).toBeNull();
+      expect(authCtl.getAuthCalls).toBe(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe('isPasswordSession and the pre-sign-in flush (D-660)', () => {
+  it('false for anonymous and dormant, true after a password sign-in', async () => {
+    const { isPasswordSession, signInWithPassword } = await freshRemote();
+    expect(await isPasswordSession()).toBe(false);
+    await signInWithPassword('powan@x.invalid', 'pw');
+    expect(await isPasswordSession()).toBe(true);
+    gate.on = false;
+    const dormant = await freshRemote();
+    expect(await dormant.isPasswordSession()).toBe(false);
+  });
+
+  it('flushes writes queued under the old uid before swapping the session', async () => {
+    const { signInWithPassword } = await freshRemote();
+    await signInWithPassword('powan@x.invalid', 'pw');
+    expect(authCtl.calls).toEqual(['flush', 'signin:powan@x.invalid']);
   });
 });

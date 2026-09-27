@@ -53,8 +53,7 @@ import { entranceFor } from '@/lib/motion';
  *   · the screenshots are a contact sheet: numbered figures under one ruled caption line.
  *   · the "how it works" steps are gone. What a stranger actually does not understand is how a
  *     trip reaches another person, so that section is the two-token model instead — which is
- *     the same thing `trip-join-handshake.tsx` and `user-token-show-once.tsx` have to make
- *     legible at the moment it matters.
+ *     the same thing `trip-join-handshake.tsx` has to make legible at the moment it matters.
  *
  * WHAT WAS FROZEN, and each has teeth:
  * - Log in is the primary CTA and it is FIRST IN THE DOM. `token-gate.tsx`'s focus effect takes
@@ -193,14 +192,14 @@ const CHAPTERS = [
  * The two credentials, side by side, because this is the one thing about the product a stranger
  * has no prior model for and the one place the two are most easily confused (D-239: they are
  * never mixed). `trip-join-handshake.tsx` states the same distinction at the moment a Trip Token
- * is used, and `user-token-show-once.tsx` states it at the moment a key is minted.
+ * is used.
  */
 const TOKENS = [
   {
-    name: 'Your key',
+    name: 'Your account',
     chip: 'chip--struck',
     what: 'One per person',
-    rule: 'Logs you in · never share it',
+    rule: 'Username and password · never share it',
   },
   {
     name: 'Trip Token',
@@ -434,7 +433,7 @@ export default function LandingPage({
                 data-testid="landing-cta-login"
                 className="btn px-6"
               >
-                I have a key &mdash; log in
+                I have an account &mdash; log in
               </button>
               {/* The secondary's edge is --border-ui, not --border — that is `.btn--2`'s own
                   border, and it is why the outline shape is legal over a photograph. --border is
@@ -647,8 +646,8 @@ export default function LandingPage({
           <p className="max-w-[64ch] text-t-body leading-relaxed text-ink-mid">
             There is nobody to invite and no list to be added to. A trip has one string attached to
             it, and whoever holds that string opens the same plan you are looking at &mdash; so you
-            send it the way you already talk to each other. Two keys, two jobs, and they are never
-            the same key.
+            send it the way you already talk to each other. Your account and a trip&rsquo;s token do two
+            different jobs, and they are never the same thing.
           </p>
         </div>
         <ul className="list mt-4">
@@ -677,7 +676,7 @@ export default function LandingPage({
         </span>
         <p className="text-display-xl">Start the countdown.</p>
         <p className="max-w-[38ch] text-t-body leading-relaxed">
-          No email, no password. Just a key you keep.
+          No email needed. Just a username and a password.
         </p>
         <button
           type="button"

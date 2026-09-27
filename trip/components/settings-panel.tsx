@@ -21,7 +21,6 @@ import {
   Check,
   Share2,
   ShieldAlert,
-  Smartphone,
   Users,
   UserPlus,
   X,
@@ -35,7 +34,6 @@ import {
   getActiveTripId,
   DEFAULT_TRIP_ID,
   getSyncCode,
-  setSyncCode,
   identityStore,
   syncPausedPrefs,
 } from '@/core/storage/gateway';
@@ -121,8 +119,8 @@ export default function SettingsPanel() {
   const name = mounted ? traveler?.name ?? null : null;
 
   /**
-   * a capability SECRET — this trip's Trip Token, its `?trip=` share link, and the
-   * personal User Token — requires an identified traveler, as does every trip-mutating registry
+   * a capability SECRET — this trip's Trip Token and its `?trip=` share link — requires an
+   * identified traveler, as does every trip-mutating registry
    * action (create / add / switch). With no guest mode, an unidentified visitor never
    * visibly reaches this page — TokenGate's wall covers it — but `{children}` still mounts
    * underneath the wall, so this gate is kept as defense-in-depth against showing a capability
@@ -166,20 +164,11 @@ export default function SettingsPanel() {
             testId="settings-group-access"
             icon={<Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
             title="Trip access"
-            summary="Your device code, and who else can open this trip"
+            summary="Your access code, and who else can open this trip"
           >
             {identified ? <TripAccessGroup /> : <SignInRequired what="sync" />}
           </SettingsGroup>
         )}
-
-        <SettingsGroup
-          testId="settings-group-sync"
-          icon={<Smartphone className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
-          title="Your key"
-          summary="Your account key — log in with it on another device to see the same trips"
-        >
-          {identified ? <SyncGroup /> : <SignInRequired what="sync" />}
-        </SettingsGroup>
 
         <SettingsGroup
           testId="settings-group-currency"
@@ -268,7 +257,7 @@ function SignInRequired({ what }: { what: 'trip' | 'sync' }) {
       <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
         {what === 'trip'
           ? 'A trip’s Trip Token lets anyone view and edit that trip, so it’s only shown to a logged-in user.'
-          : 'Your key is an account credential, so it’s only shown to the logged-in user it belongs to.'}
+          : 'Trip access names the devices that may open a trip, so it’s only shown to a logged-in user.'}
       </p>
     </div>
   );
@@ -291,7 +280,7 @@ function IdentityGroup({ name }: { name: string | null }) {
           <p className="mt-1 max-w-md text-t-body text-ink-mid">
             {name
               ? 'Your itinerary edits are attributed to you across the shared trip.'
-              : 'Log in with your key to attribute your edits.'}
+              : 'Log in to attribute your edits.'}
           </p>
         </div>
         {/* With no guest mode this page is only ever visibly reached signed-in, so `name`
@@ -312,9 +301,6 @@ function IdentityGroup({ name }: { name: string | null }) {
           on a fresh device — this is where a signed-in traveler sets/changes it. `signIn` rewrites
           both identity slots + fires identity:changed, so the chip/attribution update live (no reload). */}
       {name && <RenameIdentity current={name} />}
-      {/* #10 — optional Google link over this device's identity. Hidden with no sync configured
-          (there is no identity to link) — same gate as the Trip access group. */}
-      {name && isRemoteConfigured() && <LinkGoogleIdentity />}
       {/* (Q3) — claim the items you stamped under a name you used to go by. */}
       {name && <ClaimOldName current={name} />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
@@ -397,131 +383,11 @@ function RenameIdentity({ current }: { current: string }) {
 }
 
 /**
- * #10 — LINK A GOOGLE ACCOUNT to this device's identity.
- *
- * What it is for, in one line: this device holds an anonymous Firebase identity, that identity is
- * what a trip's roster names, and clearing browser storage or losing the phone would strand it.
- * Linking Google gives that same identity a handle you can prove later — it does NOT change it,
- * which is the entire point (a fresh sign-in would produce a different uid, still not in any
- * roster).
- *
- * Popup only, never redirect, and the reason is in `linkGoogleAccount`'s docblock — a redirect
- * silently no-ops on this origin under Safari's storage partitioning. Every failure gets words:
- * a blocked popup says so, an account already used on another device offers to adopt it (that is
- * the lost-device path), and anything else leaves the device exactly as it was, anonymous and
- * still holding whatever access it already had.
- */
-function LinkGoogleIdentity() {
-  const [linked, setLinked] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void import('@/lib/firebase-remote')
-      .then(({ isGoogleLinked }) => isGoogleLinked())
-      .then((is) => {
-        if (!cancelled) setLinked(is);
-      })
-      .catch(() => {
-        if (!cancelled) setLinked(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const link = async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    setStatus(null);
-    try {
-      // The module is already in the bundler's cache (the effect above awaited it), so this
-      // resolves in a microtask and the tap's activation still covers the popup.
-      const { linkGoogleAccount } = await import('@/lib/firebase-remote');
-      const result = await linkGoogleAccount();
-      if (result === 'linked') {
-        setLinked(true);
-        setStatus('Linked. This device keeps the same access to your trips.');
-      } else if (result === 'adopted') {
-        setLinked(true);
-        setStatus('Signed in with that Google account on this device.');
-        // Adopting changes this device's identity. Repair every known remote trip, not only the
-        // active one; inactive trips do not get another enrolment opportunity on this page.
-        const { ensureKnownTripMemberships } = await import('@/lib/trips-remote');
-        await ensureKnownTripMemberships();
-      } else if (result === 'popup-blocked') {
-        setError('Allow pop-ups for this site and try again.');
-      } else {
-        setError('Couldn’t link that account. This device is unchanged.');
-        toast('Couldn’t link a Google account. Nothing changed on this device.');
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div
-      data-testid="settings-identity-google"
-      className="border-hair border-border bg-surface-raised px-gut py-4"
-    >
-      <h3 className="pr pr--l text-ink-hi">Link a Google account</h3>
-      <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
-        Optional. This device already has its own identity for shared trips; linking Google is how
-        you get it back if you clear your browser data or change phone. It doesn&rsquo;t change who
-        you are on a trip, and nothing is posted anywhere.
-      </p>
-      {linked ? (
-        <p
-          data-testid="settings-identity-google-linked"
-          className="mt-3 inline-flex items-center gap-2 text-t-body font-semibold text-ink-hi"
-        >
-          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
-          Linked to Google
-        </p>
-      ) : (
-        <button
-          type="button"
-          onClick={link}
-          disabled={busy || linked === null}
-          aria-busy={busy}
-          data-testid="settings-identity-google-link"
-          className="btn btn--2 mt-3 px-4"
-        >
-          {busy ? 'Opening Google…' : 'Link a Google account'}
-        </button>
-      )}
-      <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
-        {status && (
-          <p data-testid="settings-identity-google-status" className="text-t-body text-ink-mid">
-            {status}
-          </p>
-        )}
-      </div>
-      {error && (
-        <p
-          role="alert"
-          data-testid="settings-identity-google-error"
-          className="err mt-1 flex items-center gap-2 text-t-body font-medium"
-        >
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/**
  * #10 — TRIP ACCESS: this device's code, and the roster of devices that may open this trip.
  *
  * THE DEVICE CODE IS THE WHOLE MECHANISM. There is no invite server and no email — a trip's roster
  * names device identities, so joining is out-of-band: you send a friend your code, they paste it
- * here. It is also the lost-device path, read the other way round (link Google, sign in on the new
- * device, the code comes with you).
+ * here. Logging in with a username and password on a new device brings the same code with it.
  *
  * WHO MAY DO WHAT mirrors the rules exactly, and is enforced there, not here: any member may ADD a
  * device; only the owner may REMOVE one. The Remove control is therefore rendered only for an
@@ -733,11 +599,12 @@ function TripAccessGroup() {
       {/* This device's code — the out-of-band invite, and the thing a friend pastes. */}
       {!paused && (
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
-        <h3 className="pr pr--l text-ink-hi">This device&rsquo;s code</h3>
+        <h3 className="pr pr--l text-ink-hi">Your access code</h3>
         <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
           Send this to someone on the trip and ask them to add it below &mdash; that&rsquo;s how
-          this device gets access. It identifies this browser, not you: it isn&rsquo;t a login and
-          it opens nothing on its own.
+          you get access. Once you log in with a username and password it is the same on every
+          device you use; before that it belongs to this browser. It isn&rsquo;t a login and it
+          opens nothing on its own.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
@@ -1355,124 +1222,6 @@ function TripGroup() {
       >
         Manage all trips &rarr;
       </Link>
-    </div>
-  );
-}
-
-/**
- * "Your User Token" group ( →; promotes Sync Code to the ACCOUNT credential
- * — SAME on-disk key `tripPlannerSyncCode`, gateway key 28, so nothing migrates and the accessor
- * names `getSyncCode`/`setSyncCode` stay as documented internal misnomers). It owns the account's
- * trip list at `trips/{userToken}/profile/tripList`. Two actions:
- * - REVEAL/MINT: masked until revealed; the first reveal mints a `crypto.randomUUID()` and
- * best-effort seeds the remote list with this device's trips. This doubles as the
- * GRANDFATHERED path for a traveler who signed in before accounts existed. Subsequent reveals
- * just unmask the stored token.
- * - COPY: the existing clipboard idiom (copy-then-confirm, degrades silently when blocked) —
- * framed for "your other device" with a NEVER-SHARE warning, because unlike a Trip Token this
- * opens the whole account.
- *
- * The old "Enter a code" form is DELETED: entering a User Token is LOGGING IN, and the
- * front door owns that. Switching accounts = sign out → log in, which keeps one entry point for the
- * one credential instead of a second, unlabelled back door in Settings.
- *
- * A11y / house style matches TripGroup verbatim (ruled block, ≥44px targets, focus rings, aria-live).
- * Storage is read post-mount only (ssr:false island). Dormant-safe: minting is a pure local write;
- * the push/subscribe self-gate on `isRemoteConfigured()`, so the token is inert until sync is
- * configured.
- */
-function SyncGroup() {
-  const { traveler } = useActiveTraveler();
-  const [code, setCode] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const { copy: copyToClipboard, error: copyError } = useClipboardCopy();
-
-  useEffect(() => setCode(getSyncCode()), []);
-
-  const reveal = () => {
-    let c = getSyncCode();
-    if (!c) {
-      c = crypto.randomUUID();
-      setSyncCode(c);
-      // Best-effort: seed BOTH account docs so the key is usable at once — identity included.
-      // Seeding only the list is what made a key minted here get rejected by the front door on
-      // every other device (see `seedAccountDocs`). Dynamically imported so /settings never pulls
-      // firebase eagerly; self-gates dormant, and filters the display-name placeholder itself.
-      const minted = c;
-      const who = traveler?.name;
-      void import('@/lib/trips-remote').then(({ seedAccountDocs }) => seedAccountDocs(minted, who));
-    }
-    setCode(c);
-    setRevealed(true);
-  };
-
-  const copy = async () => {
-    if (!code) return;
-    const ok = await copyToClipboard(code);
-    if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-4" data-testid="settings-sync-card">
-      {/* Your User Token — masked until revealed. */}
-      <div className="border-hair border-border bg-surface-raised px-gut py-4">
-        <h3 className="pr pr--l text-ink-hi">Your key</h3>
-        <p className="mt-1 flex max-w-2xl items-start gap-1.5 text-t-sm text-ink-mid">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          This is how you log in. <strong className="font-semibold text-ink-hi">Never share it</strong>{' '}
-          &mdash; it opens your whole account and every trip in it. Copy it only to log in on your own
-          other device; to invite someone to a trip, share that trip&rsquo;s Trip Token instead.
-        </p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <code
-            data-testid="settings-sync-code"
-            className="min-h-tap min-w-0 flex-1 truncate rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body leading-[1.6] text-ink-hi"
-          >
-            {code === null ? 'Not set up yet' : revealed ? code : '•'.repeat(24)}
-          </code>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={reveal}
-              data-testid="settings-sync-reveal"
-              className="btn px-4"
-            >
-              {code === null ? 'Create my key' : revealed ? 'Showing' : 'Reveal'}
-            </button>
-            <button
-              type="button"
-              onClick={copy}
-              disabled={code === null || !revealed}
-              data-testid="settings-sync-copy"
-              className="btn btn--2 px-4"
-            >
-              {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-        </div>
-        <div aria-live="polite" className="sr-only">
-          {copied ? 'Your key copied to clipboard' : ''}
-        </div>
-        {copyError && (
-          <p
-            role="alert"
-            data-testid="settings-sync-copy-error"
-            className="err mt-2 flex items-center gap-2 text-t-body font-medium"
-          >
-            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {copyError}
-          </p>
-        )}
-        <p className="mt-3 max-w-2xl text-t-sm text-ink-mid">
-          To use this account on another device, log out there (or open the app fresh) and enter this
-          key at the front door.
-        </p>
-      </div>
     </div>
   );
 }

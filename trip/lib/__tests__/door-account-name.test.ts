@@ -2,7 +2,7 @@
 //
 // "I log in as Powan and it says Traveler."
 //
-// The door's login path (`handleLogin` in components/token-gate) does not ask for a name, so on a
+// The door's login path (components/token-gate) does not ask for a name, so on a
 // device with nothing in the local name slot it used to sign in as the literal placeholder
 // `DEFAULT_TRAVELER_NAME` and leave the correction to `runAccountIdentitySync`, which only runs
 // after the reload and only when the account layer is live. Until then the placeholder is what the
@@ -49,6 +49,10 @@ vi.mock('@/lib/trips-remote', () => ({
 
 const KEY = '11111111-2222-3333-4444-555555555555';
 
+vi.mock('@/lib/account-handoff-remote', () => ({
+  signInWithHandoff: async () => ({ uid: 'uid-1', link: { username: 'powan', accountId: KEY } }),
+}));
+
 import TokenGate from '@/components/token-gate';
 import { getActiveTraveler, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
@@ -94,6 +98,19 @@ function typeInto(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+/** Log in with a username + password whose `users/{uid}` names KEY. */
+async function logInWithPassword(view: { container: HTMLElement }) {
+  const q = (id: string) =>
+    view.container.querySelector<HTMLInputElement>(`[data-testid="${id}"]`)!;
+  await act(async () => typeInto(q('token-gate-username'), 'powan'));
+  await act(async () => typeInto(q('token-gate-password'), 'password1'));
+  await act(async () => {
+    q('token-gate-submit')
+      .closest('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  });
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
@@ -108,7 +125,7 @@ afterEach(() => {
 });
 
 describe("the door signs in as the account's name, not the placeholder", () => {
-  it('a fresh device pasting the account key is Powan the moment the door finishes', async () => {
+  it('a fresh device logging in to the account is Powan the moment the door finishes', async () => {
     stubLocation();
     expect(getUserName()?.trim()).toBeFalsy(); // fresh device: nothing in the local name slot
 
@@ -121,13 +138,7 @@ describe("the door signs in as the account's name, not the placeholder", () => {
     await act(async () => {
       cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    const field = view.container.querySelector<HTMLInputElement>(
-      '[data-testid="token-gate-user-token"]',
-    )!;
-    await act(async () => typeInto(field, KEY));
-    await act(async () => {
-      field.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    });
+    await logInWithPassword(view);
     await flush();
 
     // ONE read (with the key, not something else) served both the #10 validation and the name,
@@ -155,13 +166,7 @@ describe("the door signs in as the account's name, not the placeholder", () => {
     await act(async () => {
       cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    const field = view.container.querySelector<HTMLInputElement>(
-      '[data-testid="token-gate-user-token"]',
-    )!;
-    await act(async () => typeInto(field, KEY));
-    await act(async () => {
-      field.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    });
+    await logInWithPassword(view);
     await flush();
 
     expect(probeAccountIdentityMock).toHaveBeenCalledTimes(1);
@@ -193,15 +198,7 @@ describe("the door signs in as the account's name, not the placeholder", () => {
       await act(async () => {
         cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
-      const field = view.container.querySelector<HTMLInputElement>(
-        '[data-testid="token-gate-user-token"]',
-      )!;
-      await act(async () => typeInto(field, KEY));
-      await act(async () => {
-        field
-          .closest('form')!
-          .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      });
+      await logInWithPassword(view);
 
       // Mid-race: the door has not signed anyone in — it is waiting on the one budget, not two.
       await act(async () => {

@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 //
-// The sign-out dialog's data-loss trap. `signOut()` -> `wipeAllTripData()` clears key 28, the
-// User Token — this device's ONLY copy of the account credential, which nothing can re-issue —
-// while the dialog's own copy promised "your key still gets you back into your account". That is
-// the mechanism that locked travellers out of the live app.
+// The sign-out dialog. `signOut()` -> `wipeAllTripData()` clears key 28 (the account id); since
+// D-660 the username and password restore it, so the teardown runs in one step and the Firebase
+// Auth session goes with it.
 //
 // Mounted for real (createRoot + act, the packing-checklist harness) with the REAL `signOut` and
 // the REAL storage gateway underneath, so the assertions are about bytes on disk, not a spy.
@@ -22,7 +21,11 @@ vi.mock('@/core/photos/blob-store', async (importOriginal) => {
 
 const clearRemoteCache = vi.hoisted(() => vi.fn(async (_opts?: { signOutAuth?: boolean }) => {}));
 const remoteGate = vi.hoisted(() => ({ on: true }));
-vi.mock('@/lib/firebase-remote', () => ({ clearRemoteCache }));
+const session = vi.hoisted(() => ({ password: true }));
+vi.mock('@/lib/firebase-remote', () => ({
+  clearRemoteCache,
+  isPasswordSession: async () => session.password,
+}));
 vi.mock('@/lib/firebase-config', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/firebase-config')>()),
   isRemoteConfigured: () => remoteGate.on,
@@ -55,6 +58,9 @@ async function mount(props: { forgetDevice?: boolean } = {}): Promise<void> {
   await act(async () => {
     at<HTMLButtonElement>('t')!.click();
   });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0)); // the session check
+  });
 }
 
 const click = async (id: string) => {
@@ -64,6 +70,7 @@ const click = async (id: string) => {
 };
 
 beforeEach(() => {
+  session.password = true;
   window.localStorage.clear();
   window.localStorage.setItem(TOKEN_KEY, 'Uttam');
   window.localStorage.setItem(NAME_KEY, 'Uttam');
@@ -79,75 +86,79 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('SignOutConfirm — a stored key is shown before the wipe destroys it', () => {
-  beforeEach(() => window.localStorage.setItem(SYNC_KEY, CODE));
-
-  it('the destructive button becomes "Show my key" and does NOT tear anything down yet', async () => {
-    await mount();
-    expect(at('t-confirm')!.textContent).toBe('Show my key');
-
-    await click('t-confirm');
-
-    // The key is on screen, in full, and still on disk — nothing has been wiped.
-    expect(at('t-key-value')!.textContent).toBe(CODE);
-    expect(window.localStorage.getItem(SYNC_KEY)).toBe(CODE);
-    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+describe('SignOutConfirm — an anonymous session keeps the key step (D-660)', () => {
+  beforeEach(() => {
+    window.localStorage.setItem(SYNC_KEY, CODE);
+    session.password = false;
   });
 
-  it('the show-once confirm stays DISABLED until "I\'ve saved my key" is ticked', async () => {
+  it('shows the key first, and the sign-out keeps the anonymous uid', async () => {
+    clearRemoteCache.mockClear();
     await mount();
+    expect(at('t-confirm')!.textContent).toBe('Show my key');
+    expect(at('t-dialog')!.textContent).not.toContain('username and password still');
+
     await click('t-confirm');
+    expect(at('t-key-value')!.textContent).toBe(CODE);
+    expect(window.localStorage.getItem(SYNC_KEY)).toBe(CODE); // nothing wiped yet
     expect(at<HTMLButtonElement>('t-key-confirm')!.disabled).toBe(true);
 
     await act(async () => {
       at<HTMLInputElement>('t-key-ack')!.click();
     });
-    expect(at<HTMLButtonElement>('t-key-confirm')!.disabled).toBe(false);
+    await click('t-key-confirm');
+    expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: false });
+    expect(window.localStorage.getItem(SYNC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 
-  it('only the acknowledged confirm runs the teardown — and it clears the key', async () => {
-    await mount();
+  it('"Forget this device" still drops the anonymous session', async () => {
+    clearRemoteCache.mockClear();
+    await mount({ forgetDevice: true });
     await click('t-confirm');
     await act(async () => {
       at<HTMLInputElement>('t-key-ack')!.click();
     });
     await click('t-key-confirm');
+    expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: true });
+  });
 
+  it('a dormant build has no account server, so no key step', async () => {
+    remoteGate.on = false;
+    try {
+      await mount();
+      expect(at('t-confirm')!.textContent).toBe('Sign out');
+    } finally {
+      remoteGate.on = true;
+    }
+  });
+});
+
+describe('SignOutConfirm — password session (D-660)', () => {
+  beforeEach(() => window.localStorage.setItem(SYNC_KEY, CODE));
+
+  it('signs out in one step: the password gets back in, so there is no key to show first', async () => {
+    clearRemoteCache.mockClear();
+    await mount();
+    expect(at('t-confirm')!.textContent).toBe('Sign out');
+    await click('t-confirm');
+
+    expect(at('t-key-value')).toBeNull();
+    expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: true });
     expect(window.localStorage.getItem(SYNC_KEY)).toBeNull();
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(window.localStorage.getItem(NAME_KEY)).toBeNull();
   });
 
-  it('the unsynced warning does not follow onto the key step', async () => {
-    window.localStorage.setItem(
-      'nepal_japan_sync_outbox',
-      JSON.stringify({ version: 1, dirty: { budget: ['model'] } }),
-    );
+  it('cancelling leaves every byte intact', async () => {
     await mount();
-    expect(at('t-unsynced')).not.toBeNull();
-    await click('t-confirm');
-    expect(at('t-unsynced')).toBeNull();
-  });
-
-  it('cancelling from the key step leaves every byte intact', async () => {
-    await mount();
-    await click('t-confirm');
     await click('t-cancel');
-
     expect(window.localStorage.getItem(SYNC_KEY)).toBe(CODE);
     expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
   });
-
-  it('"Forget this device" takes the same detour — it wipes the key too', async () => {
-    await mount({ forgetDevice: true });
-    expect(at('t-confirm')!.textContent).toBe('Show my key');
-    await click('t-confirm');
-    expect(at('t-key-value')!.textContent).toBe(CODE);
-    expect(at('t-key-confirm')!.textContent).toBe('Forget this device');
-  });
 });
 
-describe('SignOutConfirm — no key stored', () => {
+describe('SignOutConfirm — teardown', () => {
   it('signs out in one step, with no show-once screen to sit through', async () => {
     await mount();
     expect(at('t-confirm')!.textContent).toBe('Sign out');
@@ -181,12 +192,13 @@ describe('SignOutConfirm — no key stored', () => {
     for (const k of LIFETIME) expect(window.localStorage.getItem(k)).toBe('[]');
   });
 
-  // #571 — the Firestore cache goes too; only Forget this device drops the anonymous session.
-  it('clears the remote cache, signing auth out only for Forget this device', async () => {
+  // #571 — the Firestore cache goes too. D-660: both sign-outs end the Firebase Auth session, or
+  // the next person on the device would inherit a password account.
+  it('clears the remote cache AND signs out of Firebase Auth, for both sign-outs', async () => {
     clearRemoteCache.mockClear();
     await mount();
     await click('t-confirm');
-    expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: false });
+    expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: true });
     act(() => root.unmount());
     container.remove();
 
@@ -227,11 +239,11 @@ describe('SignOutConfirm — no key stored', () => {
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 
-  it('and the copy stops promising a key that is not there', async () => {
+  it('the copy points back to the username and password, not to a key', async () => {
     await mount();
     const copy = at('t-dialog')!.textContent ?? '';
-    expect(copy).toContain('There is no key stored here');
-    expect(copy).not.toContain('Your key gets you back');
+    expect(copy).toContain('username and password');
+    expect(copy).not.toMatch(/key/);
   });
 });
 

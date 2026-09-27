@@ -13,7 +13,7 @@ import { test, expect } from '@playwright/test';
 test.describe('#674 settings — Trip access on a Firebase-configured build', { tag: '@firebase' }, () => {
   test.skip(!process.env.E2E_FIREBASE, 'needs the Firebase-configured CI build');
 
-  test('renders and opens; shows the sync toggle and the Google link', async ({ page }) => {
+  test('renders and opens; shows the sync toggle and the access code', async ({ page }) => {
     await page.route(
       /googleapis\.com|firebaseapp\.com|gstatic\.com\/firebasejs/,
       (route) => route.abort(),
@@ -32,6 +32,6 @@ test.describe('#674 settings — Trip access on a Firebase-configured build', { 
     await group.getByTestId('settings-group-access-toggle').click();
 
     await expect(page.getByTestId('settings-sync-toggle')).toBeVisible();
-    await expect(page.getByTestId('settings-identity-google')).toBeVisible();
+    await expect(page.getByTestId('settings-access-uid')).toBeVisible();
   });
 });
