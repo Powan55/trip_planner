@@ -38,9 +38,9 @@ const fr = vi.hoisted(() => ({
   ),
 }));
 vi.mock('@/lib/firebase-remote', () => fr);
-// The handoff's own grants are covered by account-handoff.test.ts; here it is the sign-in plus the
+// The handoff's own grants are covered by account-handoff-remote.test.ts; here it is the sign-in plus the
 // users/{uid} read the door sees.
-vi.mock('@/lib/account-handoff', () => ({
+vi.mock('@/lib/account-handoff-remote', () => ({
   signInWithHandoff: async (email: string, pw: string) => {
     const uid = await fr.signInWithPassword(email, pw);
     return { uid, link: await fr.readAccountLink(uid) };

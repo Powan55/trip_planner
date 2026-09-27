@@ -49,7 +49,7 @@ vi.mock('@/lib/trips-remote', () => ({
 
 const KEY = '11111111-2222-3333-4444-555555555555';
 
-vi.mock('@/lib/account-handoff', () => ({
+vi.mock('@/lib/account-handoff-remote', () => ({
   signInWithHandoff: async () => ({ uid: 'uid-1', link: { username: 'powan', accountId: KEY } }),
 }));
 

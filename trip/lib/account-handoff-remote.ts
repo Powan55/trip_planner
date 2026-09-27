@@ -1,7 +1,14 @@
 'use client';
 
 import { FIREBASE_CONFIG } from './firebase-config';
-import { getAuthHandle, readAccountLink, signInWithPassword, type AccountLink } from './firebase-remote';
+import {
+  getAuthHandle,
+  isPermissionDenied,
+  readAccountLink,
+  signInWithPassword,
+  withTimeout,
+  type AccountLink,
+} from './firebase-remote';
 import { listKnownTrips } from '@/core/trips/registry';
 import { DEFAULT_TRIP_ID, isSafeTripSegment } from '@/core/storage/gateway';
 import { OWNER_HANDOFF_FAILED } from './account-codes';
@@ -60,6 +67,8 @@ export async function signInWithHandoff(
   return { uid, link };
 }
 
+const GRANT_TIMEOUT_MS = 8000;
+
 async function grantAccount(uidA: string, tripIds: string[]): Promise<void> {
   const { db, fs, auth } = await getAuthHandle();
   const me = auth.currentUser;
@@ -71,16 +80,20 @@ async function grantAccount(uidA: string, tripIds: string[]): Promise<void> {
       const ref = fs.doc(db, 'trips', id);
       let role: unknown;
       try {
-        const snap = await fs.getDocFromServer(ref);
+        const snap = await withTimeout(fs.getDocFromServer(ref), GRANT_TIMEOUT_MS);
         const members = snap.exists() ? (snap.data() as { members?: unknown }).members : undefined;
         if (!members || typeof members !== 'object' || uidA in members) return false;
         role = (members as Record<string, unknown>)[uidB];
-      } catch {
-        return false; // not readable as B: B is not on this trip, so there is nothing to carry
+      } catch (err) {
+        // Only a refusal proves B is not on this trip. Anything else leaves B's role unknown, and it
+        // may be owner, so the swap must not go ahead.
+        if (isPermissionDenied(err)) return false;
+        console.warn('[account-handoff] roster read failed:', id, err);
+        return true;
       }
       if (role !== 'owner' && role !== 'member') return false;
       try {
-        await fs.updateDoc(ref, { [`members.${uidA}`]: role });
+        await withTimeout(fs.updateDoc(ref, { [`members.${uidA}`]: role }), GRANT_TIMEOUT_MS);
         return false;
       } catch (err) {
         console.warn('[account-handoff] roster grant failed:', id, err);

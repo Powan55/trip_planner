@@ -70,7 +70,7 @@ vi.mock('@/lib/trips-remote', () => ({
   fetchAccountIdentity: async () => ({ status: 'error' }),
 }));
 // A5's login signs in with a password whose `users/{uid}` names this device's account id.
-vi.mock('@/lib/account-handoff', () => ({
+vi.mock('@/lib/account-handoff-remote', () => ({
   signInWithHandoff: async () => ({
     uid: 'uid-1',
     link: { username: 'sora', accountId: '11111111-2222-3333-4444-555555555555' },

@@ -41,7 +41,7 @@ import type { AccountUpgrade } from '@/lib/firebase-remote';
  * key 28 (`tripPlannerSyncCode`) holds and what the trip list and identity docs are keyed by.
  * - Create: link the device's anonymous session to the new credential (its uid is already in
  *   trip rosters), mint an account id, write `users/{uid}`, seed the account docs.
- * - Log in: `signInWithHandoff` (lib/account-handoff) first grants the account's uid this device's
+ * - Log in: `signInWithHandoff` (lib/account-handoff-remote) first grants the account's uid this device's
  *   roles on every trip it can see, then swaps the session and reads `users/{uid}`. Present → adopt
  *   its account id.
  * - Log in, `users/{uid}` MISSING: an account made in the console with a temporary password. The
@@ -490,7 +490,7 @@ function TokenGateWall({
     }
 
     try {
-      const { signInWithHandoff } = await import('@/lib/account-handoff');
+      const { signInWithHandoff } = await import('@/lib/account-handoff-remote');
       const { uid, link } = await signInWithHandoff(usernameToEmail(u), password);
       if (link) return admit(link.accountId);
       claimRef.current = { uid, username: u };
@@ -847,6 +847,7 @@ function TokenGateWall({
                 <PasswordField
                   {...fieldProps('confirmPassword')}
                   label="New password, again"
+                  noun="password confirmation"
                   value={confirmPassword}
                   onChange={setConfirmPassword}
                   autoComplete="new-password"
@@ -1045,7 +1046,8 @@ function PasswordField({
   invalid,
   errorId,
   inputRef,
-}: FieldBase) {
+  noun,
+}: FieldBase & { /** What the show toggle names, when the label is too long for it. */ noun?: string }) {
   const [shown, setShown] = useState(false);
   return (
     <div>
@@ -1076,7 +1078,7 @@ function PasswordField({
           type="button"
           onClick={() => setShown((s) => !s)}
           aria-pressed={shown}
-          aria-label={`Show ${label.toLowerCase()}`}
+          aria-label={`Show ${noun ?? label.toLowerCase()}`}
           aria-controls={id}
           data-testid={`${testId}-toggle`}
           className="absolute right-0 top-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 text-ink-mid hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -75,7 +75,7 @@ export function getAuthHandle(): Promise<RemoteHandle> {
   if (remotePromise) return remotePromise;
 
   remotePromise = (async () => {
-    const [{ initializeApp, getApps, getApp }, firestoreMod, authMod] = await Promise.all([
+    const [{ initializeApp, getApps }, firestoreMod, authMod] = await Promise.all([
       import('firebase/app'),
       import('firebase/firestore'),
       import('firebase/auth'),
@@ -86,7 +86,8 @@ export function getAuthHandle(): Promise<RemoteHandle> {
 
     // Reuse the singleton app if it already exists (one init across the app),
     // otherwise create it from the single-source config.
-    const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+    // By name: a sign-in handoff's secondary app may be the only one alive at this point.
+    const app = getApps().find((a) => a.name === '[DEFAULT]') ?? initializeApp(FIREBASE_CONFIG);
 
     const db = initializeFirestore(app, { localCache: persistentLocalCache() });
     // Single-tab persistent cache; switch to persistentMultipleTabManager() if a second
@@ -151,6 +152,21 @@ export async function getAuthIdToken(): Promise<string | null> {
 
 const CLEAR_CACHE_TIMEOUT_MS = 3000;
 const FLUSH_WAIT_MS = 1500;
+const WRITE_TIMEOUT_MS = 8000;
+
+/** Reject with `code: 'deadline-exceeded'` if `work` has not settled within `ms`. */
+export function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    work,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(Object.assign(new Error('timed out'), { code: 'deadline-exceeded' })),
+        ms,
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 function deleteDatabase(name: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -355,7 +371,7 @@ export async function writeAccountLink(uid: string, link: AccountLink): Promise<
   batch.set(fs.doc(db, 'users', uid), { username: link.username, accountId: link.accountId });
   batch.set(fs.doc(db, 'accountClaims', link.accountId), { uid });
   try {
-    await batch.commit();
+    await withTimeout(batch.commit(), WRITE_TIMEOUT_MS);
     return link.accountId;
   } catch (err) {
     const existing = await readAccountLink(uid).catch(() => null);

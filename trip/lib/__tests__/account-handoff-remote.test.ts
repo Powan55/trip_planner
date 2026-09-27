@@ -5,9 +5,11 @@ const fake = vi.hoisted(() => {
   const docs = new Map<string, Record<string, unknown>>();
   const log: string[] = [];
   const failWrites = new Set<string>();
+  const failReads = new Set<string>();
   const fs = {
     doc: (_db: unknown, ...segs: string[]) => segs.join('/'),
     getDocFromServer: async (path: string) => {
+      if (failReads.has(path)) throw Object.assign(new Error('offline'), { code: 'unavailable' });
       if (!docs.has(path)) {
         if (path.startsWith('trips/denied')) throw Object.assign(new Error('x'), { code: 'permission-denied' });
         return { exists: () => false, data: () => undefined };
@@ -20,7 +22,8 @@ const fake = vi.hoisted(() => {
     },
     getFirestore: () => ({}),
   };
-  return { docs, log, failWrites, fs, secondaryUid: 'uid-A', deleted: 0 };
+  const memory = { type: 'NONE' };
+  return { docs, log, failWrites, failReads, fs, memory, persistence: null as unknown, secondaryUid: 'uid-A', deleted: 0 };
 });
 
 vi.mock('firebase/firestore', () => fake.fs);
@@ -29,8 +32,11 @@ vi.mock('firebase/app', () => ({
   deleteApp: async () => void fake.deleted++,
 }));
 vi.mock('firebase/auth', () => ({
-  inMemoryPersistence: {},
-  initializeAuth: () => ({}),
+  inMemoryPersistence: fake.memory,
+  initializeAuth: (_app: unknown, deps: { persistence: unknown }) => {
+    fake.persistence = deps.persistence;
+    return {};
+  },
   signInWithEmailAndPassword: async (_a: unknown, _e: string, pw: string) => {
     if (pw !== 'right-pass') throw Object.assign(new Error('x'), { code: 'auth/invalid-credential' });
     fake.log.push('secondary signin');
@@ -44,6 +50,8 @@ vi.mock('@/lib/firebase-config', () => ({
   isTripRemoteConfigured: () => true,
 }));
 vi.mock('@/lib/firebase-remote', () => ({
+  isPermissionDenied: (err: unknown) => (err as { code?: unknown })?.code === 'permission-denied',
+  withTimeout: <T,>(work: Promise<T>) => work,
   getAuthHandle: async () => ({
     db: {},
     fs: fake.fs,
@@ -58,12 +66,14 @@ vi.mock('@/core/trips/registry', () => ({
   listKnownTrips: () => [{ id: 'nepal-japan-2026' }, { id: 'known-owner' }, { id: 'known-member' }, { id: 'denied-1' }],
 }));
 
-import { signInWithHandoff } from '@/lib/account-handoff';
+import { signInWithHandoff } from '@/lib/account-handoff-remote';
 
 beforeEach(() => {
   fake.docs.clear();
   fake.log.length = 0;
   fake.failWrites.clear();
+  fake.failReads.clear();
+  fake.persistence = null;
   fake.deleted = 0;
   fake.docs.set('trips/known-owner', { members: { 'uid-B': 'owner' } });
   fake.docs.set('trips/known-member', { members: { 'uid-X': 'owner', 'uid-B': 'member' } });
@@ -87,6 +97,15 @@ describe('signInWithHandoff', () => {
       'grant trips/listed {"members.uid-A":"member"}',
     ]);
     expect(fake.deleted).toBe(1);
+    expect(fake.persistence).toBe(fake.memory);
+  });
+
+  it('a roster read that fails for any reason but a refusal aborts before the swap', async () => {
+    fake.failReads.add('trips/known-owner');
+    await expect(signInWithHandoff('p@x.invalid', 'right-pass')).rejects.toMatchObject({
+      code: 'handoff/owner-grant-failed',
+    });
+    expect(fake.log).not.toContain('swap');
   });
 
   it('a failed owner grant aborts before the swap', async () => {
