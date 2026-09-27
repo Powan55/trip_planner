@@ -341,16 +341,22 @@ function TokenGateWall({
   useEffect(() => {
     const code = getSyncCode();
     setSavedCode(code && ACCOUNT_ID_RE.test(code) ? code : null);
+    // An admitted device's link belongs to the join dialog, which already read it.
+    if (upgrade) return;
     const params = new URLSearchParams(window.location.search);
     const t = params.get('trip')?.trim();
+    const inv = params.get('invite')?.trim();
     if (t) setPendingTrip(t);
-    const inv = params.get('invite');
-    if (inv !== null) {
+    if (t && inv) setInviteToken(inv);
+    // The wall owns the link from here. Left in the URL, the join dialog would re-read `trip` once
+    // sign-in identifies the device and open over the wall.
+    if (params.has('trip') || params.has('invite')) {
       const url = new URL(window.location.href);
+      url.searchParams.delete('trip');
       url.searchParams.delete('invite');
       window.history.replaceState(window.history.state, '', url.toString());
-      if (t && inv.trim()) setInviteToken(inv.trim());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Focus the first field on open and whenever the form swaps; re-assert shortly after in case the

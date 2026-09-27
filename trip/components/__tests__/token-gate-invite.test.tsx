@@ -28,7 +28,7 @@ vi.mock('@/lib/trips-remote', () => ({
 vi.mock('@/lib/invites-remote', () => ({
   redeemInvite: async (tripId: string, token: string) => {
     h.calls.push(`redeem:${tripId}:${token}`);
-    return h.redeem;
+    return h.redeem === 'hang' ? new Promise(() => {}) : h.redeem;
   },
 }));
 vi.mock('@/core/trips/registry', async (importOriginal) => ({
@@ -59,6 +59,7 @@ vi.mock('framer-motion', async () => {
 });
 
 import TokenGate from '@/components/token-gate';
+import TripJoinHandshake from '@/components/trip-join-handshake';
 
 const TOKEN = '0f8b6c2e-1d3a-4b5c-8d7e-9f0a1b2c3d4e';
 const realLocation = window.location;
@@ -66,7 +67,7 @@ const replace = vi.fn();
 let root: Root;
 let host: HTMLDivElement;
 
-const q = (id: string) => host.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+const q = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
 
 function type(id: string, value: string) {
   const input = q(id) as HTMLInputElement;
@@ -75,11 +76,18 @@ function type(id: string, value: string) {
 }
 
 async function logIn() {
-  await act(async () => root.render(<TokenGate />));
-  expect(window.location.search).toBe('?trip=trip-xyz');
+  await act(async () =>
+    root.render(
+      <>
+        <TokenGate />
+        <TripJoinHandshake />
+      </>,
+    ),
+  );
+  expect(window.location.search).toBe('');
   expect(q('token-gate-invite')?.textContent).toContain('invited you');
   Object.defineProperty(window, 'location', {
-    value: { ...realLocation, search: '', href: realLocation.href, replace },
+    value: { ...realLocation, search: realLocation.search, href: realLocation.href, replace },
     configurable: true,
     writable: true,
   });
@@ -103,6 +111,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   act(() => root.unmount());
   host.remove();
   Object.defineProperty(window, 'location', { value: realLocation, configurable: true, writable: true });
@@ -114,6 +123,7 @@ describe('TokenGate with an invite link (#641)', () => {
     await logIn();
     expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`, 'join:trip-xyz']);
     expect(replace).toHaveBeenCalledTimes(1);
+    expect(q('trip-join-dialog')).toBeNull();
     expect(JSON.stringify({ ...window.localStorage })).not.toContain(TOKEN);
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(TOKEN);
   });
@@ -126,5 +136,27 @@ describe('TokenGate with an invite link (#641)', () => {
     expect(q('token-gate-error')?.textContent).toContain('expired, was already used');
     expect(q('token-gate-invite-retry')).toBeNull();
     expect(document.activeElement).toBe(q('token-gate-invite-continue'));
+    expect(q('trip-join-dialog')).toBeNull();
+  });
+
+  it('already a member: the join goes ahead', async () => {
+    h.redeem = 'already';
+    await logIn();
+    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`, 'join:trip-xyz']);
+    expect(replace).toHaveBeenCalledTimes(1);
+  });
+
+  it('redeem that never answers: Not reached, Try again focused, no join', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    h.redeem = 'hang';
+    await logIn();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`]);
+    expect(replace).not.toHaveBeenCalled();
+    expect(q('token-gate-error')?.textContent).toContain('could not reach the trip');
+    expect(document.activeElement).toBe(q('token-gate-invite-retry'));
+    expect(q('trip-join-dialog')).toBeNull();
   });
 });
