@@ -835,6 +835,31 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(pushJournalEntryMock).not.toHaveBeenCalled();
     expect(res.restored).not.toContain('journal');
   });
+
+  it('reports ok:false, not a fake success, when every write is refused (storage full)', async () => {
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: { expenses: SEED_EXPENSES },
+      photos: { meta: [], blobs: {} },
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/storage/i);
+  });
 });
 
 // ── The container version is READ, not just stamped ─────────────────────────────────────────────
