@@ -30,10 +30,10 @@ export function loadDocs(): DocItem[] {
 }
 
 /** Sanitize + persist the whole docs checklist as JSON. No-op / never-throws under SSR or storage failure. */
-export function saveDocs(items: DocItem[]): void {
+export function saveDocs(items: DocItem[]): boolean {
   // fallback=[]: a write persists what the caller passed, not sanitizeItems' seeded-template
   // default (#335, mirrors packing's #328) — an emptied list must stay empty across reload.
-  docsStore.set<DocItem[]>(sanitizeItems(items, []));
+  return docsStore.set<DocItem[]>(sanitizeItems(items, []));
 }
 
 /**

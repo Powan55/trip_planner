@@ -186,13 +186,14 @@ export function loadItinerary(config: VaultConfig): DayPlan[] {
  * Always writes (no length gate) so "delete everything" is a durable state. SSR-safe
  * no-op when there is no window. Never throws (quota / disabled storage degrade quietly).
  */
-export function saveItinerary(plans: DayPlan[], config: VaultConfig): void {
+export function saveItinerary(plans: DayPlan[], config: VaultConfig): boolean {
   const { storageKey } = config;
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return false;
   const nowISO = config.nowISO ?? defaultNowISO;
   const envelope = makeEnvelope(CURRENT_ITINERARY_VERSION, plans, nowISO());
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(envelope));
+    return true;
   } catch (err) {
     // Behavior unchanged (degrade quietly — never throw), but surface the reason so a lost save
     // (quota exceeded / storage disabled) is at least diagnosable rather than silently vanishing.
@@ -201,6 +202,7 @@ export function saveItinerary(plans: DayPlan[], config: VaultConfig): void {
     // gateway's writeString fires on a detected quota failure (raw localStorage here, not
     // routed through the gateway primitives, so this call site needs its own guarded dispatch).
     if (isQuotaError(err)) notifyQuotaExceeded(storageKey);
+    return false;
   }
 }
 

@@ -24,7 +24,7 @@ export const myPlacesStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('myPlaces'), fallback);
   },
-  set<T>(places: T): void {
-    writeJson('local', keyFor('myPlaces'), places);
+  set<T>(places: T): boolean {
+    return writeJson('local', keyFor('myPlaces'), places);
   },
 } as const;

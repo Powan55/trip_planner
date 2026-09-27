@@ -5960,3 +5960,11 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 **Trade-off.** Manual ordering of timed plans is gone — their time is now the only thing that places them, which is what was asked for. A drag of an untimed row past a timed one still rewrites stored order, so it can land the row at a different spot within the trailing untimed run than the drop point suggested; the run's own order is all that is observable, so this is cosmetic. On a date-line day the displayed times are correctly ordered but visually non-monotonic, with nothing on screen explaining why — the pre-existing accepted cost `lib/sort-items-by-time.ts` already records, now reachable from the day list rather than only the map.
 
 **Changes if.** Manual ordering of timed plans is wanted back: it returns as an explicit per-day "Time / Manual" toggle, never as a silent reversion, since the sort is what makes the phase headers trustworthy.
+
+### D-650 · Amends D-148, D-604 · (issue #666, 2026-09-27) · A refused local save is never pushed
+
+**Decision.** `writeString`, `writeJson` and `saveItinerary` return `true` only once `setItem` succeeds, and `false` on every failure (quota, storage disabled or absent, a stringify throw). The synced saves and their store `.set` methods pass that through, and `commit()` skips `sync.push` when `save` returns `false`. `StoragePort.save` is `boolean | void`, so a port that returns nothing still pushes as before. The D-604 snap-back and the `trip:quota-exceeded` toast are unchanged.
+
+**Why.** Local storage is the truth. A save refused for quota snapped back on screen but still synced, so the user re-added the expense and every member saw it twice.
+
+**Trade-off.** A change that fails locally never reaches other devices, even when the network is fine. Restore paths and the outbox flush still ignore the result.

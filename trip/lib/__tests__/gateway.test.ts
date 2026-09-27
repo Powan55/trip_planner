@@ -193,6 +193,14 @@ describe('storage gateway (D-097)', () => {
       expect(spy).toHaveBeenCalled();
     });
 
+    it('writeString reports whether the write landed (#666)', () => {
+      expect(writeString('local', 'k', 'v')).toBe(true);
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+      expect(writeString('local', 'k', 'v')).toBe(false);
+    });
+
     it('writeJson swallows a throwing setItem', () => {
       vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
         throw new Error('disabled');
