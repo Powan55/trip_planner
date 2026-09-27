@@ -299,7 +299,7 @@ describe('CUSTOM pack (LEGS === [\'main\']) — the bug repro and its fix', () =
 
   it('pushExpenseChunk acks-and-drops a leg foreign to the active pack (never a bad write)', async () => {
     const { remote } = await importFreshUnderCustomPack();
-    await remote.pushExpenseChunk([mainExpense('x', { leg: 'nepal' })], 'nepal');
+    await remote.pushExpenseChunk([mainExpense('x', { leg: 'nepal' })], 'nepal', TRIP_ID);
     expect(fake.docs.has(`trips/${TRIP_ID}/expenses/nepal`)).toBe(false);
     expect(writeLog).toEqual([]);
   });

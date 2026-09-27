@@ -257,7 +257,7 @@ describe('pushChunkMerged — transactional read→merge→set does NOT clobber 
   });
 
   it('an emptied leg writes items:[] (D-018/D-091 parity — not a skip)', async () => {
-    await pushExpenseChunk([], 'japan'); // no rows for japan → write an empty leg doc
+    await pushExpenseChunk([], 'japan', TRIP_ID); // no rows for japan → write an empty leg doc
     const written = fake.docs.get(`trips/${TRIP_ID}/expenses/japan`) as { items: Expense[] };
     expect(written.items).toEqual([]);
     expect(writeLog).toEqual([`tx-set:trips/${TRIP_ID}/expenses/japan`]);
@@ -366,7 +366,7 @@ describe('#532 — moving an expense to another leg leaves one row, not two', ()
     expect(rows.map((e) => [e.id, e.leg])).toEqual([['X', 'japan']]);
     expect(expensesToSpent(rows).byLeg).toEqual({ japan: 1000 });
 
-    await pushExpenseChunk(rows, 'nepal');
+    await pushExpenseChunk(rows, 'nepal', TRIP_ID);
     expect(items(NEPAL)).toEqual([expect.objectContaining({ id: 'X', deleted: true })]);
   });
 
@@ -383,7 +383,7 @@ describe('#532 — moving an expense to another leg leaves one row, not two', ()
     // What useExpenses hands the budget views: the live rows of the persisted list.
     expect(expensesToSpent(rows.filter((e) => e.deleted !== true))).toEqual({});
 
-    await pushExpenseChunk(rows, 'nepal');
+    await pushExpenseChunk(rows, 'nepal', TRIP_ID);
     expect(items(NEPAL).every((e) => e.deleted === true)).toBe(true);
   });
 
