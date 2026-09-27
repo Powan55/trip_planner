@@ -626,8 +626,9 @@ function TripAccessGroup() {
   };
 
   useEffect(() => {
-    let cancelled = false;
     setTripKey(getTripId());
+    if (paused) return;
+    let cancelled = false;
     void import('@/lib/firebase-remote')
       .then(({ getRemote }) => getRemote())
       .then((handle) => {
@@ -642,7 +643,7 @@ function TripAccessGroup() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [paused]);
 
   const myRole = uid && typeof members === 'object' && members ? members[uid] : undefined;
 
@@ -696,7 +697,7 @@ function TripAccessGroup() {
       const { removeTripMember } = await import('@/lib/trips-remote');
       const result = await removeTripMember(tripKey, memberUid);
       if (result === 'ok') {
-        setStatus('Removed. That device can no longer open this trip.');
+        setStatus('Removed from the member list. That device can rejoin on its next open.');
         await loadMembers();
       } else if (result === 'denied') {
         setError('Only the person who created this trip can remove a device.');
@@ -711,14 +712,14 @@ function TripAccessGroup() {
   return (
     <div className="flex flex-col gap-4" data-testid="settings-access-card">
       <SyncThisDevice />
-      {paused && (
+      {paused ? (
         <p
           data-testid="settings-access-paused"
           className="flex items-center gap-2 border-hair border-border bg-surface-raised px-gut py-3 text-t-body text-ink-mid"
         >
-          Sync is off on this device. Turn it back on to add or remove a device.
+          Sync is off on this device. Turn it back on to see or manage who can open this trip.
         </p>
-      )}
+      ) : null}
       {!paused && !online && (
         <p
           role="alert"
@@ -730,6 +731,7 @@ function TripAccessGroup() {
         </p>
       )}
       {/* This device's code — the out-of-band invite, and the thing a friend pastes. */}
+      {!paused && (
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <h3 className="pr pr--l text-ink-hi">This device&rsquo;s code</h3>
         <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
@@ -773,8 +775,10 @@ function TripAccessGroup() {
           </p>
         )}
       </div>
+      )}
 
       {/* The roster. */}
+      {!paused && (
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <h3 className="pr pr--l text-ink-hi">Who can open this trip</h3>
         {tripKey === '' ? (
@@ -847,8 +851,9 @@ function TripAccessGroup() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Remove this device?</AlertDialogTitle>
                             <AlertDialogDescription className="text-t-body text-ink-mid">
-                              Device {memberUid.slice(0, 8)}&hellip; will no longer be able to open
-                              this trip. This cannot be undone.
+                              This removes device {memberUid.slice(0, 8)}&hellip; from the member
+                              list. If that device still has this trip open, it can rejoin on its
+                              next load &mdash; to fully cut it off, start a new trip instead.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -921,6 +926,7 @@ function TripAccessGroup() {
           </p>
         )}
       </div>
+      )}
     </div>
   );
 }
