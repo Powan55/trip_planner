@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S355 — the marketing landing + the "your key" show-once gate, on the served static `out/` build.
+ * S355 — the marketing landing + the username/password door (D-660), on the served static `out/` build.
  *
  * D-244 (LOCKED): the landing renders inside `TokenGate`'s logged-out branch at `/` — no new route,
  * no root-layout split. So everything here is scoped to the wall's `[role="dialog"]` panel, which
@@ -18,7 +18,8 @@ import AxeBuilder from '@axe-core/playwright';
  *   1. A logged-out visit opens on the LANDING (H1 + CTAs), not the auth form, and the wall carries
  *      no trip name / departure date / countdown / itinerary text.
  *   2. Each CTA opens the auth card on the right path, and the D-021 focus trap still holds.
- *   3. The create flow cannot reach [Continue] until "I've saved my key" is ticked.
+ *   3. Sign-up works end to end on the dormant build, and the form's errors and password toggle
+ *      are accessible.
  *   4. axe: zero serious/critical at 390px and 1440px, and no horizontal overflow at 390.
  *   5. The three S356 screenshot slots exist, named and sized.
  */
@@ -26,7 +27,7 @@ import AxeBuilder from '@axe-core/playwright';
 const TOUR_SEEN = 'nepal_japan_first_run_tour_seen';
 const INSTALL_HINT = 'nepal_japan_install_hint_dismissed';
 
-/** Fresh logged-out visitor — no identity, no key. The wall opens on the landing. */
+/** Fresh logged-out visitor — no identity, no account id. The wall opens on the landing. */
 async function gotoLoggedOut(page: Page, path = '/') {
   await page.addInitScript(
     ({ tour, hint }: { tour: string; hint: string }) => {
@@ -66,7 +67,7 @@ test.describe('S355 — the logged-out landing', () => {
     await expect(page.getByTestId('landing-cta-join')).toBeVisible();
     // The auth card is a SECOND view, reached from a CTA — it is not on screen yet.
     await expect(page.getByTestId('token-gate-submit')).toHaveCount(0);
-    await expect(page.getByTestId('token-gate-user-token')).toHaveCount(0);
+    await expect(page.getByTestId('token-gate-username')).toHaveCount(0);
     // The split band and the S356 slots are part of the shipped page, not a later add.
     await expect(page.getByTestId('landing-split-band')).toBeVisible();
   });
@@ -98,7 +99,7 @@ test.describe('S355 — the logged-out landing', () => {
       'aria-pressed',
       'true',
     );
-    await expect(page.getByTestId('token-gate-user-token')).toBeVisible();
+    await expect(page.getByTestId('token-gate-username')).toBeVisible();
     await expect(page.getByTestId('landing-page')).toHaveCount(0);
   });
 
@@ -141,7 +142,7 @@ test.describe('S355 — the logged-out landing', () => {
     // ...and the very first Enter on arrival therefore opens LOG IN, not signup.
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('token-gate-mode-login')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByTestId('token-gate-user-token')).toBeVisible();
+    await expect(page.getByTestId('token-gate-username')).toBeVisible();
   });
 
   test('S382: signup is still one click away and does not trap a genuinely new user', async ({
@@ -159,15 +160,10 @@ test.describe('S355 — the logged-out landing', () => {
 
   /**
    * #70 — the shared-trip CTA, in a real browser. It replaces the S382 case that asserted this
-   * CTA opened LOG IN, which is the defect: the CTA names visitors holding a TRIP TOKEN and the
-   * key field takes a USER TOKEN (D-239, never mixed), so the door asked for a credential that
-   * audience cannot have. D-296 rejects an invented key; a dormant or offline build instead
-   * admits them into a working-but-empty account, which is the quieter half of the bug.
-   *
-   * The absence of `token-gate-user-token` is the assertion that discriminates the two builds —
-   * "create is pressed" would pass on a build that still rendered the key field alongside.
+   * CTA opened LOG IN, which is the defect: the CTA names visitors holding a TRIP TOKEN, who have
+   * no account yet, so the door asked for a credential that audience cannot have.
    */
-  test('#70: the shared-trip CTA opens CREATE, and never shows the key field', async ({ page }) => {
+  test('#70: the shared-trip CTA opens CREATE', async ({ page }) => {
     await gotoLoggedOut(page);
 
     // The route's second half is stated on the landing BEFORE the click, and is the button's
@@ -183,11 +179,10 @@ test.describe('S355 — the logged-out landing', () => {
     await join.click();
     await expect(page.getByTestId('token-gate-mode-create')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('token-gate-name')).toBeVisible();
-    await expect(page.getByTestId('token-gate-user-token')).toHaveCount(0);
 
-    // ...and log in is still one click from there, for a visitor who does have a key.
+    // ...and log in is still one click from there, for a visitor who does have an account.
     await page.getByTestId('token-gate-mode-login').click();
-    await expect(page.getByTestId('token-gate-user-token')).toBeVisible();
+    await expect(page.getByTestId('token-gate-username')).toBeVisible();
   });
 
   test('the create CTA opens the auth card on "Create an account"', async ({ page }) => {
@@ -277,55 +272,56 @@ test.describe('S355 — the logged-out landing', () => {
   });
 });
 
-test.describe('S355 — the show-once save gate', () => {
-  test('[Continue] is unreachable until "I\'ve saved my key" is ticked', async ({ page }) => {
+test.describe('D-660 — the username + password form', () => {
+  test('sign-up on the dormant build admits locally and lands on /trips/', async ({ page }) => {
     await gotoLoggedOut(page);
     await page.getByTestId('landing-cta-create').click();
-
-    await expect(async () => {
-      await page.getByTestId('token-gate-name').fill('Genghis');
-      await expect(page.getByTestId('token-gate-submit')).toBeEnabled();
-      await page.getByTestId('token-gate-submit').click();
-      await expect(page.getByTestId('user-token-show-once')).toBeVisible();
-    }).toPass();
-
-    const confirm = page.getByTestId('user-token-show-once-confirm');
-    const ack = page.getByTestId('user-token-show-once-ack');
-
-    // The gate: disabled, and a click does nothing (still on the wall, still no navigation).
-    await expect(ack).not.toBeChecked();
-    await expect(confirm).toBeDisabled();
-    await confirm.click({ force: true });
-    await expect(page.getByTestId('user-token-show-once')).toBeVisible();
-    expect(new URL(page.url()).pathname.replace(/\/$/, '')).toBe('');
-
-    // Tick it → the way forward opens.
-    await ack.check();
-    await expect(confirm).toBeEnabled();
-    await confirm.click();
+    await expect(page.getByTestId('token-gate-local-note')).toBeVisible();
+    await page.getByTestId('token-gate-name').fill('Genghis');
+    await page.getByTestId('token-gate-username').fill('genghis');
+    await page.getByTestId('token-gate-password').fill('longenough');
+    await page.getByTestId('token-gate-submit').click();
     await page.waitForURL(/\/trips\/$/, { timeout: 15_000 });
+    expect(await page.evaluate(() => window.localStorage.getItem('tripPlannerUserName'))).toBe(
+      'Genghis',
+    );
   });
 
-  test('the key is shown in readable groups WITHOUT altering a character of it', async ({
+  test('inputs carry labels and autocomplete tokens; the password toggle is a pressed button', async ({
     page,
   }) => {
     await gotoLoggedOut(page);
-    await page.getByTestId('landing-cta-create').click();
-    await expect(async () => {
-      await page.getByTestId('token-gate-name').fill('Genghis');
-      await expect(page.getByTestId('token-gate-submit')).toBeEnabled();
-      await page.getByTestId('token-gate-submit').click();
-      await expect(page.getByTestId('user-token-show-once')).toBeVisible();
-    }).toPass();
+    await page.getByTestId('landing-cta-login').click();
+    await expect(page.getByLabel('Username')).toHaveAttribute('autocomplete', 'username');
+    const password = page.getByLabel('Password', { exact: true });
+    await expect(password).toHaveAttribute('autocomplete', 'current-password');
+    await expect(password).toHaveAttribute('type', 'password');
 
-    // The grouping is CSS gaps between spans, never inserted whitespace: what the user selects and
-    // copies by hand has to be a usable key, and token-only auth has no recovery from a broken one.
-    const stored = await page.evaluate(() => window.localStorage.getItem('tripPlannerSyncCode'));
-    expect(stored).toMatch(/^[0-9a-f-]{36}$/);
-    const rendered = await page
-      .getByTestId('user-token-show-once-value')
-      .evaluate((el) => el.textContent);
-    expect(rendered).toBe(stored);
+    const toggle = page.getByTestId('token-gate-password-toggle');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(toggle).toHaveAccessibleName('Show password');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(password).toHaveAttribute('type', 'text');
+
+    await page.getByTestId('token-gate-mode-create').click();
+    await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute(
+      'autocomplete',
+      'new-password',
+    );
+  });
+
+  test('an invalid username is announced politely and focus moves to the field', async ({ page }) => {
+    await gotoLoggedOut(page);
+    await page.getByTestId('landing-cta-login').click();
+    await page.getByTestId('token-gate-username').fill('x');
+    await page.getByTestId('token-gate-password').fill('longenough');
+    await page.getByTestId('token-gate-submit').click();
+    const error = page.getByTestId('token-gate-error');
+    await expect(error).toContainText('3 to 20 characters');
+    await expect(page.locator('[aria-live="polite"]').filter({ has: error })).toHaveCount(1);
+    await expect(page.getByTestId('token-gate-username')).toBeFocused();
+    await expect(page.getByTestId('token-gate-username')).toHaveAttribute('aria-invalid', 'true');
   });
 });
 

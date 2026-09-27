@@ -28,7 +28,7 @@ import {
  * `core/storage/gateway.ts`'s `wipeAllTripData()` — is never a one-click-destructive surprise.
  *
  * Ruling 1's exact copy (sign-out is unrecoverable data loss in this window — lands before
- * — the User Token restores the ACCOUNT, not the plan). Ruling 2's backup offer, wired to the
+ * — logging back in restores the ACCOUNT, not the plan). Ruling 2's backup offer, wired to the
  * extracted `downloadTripBackup()` (reused verbatim — no new export path, no new dependency): a
  * plain button that stays open on click, so backing up and still confirming (or cancelling) both
  * stay available.
@@ -51,13 +51,9 @@ import {
  * dialog + the action. Testids follow the house convention: `{testId}` (trigger, supplied by the
  * caller's own button) / `{testId}-dialog` / `{testId}-cancel` / `{testId}-confirm`.
  *
- * TWO STEPS WHEN THERE IS A KEY TO LOSE. `wipeAllTripData()` clears key 28, the User Token — so
- * this dialog was destroying the only copy of the account credential on this device while its own
- * copy promised "your key still gets you back into your account". That is how travellers ended up
- * locked out. Confirming now advances to `UserTokenShowOnce` (the same show-once block the door
- * and the grandfathered upgrade use — copy, download, and a required "I've saved my key" tick)
- * and the teardown runs from ITS confirm. A device with no key stored skips straight through and
- * the copy no longer claims one exists.
+ * TWO STEPS ON A DEVICE WITHOUT A PASSWORD YET (D-660): the wipe erases key 28, which such a
+ * device needs to claim a username later, so confirming first shows the key (`UserTokenShowOnce`)
+ * and the teardown runs from its confirm. A password session signs out in one step.
  */
 export default function SignOutConfirm({
   testId,
@@ -70,12 +66,17 @@ export default function SignOutConfirm({
 }) {
   const [backup, setBackup] = useState<'idle' | 'done' | 'error'>('idle');
   const [step, setStep] = useState<'confirm' | 'key'>('confirm');
-  // Read post-open, never at mount: this is a client-only storage read, and the key can be minted
-  // (Settings, /trips) while the page is still up.
+  // Read post-open, never at mount: client-only storage and session reads.
   const [code, setCode] = useState<string | null>(null);
+  /** `true` only once confirmed; unknown counts as anonymous, the safe side for both uses below. */
+  const [passwordSession, setPasswordSession] = useState(false);
   const [unsynced, setUnsynced] = useState(0);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+
+  // D-660: on a device still on its anonymous session, key 28 is the only way to carry the account
+  // over to a username later, so the old show-once step stays until that device has a password.
+  const keyNeeded = code !== null && isRemoteConfigured() && !passwordSession;
 
   const handleBackup = async () => {
     try {
@@ -101,8 +102,10 @@ export default function SignOutConfirm({
       }
       if (isRemoteConfigured()) {
         try {
+          // A password session must not outlive the sign-out (D-660); an anonymous uid is what trip
+          // rosters name, so only Forget this device drops it (D-576).
           const { clearRemoteCache } = await import('@/lib/firebase-remote');
-          await clearRemoteCache({ signOutAuth: forgetDevice });
+          await clearRemoteCache({ signOutAuth: forgetDevice || passwordSession });
         } catch {
           // a failed chunk load must not block sign-out
         }
@@ -121,6 +124,12 @@ export default function SignOutConfirm({
         setStep('confirm');
         setCode(getSyncCode());
         setUnsynced(unsyncedEditCount());
+        setPasswordSession(false);
+        if (isRemoteConfigured()) {
+          void import('@/lib/firebase-remote')
+            .then(({ isPasswordSession }) => isPasswordSession())
+            .then(setPasswordSession, () => {});
+        }
       }}
     >
       <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
@@ -138,14 +147,14 @@ export default function SignOutConfirm({
           </AlertDialogTitle>
           <AlertDialogDescription className="text-[color:var(--text-mid)]">
             {step === 'key'
-              ? 'Signing out erases this key from this device, and nothing can re-issue it. Save it now — it is the only way back into your account.'
-              : code
+              ? 'Signing out erases this key from this device, and nothing can re-issue it. Save it now — until you set up a username and password, it is the only way back into your account.'
+              : keyNeeded
                 ? forgetDevice
                   ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). It erases your key too, so you'll get one last look at it next. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device, and your key along with it. You'll get one last look at the key next — it's the only way back into your account, and the plan itself won't come back unless it's synced to another device."
                 : forgetDevice
-                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). There is no key stored here, so nothing signs back in afterwards. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
-                  : "This removes this trip's data from this device. There is no key stored here, so nothing signs back in afterwards, and the plan won't come back unless it's synced to another device."}
+                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). Your username and password still log you back in. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
+                  : "This removes this trip's data from this device. Your username and password still log you back in, but the plan itself won't come back unless it's synced to another device."}
             {step !== 'key' && unsynced > 0 && (
               <span className="mt-2 block font-semibold text-[color:var(--text-hi)]" data-testid={`${testId}-unsynced`}>
                 {unsynced} {unsynced === 1 ? 'change' : 'changes'} on this device{' '}
@@ -197,19 +206,19 @@ export default function SignOutConfirm({
               <AlertDialogCancel data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 data-testid={`${testId}-confirm`}
-                // `preventDefault` keeps Radix from closing the dialog: with a key stored, this
-                // button advances to the show-once step; without one, the dialog stays up (busy)
-                // until the teardown reloads the page.
+                // `preventDefault` keeps Radix from closing the dialog: with a key to show, this
+                // advances to the show-once step; otherwise the dialog stays up (busy) until the
+                // teardown reloads the page.
                 disabled={busy}
                 aria-busy={busy || undefined}
                 onClick={(e) => {
                   e.preventDefault();
-                  if (!code) return handleConfirm();
+                  if (!keyNeeded) return handleConfirm();
                   setStep('key');
                 }}
                 className="btn btn--danger"
               >
-                {code ? 'Show my key' : forgetDevice ? 'Forget this device' : 'Sign out'}
+                {keyNeeded ? 'Show my key' : forgetDevice ? 'Forget this device' : 'Sign out'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </>

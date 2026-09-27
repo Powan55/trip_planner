@@ -1,22 +1,20 @@
 // The DISPLAY-NAME pipeline. Not the credential, and not the gate.
 //
 // This header used to describe sign-in as free-text nickname auth with `resolveToken` as the
-// door's check. D-239 (2026-07-30) ended that: the door asks for a User Token (key 28, a
-// `crypto.randomUUID()` minted per account) and validates it against Firestore — see
-// `probeAccountIdentity` in lib/trips-remote and components/token-gate. Nothing here gates
-// anything. Two sweeps mis-diagnosed a lockout by trusting the old text, which is why the
-// correction is spelled out rather than quietly deleted.
+// door's check. The door now signs in with a username and password (D-660, Firebase Auth); the
+// account id it resolves to still lives in key 28. Nothing here gates anything. Two sweeps
+// mis-diagnosed a lockout by trusting the old text, which is why the correction is spelled out
+// rather than quietly deleted.
 //
 // What this module actually owns: a *soft*, display-only identity (intentionally spoofable) used
 // for attribution — createdBy / updatedBy stamping, "last edited by X", the traveller filter and
 // the expense-split roster. `signIn(name)` is the ONE writer of both identity slots (name +
 // token), so a rename is just a re-sign-in; `signOut()` is the full local teardown.
 //
-// NAMING: the ACCOUNT credential is "your key" / User Token, and a single trip's capability is a
+// NAMING: the account credential is a username + password, and a single trip's capability is a
 // Trip Token. The name here is neither — never call it a token in UI copy.
 //
-// Firebase-free, and carries no auth credential: the anonymous-auth uid is DEVICE identity and
-// lives in lib/firebase-remote.
+// Firebase-free, and carries no auth credential: the Firebase uid lives in lib/firebase-remote.
 //
 // SSR-safe: every localStorage / window access is guarded by a `typeof window` check so
 // these helpers are inert during static export / server render (return null / no-op).
@@ -53,6 +51,19 @@ export const IDENTITY_CHANGED_EVENT = 'identity:changed';
  * in the firebase-free identity module both already import, rather than as two copies that drift.
  */
 export const DEFAULT_TRAVELER_NAME = 'Traveler';
+
+/** Usernames: lowercase letters, digits and underscores, 3 to 20 long, after `normalizeUsername`. */
+export const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+export const MIN_PASSWORD_LENGTH = 8;
+
+export function normalizeUsername(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+/** Firebase Auth wants an email, so a username maps onto the reserved `.invalid` TLD: nothing is ever mailed. */
+export function usernameToEmail(username: string): string {
+  return `${username}@accounts.trip-planner.invalid`;
+}
 
 function emitIdentityChanged(): void {
   if (typeof window === 'undefined') return;
@@ -239,9 +250,8 @@ export function getActiveTraveler(): Traveler | null {
  * (`wipeAllTripData()` — see `core/storage/gateway.ts` for the full list and the reasoning).
  * 3. The reactive signal (step 4 below).
  *
- * ⚠ `wipeAllTripData()` clears key 28 — the User Token, this device's ONLY copy of the account
- * credential, which nothing can re-issue. `<SignOutConfirm>` therefore shows the key and makes the
- * user acknowledge saving it before calling this. Any NEW caller owes the user the same.
+ * `wipeAllTripData()` clears key 28 (the account id). Logging back in with the username and
+ * password restores it, so nothing has to be shown before it goes (D-660).
  *
  * ORDERING IS LOAD-BEARING: the wipe runs BETWEEN `clearIdentity()` and `emitIdentityChanged()`.
  * Emitting first would re-render every listener (the gate, the chip, the remote-subscribe teardown)
@@ -259,9 +269,8 @@ export function getActiveTraveler(): Traveler | null {
  * No-op / never throws during SSR or with disabled storage (handled inside the gateway).
  */
 export function signOut(): void {
-  // #10 — deliberately does NOT sign out of Firebase: the anonymous uid is DEVICE identity, not
-  // account identity, and dropping it would orphan this device's entry in every trip's members map.
-  // Only "Forget this device" drops it, via `clearRemoteCache` in `<SignOutConfirm>` (D-576).
+  // Stays firebase-free: the Firebase Auth sign-out is `clearRemoteCache({ signOutAuth: true })`,
+  // which `<SignOutConfirm>` runs before this (D-660).
   identityStore.clearIdentity();
   wipeAllTripData();
   // Reactive signal: re-show the gate + clear the chip + tear down remote-subscribe

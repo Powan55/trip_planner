@@ -24,12 +24,10 @@ import {
   getActiveTripId,
   DEFAULT_TRIP_ID,
   getSyncCode,
-  setSyncCode,
   markTripCreatedHere,
 } from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
-import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -93,11 +91,8 @@ function settleWithin(pushes: Promise<unknown>[], ms: number): Promise<unknown> 
  * stacked cards, reusing the Settings TripGroup card/input/button styling verbatim so the
  * two surfaces read as one system:
  *
- * TWO TOKENS: every secret on this page is a **Trip Token** — one trip's
- * capability, and the thing you share to plan together. The **User Token** (the account credential
- * that logged you in) is NEVER shared and never rendered here; the only pointer to it is the
- * Settings link, plus the one-time "Finish setting up your account" card for a grandfathered
- * traveler who signed in before accounts existed (`traveler && !getSyncCode()`,).
+ * Every secret on this page is a **Trip Token** — one trip's capability, and the thing you share
+ * to plan together. The account itself is a username + password (D-660) and never appears here.
  *
  * 1. YOUR TRIPS — `listKnownTrips()` rows (default pack always first). The current row
  * (id-equal `getActiveTripId()`) links Home; any other row's main action is the
@@ -137,9 +132,6 @@ export default function TripsHub() {
   /** #547 — clipboard write can reject (insecure origin / denied permission); when it does, show
    * the raw value as selectable text instead of silently doing nothing. */
   const [copyFailure, setCopyFailure] = useState<{ id: string; value: string } | null>(null);
-  /**: a grandfathered traveler signed in before accounts existed — no User Token yet. */
-  const [needsAccount, setNeedsAccount] = useState(false);
-  const [mintedUserToken, setMintedUserToken] = useState<string | null>(null);
   const [createName, setCreateName] = useState('');
   const [createStart, setCreateStart] = useState('');
   const [createEnd, setCreateEnd] = useState('');
@@ -160,7 +152,6 @@ export default function TripsHub() {
   useEffect(() => {
     setTrips(listKnownTrips());
     setActiveId(getActiveTripId());
-    setNeedsAccount(getSyncCode() === null);
   }, []);
 
   const forgetTrip = forgetId ? (trips ?? []).find((t) => t.id === forgetId) : undefined;
@@ -269,27 +260,6 @@ export default function TripsHub() {
       // clipboard blocked (permissions / insecure context) — fall back to selectable text.
       setCopyFailure({ id, value: token });
     }
-  };
-
-  /**
-   * — the grandfathered upgrade. A traveler who signed in before accounts existed has an
-   * identity but no User Token; nothing is gated on that except this affordance, so they were never
-   * locked out. Minting touches ONLY key 28 — identity slots, `knownTrips`, the active-trip pointer
-   * and every trip-scoped byte are untouched by construction, so all local data survives. Shown
-   * once via the shared `UserTokenShowOnce`; no reload needed (the next boot's subscribe seeds the
-   * remote list, and the best-effort seed below does it immediately in a synced build).
-   *
-   * `seedAccountDocs`, not a bare `pushTripList`: this used to write the trip list ONLY, so the key
-   * it handed over had no `profile/identity` doc and the front door rejected it on every other
-   * device — exactly the travellers this affordance exists for. It filters the display-name
-   * placeholder itself, so passing the stored name raw is correct here.
-   */
-  const finishAccount = () => {
-    const token = crypto.randomUUID();
-    setSyncCode(token);
-    setMintedUserToken(token);
-    const who = traveler?.name;
-    void import('@/lib/trips-remote').then(({ seedAccountDocs }) => seedAccountDocs(token, who));
   };
 
   // switch primitive: register + write the pointer, then a FULL navigation to Home so the
@@ -604,58 +574,7 @@ export default function TripsHub() {
                 ? 'Share link copied to clipboard'
                 : ''}
           </div>
-          {/* Pointer to the User Token — it is what carries
-              this list to the owner's other devices. Hidden when unidentified: it is the account
-              credential. */}
-          {canManage && (
-          <Link
-            href="/settings/"
-            data-testid="trips-hub-sync-link"
-            className="mt-3 inline-flex min-h-tap items-center gap-1 self-start rounded-r1 px-1 text-t-body font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            See your key &mdash; log in on another device &rarr;
-          </Link>
-          )}
         </div>
-
-        {/* — one-time account completion for a grandfathered traveler (identity, no User
-            Token). canManage-gated, and gone for good once minted. */}
-        {canManage && needsAccount && (
-          <div
-            data-testid="trips-hub-finish-account"
-            className="border-y-2 border-border bg-surface-raised px-gut py-4"
-          >
-            {mintedUserToken ? (
-              <UserTokenShowOnce
-                token={mintedUserToken}
-                heading="Your account is ready — this is your key."
-                confirmLabel="Done"
-                testIdPrefix="trips-hub-finish-account-show-once"
-                onConfirm={() => {
-                  setMintedUserToken(null);
-                  setNeedsAccount(false);
-                }}
-              />
-            ) : (
-              <>
-                <h3 className="pr pr--l text-ink-hi">Finish setting up your account</h3>
-                <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
-                  You signed in before accounts existed, so you don&rsquo;t have a key yet.
-                  Creating one takes a second, changes nothing you already have, and is what lets you
-                  log in on another device and see these same trips.
-                </p>
-                <button
-                  type="button"
-                  onClick={finishAccount}
-                  data-testid="trips-hub-finish-account-mint"
-                  className="btn mt-3 px-4"
-                >
-                  Create my key
-                </button>
-              </>
-            )}
-          </div>
-        )}
 
         {/* no create / join / secrets while unidentified. With no guest mode this
             is unreachable in practice (TokenGate's wall already covers the page) — kept as
@@ -668,7 +587,7 @@ export default function TripsHub() {
             <h3 className="pr pr--l text-ink-hi">Log in to manage trips</h3>
             <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
               Creating a trip, adding one by Trip Token, renaming and sharing all belong to an
-              account &mdash; log in with your key, or create an account in a few seconds.
+              account &mdash; log in, or create an account in a few seconds.
             </p>
           </div>
         )}

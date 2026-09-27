@@ -737,18 +737,16 @@ export function setKnownTripsRaw(raw: string): void {
 }
 
 /**
- * USER TOKEN accessor pair — byte-transport only, mirroring `knownTrips`.
+ * ACCOUNT ID accessor pair — byte-transport only, mirroring `knownTrips`.
  *
- * PROMOTED this value from "personal Sync Code" to the **User Token**: the account credential
- * the front door logs in with, owning the cross-device trip list. Deliberately the SAME on-disk key
- * (`tripPlannerSyncCode`) and the same remote path — so every device that ever minted a Sync Code is
- * already an account, with zero migration and zero Firestore-rules change. These two accessor names
- * are therefore documented INTERNAL MISNOMERS, kept because renaming them is churn with no behavior
- * It is NEVER a Trip Token and never shareable.
+ * The account id the signed-in user owns (`users/{uid}.accountId`, D-660): it keys the account's
+ * trip list and identity docs. The on-disk key (`tripPlannerSyncCode`) and these accessor names
+ * date from when this was a personal Sync Code and then the User Token the door logged in with;
+ * they are INTERNAL MISNOMERS, kept because renaming them is churn with no behavior change. It is
+ * NEVER a Trip Token and never shareable.
  *
- * Minting (`crypto.randomUUID()`) + all policy live in the callers (`components/token-gate.tsx`
- * create-account, `components/trips-hub.tsx` grandfathered upgrade, `components/settings-panel.tsx`
- * reveal, `lib/trips-remote.ts` push/subscribe); the gateway just reads/writes the raw string.
+ * Minting (`crypto.randomUUID()`) + all policy live in the callers (`components/token-gate.tsx`,
+ * `lib/trips-remote.ts` push/subscribe); the gateway just reads/writes the raw string.
  * APP-SCOPED, never namespaced. `null` when never minted. Never throws.
  */
 export function getSyncCode(): string | null {

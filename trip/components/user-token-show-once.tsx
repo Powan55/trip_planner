@@ -4,13 +4,11 @@ import { Fragment, useId, useState } from 'react';
 import { Check, Copy, Download, ShieldAlert } from 'lucide-react';
 
 /**
- * "This is your key." — the ONE show-once screen.
+ * "This is your key." — the show-once screen.
  *
- * mints a **User Token** (the ACCOUNT credential — the promoted key-28 Sync Code) in two
- * places: the front door's "Create an account" path, and the grandfathered "Finish your account"
- * upgrade. Both owe the user the same thing exactly once: the token, prominently, with a copy
- * control, an honest "this is the only way back in" warning, and a deliberate confirm. So it is
- * ONE component with two mounts, not two screens.
+ * Since D-660 its one mount is the sign-out dialog on a device that has not moved to a username +
+ * password yet: sign-out erases key 28 (the account id), and until that device claims a username
+ * the key is the only way to carry the account over (it is pasted at the first password sign-in).
  *
  * NAMING: "User Token" stays the formal name of the CONCEPT in and in these comments;
  * **"your key" is what the user sees.** The two are the same thing — do not "fix" the mismatch by
@@ -27,14 +25,10 @@ import { Check, Copy, Download, ShieldAlert } from 'lucide-react';
  * component reusable from the firebase-free front door (it imports nothing but React + icons) and
  * from an ordinary page island alike.
  *
- * Deliberately a plain BLOCK, not a dialog: the door renders it inside the wall's existing
- * `role="dialog"` panel (a state of the wall, not a new route — nesting a dialog in a dialog would
- * break the contract), and `/trips` renders it inline in a card.
+ * Deliberately a plain BLOCK, not a dialog: the sign-out dialog renders it inside its own.
  *
- * adds a REQUIRED "I've saved my key" acknowledgement gating the confirm. Token-only auth has
- * no recovery path at all, so a one-click dismiss here is a permanent account loss one misclick
- * away; the checkbox is the cheapest real speed bump. Both mounts get it — the grandfathered
- * upgrade is being handed the same irreplaceable credential.
+ * A REQUIRED "I've saved my key" acknowledgement gates the confirm: a one-click dismiss here is
+ * a permanent account loss one misclick away.
  *
  * BOTH SAVE PATHS CAN FAIL AND BOTH NOW SAY SO. `navigator.clipboard` rejects outright on an
  * insecure origin or a denied permission, and the object-URL anchor is blocked by some managed
@@ -146,9 +140,10 @@ export default function UserTokenShowOnce({
       </div>
 
       <p className="text-t-body leading-relaxed text-ink-mid">
-        It&rsquo;s how you get back in. There&rsquo;s no email and no password, so if you lose it,
-        the account is gone. This screen does not come back and nothing can re-issue the key
-        &mdash; put it in your notes app or password manager before you continue.
+        This device hasn&rsquo;t set up a username and password yet, so this key is how your
+        account comes back: paste it the first time you sign in with a username. If you lose it,
+        the account is gone. Nothing can re-issue the key &mdash; put it in your notes app or
+        password manager before you continue.
       </p>
 
       <p className="flex items-start gap-1.5 text-t-sm leading-relaxed text-ink-mid">

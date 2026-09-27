@@ -69,6 +69,13 @@ vi.mock('@/lib/trips-remote', () => ({
   // Still the provider's own path (`runAccountIdentitySync`), which has no probe to ride on.
   fetchAccountIdentity: async () => ({ status: 'error' }),
 }));
+// A5's login signs in with a password whose `users/{uid}` names this device's account id.
+vi.mock('@/lib/account-handoff', () => ({
+  signInWithHandoff: async () => ({
+    uid: 'uid-1',
+    link: { username: 'sora', accountId: '11111111-2222-3333-4444-555555555555' },
+  }),
+}));
 // sonner's toast — spy so A5 can assert one call.
 const toastMock = vi.fn();
 vi.mock('sonner', () => ({ toast: (...args: unknown[]) => toastMock(...args) }));
@@ -164,26 +171,31 @@ describe('A3 — DefaultTripOnly empty-state switch-back', () => {
 });
 
 describe('A5 — post-login name-hint one-shot', () => {
-  // Drive the real wall: the saved-token one-tap button (a React onClick, so state commits under
-  // act) fills the User Token field, then submit the login form → the real handleLogin runs.
+  // Drive the real wall: fill the username and password, then submit the login form.
   async function submitLogin(view: { container: HTMLElement }) {
     // S355: the wall opens on the marketing landing — a CTA opens the auth card.
     const cta = view.container.querySelector<HTMLButtonElement>('[data-testid="landing-cta-login"]')!;
     await act(async () => {
       cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    const useSaved = view.container.querySelector<HTMLButtonElement>(
-      '[data-testid="token-gate-use-saved"]',
-    )!;
-    await act(async () => {
-      useSaved.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    for (const [id, value] of [
+      ['token-gate-username', 'sora'],
+      ['token-gate-password', 'password1'],
+    ]) {
+      const input = view.container.querySelector<HTMLInputElement>(`[data-testid="${id}"]`)!;
+      await act(async () => {
+        setter.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
     const form = view.container
-      .querySelector('[data-testid="token-gate-user-token"]')!
+      .querySelector('[data-testid="token-gate-submit"]')!
       .closest('form')!;
     await act(async () => {
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     });
+    for (let i = 0; i < 4; i++) await flush(); // the dynamic import + probe chain
   }
 
   // ⚠ RE-SCOPED IN S378 (D-277), and the paragraph below is kept as written EXCEPT its last
@@ -200,7 +212,7 @@ describe('A5 — post-login name-hint one-shot', () => {
   // lib/__tests__/s378-account-identity.test.ts, NOT here. Do not "strengthen" this test by forcing
   // a name lookup into the door — that would violate D-239's firebase-free clause.
   it('the door defaults the local name slot to the transient placeholder and flags the hint (real handleLogin)', async () => {
-    setSyncCode('11111111-2222-3333-4444-555555555555'); // opens the wall on "Log in" mode + offers the saved token
+    setSyncCode('11111111-2222-3333-4444-555555555555'); // this device's account id
     stubLocation(); // finish() → window.location.replace
     expect(getUserName()?.trim()).toBeFalsy(); // fresh device: nothing in the name slot
 
@@ -216,7 +228,7 @@ describe('A5 — post-login name-hint one-shot', () => {
   });
 
   it('a login that reuses an existing stored name does NOT set the flag', async () => {
-    setSyncCode('11111111-2222-3333-4444-555555555555'); // opens on "Log in" mode
+    setSyncCode('11111111-2222-3333-4444-555555555555'); // this device's account id
     setUserName('Sora'); // name known from a prior session, but NOT signed in (no token) → wall shows
     stubLocation();
     expect(getUserName()).toBe('Sora');
@@ -226,6 +238,7 @@ describe('A5 — post-login name-hint one-shot', () => {
     await submitLogin(view);
 
     expect(getUserName()).toBe('Sora'); // reused, not overwritten by the default
+    expect(window.localStorage.getItem('tripPlannerToken')).toBe('Sora'); // and actually signed in
     expect(sessionStorage.getItem('name-hint')).toBeNull();
     view.unmount();
   });

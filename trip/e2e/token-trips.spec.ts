@@ -7,12 +7,10 @@ import AxeBuilder from '@axe-core/playwright';
  *
  * Proves, on the served static `out/` build (dormant; #10 retired NEXT_PUBLIC_TRIP_ID outright —
  * the default pack is a LOCAL-ONLY SAMPLE with no Trip Token in ANY build, deterministic):
- *   1. FRONT DOOR v3 (D-239; login token-only per the 2026-07-30 decision) — the wall asks for the **User
- *      Token** ONLY (the account credential, key 28 `tripPlannerSyncCode`) and lands `/trips/`; the
- *      display name is reused-from-device / defaults to "Traveler" (renamable in Settings), not asked
- *      at login; "Create an account" still collects a name, mints a token, and holds the wall on a
- *      SHOW-ONCE screen until an explicit confirm; a `?trip=` invitation is HELD through login and
- *      joined before the reload. The name-only door is gone.
+ *   1. FRONT DOOR (D-660) — the wall asks for a username + password and lands `/trips/`; on this
+ *      dormant build it admits locally, keeping or minting the account id on key 28. The display
+ *      name is reused-from-device / defaults to "Traveler" at login; "Create an account" also
+ *      collects a name. A `?trip=` invitation is HELD through login and joined before the reload.
  *   2. Settings → Trip: a custom trip shows its Trip Token; the default pack shows the sample
  *      note instead (#10); Add-by-Trip-Token switches the active pack (pointer + reload).
  *   3. `?trip=` handshake for an IDENTIFIED user: Add switches + strips the param; Cancel strips the
@@ -22,10 +20,10 @@ import AxeBuilder from '@axe-core/playwright';
  */
 
 const ACTIVE_TRIP_KEY = 'tripPlannerActiveTrip';
-const SYNC_KEY = 'tripPlannerSyncCode'; // key 28 — the USER TOKEN on disk (D-239 keeps the name)
+const SYNC_KEY = 'tripPlannerSyncCode'; // key 28 — the account id on disk (D-660)
 const TOUR_SEEN = 'nepal_japan_first_run_tour_seen';
 const A_UUID = '11111111-2222-4333-8444-555566667777';
-const A_USER_TOKEN = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeffff0000';
+const AN_ACCOUNT_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeffff0000';
 
 /** Fresh visitor: no token, no guest — the front-door wall shows on every route incl. Home. */
 async function gotoFresh(page: Page, path = '/') {
@@ -72,149 +70,100 @@ const readSyncCode = (page: Page) => page.evaluate((k) => window.localStorage.ge
 const readIdentity = (page: Page) =>
   page.evaluate(() => window.localStorage.getItem('tripPlannerToken'));
 
-test.describe('S338B — front door v3 (D-239: the login credential is the USER TOKEN)', () => {
-  test('login asks for the User Token ONLY — no name field, token alone submits', async ({ page }) => {
-    await gotoFresh(page, '/');
-    const wall = page.locator('[role="dialog"]');
-    await expect(wall).toHaveCount(1);
+/** Open the door's log-in form and submit a username + password (dormant: admitted locally). */
+async function logIn(page: Page) {
+  await page.getByTestId('landing-cta-login').click();
+  await page.getByTestId('token-gate-mode-login').click();
+  await page.getByTestId('token-gate-username').fill('powan');
+  await page.getByTestId('token-gate-password').fill('password1');
+  await page.getByTestId('token-gate-submit').click();
+}
 
-    // A1 (S345): a fresh device (no stored token) now opens the door on "Create" — select login first.
-    // S355: the wall opens on the marketing LANDING — a CTA opens the auth card.
+test.describe('D-660 — front door: username + password', () => {
+  test('login asks for a username and password, and no name', async ({ page }) => {
+    await gotoFresh(page, '/');
+    await expect(page.locator('[role="dialog"]')).toHaveCount(1);
     await page.getByTestId('landing-cta-login').click();
     await page.getByTestId('token-gate-mode-login').click();
-
-    // Decision 2026-07-30: login collects nothing but the User Token — the name field is create-only.
-    await expect(page.getByTestId('token-gate-user-token')).toBeVisible();
+    await expect(page.getByTestId('token-gate-username')).toBeVisible();
+    await expect(page.getByTestId('token-gate-password')).toBeVisible();
     await expect(page.getByTestId('token-gate-name')).toHaveCount(0);
-    await expect(page.getByTestId('token-gate-submit')).toBeDisabled();
-    await page.getByTestId('token-gate-user-token').fill(A_USER_TOKEN);
-    await expect(page.getByTestId('token-gate-submit')).toBeEnabled(); // token alone is a login
   });
 
-  test('logging in persists the User Token on key 28 + a default name, and lands on /trips/', async ({
+  test('logging in (dormant) stores an account id + a default name, and lands on /trips/', async ({
     page,
   }) => {
     await gotoFresh(page, '/');
     const wall = page.locator('[role="dialog"]');
     await expect(wall).toHaveCount(1);
+    await logIn(page);
+    await page.waitForURL(/\/trips\/$/, { timeout: 15_000 });
 
-    // A1 (S345): a fresh device opens the door on "Create" — select login first.
-    // S355: the wall opens on the marketing LANDING — a CTA opens the auth card.
-    await page.getByTestId('landing-cta-login').click();
-    await page.getByTestId('token-gate-mode-login').click();
-
-    await expect(async () => {
-      await page.getByTestId('token-gate-user-token').fill(A_USER_TOKEN);
-      await expect(page.getByTestId('token-gate-submit')).toBeEnabled();
-      await page.getByTestId('token-gate-submit').click();
-      await page.waitForURL(/\/trips\/$/, { timeout: 15_000 });
-    }).toPass();
-
-    // Fresh unlock lands on the trip-select surface (the literal ask), signed in, wall gone.
     await expect(page.getByTestId('trips-hub')).toBeVisible({ timeout: 15_000 });
     await expect(wall).toHaveCount(0);
-    expect(await readSyncCode(page)).toBe(A_USER_TOKEN); // the USER token, on key 28
-    // Token-only login (decision 2026-07-30): no saved name on a fresh device → the "Traveler" default.
+    expect(await readSyncCode(page)).toMatch(/^[0-9a-f-]{36}$/);
+    // The door does not ask for a name at login: no saved name on a fresh device → "Traveler".
     expect(await readIdentity(page)).toBe('Traveler');
     // Logging in is NOT joining a trip: the door never touches the active-trip pointer.
     expect(await readActiveTrip(page)).toBeNull();
   });
 
-  test('the device offers its stored User Token (D-239 convenience)', async ({ page }) => {
+  test('a device that already has an account id keeps it through a dormant login', async ({ page }) => {
     await page.addInitScript(
-      ({ tour, key, token }: { tour: string; key: string; token: string }) => {
+      ({ tour, key, id }: { tour: string; key: string; id: string }) => {
         window.localStorage.setItem(tour, '1');
-        window.localStorage.setItem(key, token); // a synced device from before accounts existed
+        window.localStorage.setItem(key, id);
       },
-      { tour: TOUR_SEEN, key: SYNC_KEY, token: A_USER_TOKEN },
+      { tour: TOUR_SEEN, key: SYNC_KEY, id: AN_ACCOUNT_ID },
     );
     await page.goto('/', { waitUntil: 'load' });
     await expect(page.locator('[role="dialog"]')).toHaveCount(1);
-
-    // S355: the wall opens on the marketing LANDING — a CTA opens the auth card.
-    await page.getByTestId('landing-cta-login').click();
-    const useSaved = page.getByTestId('token-gate-use-saved');
-    await expect(useSaved).toBeVisible();
-    await useSaved.click();
-    await expect(page.getByTestId('token-gate-user-token')).toHaveValue(A_USER_TOKEN);
-    // Offered once it is already in the field, the shortcut retires itself.
-    await expect(useSaved).toHaveCount(0);
+    await logIn(page);
+    await page.waitForURL(/\/trips\/$/, { timeout: 15_000 });
+    expect(await readSyncCode(page)).toBe(AN_ACCOUNT_ID);
   });
 
-  test('Create an account mints a User Token, HOLDS the wall on the show-once screen, then lands /trips/', async ({
+  test('Create an account collects a name, username and password, then lands /trips/', async ({
     page,
   }) => {
     await gotoFresh(page, '/');
-    const wall = page.locator('[role="dialog"]');
-    await expect(wall).toHaveCount(1);
-
-    // S355: the wall opens on the marketing LANDING — a CTA opens the auth card.
     await page.getByTestId('landing-cta-create').click();
     await page.getByTestId('token-gate-mode-create').click();
-    // Creating an account asks for a name only — the token is minted FOR you.
-    await expect(page.getByTestId('token-gate-user-token')).toHaveCount(0);
-    await expect(async () => {
-      await page.getByTestId('token-gate-name').fill('Genghis');
-      await expect(page.getByTestId('token-gate-submit')).toBeEnabled();
-      await page.getByTestId('token-gate-submit').click();
-      await expect(page.getByTestId('user-token-show-once')).toBeVisible();
-    }).toPass();
-
-    // The wall does NOT dissolve on sign-in — it owes the user their token exactly once.
-    await expect(wall).toHaveCount(1);
-    const minted = await readSyncCode(page);
-    expect(minted).toMatch(/^[0-9a-f-]{36}$/);
-    await expect(page.getByTestId('user-token-show-once-value')).toHaveText(minted!);
-    await expect(page.getByTestId('user-token-show-once-copy')).toBeVisible();
-    // The door creates an ACCOUNT, not a trip (D-239 — separate acts).
-    expect(await readActiveTrip(page)).toBeNull();
-    expect(await page.evaluate(() => window.localStorage.getItem('tripPlannerKnownTrips'))).toBeNull();
-
-    // S355: the confirm is gated on the "I've saved my key" acknowledgement — token-only auth has
-    // no recovery, so a one-click dismiss is a permanent account loss one misclick away.
-    await expect(page.getByTestId('user-token-show-once-confirm')).toBeDisabled();
-    await page.getByTestId('user-token-show-once-ack').check();
-    await expect(page.getByTestId('user-token-show-once-confirm')).toBeEnabled();
-
-    await page.getByTestId('user-token-show-once-confirm').click();
+    await page.getByTestId('token-gate-name').fill('Genghis');
+    await page.getByTestId('token-gate-username').fill('genghis');
+    await page.getByTestId('token-gate-password').fill('longenough');
+    await page.getByTestId('token-gate-submit').click();
     await page.waitForURL(/\/trips\/$/, { timeout: 15_000 });
     await expect(page.getByTestId('trips-hub')).toBeVisible({ timeout: 15_000 });
-    expect(await readSyncCode(page)).toBe(minted); // survives the reload
+    expect(await readSyncCode(page)).toMatch(/^[0-9a-f-]{36}$/);
     expect(await readIdentity(page)).toBe('Genghis');
+    // The door creates an ACCOUNT, not a trip (separate acts).
+    expect(await readActiveTrip(page)).toBeNull();
   });
 
   test('a ?trip= invitation is HELD through login and joined before the reload (lands Home)', async ({
     page,
   }) => {
     await gotoFresh(page, `/?trip=${A_UUID}`);
-    const wall = page.locator('[role="dialog"]');
-    await expect(wall).toHaveCount(1);
+    await expect(page.locator('[role="dialog"]')).toHaveCount(1);
     // Exactly ONE dialog: the handshake must not also mount behind the wall.
     await expect(page.getByTestId('trip-join-dialog')).toHaveCount(0);
     await expect(page.getByTestId('token-gate-invite')).toBeVisible();
 
-    // A1 (S345): a fresh device opens on "Create" (the invite banner shows in both modes) — select login.
-    // S355: the wall opens on the marketing LANDING — a CTA opens the auth card.
-    await page.getByTestId('landing-cta-login').click();
-    await page.getByTestId('token-gate-mode-login').click();
-
-    await expect(async () => {
-      await page.getByTestId('token-gate-user-token').fill(A_USER_TOKEN);
-      await expect(page.getByTestId('token-gate-submit')).toBeEnabled();
-      await page.getByTestId('token-gate-submit').click();
-      await expect.poll(async () => await readActiveTrip(page), { timeout: 15_000 }).toBe(A_UUID);
-    }).toPass();
+    await logIn(page);
+    await expect.poll(async () => await readActiveTrip(page), { timeout: 15_000 }).toBe(A_UUID);
 
     // The join IS the selection, so the landing is Home (not /trips/), param-free.
     await expect(page).toHaveURL(/^https?:\/\/[^/]+\/$/);
     expect(await readKnownTrips(page)).toContainEqual(expect.objectContaining({ id: A_UUID }));
-    expect(await readSyncCode(page)).toBe(A_USER_TOKEN);
   });
 
   test('the door renders without horizontal overflow at 360 (D-022)', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await gotoFresh(page, '/');
     await expect(page.locator('[role="dialog"]')).toHaveCount(1);
+    await page.getByTestId('landing-cta-create').click();
+    await expect(page.getByTestId('token-gate-password')).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );
@@ -328,18 +277,18 @@ test.describe('S233 — axe', () => {
     expect(blocking, blocking.map((v) => `${v.id} [${v.impact}]`).join('; ')).toEqual([]);
   });
 
-  test('the show-once screen (door path b) has zero serious/critical violations', async ({ page }) => {
+  test('the sign-up form, with an error showing, has zero serious/critical violations', async ({
+    page,
+  }) => {
     await gotoFresh(page, '/');
     await expect(page.locator('[role="dialog"]')).toHaveCount(1);
-    // S355: the wall opens on the marketing LANDING — a CTA opens the auth card.
     await page.getByTestId('landing-cta-create').click();
-    await page.getByTestId('token-gate-mode-create').click();
-    await expect(async () => {
-      await page.getByTestId('token-gate-name').fill('Genghis');
-      await expect(page.getByTestId('token-gate-submit')).toBeEnabled();
-      await page.getByTestId('token-gate-submit').click();
-      await expect(page.getByTestId('user-token-show-once')).toBeVisible();
-    }).toPass();
+    await page.getByTestId('token-gate-name').fill('Genghis');
+    await page.getByTestId('token-gate-username').fill('x');
+    await page.getByTestId('token-gate-password').fill('longenough');
+    await page.getByTestId('token-gate-submit').click();
+    await expect(page.getByTestId('token-gate-error')).toBeVisible();
+    await expect(page.locator('[role="dialog"]')).toHaveCSS('opacity', '1');
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
     const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
     expect(blocking, blocking.map((v) => `${v.id} [${v.impact}]`).join('; ')).toEqual([]);

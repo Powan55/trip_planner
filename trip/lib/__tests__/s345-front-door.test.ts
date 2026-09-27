@@ -10,7 +10,6 @@
 //        device, including one with no stored User Token — INTAKE-03); #70 then RE-POINTED it off
 //        the mode default, which no CTA observes any more, onto the per-CTA table. The block's own
 //        comment carries the full why, and reading it is the point.
-//   A2 — UserTokenShowOnce renders a Download .txt control beside Copy (durable save, no recovery otherwise).
 //   S382 — entry FOCUS lands on the log-in CTA (`document.activeElement`), the instrument that
 //        measured the defect on the deployed site.
 
@@ -51,27 +50,8 @@ vi.mock('framer-motion', async () => {
   return { m, AnimatePresence: ({ children }: { children: unknown }) => children };
 });
 
-// #10 — the door's account probe (login validation) + the create-path seed, mocked so the wall's
-// handlers can be driven for real with zero firebase. The mock is file-wide but inert for every
-// pre-#10 test above (they never submit a form, so the dynamic import never runs).
-const probeMock = vi.fn<
-  (code: string) => Promise<{ verdict: 'exists' | 'missing' | 'unavailable'; name?: string }>
->(async () => ({ verdict: 'unavailable' }));
-const pushAccountIdentityMock = vi.fn(async (_code: string, _name: string) => {});
-const pushTripListMock = vi.fn(async (_code: string) => {});
-vi.mock('@/lib/trips-remote', () => ({
-  // The login path takes the account's display name (D-277's identity doc) off THIS result when
-  // the device has none stored — there is no second read to mock. Nothing here is about the name,
-  // so every default answer above omits `name`: an account that knows none.
-  probeAccountIdentity: (code: string) => probeMock(code),
-  pushAccountIdentity: (code: string, name: string) => pushAccountIdentityMock(code, name),
-  pushTripList: (code: string) => pushTripListMock(code),
-}));
-
 import TokenGate from '@/components/token-gate';
-import UserTokenShowOnce from '@/components/user-token-show-once';
-import { setSyncCode, getSyncCode } from '@/core/storage/gateway';
-import { setUserName, getUserName } from '@/lib/identity';
+import { setSyncCode } from '@/core/storage/gateway';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -87,32 +67,12 @@ function render(el: ReactElement) {
   };
 }
 
-// Stub window.location for the paths that navigate (finish() → replace; jsdom throws on real
-// navigation) — same idiom as s346-audit.test.ts.
-let restoreLocation: (() => void) | null = null;
-function stubLocation() {
-  const real = window.location;
-  const stub = { reload: vi.fn(), replace: vi.fn(), assign: vi.fn(), href: '', search: '' };
-  Object.defineProperty(window, 'location', { value: stub, configurable: true, writable: true });
-  restoreLocation = () =>
-    Object.defineProperty(window, 'location', { value: real, configurable: true, writable: true });
-  return stub;
-}
-
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
-  probeMock.mockClear();
-  probeMock.mockResolvedValue({ verdict: 'unavailable' });
-  pushAccountIdentityMock.mockClear();
-  pushTripListMock.mockClear();
 });
 afterEach(() => {
   vi.restoreAllMocks();
-  if (restoreLocation) {
-    restoreLocation();
-    restoreLocation = null;
-  }
 });
 
 describe('A1 → #70 — every landing CTA opens the auth card on the mode its label promises', () => {
@@ -141,8 +101,7 @@ describe('A1 → #70 — every landing CTA opens the auth card on the mode its l
    * WHAT THIS BLOCK STILL FAILS ON, which is the whole reason it was re-pointed rather than
    * deleted: the shared-trip CTA regressing to log-in mode (the #70 defect — and the exact routing
    * the wall's old comment used to defend); the log-in CTA opening signup (INTAKE-03's defect
-   * direction, whose primary guard is the entry-FOCUS block below); create and log in swapped; and
-   * the shared-trip visitor being shown the "Paste your key" field at all.
+   * direction, whose primary guard is the entry-FOCUS block below); and create and log in swapped.
    * WHAT IT NO LONGER CLAIMS: anything about the mode initializer.
    */
   const STORED_KEY = '11111111-2222-3333-4444-555555555555';
@@ -182,7 +141,7 @@ describe('A1 → #70 — every landing CTA opens the auth card on the mode its l
     });
   }
 
-  it('#70: a never-synced visitor with a Trip Token is asked for a NAME, never for a key', () => {
+  it('#70: a never-synced visitor with a Trip Token lands on sign-up, which asks for a name', () => {
     expect(window.localStorage.getItem('tripPlannerSyncCode')).toBeNull(); // the fresh-device condition
     const view = render(createElement(TokenGate));
 
@@ -200,18 +159,15 @@ describe('A1 → #70 — every landing CTA opens the auth card on the mode its l
     clickCta(view, 'landing-cta-join');
     expect(pressed(view, 'create')).toBe('true');
     expect(view.container.querySelector('[data-testid="token-gate-name"]')).not.toBeNull();
-    // 🔴 THE DEFECT, stated as an assertion: the key field takes a User Token, and this visitor
-    // does not have one. It must not be the thing in front of them.
-    expect(view.container.querySelector('[data-testid="token-gate-user-token"]')).toBeNull();
     view.unmount();
   });
 
-  it('log in is still one tap from there, for a shared-trip visitor who does have a key', () => {
+  it('log in is still one tap from there, for a shared-trip visitor who does have an account', () => {
     const view = render(createElement(TokenGate));
     clickCta(view, 'landing-cta-join');
     clickCta(view, 'token-gate-mode-login');
     expect(pressed(view, 'login')).toBe('true');
-    expect(view.container.querySelector('[data-testid="token-gate-user-token"]')).not.toBeNull();
+    expect(view.container.querySelector('[data-testid="token-gate-username"]')).not.toBeNull();
     view.unmount();
   });
 });
@@ -294,7 +250,7 @@ describe('S355 — TokenGate opens on the landing, and its CTAs pick the auth pa
     view.unmount();
   });
 
-  it('"I have a key — log in" opens the auth card in login mode', () => {
+  it('"I have an account — log in" opens the auth card in login mode', () => {
     // S382 note: since the default is now 'login' for every device, this case no longer
     // discriminates the CTA from the default on its own. Its sibling above ("Create an account"
     // wins over the login default) is the one that proves a CTA overrides the default; this one
@@ -387,227 +343,6 @@ describe('#25 — the auth view keeps the cover mounted, outside the focus trap'
     expect(view.container.querySelector('.fixed')?.classList.contains('wall-auth-open')).toBe(
       false,
     );
-    view.unmount();
-  });
-});
-
-// ── #10 — the door validates a NEW key against the account identity doc ─────────────────────────
-describe('#10 — handleLogin probes the pasted key; only a server-confirmed absence rejects', () => {
-  async function flush() {
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0));
-    });
-  }
-
-  /** Open the auth card on Log in (the wall opens on the landing). */
-  async function openLogin(view: { container: HTMLElement }) {
-    const cta = view.container.querySelector<HTMLButtonElement>('[data-testid="landing-cta-login"]')!;
-    await act(async () => {
-      cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-  }
-
-  /** Type into the CONTROLLED key field (native setter + input event so React sees it). */
-  async function typeKey(view: { container: HTMLElement }, value: string) {
-    const input = view.container.querySelector<HTMLInputElement>(
-      '[data-testid="token-gate-user-token"]',
-    )!;
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
-    await act(async () => {
-      setter.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  }
-
-  async function submitLogin(view: { container: HTMLElement }) {
-    const form = view.container
-      .querySelector('[data-testid="token-gate-user-token"]')!
-      .closest('form')!;
-    await act(async () => {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    });
-    await flush(); // the dynamic import + probe .then chain
-  }
-
-  const NEW_KEY = '99999999-8888-4777-8666-555544443333';
-
-  it("probe 'missing' → the error renders AND zero state was stored (no key, no signIn, no navigation)", async () => {
-    probeMock.mockResolvedValue({ verdict: 'missing' });
-    const loc = stubLocation();
-    const view = render(createElement(TokenGate));
-    await openLogin(view);
-    await typeKey(view, NEW_KEY);
-    await submitLogin(view);
-
-    expect(probeMock).toHaveBeenCalledTimes(1);
-    expect(probeMock).toHaveBeenCalledWith(NEW_KEY);
-    const error = view.container.querySelector('[data-testid="token-gate-error"]');
-    expect(error?.getAttribute('role')).toBe('alert');
-    expect(error?.textContent).toBe('This user does not exist. Check your key, or create an account.');
-    // An invented key leaves ZERO stored state — the whole point of the door validating.
-    expect(getSyncCode()).toBeNull();
-    expect(window.localStorage.getItem('tripPlannerToken')).toBeNull(); // signIn never ran
-    expect(loc.replace).not.toHaveBeenCalled();
-    // The form is usable again (busy released) for a corrected key.
-    expect(
-      view.container
-        .querySelector('[data-testid="token-gate-user-token"]')
-        ?.hasAttribute('readonly'),
-    ).toBe(false);
-    view.unmount();
-  });
-
-  it("probe 'unavailable' → ADMITS (fail open: offline must never lock a real user out)", async () => {
-    probeMock.mockResolvedValue({ verdict: 'unavailable' });
-    const loc = stubLocation();
-    const view = render(createElement(TokenGate));
-    await openLogin(view);
-    await typeKey(view, NEW_KEY);
-    await submitLogin(view);
-
-    expect(probeMock).toHaveBeenCalledTimes(1);
-    expect(getSyncCode()).toBe(NEW_KEY);
-    expect(loc.replace).toHaveBeenCalledTimes(1); // finish() navigated — admitted
-    expect(view.container.querySelector('[data-testid="token-gate-error"]')).toBeNull();
-    view.unmount();
-  });
-
-  it("probe 'exists' → admits exactly the same way", async () => {
-    probeMock.mockResolvedValue({ verdict: 'exists' });
-    const loc = stubLocation();
-    const view = render(createElement(TokenGate));
-    await openLogin(view);
-    await typeKey(view, NEW_KEY);
-    await submitLogin(view);
-
-    expect(probeMock).toHaveBeenCalledTimes(1);
-    expect(getSyncCode()).toBe(NEW_KEY);
-    expect(loc.replace).toHaveBeenCalledTimes(1);
-    view.unmount();
-  });
-
-  it('the STORED key skips the probe entirely when this device also knows its name', async () => {
-    const stored = '11111111-2222-3333-4444-555555555555';
-    setSyncCode(stored);
-    setUserName('Sora'); // nothing left to ask the server: not re-gated, and the name is local
-    const loc = stubLocation();
-    const view = render(createElement(TokenGate));
-    await openLogin(view);
-    // One-tap saved-key fill (the returning-device path), then submit.
-    const useSaved = view.container.querySelector<HTMLButtonElement>(
-      '[data-testid="token-gate-use-saved"]',
-    )!;
-    await act(async () => {
-      useSaved.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await submitLogin(view);
-
-    expect(probeMock).not.toHaveBeenCalled(); // no read at all — and no wait for one
-    expect(loc.replace).toHaveBeenCalledTimes(1); // logged straight in
-    view.unmount();
-  });
-
-  // Same returning device, but with no local name (a sign-out clears the name slot). The one read
-  // still happens — it is the only place the account's name lives — and its VERDICT is what must
-  // not gate: a stored session is never re-gated, so even 'missing' admits.
-  it("a stored key with no local name reads for the NAME only — 'missing' still admits", async () => {
-    const stored = '11111111-2222-3333-4444-555555555555';
-    setSyncCode(stored);
-    probeMock.mockResolvedValue({ verdict: 'missing' });
-    const loc = stubLocation();
-    const view = render(createElement(TokenGate));
-    await openLogin(view);
-    const useSaved = view.container.querySelector<HTMLButtonElement>(
-      '[data-testid="token-gate-use-saved"]',
-    )!;
-    await act(async () => {
-      useSaved.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await submitLogin(view);
-
-    expect(probeMock).toHaveBeenCalledTimes(1);
-    expect(view.container.querySelector('[data-testid="token-gate-error"]')).toBeNull();
-    expect(getSyncCode()).toBe(stored);
-    expect(loc.replace).toHaveBeenCalledTimes(1); // admitted, not re-gated
-    view.unmount();
-  });
-
-  // ...and the name that read returns is ADOPTED — the whole reason the deviation reads at all.
-  // Without this, "I log in as Powan and it says Traveler" is only covered by composition.
-  it("a stored key with no local name adopts the account's name from the probe", async () => {
-    const stored = '11111111-2222-3333-4444-555555555555';
-    setSyncCode(stored);
-    probeMock.mockResolvedValue({ verdict: 'exists', name: 'Powan' });
-    stubLocation();
-    const view = render(createElement(TokenGate));
-    await openLogin(view);
-    const useSaved = view.container.querySelector<HTMLButtonElement>(
-      '[data-testid="token-gate-use-saved"]',
-    )!;
-    await act(async () => {
-      useSaved.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await submitLogin(view);
-
-    expect(probeMock).toHaveBeenCalledTimes(1);
-    expect(getUserName()).toBe('Powan'); // not DEFAULT_TRAVELER_NAME
-    view.unmount();
-  });
-});
-
-// ── #10 — the create path seeds BOTH account docs before the show-once confirm ─────────────────
-describe('#10 — handleCreate pushes profile/identity + profile/tripList for the minted key', () => {
-  it('after Create, both pushes were kicked off with the minted token (and the typed name)', async () => {
-    const view = render(createElement(TokenGate));
-    // Landing → Create an account.
-    await act(async () => {
-      view.container
-        .querySelector<HTMLButtonElement>('[data-testid="landing-cta-create"]')!
-        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    // Type the name (controlled input — native setter + input event).
-    const nameInput = view.container.querySelector<HTMLInputElement>('[data-testid="token-gate-name"]')!;
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
-    await act(async () => {
-      setter.call(nameInput, 'Genghis');
-      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    // Submit — mints the token, signs in, kicks off the seed, shows the show-once screen.
-    // Re-query the form AFTER typing — the mock-remount rule (see the top of this file, #440).
-    const form = view.container
-      .querySelector('[data-testid="token-gate-name"]')!
-      .closest('form')!;
-    await act(async () => {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    });
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 0)); // the dynamic import + push kick-off
-    });
-
-    const minted = getSyncCode();
-    expect(minted).toMatch(/^[0-9a-f-]{36}$/);
-    expect(pushAccountIdentityMock).toHaveBeenCalledTimes(1);
-    expect(pushAccountIdentityMock).toHaveBeenCalledWith(minted, 'Genghis');
-    expect(pushTripListMock).toHaveBeenCalledTimes(1);
-    expect(pushTripListMock).toHaveBeenCalledWith(minted);
-    // Still on the show-once screen — the seed does not navigate (finish() owns that).
-    expect(view.container.querySelector('[data-testid="user-token-show-once"]')).not.toBeNull();
-    view.unmount();
-  });
-});
-
-describe('A2 — UserTokenShowOnce offers a durable Download .txt save', () => {
-  it('renders a download control beside the existing copy control', () => {
-    const view = render(
-      createElement(UserTokenShowOnce, { token: 'tok-123', onConfirm: () => {} }),
-    );
-    expect(
-      view.container.querySelector('[data-testid="user-token-show-once-download"]'),
-    ).not.toBeNull();
-    // Copy affordance is preserved.
-    expect(
-      view.container.querySelector('[data-testid="user-token-show-once-copy"]'),
-    ).not.toBeNull();
     view.unmount();
   });
 });

@@ -1,7 +1,9 @@
 'use client';
 
 import { FIREBASE_CONFIG, isRemoteConfigured } from './firebase-config';
-import { syncPausedPrefs } from '@/core/storage/gateway';
+import { syncPausedPrefs, getSyncCode } from '@/core/storage/gateway';
+import { isPermissionDenied } from '@/core/sync/denied';
+import { ACCOUNT_ID_RE, ACCOUNT_CLAIMED } from './account-codes';
 
 // ---------------------------------------------------------------------------
 // Shared lazy firebase handle. Both the read (subscribe) and write (push) paths
@@ -16,11 +18,11 @@ import { syncPausedPrefs } from '@/core/storage/gateway';
 // instance plus the resulting `uid`. Every other remote module awaits THIS function, so no
 // module can issue a write before the floor is satisfied.
 //
-// THE UID IS DEVICE IDENTITY, NOT ACCOUNT IDENTITY. It is the subject a trip's members map
-// names, it is free and unlimited, and it survives a Google link (`linkGoogleAccount` below
-// preserves it — that is the whole point of linking rather than re-signing-in). Attribution
-// still runs entirely through the separate, firebase-free display-name pipeline
-// (lib/identity.ts / token-auth.ts) — a Firebase uid is never shown to a user as a name.
+// THE UID is the subject a trip's members map names. Before the door it is an anonymous
+// session; `createPasswordAccount` links that session, so the same uid becomes the account's,
+// and `signInWithPassword` swaps to the account's uid (D-660). An anonymous session is only
+// started when there is no session at all, never over a password one. Attribution still runs
+// through the separate, firebase-free display-name pipeline (lib/identity.ts / token-auth.ts).
 // ---------------------------------------------------------------------------
 
 export type FirestoreMod = typeof import('firebase/firestore');
@@ -30,7 +32,7 @@ export interface RemoteHandle {
   fs: FirestoreMod;
   /** The one shared app's Auth instance (the same singleton every module resolves). */
   auth: import('firebase/auth').Auth;
-  /** This DEVICE's uid at init time — the subject a trip's `members` map names. */
+  /** The signed-in uid — the subject a trip's `members` map names. */
   uid: string;
 }
 
@@ -66,7 +68,7 @@ export function getRemote(): Promise<RemoteHandle> {
 }
 
 // Sign-in only, for the auth helpers below: they move no trip data, so pausing sync leaves them be.
-function getAuthHandle(): Promise<RemoteHandle> {
+export function getAuthHandle(): Promise<RemoteHandle> {
   if (!isRemoteConfigured()) {
     return Promise.reject(new Error('remote not configured'));
   }
@@ -160,8 +162,8 @@ function deleteDatabase(name: string): Promise<void> {
 
 /**
  * Drop this device's Firestore cache before a sign-out wipe (#571, D-576): the cached trip docs
- * and any queued writes. `signOutAuth` also drops the anonymous session, so the next person on a
- * handed-on device gets a fresh uid. Best-effort and bounded: never throws, never waits more than
+ * and any queued writes. `signOutAuth` also signs out of Firebase Auth, so the next person on the
+ * device starts from a fresh anonymous uid. Best-effort and bounded: never throws, never waits more than
  * a few seconds, because sign-out has to finish even when this cannot.
  *
  * When Firebase never started on this page load, the leftovers of an earlier one are deleted by
@@ -205,82 +207,169 @@ export async function clearRemoteCache({ signOutAuth = false } = {}): Promise<vo
   }
 }
 
-/** What `linkGoogleAccount` did, as four outcomes a UI can speak plainly about. */
-export type LinkResult = 'linked' | 'adopted' | 'popup-blocked' | 'failed';
+/** `users/{uid}`: which account id this Firebase user owns. Written once, after the password is theirs (D-660). */
+export type AccountLink = { username: string; accountId: string };
+
+type AuthUser = import('firebase/auth').User;
+
+// The cached handle carries the uid it was created under; every sign-in that can change it goes
+// through here so presence, membership and trip creation never write under the old one.
+function rebind(handle: RemoteHandle, user: AuthUser): string {
+  remotePromise = Promise.resolve({ ...handle, uid: user.uid });
+  return user.uid;
+}
 
 /**
- * Link a Google identity onto THIS device's anonymous session (issue #10).
- *
- * WHY LINK RATHER THAN SIGN IN: linking PRESERVES the uid. The uid is what a trip's members map
- * names, so re-signing-in as Google (a different uid) would leave this device's entry pointing at
- * an identity nobody uses any more, and the user locked out of their own trip. Linking is the
- * whole feature; the Google account is a recovery handle bolted onto an identity that already has
- * access, not a new identity.
- *
- * 🔴 POPUP ONLY — NEVER `linkWithRedirect`. This app is a static export served from a GitHub Pages
- * origin while the Firebase `authDomain` is a different origin, so the redirect flow has to write
- * its pending-credential state cross-origin. Under Safari's storage partitioning that state is not
- * there when the user comes back, and the redirect completes as a silent no-op — the user taps,
- * disappears to Google, returns, and nothing has happened, with no error to show them. The popup
- * flow keeps the whole exchange in one window and reports its own failures, which is why every
- * branch below has something to say.
- *
- * ⚠ MUST BE CALLED FROM THE TAP'S USER GESTURE. Browsers only let a popup open under transient
- * activation. The `import('firebase/auth')` below resolves from the module cache in a microtask
- * (the Settings surface has already awaited `getRemote()` to show the device code by the time the
- * button exists), so it does not spend that activation — but do not move this behind a fetch.
- *
- * `credential-already-in-use` means that Google account is ALREADY a Firebase user — the traveler
- * linked it on their other device. Adopting it here (`signInWithCredential`) is exactly right: the
- * device takes on the identity that already holds the memberships, which is the lost-device
- * recovery path. It CHANGES the uid, so the cached handle is dropped and the caller must re-run
- * `ensureKnownTripMemberships`.
+ * Create a username + password account. An anonymous session is LINKED rather than replaced, so
+ * the uid this device already has in trip rosters becomes the account's uid. Rejects with the
+ * SDK's error (the caller maps `code`); resolves the account's uid.
  */
-export async function linkGoogleAccount(): Promise<LinkResult> {
-  if (!isRemoteConfigured()) return 'failed';
-  try {
-    const { auth } = await getAuthHandle();
-    const { GoogleAuthProvider, linkWithPopup, signInWithCredential } = await import('firebase/auth');
+export async function createPasswordAccount(email: string, password: string): Promise<string> {
+  const handle = await getAuthHandle();
+  const { EmailAuthProvider, linkWithCredential, createUserWithEmailAndPassword } = await import(
+    'firebase/auth'
+  );
+  const current = handle.auth.currentUser;
+  const { user } = current?.isAnonymous
+    ? await linkWithCredential(current, EmailAuthProvider.credential(email, password))
+    : await createUserWithEmailAndPassword(handle.auth, email, password);
+  return rebind(handle, user);
+}
+
+/** Sign in with a username + password. Rejects with the SDK's error; resolves the uid. */
+export async function signInWithPassword(email: string, password: string): Promise<string> {
+  const handle = await getAuthHandle();
+  const { signInWithEmailAndPassword } = await import('firebase/auth');
+  // Writes queued under the current (anonymous) uid must reach the server with its credentials
+  // before the session is swapped out; bounded, because a dead network must not hang the door.
+  await Promise.race([
+    handle.fs.waitForPendingWrites(handle.db).catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, FLUSH_WAIT_MS)),
+  ]);
+  const { user } = await signInWithEmailAndPassword(handle.auth, email, password);
+  return rebind(handle, user);
+}
+
+const UPGRADE_CHECK_MS = 8000;
+
+/**
+ * What a signed-in device still owes the account system (D-660):
+ * - `anonymous`: admitted before passwords, never upgraded.
+ * - `claim`: a password session with no `users/{uid}` yet (a first sign-in left half done), which
+ *   resumes at the claim step.
+ */
+export type AccountUpgrade =
+  /** `claimed`: this device's account id already has a username, so only log-in is offered. */
+  | { kind: 'anonymous'; claimed: boolean }
+  | { kind: 'claim'; uid: string; username: string };
+
+/**
+ * TOTAL and fail-open: `null` when dormant, offline, slow or failing, so the upgrade step only ever
+ * shows when the answer is known.
+ */
+export async function needsAccountUpgrade(): Promise<AccountUpgrade | null> {
+  if (!isRemoteConfigured()) return null;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const check = async (): Promise<AccountUpgrade | null> => {
+    const { auth, db, fs } = await getAuthHandle();
     const user = auth.currentUser;
-    if (!user) return 'failed';
-    try {
-      await linkWithPopup(user, new GoogleAuthProvider());
-      return 'linked';
-    } catch (err) {
-      const code = (err as { code?: unknown } | null)?.code;
-      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
-        return 'popup-blocked';
-      }
-      if (code === 'auth/credential-already-in-use') {
-        const credential = GoogleAuthProvider.credentialFromError(
-          err as import('firebase/app').FirebaseError,
-        );
-        if (!credential) return 'failed';
-        await signInWithCredential(auth, credential);
-        // The uid just changed. Drop the cached handle so the next getRemote() resolves the
-        // ADOPTED identity — every caller reads `uid` off that handle.
-        remotePromise = null;
-        return 'adopted';
-      }
-      return 'failed';
+    if (!user) return null;
+    if (user.isAnonymous) {
+      const code = getSyncCode();
+      const claimed =
+        !!code &&
+        ACCOUNT_ID_RE.test(code) &&
+        (await fs.getDocFromServer(fs.doc(db, 'accountClaims', code))).exists();
+      return { kind: 'anonymous', claimed };
     }
+    if (await readAccountLink(user.uid)) return null;
+    return { kind: 'claim', uid: user.uid, username: (user.email ?? '').split('@')[0] };
+  };
+  try {
+    return await Promise.race([
+      check(),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), UPGRADE_CHECK_MS);
+      }),
+    ]);
   } catch {
-    return 'failed'; // stay anonymous; the device keeps whatever access it already had
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 /**
- * Is this device's session linked to a Google identity? Read from `providerData`, which is the
- * SDK's own answer — never a flag we keep ourselves and have to keep true.
- * `false` when unconfigured/unreachable (the honest default: nothing is linked).
+ * Is this device signed in with a password (not anonymous)? `false` when dormant, unknown or
+ * failing, which is the safe answer for sign-out: it keeps the anonymous uid and shows the key.
  */
-export async function isGoogleLinked(): Promise<boolean> {
+export async function isPasswordSession(): Promise<boolean> {
   if (!isRemoteConfigured()) return false;
   try {
     const { auth } = await getAuthHandle();
-    return auth.currentUser?.providerData.some((p) => p.providerId === 'google.com') ?? false;
+    return auth.currentUser ? !auth.currentUser.isAnonymous : false;
   } catch {
     return false;
+  }
+}
+
+/** Replace the signed-in user's password. Rejects with the SDK's error. */
+export async function changePassword(password: string): Promise<void> {
+  const { auth } = await getAuthHandle();
+  const { updatePassword } = await import('firebase/auth');
+  if (!auth.currentUser) throw new Error('not signed in');
+  await updatePassword(auth.currentUser, password);
+}
+
+/**
+ * SERVER read of `users/{uid}`. `null` means the server answered and there is no usable doc, which
+ * is the first-sign-in signal; any failure REJECTS, because reading an outage as "missing" would
+ * send an existing account through the claim flow and overwrite its link.
+ */
+export async function readAccountLink(
+  uid: string,
+  on?: Pick<RemoteHandle, 'db' | 'fs'>,
+): Promise<AccountLink | null> {
+  const { db, fs } = on ?? (await getAuthHandle());
+  const snap = await fs.getDocFromServer(fs.doc(db, 'users', uid));
+  if (!snap.exists()) return null;
+  const data = snap.data() as Record<string, unknown>;
+  if (typeof data.accountId !== 'string' || !data.accountId) return null;
+  return {
+    username: typeof data.username === 'string' ? data.username : '',
+    accountId: data.accountId,
+  };
+}
+
+/**
+ * Create `users/{uid}` and `accountClaims/{accountId}` in ONE batch and resolve the account id.
+ * Both are create-only, so a retry after a write that landed but whose answer was lost is refused;
+ * when `users/{uid}` is already there, its account id wins. A refusal where the claim names someone
+ * else rejects with `code: ACCOUNT_CLAIMED`.
+ */
+export async function writeAccountLink(uid: string, link: AccountLink): Promise<string> {
+  if (!ACCOUNT_ID_RE.test(link.accountId)) throw new Error('invalid account id');
+  const { db, fs } = await getAuthHandle();
+  const batch = fs.writeBatch(db);
+  batch.set(fs.doc(db, 'users', uid), { username: link.username, accountId: link.accountId });
+  batch.set(fs.doc(db, 'accountClaims', link.accountId), { uid });
+  try {
+    await batch.commit();
+    return link.accountId;
+  } catch (err) {
+    const existing = await readAccountLink(uid).catch(() => null);
+    if (existing) return existing.accountId;
+    if (isPermissionDenied(err)) {
+      const claim = await fs
+        .getDocFromServer(fs.doc(db, 'accountClaims', link.accountId))
+        .catch(() => null);
+      const owner = claim?.exists() ? (claim.data() as { uid?: unknown }).uid : undefined;
+      if (owner !== undefined && owner !== uid) {
+        throw Object.assign(new Error('account id already claimed'), { code: ACCOUNT_CLAIMED });
+      }
+    }
+    throw err;
   }
 }
 
