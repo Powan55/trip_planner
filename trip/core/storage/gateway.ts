@@ -538,6 +538,12 @@ export const STORAGE_KEYS = {
    */
   defaultTripShare: 'nepal_japan_default_trip_share',
   /**
+   * localStorage — JSON `{ shareId, at }`, set when THIS device turned its own default pack into a
+   * shared trip (mint, account adopt, or the share dialog), never on a join (key 52; D-651). Lets a
+   * backup made before that moment restore into it. Person data: sign-out clears it.
+   */
+  defaultTripAdopted: 'nepal_japan_default_trip_adopted',
+  /**
    * localStorage — JSON `string[]` of remote trip ids CREATED on this device (created-here, key 46;
    * D-551). The first-snapshot seed names this device `owner` only for these, so a joiner who
    * reaches a trip before its creator's doc landed cannot seed themselves owner. APP-SCOPED and
@@ -700,6 +706,20 @@ export function setDefaultTripShareId(id: string): void {
   if (prev !== '' && trimmed !== '' && prev !== trimmed) dropDefaultPackSyncedData();
   if (trimmed === '') removeKey('local', STORAGE_KEYS.defaultTripShare);
   else writeString('local', STORAGE_KEYS.defaultTripShare, trimmed);
+}
+
+export type DefaultTripAdopted = { shareId: string; at: string };
+
+/** Record that this device's own default pack became shared trip `shareId` (D-651). */
+export function markDefaultTripAdopted(shareId: string): void {
+  writeJson('local', STORAGE_KEYS.defaultTripAdopted, { shareId, at: new Date().toISOString() });
+}
+
+export function getDefaultTripAdopted(): DefaultTripAdopted | null {
+  const v = readJson<unknown>('local', STORAGE_KEYS.defaultTripAdopted, null);
+  if (typeof v !== 'object' || v === null) return null;
+  const { shareId, at } = v as Record<string, unknown>;
+  return typeof shareId === 'string' && typeof at === 'string' ? { shareId, at } : null;
 }
 
 /**
@@ -903,6 +923,7 @@ export function wipeAllTripData(): void {
   // SHARED plan, so a sign-out that left it behind would silently sync the next person on this
   // device straight into that trip. Same reasoning as `syncCode` two lines up.
   removeKey('local', STORAGE_KEYS.defaultTripShare);
+  removeKey('local', STORAGE_KEYS.defaultTripAdopted);
   removeKey('local', STORAGE_KEYS.tripsCreatedHere);
   removeKey('local', STORAGE_KEYS.personPrefs);
 }

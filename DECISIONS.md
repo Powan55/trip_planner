@@ -5962,6 +5962,14 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 
 **Changes if.** Manual ordering of timed plans is wanted back: it returns as an explicit per-day "Time / Manual" toggle, never as a silent reversion, since the sort is what makes the phase headers trustworthy.
 
+### D-651 · Amends D-575 · (issue #657, 2026-09-27) · A pre-adopt default-trip backup restores into the trip it became
+
+**Decision.** When this device turns its own default pack into a shared trip (account mint, account adopt, or the share dialog) it records `{ shareId, at }` under `nepal_japan_default_trip_adopted`. A default-pack backup with no remote id restores into a synced trip only if that marker names the current trip and the file's `exportedAt` is not later than `at`. Everything else without a remote id stays UNMATCHED. Joining never writes the marker, so it is not set inside `setDefaultTripShareId`. Sign-out clears it.
+
+**Why.** The adopt prompt says to back up first, and that backup has an empty remote id, so D-575 refused it once the adopt happened. The only way back was signing out, which wipes local data.
+
+**Trade-off.** Any unshared default-pack backup older than the adopt restores over the shared trip without any further prompt, not just one made on this device.
+
 ### D-652 · (issue #674, 2026-09-27) · CI's `e2e` job runs a second, Firebase-configured build for `@firebase` specs
 
 **Decision.** After the behavioural suite, `e2e` rebuilds with `NEXT_PUBLIC_FIREBASE_*` set to fake, `demo-`-prefixed values (no emulator, no credential) and runs `--grep "@firebase"`. Specs tagged `@firebase` self-skip unless `E2E_FIREBASE` is set, so they no-op on every other build and on the first, dormant build in this same job.

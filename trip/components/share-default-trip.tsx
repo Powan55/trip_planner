@@ -12,7 +12,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { markTripCreatedHere, setDefaultTripShareId } from '@/core/storage/gateway';
+import { markDefaultTripAdopted, markTripCreatedHere, setDefaultTripShareId } from '@/core/storage/gateway';
 import { parseTripToken } from '@/core/trips/registry';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { withBasePath } from '@/lib/base-path';
@@ -99,6 +99,7 @@ export function ShareDefaultTripDialog({
   const startSharing = () => {
     const id = crypto.randomUUID();
     markTripCreatedHere(id);
+    markDefaultTripAdopted(id);
     applyShareId(id);
   };
   /**
