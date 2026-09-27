@@ -42,6 +42,7 @@ import {
   dayAnchorStore,
   shareInboxStore,
   getActiveTripId,
+  getDefaultTripAdopted,
   DEFAULT_TRIP_ID,
   type TripScopedSlot,
 } from '@/core/storage/gateway';
@@ -499,8 +500,14 @@ export async function importTripBackup(
     // A custom pack's id IS its shared id, so an older custom-trip file is already proven by tripId.
     const remoteId =
       typeof env.remoteId === 'string' ? env.remoteId : env.tripId !== DEFAULT_TRIP_ID ? env.tripId : '';
-    if (!remoteId) return UNMATCHED;
-    if (remoteId !== getTripId()) {
+    if (!remoteId) {
+      // D-651: this device's own default pack became this trip, and the file predates that.
+      const adopted = env.tripId === DEFAULT_TRIP_ID ? getDefaultTripAdopted() : null;
+      const exportedAt = typeof env.exportedAt === 'string' ? Date.parse(env.exportedAt) : NaN;
+      if (!adopted || adopted.shareId !== getTripId() || !(exportedAt <= Date.parse(adopted.at))) {
+        return UNMATCHED;
+      }
+    } else if (remoteId !== getTripId()) {
       return {
         ok: false,
         error:

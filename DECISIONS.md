@@ -5955,3 +5955,11 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 **Trade-off.** Manual ordering of timed plans is gone — their time is now the only thing that places them, which is what was asked for. A drag of an untimed row past a timed one still rewrites stored order, so it can land the row at a different spot within the trailing untimed run than the drop point suggested; the run's own order is all that is observable, so this is cosmetic. On a date-line day the displayed times are correctly ordered but visually non-monotonic, with nothing on screen explaining why — the pre-existing accepted cost `lib/sort-items-by-time.ts` already records, now reachable from the day list rather than only the map.
 
 **Changes if.** Manual ordering of timed plans is wanted back: it returns as an explicit per-day "Time / Manual" toggle, never as a silent reversion, since the sort is what makes the phase headers trustworthy.
+
+### D-651 · Amends D-575 · (issue #657, 2026-09-27) · A pre-adopt default-trip backup restores into the trip it became
+
+**Decision.** When this device turns its own default pack into a shared trip (account mint, account adopt, or the share dialog) it records `{ shareId, at }` under `nepal_japan_default_trip_adopted`. A default-pack backup with no remote id restores into a synced trip only if that marker names the current trip and the file's `exportedAt` is not later than `at`. Everything else without a remote id stays UNMATCHED. Joining never writes the marker, so it is not set inside `setDefaultTripShareId`. Sign-out clears it.
+
+**Why.** The adopt prompt says to back up first, and that backup has an empty remote id, so D-575 refused it once the adopt happened. The only way back was signing out, which wipes local data.
+
+**Trade-off.** An unshared backup made on this device before the adopt restores over the shared trip without any further prompt. That covers only this device's own plan from before the trip existed, not another shared copy.

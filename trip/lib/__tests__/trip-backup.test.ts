@@ -58,6 +58,7 @@ import {
   dayAnchorStore,
   shareInboxStore,
   setActiveTripId,
+  markDefaultTripAdopted,
   wipeAllTripData,
   STORAGE_KEYS,
 } from '@/core/storage/gateway';
@@ -948,6 +949,69 @@ describe('#570 — a synced restore must come from the same shared trip', () => 
 
     expect(res.ok).toBe(true);
     expect(commit).toHaveBeenCalledWith(SEED_PLANS);
+  });
+
+  describe('#657 — an unshared default-pack backup after this device adopted the trip', () => {
+    async function unsharedBackup(): Promise<Blob> {
+      gate.tripId = '';
+      await seedAll(makeInMemoryBlobStore());
+      return exportTripBackup(makeInMemoryBlobStore());
+    }
+    const adopted = (shareId: string, at: string) =>
+      localStorage.setItem(STORAGE_KEYS.defaultTripAdopted, JSON.stringify({ shareId, at }));
+
+    it('restores a backup made before the adopt', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      markDefaultTripAdopted('share-X');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(true);
+      expect(commit).toHaveBeenCalledWith(SEED_PLANS);
+    });
+
+    it('refuses a backup made after the adopt', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      adopted('share-X', '2020-01-01T00:00:00.000Z');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toMatch(/unshared copy/);
+      expect(commit).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the adopt was of a different shared trip', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      markDefaultTripAdopted('share-Z');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      expect(commit).not.toHaveBeenCalled();
+    });
+
+    it('refuses on a joined trip, which leaves no adopt marker', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toMatch(/unshared copy/);
+      expect(commit).not.toHaveBeenCalled();
+    });
   });
 
   it('refuses a legacy itinerary-only file on a synced device', async () => {
