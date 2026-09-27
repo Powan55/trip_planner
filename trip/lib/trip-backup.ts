@@ -636,10 +636,7 @@ export async function importTripBackup(
     restored.push('itinerary');
   }
 
-  // Every attempted write above was refused (e.g. storage full) — the pre-write refusal at the
-  // top of this function can't catch this, since it only sees whether the file HAD content, not
-  // whether any of it could actually be saved. Without this, the UI reports "Trip restored —  are
-  // back. Reloading…" for a restore that changed nothing on disk.
+  // Content existed but every write was refused, so nothing changed on disk.
   if (restored.length === 0) {
     return {
       ok: false,
