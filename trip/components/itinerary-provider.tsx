@@ -348,10 +348,6 @@ export function runTripMembership(): () => void {
 
   void import('@/lib/trips-remote')
     .then(({ ensureMembership }) => ensureMembership(tripId))
-    // D-595: listeners refused before the self-join stay dead, so restart them with one reload.
-    .then((r) => {
-      if (r === 'joined') window.location.reload();
-    })
     .catch((err) => {
       console.warn('[itinerary-provider] membership enrolment unavailable:', err);
     });
