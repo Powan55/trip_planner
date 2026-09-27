@@ -771,6 +771,39 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(outboxDirty('docs')).toEqual(['checklist']);
     expect(outboxDirty('places')).toEqual(['list']);
   });
+
+  // #698: a local write the browser refuses (quota) must not still queue the restore for sync —
+  // that would push the rejected data to every other member while this device kept its old copy.
+  it('a domain whose local write is refused (quota) is not enqueued; the others still are', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    expensesStore.set([]);
+    budgetStore.set(normalizeModel({}));
+    docsStore.set([]);
+    myPlacesStore.set([]);
+
+    const realSetItem = Storage.prototype.setItem.bind(localStorage);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      if (key === STORAGE_KEYS.expenses) {
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      return realSetItem(key, value);
+    });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+    expect(res.ok).toBe(true);
+
+    expect(outboxDirty('expenses')).toEqual([]); // refused write → not enqueued
+    expect(outboxDirty('budget')).toEqual(['model']);
+    expect(outboxDirty('docs')).toEqual(['checklist']);
+    expect(outboxDirty('places')).toEqual(['list']);
+  });
 });
 
 // ── The container version is READ, not just stamped ─────────────────────────────────────────────

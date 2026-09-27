@@ -153,11 +153,15 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  */
 type DomainSpec = {
   read: () => unknown;
-  write: (cleaned: unknown) => void;
+  /** Returns `false` only for the 4 domains whose store surfaces `writeJson`'s result (the
+   * synced ones below); local-only domains return `undefined`, which `!== false` gates as OK. */
+  write: (cleaned: unknown) => boolean | void;
   validate: (parsed: unknown) => unknown | null;
-  /** SYNCED domains only — see `enqueueRestored`. Reads the pre-restore local state, so it MUST be
-   * called before `write`. Absent ⇒ the domain is genuinely local-only and a bare write is enough. */
-  enqueueRestore?: (cleaned: unknown) => void;
+  /** SYNCED domains only — see `enqueueRestored`. Captures the pre-restore local state, so it
+   * MUST be called before `write`; its returned thunk must fire only once `write` reports success
+   * (issue #698 — a refused local write must not reach every member's device). Absent ⇒ the
+   * domain is genuinely local-only and a bare write is enough. */
+  enqueueRestore?: (cleaned: unknown) => () => void;
 };
 
 /**
@@ -188,8 +192,11 @@ type DomainSpec = {
  * path for a domain that DOES fit one of the two existing shapes: inject its restore fn the way
  * `commitItinerary`/`commitExpenses`/`commitMyPlaces`/`commitDocsChecklist` are injected.
  */
-function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => void {
-  return (cleaned) => void port.push(storage.load(), cleaned as T);
+function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => () => void {
+  return (cleaned) => {
+    const prev = storage.load(); // pre-restore state, captured before the caller's `write`
+    return () => void port.push(prev, cleaned as T);
+  };
 }
 
 // Declared with `satisfies` rather than a `: Record<string, DomainSpec>` annotation so `keyof typeof
@@ -199,11 +206,13 @@ const DOMAINS = {
   journal: {
     read: () => journalStore.get<unknown>(ABSENT),
     write: (v) => {
-      journalStore.set(v);
+      const ok = journalStore.set(v);
       // Re-stamp each restored day so the restore wins on the author's other devices (D-596).
-      if (!isRemoteConfigured()) return;
-      const dates = (v as JournalEntry[]).map((e) => e.date);
-      void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
+      if (isRemoteConfigured()) {
+        const dates = (v as JournalEntry[]).map((e) => e.date);
+        void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
+      }
+      return ok;
     },
     validate: (v) => (Array.isArray(v) ? sanitizeEntries(v) : null),
   },
@@ -604,9 +613,13 @@ export async function importTripBackup(
       restored.push(slot);
       continue;
     }
-    // Enqueue BEFORE the write: it reads the pre-restore local state as the push's `prev`.
-    domainsBySlot[slot].enqueueRestore?.(cleaned);
-    domainsBySlot[slot].write(cleaned);
+    // Capture BEFORE the write: it reads the pre-restore local state as the push's `prev`. The
+    // returned thunk only fires below, once `write` reports the local save actually landed
+    // (issue #698) — a refused write (e.g. quota) must not queue a push that overwrites every
+    // other member's copy with data this device never kept.
+    const pushRestored = domainsBySlot[slot].enqueueRestore?.(cleaned);
+    const ok = domainsBySlot[slot].write(cleaned);
+    if (ok !== false) pushRestored?.();
     restored.push(slot);
   }
 
