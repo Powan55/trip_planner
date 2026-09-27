@@ -27,6 +27,7 @@ import {
   keyForTrip,
   readJson,
   isSafeTripSegment,
+  STORAGE_KEYS,
 } from '@/core/storage/gateway';
 import { outboxDirty, type SyncDomain } from '@/core/sync/outbox';
 // Type only — `lib/city-coords.ts` is a leaf module (no imports of its own), so this does not
@@ -412,6 +413,7 @@ export function applyRemoteTripMeta(
   const stored = readStored();
   let hit = stored.find((t) => t.id === id);
   if (!hit) {
+    if (readRemoved().some((r) => r.id === id)) return false; // a fresh joinedAt would beat the tombstone (#656)
     hit = { id, name: SHARED_NAME, joinedAt: Date.now() };
     stored.push(hit);
   }
@@ -555,8 +557,15 @@ export function replaceLocalPlanCopy(lead: string = REPLACE_LOCAL_PLAN_COPY): st
 export function unsyncedEditCount(): number {
   return listKnownTrips().reduce(
     (sum, t) => sum + SYNC_DOMAINS.reduce((s, d) => s + outboxDirty(d, t.id).length, 0) + journalDirty(t.id),
-    0,
+    personPrefsDirty(),
   );
+}
+
+/** Person prefs not yet on the account (#672); the wipe deletes key 48 with them. */
+function personPrefsDirty(): number {
+  const prefs = readJson<unknown>('local', STORAGE_KEYS.personPrefs, null);
+  if (typeof prefs !== 'object' || prefs === null) return 0;
+  return Object.values(prefs).filter((e) => (e as { dirty?: unknown } | null)?.dirty === true).length;
 }
 
 /** Journal days waiting to push (#631). They queue in key 50, not the outbox, and the wipe drops them too. */
