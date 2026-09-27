@@ -54,7 +54,7 @@ export default function PresenceBar() {
           // `--tab-bar-h` contract + safe-area inset + the original 1rem gap. `md:` restores the
           // original `bottom-4` (desktop has no tab bar, so it is pixel-unchanged there). Only the
           // bottom coordinate changed; left/z/max-width and everything else are as before.
-          className="fixed left-4 z-40 max-w-[calc(100vw-2rem)] sm:max-w-xs bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+1rem)] md:bottom-4"
+          className="fixed left-4 z-40 max-w-[calc(100vw-6rem)] sm:max-w-xs bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+1rem)] md:bottom-4"
         >
           <div className="flex items-center gap-2.5 rounded-r1 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-3 py-2">
             {/* Overlapping accent dots — one per active traveler, decorative (names follow). */}
