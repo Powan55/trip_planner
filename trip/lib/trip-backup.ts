@@ -153,14 +153,17 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  */
 type DomainSpec = {
   read: () => unknown;
-  /** Returns `false` only for the 4 domains whose store surfaces `writeJson`'s result (the
-   * synced ones below); local-only domains return `undefined`, which `!== false` gates as OK. */
+  /** Returns `false` only where the store surfaces `writeJson`'s result — expenses/budget/docs/
+   * myPlaces (via `enqueueRestore` below) and journal (its own `journal-remote` push, gated
+   * inline). The rest are genuinely fire-and-forget and return `undefined`, which `!== false`
+   * gates as OK. */
   write: (cleaned: unknown) => boolean | void;
   validate: (parsed: unknown) => unknown | null;
-  /** SYNCED domains only — see `enqueueRestored`. Captures the pre-restore local state, so it
-   * MUST be called before `write`; its returned thunk must fire only once `write` reports success
-   * (issue #698 — a refused local write must not reach every member's device). Absent ⇒ the
-   * domain is genuinely local-only and a bare write is enough. */
+  /** The 4 SyncPort-backed domains only — see `enqueueRestored`. Captures the pre-restore local
+   * state, so it MUST be called before `write`; its returned thunk must fire only once `write`
+   * reports success (issue #698 — a refused local write must not reach every member's device).
+   * Absent ⇒ either local-only, or (journal) synced through its own path that gates on `write`'s
+   * result itself rather than this hook. */
   enqueueRestore?: (cleaned: unknown) => () => void;
 };
 
@@ -208,7 +211,11 @@ const DOMAINS = {
     write: (v) => {
       const ok = journalStore.set(v);
       // Re-stamp each restored day so the restore wins on the author's other devices (D-596).
-      if (isRemoteConfigured()) {
+      // Gated on `ok` (#698 follow-up): pushJournalEntry re-reads the LOCAL journal to stamp it,
+      // so on a refused write it would re-read the OLD (pre-restore) entry and push that with a
+      // fresh HLC — old content wins everywhere, and a date the backup dropped locally gets
+      // pushed out as a deletion.
+      if (ok && isRemoteConfigured()) {
         const dates = (v as JournalEntry[]).map((e) => e.date);
         void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
       }
@@ -619,7 +626,8 @@ export async function importTripBackup(
     // other member's copy with data this device never kept.
     const pushRestored = domainsBySlot[slot].enqueueRestore?.(cleaned);
     const ok = domainsBySlot[slot].write(cleaned);
-    if (ok !== false) pushRestored?.();
+    if (ok === false) continue; // refused local write: don't claim it, don't queue it (#698)
+    pushRestored?.();
     restored.push(slot);
   }
 
