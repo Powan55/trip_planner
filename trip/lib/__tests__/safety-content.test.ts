@@ -103,6 +103,14 @@ describe('safety content — valid data parses', () => {
       expect(c.tel).toMatch(/^\+?[0-9]+$/);
     }
   });
+
+  // #664 — "this session" implied a re-check that never happened; every unverified contact's
+  // note now reads as a plain standing caveat instead.
+  it('no contact note claims a live check "this session"', () => {
+    for (const c of EMERGENCY_CONTACTS) {
+      expect(c.note ?? '').not.toMatch(/this session/i);
+    }
+  });
 });
 
 describe('safety content — the validator HAS TEETH (broken fixture is rejected)', () => {

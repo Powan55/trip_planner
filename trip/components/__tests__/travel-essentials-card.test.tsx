@@ -93,6 +93,32 @@ describe('TravelEssentialsCard — safety-content gate (A-12)', () => {
   });
 });
 
+// #661/#664 — the safety-chip label wraps at narrow widths instead of running off-screen, and
+// an unverified contact carries a visible text marker (not colour alone).
+describe('TravelEssentialsCard — safety chip wrap and unverified marker (#661/#664)', () => {
+  it('a Japan day: jp-visitor-hotline chip wraps and marks itself unverified in text and aria-label', () => {
+    state.isDefault = true;
+    const r = render('2026-12-25'); // past 2026-12-18 → Japan leg
+
+    const chip = r.container.querySelector('[data-testid="travel-essentials-safety-jp-visitor-hotline"]');
+    expect(chip).not.toBeNull();
+    expect(chip!.className).toMatch(/whitespace-normal/);
+    expect(chip!.textContent ?? '').toContain('(unverified)');
+    expect(chip!.getAttribute('aria-label') ?? '').toContain('(unverified)');
+
+    r.unmount();
+  });
+
+  it('a verified contact (np-police) carries no unverified marker', () => {
+    state.isDefault = true;
+    const r = render('2026-12-10');
+    const chip = r.container.querySelector('[data-testid="travel-essentials-safety-np-police"]');
+    expect(chip!.textContent ?? '').not.toContain('(unverified)');
+    expect(chip!.getAttribute('aria-label') ?? '').not.toContain('(unverified)');
+    r.unmount();
+  });
+});
+
 // #220 — the home clock rides the SAME default-pack gate, for the same reason: HOME_TIME_ZONE is
 // an assumption derived from the default pack's flight-home destination (Syracuse), and a custom
 // trip's traveller has no reason to live there.
