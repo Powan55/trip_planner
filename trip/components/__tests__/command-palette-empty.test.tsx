@@ -85,6 +85,13 @@ describe('command palette result count is announced', () => {
     const list = document.querySelector('[cmdk-list]');
     expect(list).not.toBeNull();
     expect((list as HTMLElement).hidden).toBe(true);
+
+    const empty = Array.from(document.querySelectorAll('span')).find(
+      (el) => el.textContent === 'Nothing here matches what you typed.',
+    );
+    expect(empty).toBeDefined();
+    expect(empty!.closest('[hidden]')).toBeNull();
+    expect((empty!.closest('[cmdk-list]') as HTMLElement | null)).toBeNull();
   });
 
   it('announces a result count for a matching query', () => {

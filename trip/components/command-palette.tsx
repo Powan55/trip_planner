@@ -33,7 +33,6 @@ import {
   Command,
   CommandInput,
   CommandList,
-  CommandEmpty,
   CommandGroup,
   CommandItem,
 } from '@/components/ui/command';
@@ -266,20 +265,22 @@ function formatConvertedAmount(n: number, currency: string): string {
 // #663: cmdk's own item count (`filtered.count`) only exists inside the <Command>
 // tree, so this reads it via `useCommandState` and adds our two forceMount groups
 // (planResults, parsedConversion) which opt out of that count entirely (see the
-// CommandGroup comments below). The status <p> is a sibling of CommandList so it
-// stays mounted (and announceable) even when the list itself is hidden — unmounting
-// CommandList would deregister every item and break re-scoring on the next keystroke.
+// CommandGroup comments below). The status <p> and the empty-frame are siblings of
+// CommandList, not children — CommandList gets `hidden` (display:none) when empty,
+// which would hide anything nested inside it too.
 function PaletteResults({
   query,
   planResults,
   parsedConversion,
   className,
+  emptyFrame,
   children,
 }: {
   query: string;
   planResults: unknown[];
   parsedConversion: unknown;
   className: string;
+  emptyFrame: React.ReactNode;
   children: React.ReactNode;
 }) {
   const filteredCount = useCommandState((s) => s.filtered.count);
@@ -298,6 +299,7 @@ function PaletteResults({
       <CommandList className={className} hidden={empty || undefined}>
         {children}
       </CommandList>
+      {empty && emptyFrame}
     </>
   );
 }
@@ -570,25 +572,17 @@ export default function CommandPalette() {
             planResults={planResults}
             parsedConversion={parsedConversion}
             className="list max-h-[min(60vh,26rem)]"
+            emptyFrame={
+              // SPEC 9.8: the shape of the thing that is missing, and the condition in
+              // words — never a grey sentence.
+              <div className="empty-frame mx-gut px-gut py-5 text-left">
+                <span className="block">Nothing here matches what you typed.</span>
+                <span className="pr pr--lo mt-2 block">
+                  Try a route name, a city, or an amount like 100 usd to jpy
+                </span>
+              </div>
+            }
           >
-            {/* cmdk's own "no results" count only tracks items IT registers/
-                scores (see the CommandGroups below — our dynamic groups opt out of that
-                via forceMount), so gate this on OUR OWN dynamic-group state too —
-                otherwise the no-results frame could render ALONGSIDE a real "In your
-                plan" or "Currency Converter" hit. */}
-            {planResults.length === 0 && !parsedConversion && (
-              <CommandEmpty>
-                {/* SPEC 9.8: the shape of the thing that is missing, and the condition in
-                    words — never a grey sentence. Spans, not paragraphs: this sits inside
-                    the listbox, where `paragraph` is not an allowed child role. */}
-                <div className="empty-frame mx-gut px-gut py-5 text-left">
-                  <span className="block">Nothing here matches what you typed.</span>
-                  <span className="pr pr--lo mt-2 block">
-                    Try a route name, a city, or an amount like 100 usd to jpy
-                  </span>
-                </div>
-              </CommandEmpty>
-            )}
             {GROUP_ORDER.filter((group) => sections.some((s) => s.group === group)).map((group) => (
               <CommandGroup key={group} heading={group} className={GROUP}>
                 {sections.filter((s) => s.group === group).map((section) => {
