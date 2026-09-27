@@ -5939,3 +5939,9 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 **Why.** Only identity and tripList were carved out, so `profile/prefs` and `profile/journal_*` fell to the member-only subtree block and were denied whenever the account token was also a member-gated trip id.
 
 **Trade-off.** A stranger holding a gated trip id can plant these two docs under it, the same accepted cost as identity and tripList. rules-check 9b/9c pin the allows and the near-miss ids (`journal`, `journal_`, `prefsx`), and the allows fail against the pre-D-605 rules.
+
+### D-642 · (issue #667, 2026-09-26) · A member can add others only as `member`
+
+**Decision.** `addsMembersOnly()` also requires the count of non-`member` roster values to be unchanged. With no key removed or changed, that means every added value is `member`, so a member can no longer add an `owner` (or any other role). No extra reads. Supersedes ceiling (1) of D-300.
+
+**Status.** Repo only until the rules are actually published (#263). rules-check 7e now expects these adds to be denied.

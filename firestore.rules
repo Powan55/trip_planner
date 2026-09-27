@@ -47,16 +47,10 @@ rules_version = '2';
 // upgrade path and is deliberately NOT built: it needs a second predicate on every write
 // rule plus UI to assign it, and nothing needs it yet.
 //
-// ⚠ CEILING — KNOWN, ACCEPTED, NOT FIXABLE HERE. Rules can prove a members-map edit is
-// ADD-ONLY (MapDiff `removedKeys()`/`changedKeys()`), but they cannot inspect the VALUE of
-// an ADDED key: the added keys are uids not known when the rule is written, and there is
-// no map-comprehension in the rules language to assert "every added entry equals
-// 'member'". So a `member` can add a third uid as 'owner' and manufacture an owner.
-// Threat model is three friends who already hold each other's trip links, so this is
-// accepted rather than fixed. Upgrade path if it ever matters: move members to a
-// SUBCOLLECTION (`members/{uid}` → `{ role }`), where the value becomes a document whose
-// own write rule can check `request.resource.data.role == 'member'`. That is a data
-// migration, not a rules edit, which is why it is not done here.
+// MEMBER ADDS ARE 'member' ONLY (D-642, #667). Rules cannot iterate the ADDED keys of a
+// members map, but addsMembersOnly() already proves no key was removed or changed, so if the
+// count of non-'member' values is also unchanged, every added value is 'member'. A member
+// therefore cannot mint an owner (or any other role). No extra reads.
 //
 // ⚠ QUOTA. Every `get()`/`exists()` inside a rule is a billed document read against
 // Spark's 50k/day. isMember()/isOwner() touch ONE document (the trip doc) per operation;
@@ -227,12 +221,13 @@ service cloud.firestore {
             && request.resource.data.members.values().hasAny(['owner']));
       }
 
-      // A non-owner member may ADD members and touch nothing else. See the CEILING note in
-      // the header: this proves add-ONLY, it cannot police the added VALUE.
+      // A non-owner member may ADD members, only as 'member', and touch nothing else (D-642).
       function addsMembersOnly() {
         return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
           && request.resource.data.members.diff(resource.data.members).removedKeys().size() == 0
-          && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0;
+          && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0
+          && request.resource.data.members.values().removeAll(['member']).size()
+             == resource.data.members.values().removeAll(['member']).size();
       }
 
       // D-593 (#599): a signed-in non-member holding the trip id may add exactly its own uid, as
