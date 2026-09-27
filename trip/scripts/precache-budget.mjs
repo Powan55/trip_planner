@@ -2,15 +2,11 @@
 // Byte budget for what the service worker actually precaches (issue #676).
 //   npm run precache-budget     (or: node scripts/precache-budget.mjs)
 //
-// asset-budget.mjs measures the SOURCE tree, pre-build (see its header). This
-// script measures the BUILT artifact instead: it reads out/sw.js (written by
-// scripts/gen-sw.mjs), pulls the PRECACHE_URLS array back out, maps each URL to
-// its file under out/, gzips each (the transfer size a real install pays), and
-// sums it. Runs post-build, in CI right after the Build step.
-//
-// FAIL CLOSED: any of out/sw.js missing, the array not parsing, a URL with no
-// file on disk, or the URL count dropping under a sanity floor all exit 1 —
-// a check that silently measured nothing would be worse than no check.
+// Reads the built out/sw.js (post-build, in CI right after Build), gzips each
+// precached file, and sums it. public/font/** glyph PBFs are deliberately not
+// in PRECACHE_URLS (see gen-sw.mjs) so they don't count here either. Fails
+// closed on anything unparseable — a check that silently measured nothing
+// would be worse than no check.
 
 import { readFileSync, existsSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
