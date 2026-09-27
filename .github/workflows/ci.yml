@@ -330,6 +330,24 @@ jobs:
           CI: '1'
         run: npm run test:e2e -- --grep-invert @visual
 
+      # D-652. The build above has no firebase env, so isRemoteConfigured() is false and every
+      # @firebase spec self-skips (proven by the Behavioural suite step, which runs them too).
+      # Rebuilding here with a fake, demo- prefixed project id flips that gate for real without
+      # an emulator or any credential — no request the app makes under it can resolve.
+      - name: Rebuild with a Firebase-configured build
+        env:
+          NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
+          NEXT_PUBLIC_FIREBASE_API_KEY: demo-key
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-e2e
+          NEXT_PUBLIC_FIREBASE_APP_ID: demo-app
+        run: npm run build
+
+      - name: Firebase-configured suite
+        env:
+          CI: '1'
+          E2E_FIREBASE: '1'
+        run: npm run test:e2e -- --grep "@firebase"
+
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
