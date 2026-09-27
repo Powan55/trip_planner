@@ -24,6 +24,7 @@
     "marker-check": "node scripts/marker-check.mjs",
     "token-check": "node scripts/token-wrappers.mjs",
     "budget-check": "node scripts/asset-budget.mjs",
+    "precache-budget": "node scripts/precache-budget.mjs",
     "credits-check": "node scripts/credits-check.mjs"
   },
   "devDependencies": {
