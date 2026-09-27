@@ -191,4 +191,15 @@ describe('isGooglePlaceUrl — host allow/deny', () => {
     expect(isGooglePlaceUrl('https://google.com.attacker.net/maps')).toBe(false);
     expect(isGooglePlaceUrl('https://notgoogle.com')).toBe(false);
   });
+
+  // S669 — widened to Google's com.XX country domains (google.com.np, google.com.au) per issue #669
+  it('S669: allows com.XX country domain hosts (google.com.np, google.com.au)', () => {
+    expect(isGooglePlaceUrl('https://www.google.com.np/maps/place/Foo')).toBe(true);
+    expect(isGooglePlaceUrl('https://google.com.au/maps/place/Foo')).toBe(true);
+  });
+
+  // S669 — rejects attacker hosts with com.XX pattern (google.com.np.evil.net)
+  it('S669: rejects com.XX-pattern attacker hosts (google.com.np.evil.net)', () => {
+    expect(isGooglePlaceUrl('https://google.com.np.evil.net/maps')).toBe(false);
+  });
 });

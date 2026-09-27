@@ -275,9 +275,10 @@ export function inferLegId(config: TripConfig, lat?: number, lng?: number): stri
 // it's ever echoed back); THIS copy is a UX affordance — it decides whether "Look up" enables and
 // whether the rejection line shows. The two lists must stay in agreement; widen one, widen the
 // other. Anchored both ends so `evil-google.com` / `google.com.attacker.net` never match. The
-// regex admits Google's ccTLD hosts (`google.co.jp`, `google.de`) because a share link copied on
-// a phone abroad carries the local domain — a plain exact-match set silently rejected those.
-const GOOGLE_HOST_RE = /^(www\.|maps\.)?google\.(com|co\.[a-z]{2}|[a-z]{2,3})$/;
+// regex admits Google's country hosts (`google.co.jp`, `google.com.np`, `google.de`) because a
+// share link copied on a phone abroad carries the local domain — a plain exact-match set
+// silently rejected those.
+const GOOGLE_HOST_RE = /^(www\.|maps\.)?google\.(com|com\.[a-z]{2}|co\.[a-z]{2}|[a-z]{2,3})$/;
 const GOOGLE_SHORT_HOSTS: ReadonlySet<string> = new Set(['share.google', 'goo.gl', 'maps.app.goo.gl']);
 
 /**
