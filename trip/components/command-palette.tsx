@@ -26,6 +26,8 @@ import {
   Stamp,
 } from 'lucide-react';
 
+import { useCommandState } from 'cmdk';
+
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Command,
@@ -260,6 +262,45 @@ function formatConvertedAmount(n: number, currency: string): string {
 
 // Issue #24: the local copy of the media-query read is gone — `prefersReducedMotion`
 // is imported from lib/motion.ts, the one place the preference is read.
+
+// #663: cmdk's own item count (`filtered.count`) only exists inside the <Command>
+// tree, so this reads it via `useCommandState` and adds our two forceMount groups
+// (planResults, parsedConversion) which opt out of that count entirely (see the
+// CommandGroup comments below). The status <p> is a sibling of CommandList so it
+// stays mounted (and announceable) even when the list itself is hidden — unmounting
+// CommandList would deregister every item and break re-scoring on the next keystroke.
+function PaletteResults({
+  query,
+  planResults,
+  parsedConversion,
+  className,
+  children,
+}: {
+  query: string;
+  planResults: unknown[];
+  parsedConversion: unknown;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const filteredCount = useCommandState((s) => s.filtered.count);
+  const total = filteredCount + planResults.length + (parsedConversion ? 1 : 0);
+  const empty = total === 0;
+  const statusText = query.trim() === ''
+    ? ''
+    : empty
+      ? 'Nothing here matches what you typed.'
+      : `${total} result${total === 1 ? '' : 's'}`;
+  return (
+    <>
+      <p role="status" aria-live="polite" className="sr-only">
+        {statusText}
+      </p>
+      <CommandList className={className} hidden={empty || undefined}>
+        {children}
+      </CommandList>
+    </>
+  );
+}
 
 export default function CommandPalette() {
   const [open, setOpen] = React.useState(false);
@@ -524,7 +565,12 @@ export default function CommandPalette() {
               {sections.length} destinations · type to filter, or convert an amount
             </p>
           )}
-          <CommandList className="list max-h-[min(60vh,26rem)]">
+          <PaletteResults
+            query={query}
+            planResults={planResults}
+            parsedConversion={parsedConversion}
+            className="list max-h-[min(60vh,26rem)]"
+          >
             {/* cmdk's own "no results" count only tracks items IT registers/
                 scores (see the CommandGroups below — our dynamic groups opt out of that
                 via forceMount), so gate this on OUR OWN dynamic-group state too —
@@ -670,7 +716,7 @@ export default function CommandPalette() {
                 </CommandItem>
               </CommandGroup>
             )}
-          </CommandList>
+          </PaletteResults>
           <div
             aria-hidden="true"
             className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 border-t-2 border-[color:hsl(var(--border))] px-gut py-2"
