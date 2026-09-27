@@ -38,6 +38,7 @@ import {
   syncPausedPrefs,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
+import TripInvites from '@/components/trip-invites';
 import {
   joinTrip,
   formatShareToken,
@@ -793,6 +794,9 @@ function TripAccessGroup() {
           </p>
         )}
       </div>
+      )}
+      {!paused && (
+        <TripInvites tripId={tripKey ?? ''} isOwner={myRole === 'owner'} open={members === null} />
       )}
     </div>
   );
