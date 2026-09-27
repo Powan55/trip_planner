@@ -84,10 +84,14 @@
  *  10. NEGATIVE CONTROL — the same member denials with the membership predicates REMOVED must
  *                     all be ALLOWED. Same reason as phase 4, for the other half of the file.
  *  10b. restored    — membership back on, the denials deny again.
- *  11. NEGATIVE CONTROL — the 7g self-join denials (D-593) with selfJoinsAsMember() REMOVED must
+ *  11. NEGATIVE CONTROL — the 7g join denials (D-662) with redeemsInvite() REMOVED must
  *                     all be ALLOWED.
  *  12. users/{uid}  — the email/password account doc is owner-only get/create, fixed
- *                     {username, accountId} shape, no update, no list, no delete.
+ *                     {username, accountId} shape, no update, no list, no delete; the username
+ *                     matches the signed-in email and the accountId is claimed in the same batch
+ *                     (accountClaims, D-661).
+ *  13. invites      — owner-only mint/list/revoke; a non-member redeems one once, before expiry,
+ *                     only together with its own 'member' roster add (D-662).
  */
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -105,8 +109,12 @@ const { initializeApp, deleteApp } = require('firebase/app');
 const {
   getFirestore, connectFirestoreEmulator, doc, collection, collectionGroup,
   setDoc, updateDoc, deleteField, getDoc, getDocs, deleteDoc, runTransaction, terminate,
+  writeBatch, serverTimestamp,
 } = require('firebase/firestore');
-const { getAuth, connectAuthEmulator, signInAnonymously } = require('firebase/auth');
+const {
+  getAuth, connectAuthEmulator, signInAnonymously, createUserWithEmailAndPassword, linkWithCredential,
+  EmailAuthProvider,
+} = require('firebase/auth');
 
 // `firebase emulators:exec` exports these; fall back to the emulator defaults.
 const [HOSTNAME, PORT] = (process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080').split(':');
@@ -120,6 +128,7 @@ const ACCT = '99999999-8888-7777-6666-555555555555';   // phase 9: a User Token 
 const THIRD = 'third-friend-uid-000000000000';         // a uid that is only ever a map key
 const GATED_DAY = '2026-12-14';                        // one content doc under the gated trip
 const BRICK = '00000000-1111-2222-3333-444444444444';  // phase 7f: a trip carrying a malformed roster
+const INV0 = 'c0c0c0c0-0000-4000-8000-000000000662';   // an unredeemed invite seeded on trips/L
 
 let pass = 0, fail = 0;
 let results = [];
@@ -178,10 +187,14 @@ function client(name) {
   return { app, db };
 }
 
-async function signIn(app) {
+function authOf(app) {
   const auth = getAuth(app);
   connectAuthEmulator(auth, `http://${AUTH_HOST}`, { disableWarnings: true });
-  return (await signInAnonymously(auth)).user.uid;
+  return auth;
+}
+
+async function signIn(app) {
+  return (await signInAnonymously(authOf(app))).user.uid;
 }
 
 const owner = client();            // the DEFAULT app — phases 0-5 all run as this uid
@@ -230,6 +243,7 @@ async function seedGated(rules = shipped) {
   await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } }, rules);
   await seed(['trips', L, 'days', GATED_DAY],
     { date: GATED_DAY, city: 'Kathmandu', country: 'nepal', items: bigList(2) }, rules);
+  await seed(['trips', L, 'invites', INV0], { createdBy: O, createdAt: new Date() }, rules);
 }
 
 console.log(`\nfirestore.rules harness — emulator ${HOST}, auth ${AUTH_HOST}, project ${PROJECT}`);
@@ -480,7 +494,6 @@ const MEMBER_DENIALS = [
   ['stranger S writes trips/L/days/{date}',
     () => setDoc(doc(dbS, 'trips', L, 'days', GATED_DAY), { date: GATED_DAY, city: 'Tokyo', country: 'japan', items: bigList(2) })],
   ['stranger S deletes trips/L/days/{date}', () => deleteDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
-  // Self-adding as 'member' is allowed since D-593 (phase 7g); as 'owner' it never is.
   ['stranger S adds ITSELF to members as "owner"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'owner' })],
   ['member M removes the owner', () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: deleteField() })],
   ["member M changes the owner's role", () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'member' })],
@@ -491,8 +504,12 @@ const MEMBER_DENIALS = [
     () => setDoc(doc(dbS, 'trips', `not-owner-${++createN}`), { schemaVersion: 1, members: { [S]: 'member' } })],
 ];
 
-// Each is denied by selfJoinsAsMember() alone: phase 11 neuters it and every one must flip.
+// Each is denied by redeemsInvite() alone: phase 11 neuters it and every one must flip.
 const SELF_JOIN_DENIALS = [
+  ['stranger S self-adds as "member" (no invite, D-593 is gone)',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' })],
+  ['stranger S self-adds naming an invite it did not stamp',
+    () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', joinInvite: INV0 })],
   ['stranger S self-adds as "owner"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'owner' })],
   ['stranger S adds another uid as "member"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${THIRD}`]: 'member' })],
   ['stranger S adds itself AND another uid',
@@ -569,7 +586,7 @@ await seed(['trips', BRICK], NO_OWNER);
 await expect('...or overwrites the roster with a valid one (the repair)', 'ALLOWED',
   () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
 
-console.log('\n  -- 7g. SELF-JOIN (D-593): a trip-id holder may add only itself, only as "member" --');
+console.log('\n  -- 7g. NO SELF-JOIN (D-662): holding the trip id no longer adds you to the roster --');
 for (const [name, fn] of SELF_JOIN_DENIALS) {
   await seedGated();
   await expect(name, 'DENIED', fn);
@@ -579,14 +596,6 @@ await expect('stranger S self-adds as "member" to a full roster (cap 200)', 'DEN
   () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' }));
 await expect('UNAUTH self-adds as "member"', 'DENIED',
   () => updateDoc(doc(dbU, 'trips', L), { 'members.unauth-uid': 'member' }));
-await seedGated();
-await expect('stranger S self-adds as "member"', 'ALLOWED',
-  () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' }));
-await expect('...and can now read trips/L and its content', 'ALLOWED', async () => {
-  const snap = await getDoc(doc(dbS, 'trips', L));
-  if (snap.data().members[S] !== 'member') throw new Error('fixture: S must be stored as member');
-  await getDoc(doc(dbS, 'trips', L, 'days', GATED_DAY));
-});
 await seedGated();   // phase 9 relies on S being a non-member of L
 const phase7 = flush('PHASE 7 (membership, negative)');
 
@@ -739,42 +748,147 @@ for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 const phase10b = flush('PHASE 10b (membership RESTORED)');
 
 // ── 11. NEGATIVE CONTROL for self-join ───────────────────────────────────────
-console.log('\n\n=== 11. NEGATIVE CONTROL: self-join denials, selfJoinsAsMember() REMOVED ===');
-const selfJoinOff = neuter(shipped, 'selfJoinsAsMember', 'return request.auth != null;',
+console.log('\n\n=== 11. NEGATIVE CONTROL: join denials, redeemsInvite() REMOVED ===');
+const selfJoinOff = neuter(shipped, 'redeemsInvite', 'return request.auth != null;',
   'without a working phase 11 the 7g denials could be passing for some other reason.');
 for (const [name, fn] of SELF_JOIN_DENIALS) {
   await seedGated(selfJoinOff);
   await expect(name, 'DENIED', fn);
 }
-const phase11 = flush('PHASE 11 (self-join REMOVED)  <-- MUST be red');
+const phase11 = flush('PHASE 11 (invite join REMOVED)  <-- MUST be red');
 await loadRules(shipped);
 
 // ── 12. users/{uid}: the email/password account doc ─────────────────────────
-console.log('\n\n=== 12. users/{uid}: owner-only, fixed shape, username immutable ===');
-const USER = { username: 'powan_55', accountId: ACCT };
-const me = (d = db) => doc(d, 'users', O);
-await expect('O creates users/{O} {username, accountId}', 'ALLOWED', () => setDoc(me(), USER));
-await expect('O gets users/{O}', 'ALLOWED', () => getDoc(me()));
-await expect('O repoints accountId on update', 'DENIED', () => setDoc(me(), { ...USER, accountId: TRIP }));
-await expect('O changes username on update', 'DENIED', () => setDoc(me(), { ...USER, username: 'someone_else' }));
-await expect('O deletes users/{O}', 'DENIED', () => deleteDoc(me()));
-await expect('stranger S gets users/{O}', 'DENIED', () => getDoc(me(dbS)));
-await expect('stranger S writes users/{O}', 'DENIED', () => setDoc(me(dbS), USER));
-await expect('stranger S creates users/{M} (not yet existing)', 'DENIED', () => setDoc(doc(dbS, 'users', M), USER));
-await expect('UNAUTH gets users/{O}', 'DENIED', () => getDoc(me(dbU)));
+console.log('\n\n=== 12. users/{uid} + accountClaims: email-bound, one uid per accountId (D-661) ===');
+const EMAIL = (u) => `${u}@accounts.trip-planner.invalid`;
+const A1 = 'a1a1a1a1-0000-4000-8000-000000000661';
+const A2 = 'a2a2a2a2-0000-4000-8000-000000000661';
+// E is the real client path: anonymous first, then linked, and the batch goes out on the token
+// linkWithCredential hands back, with no forced refresh. F signs up with email directly.
+const eApp = client('e'), fApp = client('f');
+const eAuth = authOf(eApp.app);
+await signInAnonymously(eAuth);
+const linked = await linkWithCredential(eAuth.currentUser, EmailAuthProvider.credential(EMAIL('powan_55'), 'pw-661-e'));
+const E = linked.user.uid;
+console.log(`  after linkWithCredential: uid kept ${E === eAuth.currentUser.uid}, cached token email = ${(await linked.user.getIdTokenResult()).claims.email}`);
+const F = (await createUserWithEmailAndPassword(authOf(fApp.app), EMAIL('other_one'), 'pw-661-f')).user.uid;
+const dbE = eApp.db, dbF = fApp.db;
+const linkAcct = (d, uid, user, claimId = user.accountId, claim = { uid }) => {
+  const b = writeBatch(d);
+  b.set(doc(d, 'users', uid), user);
+  b.set(doc(d, 'accountClaims', claimId), claim);
+  return b.commit();
+};
+const USER = { username: 'powan_55', accountId: A1 };
+const me = (d = dbE) => doc(d, 'users', E);
+await expect('E links: users/{E} + accountClaims/{A1}, straight after linkWithCredential', 'ALLOWED',
+  () => linkAcct(dbE, E, USER));
+await expect('E gets users/{E}', 'ALLOWED', () => getDoc(me()));
+await expect('E repoints accountId on update', 'DENIED', () => setDoc(me(), { ...USER, accountId: A2 }));
+await expect('E changes username on update', 'DENIED', () => setDoc(me(), { ...USER, username: 'someone_else' }));
+await expect('E deletes users/{E}', 'DENIED', () => deleteDoc(me()));
+await expect('stranger S gets users/{E}', 'DENIED', () => getDoc(me(dbS)));
+await expect('stranger S writes users/{E}', 'DENIED', () => setDoc(me(dbS), USER));
+await expect('UNAUTH gets users/{E}', 'DENIED', () => getDoc(me(dbU)));
 await expect('authed LIST /users', 'DENIED', () => getDocs(collection(db, 'users')));
-const bad = (label, data) => expect(`S creates users/{S} with ${label}`, 'DENIED', () => setDoc(doc(dbS, 'users', S), data));
-await bad('an extra field', { ...USER, role: 'owner' });
-await bad('username too short', { ...USER, username: 'ab' });
-await bad('username with uppercase', { ...USER, username: 'Powan' });
-await bad('username 21 chars', { ...USER, username: 'a'.repeat(21) });
-await bad('username not a string', { ...USER, username: 12345 });
-await bad('accountId 35 chars', { ...USER, accountId: ACCT.slice(1) });
-await bad('accountId not a string', { ...USER, accountId: 1 });
-await bad('no accountId', { username: 'powan_55' });
-await expect('S creates users/{S} with a valid shape (control for the above)', 'ALLOWED',
-  () => setDoc(doc(dbS, 'users', S), { username: 'stranger', accountId: K }));
-const phase12 = flush('PHASE 12 (users/{uid})');
+await expect('signed-in S gets accountClaims/{A1} and sees E', 'ALLOWED', async () => {
+  if ((await getDoc(doc(dbS, 'accountClaims', A1))).data()?.uid !== E) throw new Error('fixture: claim must name E');
+});
+await expect('UNAUTH gets accountClaims/{A1}', 'DENIED', () => getDoc(doc(dbU, 'accountClaims', A1)));
+await expect('authed LIST /accountClaims', 'DENIED', () => getDocs(collection(dbE, 'accountClaims')));
+await expect('E rewrites its claim to name F', 'DENIED', () => setDoc(doc(dbE, 'accountClaims', A1), { uid: F }));
+await expect('E deletes its claim', 'DENIED', () => deleteDoc(doc(dbE, 'accountClaims', A1)));
+await expect('F links with a username that is not its email', 'DENIED',
+  () => linkAcct(dbF, F, { username: 'powan_55', accountId: A2 }));
+await expect('F links to A1, already claimed by E', 'DENIED',
+  () => linkAcct(dbF, F, { username: 'other_one', accountId: A1 }));
+await expect('F creates users/{F} with no claim', 'DENIED',
+  () => setDoc(doc(dbF, 'users', F), { username: 'other_one', accountId: A2 }));
+await expect('F creates accountClaims/{A2} with no users doc', 'DENIED',
+  () => setDoc(doc(dbF, 'accountClaims', A2), { uid: F }));
+await expect('F links with a claim naming E', 'DENIED',
+  () => linkAcct(dbF, F, { username: 'other_one', accountId: A2 }, A2, { uid: E }));
+await expect('F links with an extra key on the claim', 'DENIED',
+  () => linkAcct(dbF, F, { username: 'other_one', accountId: A2 }, A2, { uid: F, x: 1 }));
+await expect('anonymous S links (no email on the token)', 'DENIED',
+  () => linkAcct(dbS, S, { username: 'stranger', accountId: A2 }));
+const bad = (label, data, claimId) => expect(`F links with ${label}`, 'DENIED', () => linkAcct(dbF, F, data, claimId));
+const FUSER = { username: 'other_one', accountId: A2 };
+await bad('an extra field', { ...FUSER, role: 'owner' });
+await bad('username too short', { ...FUSER, username: 'ab' });
+await bad('username with uppercase', { ...FUSER, username: 'Other_one' });
+await bad('username 21 chars', { ...FUSER, username: 'a'.repeat(21) });
+await bad('username not a string', { ...FUSER, username: 12345 });
+await bad('accountId uppercase', { ...FUSER, accountId: A2.toUpperCase() });
+await bad('accountId 35 chars', { ...FUSER, accountId: A2.slice(1) });
+await bad('accountId not a string', { ...FUSER, accountId: 1 }, A2);
+await bad('no accountId', { username: 'other_one' }, A2);
+await expect('F links with a valid shape (control for the above)', 'ALLOWED', () => linkAcct(dbF, F, FUSER));
+const PHASE12_ASSERTS = 31;
+const phase12 = flush('PHASE 12 (users/{uid} + accountClaims)');
+
+// ── 13. invites (D-662) ──────────────────────────────────────────────────────
+console.log('\n\n=== 13. INVITES: owner mints, a non-member redeems once, with its own roster add ===');
+const xApp = client('x');
+const X = await signIn(xApp.app);
+const dbX = xApp.db;
+const [T1, T2, T3, T4, T5] = [1, 2, 3, 4, 5].map((n) => `d${n}d${n}d${n}d${n}-0000-4000-8000-000000000662`);
+const inv = (d, t) => doc(d, 'trips', L, 'invites', t);
+const mint = (t) => setDoc(inv(db, t), { createdBy: O, createdAt: serverTimestamp() });
+const daysAgo = (n) => new Date(Date.now() - n * 86400000);
+const redeem = (d, uid, t, { role = 'member', extra = {}, trip = true, stamp = true } = {}) => {
+  const b = writeBatch(d);
+  if (stamp) b.update(inv(d, t), { redeemedBy: uid, redeemedAt: serverTimestamp() });
+  if (trip) b.update(doc(d, 'trips', L), { [`members.${uid}`]: role, joinInvite: t, ...extra });
+  return b.commit();
+};
+await seedGated();
+await expect('O mints invites/T1', 'ALLOWED', () => mint(T1));
+await expect('O lists invites', 'ALLOWED', () => getDocs(collection(db, 'trips', L, 'invites')));
+await expect('stranger S gets invites/T1 (the link holder checks it)', 'ALLOWED', () => getDoc(inv(dbS, T1)));
+await expect('UNAUTH gets invites/T1', 'DENIED', () => getDoc(inv(dbU, T1)));
+await expect('member M mints an invite', 'DENIED',
+  () => setDoc(inv(dbM, T5), { createdBy: M, createdAt: serverTimestamp() }));
+await expect('member M lists invites', 'DENIED', () => getDocs(collection(dbM, 'trips', L, 'invites')));
+await expect('stranger S lists invites', 'DENIED', () => getDocs(collection(dbS, 'trips', L, 'invites')));
+await expect('member M deletes invites/T1', 'DENIED', () => deleteDoc(inv(dbM, T1)));
+await expect('stranger S deletes invites/T1', 'DENIED', () => deleteDoc(inv(dbS, T1)));
+await expect('member M stamps invites/T1 as redeemed by itself', 'DENIED',
+  () => updateDoc(inv(dbM, T1), { redeemedBy: M, redeemedAt: serverTimestamp() }));
+await expect('O mints with a non-UUID token', 'DENIED',
+  () => setDoc(inv(db, 'not-a-uuid'), { createdBy: O, createdAt: serverTimestamp() }));
+await expect('O mints with an extra field', 'DENIED',
+  () => setDoc(inv(db, T5), { createdBy: O, createdAt: serverTimestamp(), role: 'owner' }));
+await expect('O mints with a client-chosen createdAt', 'DENIED',
+  () => setDoc(inv(db, T5), { createdBy: O, createdAt: new Date(Date.now() + 86400000 * 365) }));
+await expect('O mints on an open trip (no roster, no owner)', 'DENIED',
+  () => setDoc(doc(db, 'trips', K, 'invites', T5), { createdBy: O, createdAt: serverTimestamp() }));
+await expect('S writes the trip half only (invite not stamped)', 'DENIED', () => redeem(dbS, S, T1, { stamp: false }));
+await expect('S stamps the invite only (no roster add)', 'DENIED', () => redeem(dbS, S, T1, { trip: false }));
+await expect('S redeems T1 as "owner"', 'DENIED', () => redeem(dbS, S, T1, { role: 'owner' }));
+await expect('S redeems T1 and adds a third uid', 'DENIED',
+  () => redeem(dbS, S, T1, { extra: { [`members.${THIRD}`]: 'member' } }));
+await expect('S redeems T1 and touches another trip field', 'DENIED',
+  () => redeem(dbS, S, T1, { extra: { seededFrom: 'x' } }));
+await expect('S redeems T1', 'ALLOWED', () => redeem(dbS, S, T1));
+await expect('...and can now read trips/L content', 'ALLOWED', () => getDoc(doc(dbS, 'trips', L, 'days', GATED_DAY)));
+await expect('X redeems T1 a second time', 'DENIED', () => redeem(dbX, X, T1));
+await seed(['trips', L, 'invites', T2], { createdBy: O, createdAt: daysAgo(8) });
+await expect('X redeems an 8-day-old invite (expired)', 'DENIED', () => redeem(dbX, X, T2));
+await expect('O mints invites/T3', 'ALLOWED', () => mint(T3));
+await expect('O revokes invites/T3', 'ALLOWED', () => deleteDoc(inv(db, T3)));
+await expect('X redeems the revoked T3', 'DENIED', () => redeem(dbX, X, T3));
+await expect('O mints invites/T4', 'ALLOWED', () => mint(T4));
+await expect('owner O redeems T4 (would demote itself)', 'DENIED', () => redeem(db, O, T4));
+await seed(['trips', L, 'invites', T5], { createdBy: O, createdAt: daysAgo(6) });
+await expect('X redeems a 6-day-old invite (control for expiry)', 'ALLOWED', () => redeem(dbX, X, T5));
+console.log('\n  -- 13b. handoff writes (anonymous uid grants its role to the account uid) --');
+await expect('owner O grants a new uid "owner"', 'ALLOWED',
+  () => updateDoc(doc(db, 'trips', L), { 'members.handoff-owner-uid': 'owner' }));
+await expect('member M grants a new uid "member"', 'ALLOWED',
+  () => updateDoc(doc(dbM, 'trips', L), { 'members.handoff-member-uid': 'member' }));
+const PHASE13_ASSERTS = 31;
+const phase13 = flush('PHASE 13 (invites)');
 
 console.log('\n──────────────────────────────────────────────────────────────');
 console.log(`  phase 3   shape guard PRESENT   ${phase3.pass} passed, ${phase3.fail} failed`);
@@ -786,13 +900,15 @@ console.log(`  phase 8   grandfathered trip    ${phase8.pass} passed, ${phase8.f
 console.log(`  phase 9   the door + account    ${phase9.pass} passed, ${phase9.fail} failed`);
 console.log(`  phase 10  membership REMOVED    ${phase10.pass} passed, ${phase10.fail} failed   <- negative control`);
 console.log(`  phase 10b membership RESTORED   ${phase10b.pass} passed, ${phase10b.fail} failed`);
-console.log(`  phase 11  self-join REMOVED     ${phase11.pass} passed, ${phase11.fail} failed   <- negative control`);
-console.log(`  phase 12  users/{uid}           ${phase12.pass} passed, ${phase12.fail} failed`);
+console.log(`  phase 11  invite join REMOVED   ${phase11.pass} passed, ${phase11.fail} failed   <- negative control`);
+console.log(`  phase 12  users + claims        ${phase12.pass} passed, ${phase12.fail} failed`);
+console.log(`  phase 13  invites               ${phase13.pass} passed, ${phase13.fail} failed`);
 const shapeProven = phase3.fail === 0 && phase4.fail === HOSTILE.length && phase5.fail === 0;
 const memberProven = phase6.fail === 0 && phase7.fail === 0 && phase8.fail === 0 && phase9.fail === 0
   && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0
   && phase11.fail === SELF_JOIN_DENIALS.length;
-const usersProven = phase12.fail === 0 && phase12.pass === 19;
+const usersProven = phase12.fail === 0 && phase12.pass === PHASE12_ASSERTS
+  && phase13.fail === 0 && phase13.pass === PHASE13_ASSERTS;
 const proven = shapeProven && memberProven && usersProven;
 console.log(`  VERDICT: ${proven
   ? `BOTH GUARDS BITE — all ${HOSTILE.length} hostile writes flip DENIED->ALLOWED without boundedWrite(), `
@@ -800,7 +916,7 @@ console.log(`  VERDICT: ${proven
   : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'}, users ${usersProven ? 'ok' : 'BAD'})`}`);
 console.log('──────────────────────────────────────────────────────────────\n');
 
-for (const c of [owner, memberApp, strangerApp, anonApp]) {
+for (const c of [owner, memberApp, strangerApp, anonApp, eApp, fApp, xApp]) {
   await terminate(c.db);
   await deleteApp(c.app);
 }

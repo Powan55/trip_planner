@@ -5983,3 +5983,19 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 **Why.** Local storage is the truth. A save refused for quota snapped back on screen but still synced, so the user re-added the expense and every member saw it twice.
 
 **Trade-off.** A change that fails locally never reaches other devices, even when the network is fine. Restore paths and the outbox flush still ignore the result.
+
+### D-661 · (issue #641, 2026-09-27) · An account id belongs to one uid, and the username is the signed-in email's
+
+**Decision.** Creating `users/{uid}` now also requires the token's email to be `<username>@accounts.trip-planner.invalid`, a lowercase-UUID `accountId`, and `accountClaims/{accountId}` naming the same uid after the write. The claim doc is `{uid}` only, create-only, and must be written in the same batch as the users doc. Signed-in clients may read a claim; nobody may list, update or delete one.
+
+**Why.** `users/{uid}` checked only the shape, so any signed-in device could create an account doc pointing at someone else's account id, or under a username it had not signed in with.
+
+**Trade-off.** Two extra document reads per account link, once. A `users` doc written before this rule has no claim; its owner can still claim its own id, and so could anyone who wrote a doc naming that id before the rule landed.
+
+### D-662 · Supersedes D-593 · (issue #641, 2026-09-27) · Joining a rostered trip takes a single-use invite
+
+**Decision.** `selfJoinsAsMember` is removed. The owner mints `trips/{tripId}/invites/{token}` (a lowercase UUID) as `{createdBy, createdAt}` with a server timestamp, lists them, and revokes one by deleting it. It expires 7 days after `createdAt`; there is no expiry field. A non-member redeems in one batch: the invite gets `{redeemedBy, redeemedAt}` and the trip gets `members.<uid> = 'member'` plus `joinInvite = token`, both by field path. Each half checks the other, so neither lands alone, and an invite can be redeemed once. The subtree wildcard excludes `invites` so members cannot read, forge or delete them. The share link carries `?trip=` and `&invite=`; a plain `?trip=` still joins an open trip and ends at access-pending on a rostered one. Open trips have no owner, so no invites.
+
+**Why.** Under D-593 the trip id was the whole capability: a removed member could add itself back, and any anonymous uid could take a roster slot. Now removal sticks, and each join spends an invite the owner chose to give.
+
+**Trade-off.** One extra read of the invite doc per redeem, and one of the trip doc per mint or redeem; nothing on the heartbeat path. Repo only until the rules are actually published (#263), and publishing them before the invite client ships stops new joins on rostered trips.

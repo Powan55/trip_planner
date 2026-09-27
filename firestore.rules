@@ -42,10 +42,17 @@ rules_version = '2';
 // ROLES. `owner` = the creator: may remove members, change roles (short of leaving no
 // owner), and delete the trip.
 // `member` = full content read+write, and may ADD other members (add-only; a member can
-// never remove or re-role an existing entry). Anyone signed in who holds the tripId may add
-// ITSELF as `member` and nothing else (D-593, selfJoinsAsMember). `viewer` (read, no write) is the named
+// never remove or re-role an existing entry). `viewer` (read, no write) is the named
 // upgrade path and is deliberately NOT built: it needs a second predicate on every write
 // rule plus UI to assign it, and nothing needs it yet.
+//
+// JOINING A GATED TRIP (D-662, supersedes D-593). Holding the tripId is no longer enough
+// to join a rostered trip. A non-member joins only by redeeming a single-use invite the
+// owner minted at trips/{tripId}/invites/{token}: one batch marks the invite redeemed by
+// its own uid and adds exactly that uid as 'member', recording the token in `joinInvite`
+// (redeemsInvite). Each half checks the other with getAfter(), so neither lands alone. An
+// invite expires 7 days after createdAt, and deleting it revokes it. Open trips have no
+// owner to mint one and keep capability semantics.
 //
 // MEMBER ADDS ARE 'member' ONLY (D-642, #667). Rules cannot iterate the ADDED keys of a
 // members map, but addsMembersOnly() already proves no key was removed or changed, so if the
@@ -61,7 +68,9 @@ rules_version = '2';
 // now also costs ≈ 4,320 rule reads/day ≈ 9% of the read quota. That is affordable. What
 // would not be is a future rule that adds a SECOND get() on a DIFFERENT document (it
 // doubles that line, and the cache does not help across documents) — check this number
-// before writing one.
+// before writing one. The rules that do read a second document are all one-off writes,
+// never the heartbeat: an invite redeem (the invite doc), an invite create/redeem (the trip
+// doc), and an account link (users/accountClaims read each other once per account).
 //
 // The capability half of the model still rests on tripId being unguessable and
 // UNENUMERABLE: no rule below grants `list` at /trips/{tripId}, so the top-level `trips`
@@ -162,6 +171,11 @@ service cloud.firestore {
       return docId in ['identity', 'tripList', 'prefs'] || docId.matches('journal_.{1,128}');
     }
 
+    // Lowercase UUID: account ids and invite tokens. matches() is a full match.
+    function isUuid(s) {
+      return s is string && s.matches('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}');
+    }
+
     // The trip doc itself: reachable and writable by direct id only — never listable.
     match /trips/{tripId} {
 
@@ -230,16 +244,24 @@ service cloud.firestore {
              == resource.data.members.values().removeAll(['member']).size();
       }
 
-      // D-593 (#599): a signed-in non-member holding the trip id may add exactly its own uid, as
-      // 'member', and change nothing else. The trip id is therefore the whole capability again:
-      // a removed member can re-add itself, and real revocation means a new trip id.
-      function selfJoinsAsMember() {
+      function joinInvitePath() {
+        return /databases/$(database)/documents/trips/$(tripId)/invites/$(request.resource.data.joinInvite);
+      }
+
+      // D-662: a non-member adds exactly itself as 'member', naming in joinInvite an unexpired
+      // invite that this same batch marks redeemed by it (invites/{token} update checks back).
+      function redeemsInvite() {
         return request.auth != null && !isOpen() && role() == ''
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'joinInvite'])
           && request.resource.data.members.diff(resource.data.members).addedKeys() == [request.auth.uid].toSet()
           && request.resource.data.members.diff(resource.data.members).removedKeys().size() == 0
           && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0
-          && request.resource.data.members[request.auth.uid] == 'member';
+          && request.resource.data.members[request.auth.uid] == 'member'
+          && isUuid(request.resource.data.joinInvite)
+          && exists(joinInvitePath())
+          && !('redeemedBy' in get(joinInvitePath()).data)
+          && getAfter(joinInvitePath()).data.redeemedBy == request.auth.uid
+          && request.time < get(joinInvitePath()).data.createdAt + duration.value(7, 'd');
       }
 
       // ── the trip doc ──────────────────────────────────────────────────────────
@@ -250,7 +272,7 @@ service cloud.firestore {
         (isOpen() && request.auth != null)   // grandfathered capability trip
         || isOwner()                         // owner: anything, incl. removing members
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else
-        || selfJoinsAsMember()               // id holder: may add itself as 'member' (D-593)
+        || redeemsInvite()                   // invitee: may add itself as 'member' (D-662)
       );
       allow delete: if (isOpen() && request.auth != null) || isOwner();
 
@@ -317,23 +339,60 @@ service cloud.firestore {
         // exists for. `get, list` are unaffected: the capability-only exposure of the two
         // profile ids is the accepted cost stated in the carve-out's own header. The pair of
         // blocks above hands delete back for everything else under profile/.
-        allow get, list: if isMember();
-        allow delete: if isMember() && sub != 'profile';
-        allow create, update: if isMember() && boundedWrite();
+        // invites/ is excluded from every op: matches OR, so this block would otherwise let any
+        // member read, delete or forge the owner's invites. Its own block follows.
+        allow get, list: if isMember() && sub != 'invites';
+        allow delete: if isMember() && sub != 'profile' && sub != 'invites';
+        allow create, update: if isMember() && boundedWrite() && sub != 'invites';
+      }
+
+      // ── single-use invites (D-662) ────────────────────────────────────────────
+      // Owner mints {createdBy, createdAt} and revokes by delete. Any signed-in holder of the
+      // link may get one to check it. Redeem is the only update: the invitee stamps itself,
+      // once, before expiry, in the same batch that adds it to the roster (redeemsInvite).
+      match /invites/{token} {
+        allow get: if request.auth != null;
+        allow list, delete: if isOwner();
+        allow create: if isOwner() && isUuid(token)
+          && request.resource.data.keys().hasOnly(['createdBy', 'createdAt'])
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+        allow update: if request.auth != null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemedBy', 'redeemedAt'])
+          && !('redeemedBy' in resource.data)
+          && request.resource.data.redeemedBy == request.auth.uid
+          && request.resource.data.redeemedAt == request.time
+          && request.time < resource.data.createdAt + duration.value(7, 'd')
+          && !(request.auth.uid in get(tripPath()).data.members)
+          && getAfter(tripPath()).data.members.get(request.auth.uid, '') == 'member'
+          && getAfter(tripPath()).data.get('joinInvite', '') == token;
       }
     }
 
     // Email/password account: {username, accountId}, owner-only. accountId names
     // trips/{accountId}/profile/*. Create-only: repointing accountId would hand over
-    // another account's profile once profile access keys off this doc.
+    // another account's profile once profile access keys off this doc. D-661: the username
+    // must be the signed-in email's, and the accountId must be claimed by this uid in the
+    // same batch, so no second account can point at it.
     match /users/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid;
       allow create: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['username', 'accountId'])
         && request.resource.data.username is string
         && request.resource.data.username.matches('^[a-z0-9_]{3,20}$')
-        && request.resource.data.accountId is string
-        && request.resource.data.accountId.size() == 36;
+        && request.auth.token.email == request.resource.data.username + '@accounts.trip-planner.invalid'
+        && isUuid(request.resource.data.accountId)
+        && getAfter(/databases/$(database)/documents/accountClaims/$(request.resource.data.accountId)).data.uid == request.auth.uid;
+    }
+
+    // D-661: accountId -> the one uid that owns it. Create-only, and only alongside that uid's
+    // users doc. Signed-in get so a client can tell "taken" from an outage.
+    match /accountClaims/{accountId} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null && isUuid(accountId)
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountId == accountId;
     }
   }
 }
