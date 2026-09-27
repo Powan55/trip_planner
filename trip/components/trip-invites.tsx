@@ -30,6 +30,7 @@ export default function TripInvites({
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const createRef = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
   const online = useOnline();
   const { copy, error: copyError } = useClipboardCopy();
   const active = Boolean(tripId) && isOwner && !open;
@@ -43,6 +44,14 @@ export default function TripInvites({
     if (active) void load().catch(() => setInvites(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, tripId]);
+
+  // After a revoke the focused row is gone; focus Create once it is enabled again.
+  useEffect(() => {
+    if (!busy && refocus.current) {
+      refocus.current = false;
+      createRef.current?.focus();
+    }
+  }, [busy]);
 
   if (!tripId) return null;
 
@@ -96,9 +105,8 @@ export default function TripInvites({
         setError('Couldn’t cancel that invite. Try again.');
       }
     } finally {
+      refocus.current = true;
       setBusy(false);
-      // The row that held focus is gone.
-      createRef.current?.focus();
     }
   };
 
@@ -124,6 +132,11 @@ export default function TripInvites({
         <Link2 className="h-4 w-4" aria-hidden="true" />
         Create invite link
       </button>
+      {!online && (
+        <p data-testid="trip-invites-offline" className="mt-2 text-t-body text-ink-mid">
+          You&rsquo;re offline. Creating or cancelling an invite needs a connection.
+        </p>
+      )}
 
       {link && (
         <code
