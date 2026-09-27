@@ -92,6 +92,8 @@
  *                     (accountClaims, D-661).
  *  13. invites      — owner-only mint/list/revoke; a non-member redeems one once, before expiry,
  *                     only together with its own 'member' roster add (D-662).
+ *  13n. NEGATIVE CONTROL — the 13c invite-only stamp denials with stampsOwnRedeem() REMOVED
+ *                     must all be ALLOWED.
  */
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -853,8 +855,6 @@ await expect('member M lists invites', 'DENIED', () => getDocs(collection(dbM, '
 await expect('stranger S lists invites', 'DENIED', () => getDocs(collection(dbS, 'trips', L, 'invites')));
 await expect('member M deletes invites/T1', 'DENIED', () => deleteDoc(inv(dbM, T1)));
 await expect('stranger S deletes invites/T1', 'DENIED', () => deleteDoc(inv(dbS, T1)));
-await expect('member M stamps invites/T1 as redeemed by itself', 'DENIED',
-  () => updateDoc(inv(dbM, T1), { redeemedBy: M, redeemedAt: serverTimestamp() }));
 await expect('O mints with a non-UUID token', 'DENIED',
   () => setDoc(inv(db, 'not-a-uuid'), { createdBy: O, createdAt: serverTimestamp() }));
 await expect('O mints with an extra field', 'DENIED',
@@ -864,7 +864,12 @@ await expect('O mints with a client-chosen createdAt', 'DENIED',
 await expect('O mints on an open trip (no roster, no owner)', 'DENIED',
   () => setDoc(doc(db, 'trips', K, 'invites', T5), { createdBy: O, createdAt: serverTimestamp() }));
 await expect('S writes the trip half only (invite not stamped)', 'DENIED', () => redeem(dbS, S, T1, { stamp: false }));
-await expect('S stamps the invite only (no roster add)', 'DENIED', () => redeem(dbS, S, T1, { trip: false }));
+await expect('S stamps T1 but names INV0 in joinInvite (cross-token)', 'DENIED', () => {
+  const b = writeBatch(dbS);
+  b.update(inv(dbS, T1), { redeemedBy: S, redeemedAt: serverTimestamp() });
+  b.update(doc(dbS, 'trips', L), { [`members.${S}`]: 'member', joinInvite: INV0 });
+  return b.commit();
+});
 await expect('S redeems T1 as "owner"', 'DENIED', () => redeem(dbS, S, T1, { role: 'owner' }));
 await expect('S redeems T1 and adds a third uid', 'DENIED',
   () => redeem(dbS, S, T1, { extra: { [`members.${THIRD}`]: 'member' } }));
@@ -887,8 +892,40 @@ await expect('owner O grants a new uid "owner"', 'ALLOWED',
   () => updateDoc(doc(db, 'trips', L), { 'members.handoff-owner-uid': 'owner' }));
 await expect('member M grants a new uid "member"', 'ALLOWED',
   () => updateDoc(doc(dbM, 'trips', L), { 'members.handoff-member-uid': 'member' }));
-const PHASE13_ASSERTS = 31;
+
+// Each is refused by stampsOwnRedeem() alone (the trip doc is not written): phase 13n neuters
+// it and every one must flip. The fixture is rebuilt before each, since 13n lets them land.
+const [T6, T7] = [6, 7].map((n) => `d${n}d${n}d${n}d${n}-0000-4000-8000-000000000662`);
+const stampBy = (uid) => ({ redeemedBy: uid, redeemedAt: serverTimestamp() });
+const STAMP_DENIALS = [
+  ['stranger S stamps INV0 without joining the trip', () => updateDoc(inv(dbS, INV0), stampBy(S))],
+  ['member M stamps INV0 for itself', () => updateDoc(inv(dbM, INV0), stampBy(M))],
+  ['member M stamps T6, which trips/L already names in joinInvite', () => updateDoc(inv(dbM, T6), stampBy(M))],
+  ['X overwrites the stamp on T7, already redeemed by S', () => updateDoc(inv(dbX, T7), stampBy(X))],
+];
+async function seedStamps(rules = shipped) {
+  await seedGated(rules);
+  await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' }, joinInvite: T6 }, rules);
+  await seed(['trips', L, 'invites', T6], { createdBy: O, createdAt: new Date() }, rules);
+  await seed(['trips', L, 'invites', T7], { createdBy: O, createdAt: new Date(), redeemedBy: S, redeemedAt: new Date() }, rules);
+}
+console.log('\n  -- 13c. invite-only stamps that the invite rule alone must refuse --');
+for (const [name, fn] of STAMP_DENIALS) {
+  await seedStamps();
+  await expect(name, 'DENIED', fn);
+}
+const PHASE13_ASSERTS = 34;
 const phase13 = flush('PHASE 13 (invites)');
+
+console.log('\n\n=== 13n. NEGATIVE CONTROL: invite stamps, stampsOwnRedeem() REMOVED ===');
+const stampOff = neuter(shipped, 'stampsOwnRedeem', 'return request.auth != null;',
+  'without a working 13n the 13c denials could be passing for some other reason.');
+for (const [name, fn] of STAMP_DENIALS) {
+  await seedStamps(stampOff);
+  await expect(name, 'DENIED', fn);
+}
+const phase13n = flush('PHASE 13n (invite stamp rule REMOVED)  <-- MUST be red');
+await loadRules(shipped);
 
 console.log('\n──────────────────────────────────────────────────────────────');
 console.log(`  phase 3   shape guard PRESENT   ${phase3.pass} passed, ${phase3.fail} failed`);
@@ -903,12 +940,14 @@ console.log(`  phase 10b membership RESTORED   ${phase10b.pass} passed, ${phase1
 console.log(`  phase 11  invite join REMOVED   ${phase11.pass} passed, ${phase11.fail} failed   <- negative control`);
 console.log(`  phase 12  users + claims        ${phase12.pass} passed, ${phase12.fail} failed`);
 console.log(`  phase 13  invites               ${phase13.pass} passed, ${phase13.fail} failed`);
+console.log(`  phase 13n invite stamp REMOVED  ${phase13n.pass} passed, ${phase13n.fail} failed   <- negative control`);
 const shapeProven = phase3.fail === 0 && phase4.fail === HOSTILE.length && phase5.fail === 0;
 const memberProven = phase6.fail === 0 && phase7.fail === 0 && phase8.fail === 0 && phase9.fail === 0
   && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0
   && phase11.fail === SELF_JOIN_DENIALS.length;
 const usersProven = phase12.fail === 0 && phase12.pass === PHASE12_ASSERTS
-  && phase13.fail === 0 && phase13.pass === PHASE13_ASSERTS;
+  && phase13.fail === 0 && phase13.pass === PHASE13_ASSERTS
+  && phase13n.fail === STAMP_DENIALS.length;
 const proven = shapeProven && memberProven && usersProven;
 console.log(`  VERDICT: ${proven
   ? `BOTH GUARDS BITE — all ${HOSTILE.length} hostile writes flip DENIED->ALLOWED without boundedWrite(), `

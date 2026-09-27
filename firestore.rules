@@ -357,15 +357,19 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['createdBy', 'createdAt'])
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.createdAt == request.time;
-        allow update: if request.auth != null
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemedBy', 'redeemedAt'])
-          && !('redeemedBy' in resource.data)
-          && request.resource.data.redeemedBy == request.auth.uid
-          && request.resource.data.redeemedAt == request.time
-          && request.time < resource.data.createdAt + duration.value(7, 'd')
-          && !(request.auth.uid in get(tripPath()).data.members)
-          && getAfter(tripPath()).data.members.get(request.auth.uid, '') == 'member'
-          && getAfter(tripPath()).data.get('joinInvite', '') == token;
+        allow update: if stampsOwnRedeem();
+
+        function stampsOwnRedeem() {
+          return request.auth != null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemedBy', 'redeemedAt'])
+            && !('redeemedBy' in resource.data)
+            && request.resource.data.redeemedBy == request.auth.uid
+            && request.resource.data.redeemedAt == request.time
+            && request.time < resource.data.createdAt + duration.value(7, 'd')
+            && !(request.auth.uid in get(tripPath()).data.members)
+            && getAfter(tripPath()).data.members.get(request.auth.uid, '') == 'member'
+            && getAfter(tripPath()).data.get('joinInvite', '') == token;
+        }
       }
     }
 
