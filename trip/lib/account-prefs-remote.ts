@@ -106,9 +106,12 @@ function stampPast(prev: PrefEntry | undefined, value: unknown, actor: string): 
   };
 }
 
+const latest: Record<string, number> = {};
+
 /**
- * Set one field: an explicit edit, so it always wins. Mirrors locally (synchronously, marked
- * dirty) before touching the network, so a paused or offline edit stays on this device and
+ * Set one field: an explicit edit, so it always wins (the latest, when taps overlap). Mirrors
+ * locally (synchronously, marked dirty) before touching the network, so a paused or offline
+ * edit stays on this device and
  * `getPrefs`/`subscribePrefs` push it later. Then, in a transaction, stamps past the newer of the
  * mirror's and the account's stamp (so a slow clock or an unread account can't lose the edit)
  * and writes only that field. Never rejects.
@@ -117,6 +120,7 @@ export async function setPref(field: string, value: unknown): Promise<void> {
   if (!FIELD_RE.test(field)) return;
   const code = accountCode();
   if (!code) return;
+  const seq = (latest[field] = (latest[field] ?? 0) + 1);
   const local = readLocal();
   local[field] = { ...stampPast(local[field], value, LOCAL_ACTOR), dirty: true };
   writeJson('local', STORAGE_KEYS.personPrefs, local);
@@ -126,12 +130,13 @@ export async function setPref(field: string, value: unknown): Promise<void> {
     const entry = await fs.runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
       const remote = snap.exists() ? sanitize(snap.data())[field] : undefined;
+      if (latest[field] !== seq) return remote; // a later tap in this tab superseded it
       const next = stampPast(newer(readLocal()[field], remote), value, actor);
       if (snap.exists()) tx.update(ref, { [field]: next });
       else tx.set(ref, { [field]: next });
       return next;
     });
-    mergeIntoLocal({ [field]: entry }, code);
+    if (entry) mergeIntoLocal({ [field]: entry }, code);
   } catch (err) {
     console.warn('[account-prefs] write failed, kept on this device:', err);
   }
