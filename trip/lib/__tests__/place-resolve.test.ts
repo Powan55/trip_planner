@@ -5,8 +5,11 @@
 // fetch, bad JSON, `ok:false`), so the import sheet always falls back to manual entry — which is why
 // slice S-b ships before the Worker's /resolve route (S-a). Also proves the happy path returns hints.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { resolvePlaceLink } from '@/lib/place-resolve';
+import { workerAuthHeader } from '@/lib/worker-auth';
+
+vi.mock('@/lib/worker-auth', () => ({ workerAuthHeader: vi.fn(async () => ({})) }));
 
 const ORIGIN = 'https://worker.example.dev';
 const URL = 'https://maps.app.goo.gl/abc';
@@ -112,5 +115,19 @@ describe('resolvePlaceLink (S284) — never throws, degrades to null', () => {
     const fetchImpl = (async () =>
       ({ ok: true, status: 200, json: async () => { throw new Error('bad json'); } })) as unknown as typeof fetch;
     await expect(resolvePlaceLink(URL, { fetchImpl, origin: ORIGIN })).resolves.toBeNull();
+  });
+
+  it('#668 — timeoutMs also covers a stuck workerAuthHeader() wait, not just the fetch', async () => {
+    vi.mocked(workerAuthHeader).mockReturnValueOnce(new Promise(() => {}));
+    // Mirrors real fetch: rejects once its signal aborts, so this proves the SAME signal reached
+    // fetch even though the token wait never resolved on its own. Real timers: AbortSignal.timeout
+    // isn't driven by vitest's fake clock.
+    const fetchImpl = ((_input: string, init?: { signal?: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        const abort = () => reject(new DOMException('aborted', 'AbortError'));
+        if (init?.signal?.aborted) abort();
+        else init?.signal?.addEventListener('abort', abort, { once: true });
+      })) as unknown as typeof fetch;
+    await expect(resolvePlaceLink(URL, { fetchImpl, origin: ORIGIN, timeoutMs: 50 })).resolves.toBeNull();
   });
 });
