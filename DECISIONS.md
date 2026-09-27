@@ -5984,6 +5984,24 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 
 **Trade-off.** A change that fails locally never reaches other devices, even when the network is fine. Restore paths and the outbox flush still ignore the result.
 
+### D-661 · (issue #641, 2026-09-27) · An account id belongs to one uid, and the username is the signed-in email's
+
+**Decision.** Creating `users/{uid}` now also requires the token's email to be `<username>@accounts.trip-planner.invalid`, a lowercase-UUID `accountId`, and `accountClaims/{accountId}` naming the same uid after the write. The claim doc is `{uid}` only, create-only, and must be written in the same batch as the users doc. Signed-in clients may read a claim; nobody may list, update or delete one.
+
+**Why.** `users/{uid}` checked only the shape, so any signed-in device could create an account doc pointing at someone else's account id, or under a username it had not signed in with.
+
+**Trade-off.** Two extra document reads per account link, once. The first claim wins: any new email account that knows an unclaimed account id can claim it in its own link batch. Knowing the id already grants its profile docs, so today the gain is locking the real owner out of linking; once profile access depends on claims it becomes a takeover. `users` docs written before this rule have no claim.
+
+**Before publishing (#263).** List the existing `users` docs in the console and create each one's `accountClaims` doc. Until that is done, nothing may treat a claim as proof of ownership.
+
+### D-662 · Supersedes D-593 · (issue #641, 2026-09-27) · Joining a rostered trip takes a single-use invite
+
+**Decision.** `selfJoinsAsMember` is removed. The owner mints `trips/{tripId}/invites/{token}` (a lowercase UUID) as `{createdBy, createdAt}` with a server timestamp, lists them, and revokes one by deleting it. It expires 7 days after `createdAt`; there is no expiry field. A non-member redeems in one batch: the invite gets `{redeemedBy, redeemedAt}` and the trip gets `members.<uid> = 'member'` plus `joinInvite = token`, both by field path. Each half checks the other, so neither lands alone, and an invite can be redeemed once. The subtree wildcard excludes `invites` so members cannot read, forge or delete them. The share link carries `?trip=` and `&invite=`; for the default pack the trip param is `pack:<id>`, as in existing share links. A plain `?trip=` still joins an open trip and ends at access-pending on a rostered one. The client no longer adds itself to a roster on a refused read. Session key 49 (`selfJoinReload`, D-595) is retired with self-join, and its number must not be reused. Open trips have no owner, so no invites.
+
+**Why.** Under D-593 the trip id was the whole capability: a removed member could add itself back, and any anonymous uid could take a roster slot. Now removal sticks, and each join spends an invite the owner chose to give.
+
+**Trade-off.** One extra read of the invite doc per redeem, and one of the trip doc per mint or redeem; nothing on the heartbeat path. Repo only until the rules are actually published (#263), and publishing them before the invite client ships stops new joins on rostered trips.
+
 ### D-660 · (issue #641, 2026-09-27) · Username + password accounts
 
 **Decision.** The front door signs in with a username and password on Firebase Auth (Email/Password), superseding D-239's User Token door. A username is `trim().toLowerCase()` matching `^[a-z0-9_]{3,20}$`, mapped to `<username>@accounts.trip-planner.invalid` (reserved TLD, nothing is mailed); Auth enforces uniqueness, so there is no usernames collection. Passwords are at least 8 characters. Sign-in errors for a wrong password and an unknown username read the same. `users/{uid}` = `{ username, accountId }` records which account id the user owns, and `accountClaims/{accountId}` = `{ uid }` records who owns the id; both are created in one batch and are create-only (D-661). Account ids are lowercase UUIDs, checked by the client before any probe or write; the account id stays in key 28 (`tripPlannerSyncCode`) and still keys `trips/{accountId}/profile/*`. It is never put in the Auth display name or custom claims, because ID tokens go to the Worker.
@@ -6006,20 +6024,3 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Owner migration.** A legacy trip owner keeps the role either way: "Create a username and password" links the owner uid itself, and logging in with a console-created account on the owner's device grants the account uid `owner` before the swap. Logging in on a device that is not on the roster carries nothing over.
 
 **Trade-off.** `accountClaims` makes an account id claimable once, but the first claimant is self-asserted: whoever writes the claim first owns the id. Trips on a pasted old key's list are not granted, because the uid they name belongs to a device that is not here; those need an invite (D-662). Until the Firestore rules are published (#263), the password guards the app screens, not the stored data. "Later" was kept rather than a hard block because the `users/{uid}` write is not yet verified against live rules, and a hard block that cannot complete would lock every existing user out. Recovery: there is no in-app password reset yet (it needs an admin path on the Worker with the Admin SDK, deferred). Console "Reset password" sends mail, which cannot reach a `.invalid` address, so the interim is to delete the user and recreate it with a temporary password; the owner then signs in and re-claims with their old key or this device's account id.
-### D-661 · (issue #641, 2026-09-27) · An account id belongs to one uid, and the username is the signed-in email's
-
-**Decision.** Creating `users/{uid}` now also requires the token's email to be `<username>@accounts.trip-planner.invalid`, a lowercase-UUID `accountId`, and `accountClaims/{accountId}` naming the same uid after the write. The claim doc is `{uid}` only, create-only, and must be written in the same batch as the users doc. Signed-in clients may read a claim; nobody may list, update or delete one.
-
-**Why.** `users/{uid}` checked only the shape, so any signed-in device could create an account doc pointing at someone else's account id, or under a username it had not signed in with.
-
-**Trade-off.** Two extra document reads per account link, once. The first claim wins: any new email account that knows an unclaimed account id can claim it in its own link batch. Knowing the id already grants its profile docs, so today the gain is locking the real owner out of linking; once profile access depends on claims it becomes a takeover. `users` docs written before this rule have no claim.
-
-**Before publishing (#263).** List the existing `users` docs in the console and create each one's `accountClaims` doc. Until that is done, nothing may treat a claim as proof of ownership.
-
-### D-662 · Supersedes D-593 · (issue #641, 2026-09-27) · Joining a rostered trip takes a single-use invite
-
-**Decision.** `selfJoinsAsMember` is removed. The owner mints `trips/{tripId}/invites/{token}` (a lowercase UUID) as `{createdBy, createdAt}` with a server timestamp, lists them, and revokes one by deleting it. It expires 7 days after `createdAt`; there is no expiry field. A non-member redeems in one batch: the invite gets `{redeemedBy, redeemedAt}` and the trip gets `members.<uid> = 'member'` plus `joinInvite = token`, both by field path. Each half checks the other, so neither lands alone, and an invite can be redeemed once. The subtree wildcard excludes `invites` so members cannot read, forge or delete them. The share link carries `?trip=` and `&invite=`; for the default pack the trip param is `pack:<id>`, as in existing share links. A plain `?trip=` still joins an open trip and ends at access-pending on a rostered one. The client no longer adds itself to a roster on a refused read. Session key 49 (`selfJoinReload`, D-595) is retired with self-join, and its number must not be reused. Open trips have no owner, so no invites.
-
-**Why.** Under D-593 the trip id was the whole capability: a removed member could add itself back, and any anonymous uid could take a roster slot. Now removal sticks, and each join spends an invite the owner chose to give.
-
-**Trade-off.** One extra read of the invite doc per redeem, and one of the trip doc per mint or redeem; nothing on the heartbeat path. Repo only until the rules are actually published (#263), and publishing them before the invite client ships stops new joins on rostered trips.
