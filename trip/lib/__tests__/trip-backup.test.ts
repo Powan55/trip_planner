@@ -46,7 +46,7 @@ vi.mock('@/lib/places-remote', () => ({ pushPlacesChunk: () => Promise.reject(ne
 
 import { exportTripBackup, importTripBackup, BACKUP_VERSION } from '@/lib/trip-backup';
 import { outboxDirty } from '@/core/sync/outbox';
-import { supportsCompression, decompressBlobOrText } from '@/core/vault/compression';
+import { supportsCompression, decompressBlobOrText, compressToBlob } from '@/core/vault/compression';
 import { makeInMemoryBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import {
   journalStore,
@@ -997,6 +997,22 @@ describe('#570 — a synced restore must come from the same shared trip', () => 
       const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
 
       expect(res.ok).toBe(false);
+      expect(commit).not.toHaveBeenCalled();
+    });
+
+    it('refuses when exportedAt is not a parseable date', async () => {
+      const file = await unsharedBackup();
+      const text = (await decompressBlobOrText(file)).replace(/"exportedAt":"[^"]*"/, '"exportedAt":"not-a-date"');
+      const badFile = await compressToBlob(text);
+      localStorage.clear();
+      markDefaultTripAdopted('share-X');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(badFile, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toMatch(/unshared copy/);
       expect(commit).not.toHaveBeenCalled();
     });
 

@@ -5962,4 +5962,4 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 
 **Why.** The adopt prompt says to back up first, and that backup has an empty remote id, so D-575 refused it once the adopt happened. The only way back was signing out, which wipes local data.
 
-**Trade-off.** An unshared backup made on this device before the adopt restores over the shared trip without any further prompt. That covers only this device's own plan from before the trip existed, not another shared copy.
+**Trade-off.** Any unshared default-pack backup older than the adopt restores over the shared trip without any further prompt, not just one made on this device.
