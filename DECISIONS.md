@@ -5970,6 +5970,12 @@ Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row
 
 **Trade-off.** Any unshared default-pack backup older than the adopt restores over the shared trip without any further prompt, not just one made on this device.
 
+### D-652 · (issue #674, 2026-09-27) · CI's `e2e` job runs a second, Firebase-configured build for `@firebase` specs
+
+**Decision.** After the behavioural suite, `e2e` rebuilds with `NEXT_PUBLIC_FIREBASE_*` set to fake, `demo-`-prefixed values (no emulator, no credential) and runs `--grep "@firebase"`. Specs tagged `@firebase` self-skip unless `E2E_FIREBASE` is set, so they no-op on every other build and on the first, dormant build in this same job.
+
+**Why.** Trip access and the Google link are gated on `isRemoteConfigured()`, a build-time env read; nothing in CI ever flipped it, so that surface had no real browser coverage at all.
+
 ### D-650 · Amends D-148, D-604 · (issue #666, 2026-09-27) · A refused local save is never pushed
 
 **Decision.** `writeString`, `writeJson` and `saveItinerary` return `true` only once `setItem` succeeds, and `false` on every failure (quota, storage disabled or absent, a stringify throw). The synced saves and their store `.set` methods pass that through, and `commit()` skips `sync.push` when `save` returns `false`. `StoragePort.save` is `boolean | void`, so a port that returns nothing still pushes as before. The D-604 snap-back and the `trip:quota-exceeded` toast are unchanged.
