@@ -39,6 +39,8 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 });
 // The four per-domain remote writers, reached by a dynamic import inside each `pushChunk`. Rejecting
 // keeps the chunk dirty deterministically — the offline case, and the state under test.
+const pushJournalEntryMock = vi.fn(() => Promise.resolve());
+vi.mock('@/lib/journal-remote', () => ({ pushJournalEntry: pushJournalEntryMock }));
 vi.mock('@/lib/expenses-remote', () => ({ pushExpenseChunk: () => Promise.reject(new Error('offline')) }));
 vi.mock('@/lib/budget-remote', () => ({ pushBudgetChunk: () => Promise.reject(new Error('offline')) }));
 vi.mock('@/lib/docs-remote', () => ({ pushDocsChunk: () => Promise.reject(new Error('offline')) }));
@@ -167,6 +169,7 @@ beforeEach(() => {
   localStorage.clear();
   setActiveTripId(''); // clear the active-trip pointer → default pack
   localStorage.clear();
+  pushJournalEntryMock.mockClear();
 });
 
 afterEach(() => {
@@ -771,6 +774,92 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(outboxDirty('budget')).toEqual(['model']);
     expect(outboxDirty('docs')).toEqual(['checklist']);
     expect(outboxDirty('places')).toEqual(['list']);
+  });
+
+  // #698: a local write the browser refuses (quota) must not still queue the restore for sync —
+  // that would push the rejected data to every other member while this device kept its old copy.
+  it('a domain whose local write is refused (quota) is not enqueued; the others still are', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    expensesStore.set([]);
+    budgetStore.set(normalizeModel({}));
+    docsStore.set([]);
+    myPlacesStore.set([]);
+
+    const realSetItem = Storage.prototype.setItem.bind(localStorage);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      if (key === STORAGE_KEYS.expenses) {
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      return realSetItem(key, value);
+    });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    expect(outboxDirty('expenses')).toEqual([]); // refused write → not enqueued
+    expect(outboxDirty('budget')).toEqual(['model']);
+    expect(outboxDirty('docs')).toEqual(['checklist']);
+    expect(outboxDirty('places')).toEqual(['list']);
+    // the UI's "Trip restored — X, Y are back" message is built from `restored`, so a refused
+    // domain must not be in it (the refusal must not be reported as a success).
+    expect(res.restored).not.toContain('expenses');
+    expect(res.restored).toContain('budget');
+  });
+
+  it('a refused journal write does not re-stamp/push the OLD local journal', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    const realSetItem = Storage.prototype.setItem.bind(localStorage);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      if (key === STORAGE_KEYS.journal) throw new DOMException('quota', 'QuotaExceededError');
+      return realSetItem(key, value);
+    });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(pushJournalEntryMock).not.toHaveBeenCalled();
+    expect(res.restored).not.toContain('journal');
+  });
+
+  it('reports ok:false, not a fake success, when every write is refused (storage full)', async () => {
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: { expenses: SEED_EXPENSES },
+      photos: { meta: [], blobs: {} },
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/storage/i);
   });
 });
 

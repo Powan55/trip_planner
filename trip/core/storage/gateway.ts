@@ -1279,8 +1279,8 @@ export const journalStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('journal'), fallback);
   },
-  set<T>(entries: T): void {
-    writeJson('local', keyFor('journal'), entries);
+  set<T>(entries: T): boolean {
+    return writeJson('local', keyFor('journal'), entries);
   },
 } as const;
 
