@@ -401,14 +401,7 @@ async function readAccountVerdict(code: string): Promise<AccountProbeResult> {
 // (rules reject a create whose map does not name the creator owner). `ensureMembership` adds ONE
 // entry — this device's — using a FIELD-PATH update so the write touches only the members map: a
 // whole-document overwrite is rejected for a non-owner, whose only legal edit is an add-only
-// members diff. `owner` may remove/re-role; `member` may add.
-//
-// ⚠ CEILING, KNOWN AND ACCEPTED: rules can prove an added-only diff but cannot inspect the VALUE
-// of an added key (no map comprehension in the rules language), so a `member` can technically add
-// a third uid as `owner`. The threat model is three friends who already hold each other's trip
-// links. The named upgrade path is members as a SUBCOLLECTION (`members/{uid}` → `{ role }`),
-// where the value becomes a document whose own write rule can check the role — a data migration,
-// not a rules edit, which is why it is not done here.
+// members diff. `owner` may remove/re-role; `member` may add, and only as 'member' (D-642).
 
 export type TripRole = 'owner' | 'member';
 
@@ -599,8 +592,7 @@ export type MemberWriteResult = 'ok' | 'denied' | 'failed';
  * add-only members diff from a member — which is what makes "send me your code and I'll add you"
  * work without an invite server.
  *
- * Always `'member'`: this UI never mints a second owner. (The rules cannot enforce that — see the
- * ceiling note at the top of this section — so the client not offering it is the whole guard.)
+ * Always `'member'`: the rules refuse any other role from a member (D-642).
  */
 export async function addTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
   return writeMemberField(tripId, uid, 'member');

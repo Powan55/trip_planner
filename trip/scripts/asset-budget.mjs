@@ -18,7 +18,8 @@
 // which is the failure mode this whole file is about. What IS covered is every byte
 // the service worker precaches out of public/ (scripts/gen-sw.mjs HERO_PRECACHE +
 // icons + favicon), which is where the install-weight risk actually sits, plus the
-// image tree as a whole.
+// image tree as a whole. What the service worker precaches out of the BUILT out/
+// tree, post-build, is covered instead by scripts/precache-budget.mjs.
 //
 // CEILINGS, NOT PINS. Each number below is a measured baseline plus headroom, so an
 // ordinary re-encode does not fail the build and a doubling does. Raise one only

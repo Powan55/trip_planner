@@ -68,7 +68,7 @@
  *                     a member has full content read+write and may ADD a third member.
  *   7. MEMBERSHIP, negative — a stranger reaches nothing, not one content doc by read, write
  *                     or delete; a member cannot remove or re-role the
- *                     owner, cannot delete the trip, and cannot create a trip owning nobody; an
+ *                     owner, cannot add anyone as other than 'member', cannot delete the trip, and cannot create a trip owning nobody; an
  *                     UNAUTHENTICATED client reaches nothing at all (the new floor); and D-219
  *                     still holds under auth (no /trips list, no collection group). A roster
  *                     naming no owner is refused at the write, and one already stored reads
@@ -526,12 +526,11 @@ console.log('\n  -- 7d. the roster cap binds on the trip doc, where the roster l
 await expect('create a trip with members{201}, self as owner (over the cap)', 'DENIED',
   () => setDoc(doc(db, 'trips', 'roster-201'), { schemaVersion: 1, members: { [O]: 'owner', ...bigMap(200, 'uid') } }));
 
-console.log('\n  -- 7e. KNOWN CEILING (documented in firestore.rules, NOT fixable in rules) --');
-// Rules can prove a members edit is add-ONLY, but cannot inspect the VALUE of an added key,
-// so a member can mint an owner. Pinned here so that if it is ever closed (members as a
-// subcollection), this assertion fails and the header comment gets corrected with it.
-await expect('member M adds a third uid as "owner" (cannot police the value)', 'ALLOWED',
+console.log('\n  -- 7e. a member adds others as "member" only (D-642, #667) --');
+await expect('member M adds a third uid as "owner"', 'DENIED',
   () => updateDoc(doc(dbM, 'trips', L), { [`members.${THIRD}`]: 'owner' }));
+await expect('member M adds a third uid as "viewer"', 'DENIED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${THIRD}`]: 'viewer' }));
 
 console.log('\n  -- 7f. a roster that names no owner is refused at the write... (#453) --');
 // O is the owner and each payload passes boundedWrite() (`.size()` on a string is a character

@@ -20,8 +20,8 @@ export function loadMyPlaces(): MyPlace[] {
 }
 
 /** Sanitize + persist the whole collection as JSON. No-op / never-throws under SSR or storage failure. */
-export function saveMyPlaces(places: MyPlace[]): void {
-  myPlacesStore.set<MyPlace[]>(sanitizePlaces(places));
+export function saveMyPlaces(places: MyPlace[]): boolean {
+  return myPlacesStore.set<MyPlace[]>(sanitizePlaces(places));
 }
 
 /**

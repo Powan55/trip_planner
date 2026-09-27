@@ -49,12 +49,11 @@ export default function PresenceBar() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          // bottom OFFSET only. On `<md` the mobile bottom tab bar (z-50, fixed at
-          // bottom-0) would overlap this z-40 cluster, so we lift it above the bar using the
-          // `--tab-bar-h` contract + safe-area inset + the original 1rem gap. `md:` restores the
-          // original `bottom-4` (desktop has no tab bar, so it is pixel-unchanged there). Only the
-          // bottom coordinate changed; left/z/max-width and everything else are as before.
-          className="fixed left-4 z-40 max-w-[calc(100vw-2rem)] sm:max-w-xs bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+1rem)] md:bottom-4"
+          // On `<md` the mobile bottom tab bar (z-50, fixed at bottom-0) would overlap this
+          // z-40 cluster, so we lift it above the bar via `--tab-bar-h` + safe-area inset +
+          // 1rem gap (`md:` restores the original bottom-4, pixel-unchanged on desktop).
+          // max-w is narrowed further (2rem -> 6rem) to clear the mobile quick-add button.
+          className="fixed left-4 z-40 max-w-[calc(100vw-6rem)] sm:max-w-xs bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+1rem)] md:bottom-4"
         >
           <div className="flex items-center gap-2.5 rounded-r1 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-3 py-2">
             {/* Overlapping accent dots — one per active traveler, decorative (names follow). */}

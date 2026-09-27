@@ -1007,16 +1007,21 @@ export function notifyQuotaExceeded(key: string): void {
   }
 }
 
-/** Write a raw string. No-op during SSR or if storage is unavailable. Never throws. */
-export function writeString(store: Store, key: string, value: string): void {
+/**
+ * Write a raw string. No-op during SSR or if storage is unavailable. Never throws.
+ * Returns true only when the write landed, so a synced caller can skip pushing a refused save.
+ */
+export function writeString(store: Store, key: string, value: string): boolean {
   const s = backing(store);
-  if (s === null) return;
+  if (s === null) return false;
   try {
     s.setItem(key, value);
+    return true;
   } catch (err) {
     // ignore (quota / disabled storage) — but surface a quota failure specifically;
     // writeJson delegates here, so this one call site covers both primitives.
     if (isQuotaError(err)) notifyQuotaExceeded(key);
+    return false;
   }
 }
 
@@ -1076,15 +1081,15 @@ export function readJson<T>(store: Store, key: string, fallback: T): T {
 }
 
 /** `JSON.stringify` + write a slot. No-op / never-throw exactly like `writeString`. */
-export function writeJson<T>(store: Store, key: string, value: T): void {
+export function writeJson<T>(store: Store, key: string, value: T): boolean {
   // stringify can throw on a cyclic value; keep the whole op total.
   let serialized: string;
   try {
     serialized = JSON.stringify(value);
   } catch {
-    return;
+    return false;
   }
-  writeString(store, key, serialized);
+  return writeString(store, key, serialized);
 }
 
 // ── Domain accessors — the actual public API ───────────────
@@ -1234,8 +1239,8 @@ export const budgetStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('budget'), fallback);
   },
-  set<T>(model: T): void {
-    writeJson('local', keyFor('budget'), model);
+  set<T>(model: T): boolean {
+    return writeJson('local', keyFor('budget'), model);
   },
 } as const;
 
@@ -1254,8 +1259,8 @@ export const expensesStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('expenses'), fallback);
   },
-  set<T>(expenses: T): void {
-    writeJson('local', keyFor('expenses'), expenses);
+  set<T>(expenses: T): boolean {
+    return writeJson('local', keyFor('expenses'), expenses);
   },
 } as const;
 
@@ -1616,8 +1621,8 @@ export const docsStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('docsChecklist'), fallback);
   },
-  set<T>(items: T): void {
-    writeJson('local', keyFor('docsChecklist'), items);
+  set<T>(items: T): boolean {
+    return writeJson('local', keyFor('docsChecklist'), items);
   },
 } as const;
 
