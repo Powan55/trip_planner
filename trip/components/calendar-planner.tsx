@@ -423,7 +423,17 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         // so it must be part of the trap's first/last computation or Tab could escape past it.
         'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
       ),
-    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    ).filter((el) => {
+      // A closed <details> hides everything except its summary from the tab order.
+      // offsetParent does not reliably reflect that native disclosure state.
+      const closedDetails = el.closest('details:not([open])');
+      if (closedDetails && !closedDetails.querySelector(':scope > summary')?.contains(el)) {
+        return false;
+      }
+      return el.checkVisibility
+        ? el.checkVisibility({ checkVisibilityCSS: true })
+        : el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+    });
 
     if (focusable.length === 0) return;
     const first = focusable[0];
