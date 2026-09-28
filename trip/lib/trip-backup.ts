@@ -42,6 +42,7 @@ import {
   dayAnchorStore,
   shareInboxStore,
   getActiveTripId,
+  getDefaultTripAdopted,
   DEFAULT_TRIP_ID,
   type TripScopedSlot,
 } from '@/core/storage/gateway';
@@ -153,11 +154,18 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  */
 type DomainSpec = {
   read: () => unknown;
-  write: (cleaned: unknown) => void;
+  /** Returns `false` only where the store surfaces `writeJson`'s result — expenses/budget/docs/
+   * myPlaces (via `enqueueRestore` below) and journal (its own `journal-remote` push, gated
+   * inline). The rest are genuinely fire-and-forget and return `undefined`, which `!== false`
+   * gates as OK. */
+  write: (cleaned: unknown) => boolean | void;
   validate: (parsed: unknown) => unknown | null;
-  /** SYNCED domains only — see `enqueueRestored`. Reads the pre-restore local state, so it MUST be
-   * called before `write`. Absent ⇒ the domain is genuinely local-only and a bare write is enough. */
-  enqueueRestore?: (cleaned: unknown) => void;
+  /** The 4 SyncPort-backed domains only — see `enqueueRestored`. Captures the pre-restore local
+   * state, so it MUST be called before `write`; its returned thunk must fire only once `write`
+   * reports success (issue #698 — a refused local write must not reach every member's device).
+   * Absent ⇒ either local-only, or (journal) synced through its own path that gates on `write`'s
+   * result itself rather than this hook. */
+  enqueueRestore?: (cleaned: unknown) => () => void;
 };
 
 /**
@@ -188,8 +196,11 @@ type DomainSpec = {
  * path for a domain that DOES fit one of the two existing shapes: inject its restore fn the way
  * `commitItinerary`/`commitExpenses`/`commitMyPlaces`/`commitDocsChecklist` are injected.
  */
-function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => void {
-  return (cleaned) => void port.push(storage.load(), cleaned as T);
+function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => () => void {
+  return (cleaned) => {
+    const prev = storage.load(); // pre-restore state, captured before the caller's `write`
+    return () => void port.push(prev, cleaned as T);
+  };
 }
 
 // Declared with `satisfies` rather than a `: Record<string, DomainSpec>` annotation so `keyof typeof
@@ -199,11 +210,17 @@ const DOMAINS = {
   journal: {
     read: () => journalStore.get<unknown>(ABSENT),
     write: (v) => {
-      journalStore.set(v);
+      const ok = journalStore.set(v);
       // Re-stamp each restored day so the restore wins on the author's other devices (D-596).
-      if (!isRemoteConfigured()) return;
-      const dates = (v as JournalEntry[]).map((e) => e.date);
-      void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
+      // Gated on `ok` (#698 follow-up): pushJournalEntry re-reads the LOCAL journal to stamp it,
+      // so on a refused write it would re-read the OLD (pre-restore) entry and push that with a
+      // fresh HLC — old content wins everywhere, and a date the backup dropped locally gets
+      // pushed out as a deletion.
+      if (ok && isRemoteConfigured()) {
+        const dates = (v as JournalEntry[]).map((e) => e.date);
+        void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
+      }
+      return ok;
     },
     validate: (v) => (Array.isArray(v) ? sanitizeEntries(v) : null),
   },
@@ -499,8 +516,14 @@ export async function importTripBackup(
     // A custom pack's id IS its shared id, so an older custom-trip file is already proven by tripId.
     const remoteId =
       typeof env.remoteId === 'string' ? env.remoteId : env.tripId !== DEFAULT_TRIP_ID ? env.tripId : '';
-    if (!remoteId) return UNMATCHED;
-    if (remoteId !== getTripId()) {
+    if (!remoteId) {
+      // D-651: this device's own default pack became this trip, and the file predates that.
+      const adopted = env.tripId === DEFAULT_TRIP_ID ? getDefaultTripAdopted() : null;
+      const exportedAt = typeof env.exportedAt === 'string' ? Date.parse(env.exportedAt) : NaN;
+      if (!adopted || adopted.shareId !== getTripId() || !(exportedAt <= Date.parse(adopted.at))) {
+        return UNMATCHED;
+      }
+    } else if (remoteId !== getTripId()) {
       return {
         ok: false,
         error:
@@ -604,15 +627,29 @@ export async function importTripBackup(
       restored.push(slot);
       continue;
     }
-    // Enqueue BEFORE the write: it reads the pre-restore local state as the push's `prev`.
-    domainsBySlot[slot].enqueueRestore?.(cleaned);
-    domainsBySlot[slot].write(cleaned);
+    // Capture BEFORE the write: it reads the pre-restore local state as the push's `prev`. The
+    // returned thunk only fires below, once `write` reports the local save actually landed
+    // (issue #698) — a refused write (e.g. quota) must not queue a push that overwrites every
+    // other member's copy with data this device never kept.
+    const pushRestored = domainsBySlot[slot].enqueueRestore?.(cleaned);
+    const ok = domainsBySlot[slot].write(cleaned);
+    if (ok === false) continue; // refused local write: don't claim it, don't queue it (#698)
+    pushRestored?.();
     restored.push(slot);
   }
 
   if (itinPlans !== null) {
     commitItinerary(itinPlans); // dual path: restorePlans under sync, savePlans local
     restored.push('itinerary');
+  }
+
+  // Content existed but every write was refused, so nothing changed on disk.
+  if (restored.length === 0) {
+    return {
+      ok: false,
+      error:
+        'Nothing could be restored — your browser refused every write, likely because storage is full. No changes were made to your trip.',
+    };
   }
 
   return { ok: true, restored, photosSkipped };

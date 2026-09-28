@@ -177,6 +177,32 @@ describe('createReactiveStore — the shared hydrate/listen/commit skeleton (D-1
     h.unmount();
   });
 
+  it('a refused local save is never pushed; a landed one is (#666)', async () => {
+    const pushes: number[][] = [];
+    const sync: SyncPort<number[]> = {
+      push: async (_prev, next) => {
+        pushes.push(next);
+      },
+      subscribe: () => () => {},
+      isConfigured: () => true,
+    };
+    const { port } = makeStorage([1]);
+    let accept = false;
+    const useStore = createReactiveStore<number[]>({
+      eventName: EVENT,
+      storageKeys: [KEY],
+      storage: { ...port, save: (v) => (accept ? (port.save(v), true) : false) },
+      sync,
+    });
+    const h = render(useStore);
+    await h.run((c) => c.commit((cur) => [...cur, 2]));
+    expect(pushes).toEqual([]);
+    accept = true;
+    await h.run((c) => c.commit((cur) => [...cur, 3]));
+    expect(pushes).toEqual([[1, 3]]);
+    h.unmount();
+  });
+
   it('with NO SyncPort, commit never pushes and never throws (local-only domain)', async () => {
     const { port, disk } = makeStorage([1]);
     const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });

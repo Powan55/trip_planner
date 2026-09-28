@@ -315,6 +315,8 @@ export default function MapSection() {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const inlineSlotRef = useRef<HTMLDivElement | null>(null);
   const fullscreenSlotRef = useRef<HTMLDivElement | null>(null);
+  const fullscreenToggleRef = useRef<HTMLButtonElement | null>(null);
+  const wasFullscreenRef = useRef(false);
 
   // The curated pack, gated on the active trip — see `curatedFor`. Empty on a custom trip, which
   // is what empties every derived count/chip/search hit below.
@@ -639,8 +641,11 @@ export default function MapSection() {
     // it isn't attached yet, bail — the next render re-runs this effect.
     if (!target) return;
     if (host.parentElement !== target) {
+      // Moving a node blurs whatever inside it had focus; hand it back to the toggle.
       target.appendChild(host);
+      if (wasFullscreenRef.current !== isFullscreen) fullscreenToggleRef.current?.focus({ preventScroll: true });
     }
+    wasFullscreenRef.current = isFullscreen;
     // Two resizes: one on the next frame (after layout), one microtask-later, so
     // MapLibre reliably picks up the new box regardless of paint timing.
     const raf = requestAnimationFrame(() => tripMapRef.current?.resize());
@@ -676,6 +681,19 @@ export default function MapSection() {
     body.style.width = '100%';
     body.style.overflow = 'hidden';
 
+    // Focus trap: everything else in body goes inert, except live regions (the toaster is a
+    // permanent body child) and portals opened after this snapshot.
+    const slot = fullscreenSlotRef.current;
+    const inerted = Array.from(body.children)
+      .filter(
+        (el): el is HTMLElement =>
+          el instanceof HTMLElement &&
+          !el.contains(slot) &&
+          !el.matches('[aria-live],[data-react-aria-top-layer]'),
+      )
+      .map((el) => [el, el.inert] as const);
+    for (const [el] of inerted) el.inert = true;
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -686,6 +704,7 @@ export default function MapSection() {
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      for (const [el, was] of inerted) el.inert = was;
       body.style.position = prev.position;
       body.style.top = prev.top;
       body.style.left = prev.left;
@@ -1078,7 +1097,7 @@ export default function MapSection() {
             tile or map availability.
             the engine is precached now, so offline the canvas, the marker circles
             and the day route DO render — what is missing is the basemap imagery, because
-            basemaps.cartocdn.com is cross-origin and hits the SW's untouched
+            tiles.openfreemap.org is cross-origin and hits the SW's untouched
             cross-origin passthrough. The wording says exactly that and no more; the old
             "the map needs a connection" now overstates the loss the same way v5.9.2's
             "showing cached map tiles" overstated the win. */}
@@ -1418,6 +1437,9 @@ export default function MapSection() {
       <div
         ref={mapHostRef}
         data-testid="map-shell"
+        role={isFullscreen ? 'dialog' : undefined}
+        aria-modal={isFullscreen ? true : undefined}
+        aria-label={isFullscreen ? 'Map' : undefined}
         data-visible-count={visibleMarkers.length}
         data-map-view={mapView}
         // Issue #1 — the assertion seam for what is DRAWN. The route lives in a WebGL
@@ -1457,6 +1479,7 @@ export default function MapSection() {
         {/* Fullscreen toggle (visible on the map, keyboard-accessible). Travels
             with the host, so it stays clickable inline and in fullscreen. */}
         <button
+          ref={fullscreenToggleRef}
           type="button"
           onClick={() => setIsFullscreen((v) => !v)}
           aria-label={isFullscreen ? 'Exit fullscreen map' : 'Open map fullscreen'}

@@ -53,8 +53,7 @@ import { entranceFor } from '@/lib/motion';
  *   · the screenshots are a contact sheet: numbered figures under one ruled caption line.
  *   · the "how it works" steps are gone. What a stranger actually does not understand is how a
  *     trip reaches another person, so that section is the two-token model instead — which is
- *     the same thing `trip-join-handshake.tsx` and `user-token-show-once.tsx` have to make
- *     legible at the moment it matters.
+ *     the same thing `trip-join-handshake.tsx` has to make legible at the moment it matters.
  *
  * WHAT WAS FROZEN, and each has teeth:
  * - Log in is the primary CTA and it is FIRST IN THE DOM. `token-gate.tsx`'s focus effect takes
@@ -93,8 +92,8 @@ import { entranceFor } from '@/lib/motion';
  * The fact strip — the four figures a stranger actually decides on, in the instrument cells the
  * app uses for every other reading. Static literals (the zero-live-trip-data rule above), and each
  * is checkable: 32 days is the same figure `first-run-tour.tsx` and `map-section.tsx` print, the
- * two legs are the two the app ships, there is no invite mechanism at all, and the stack has no
- * paid service in it.
+ * two legs are the two the app ships, an invite link lasts 7 days, and the stack has no paid
+ * service in it.
  *
  * These readings are written for a stranger, so they carry no developer vocabulary. "no API key"
  * used to sit here and on the Map row below, where it read as a fault report on the map rather
@@ -103,7 +102,7 @@ import { entranceFor } from '@/lib/motion';
 const FACTS = [
   { label: 'Days', value: '32', foot: 'Dec 2026 — Jan 2027' },
   { label: 'Countries', value: '02', foot: 'Nepal, then Japan' },
-  { label: 'Invites to send', value: '00', foot: 'One Trip Token instead' },
+  { label: 'Invite links', value: '07', foot: 'Days each, one use' },
   { label: 'Price', value: '0', foot: 'Free, no card needed' },
 ] as const;
 
@@ -193,14 +192,14 @@ const CHAPTERS = [
  * The two credentials, side by side, because this is the one thing about the product a stranger
  * has no prior model for and the one place the two are most easily confused (D-239: they are
  * never mixed). `trip-join-handshake.tsx` states the same distinction at the moment a Trip Token
- * is used, and `user-token-show-once.tsx` states it at the moment a key is minted.
+ * is used.
  */
 const TOKENS = [
   {
-    name: 'Your key',
+    name: 'Your account',
     chip: 'chip--struck',
     what: 'One per person',
-    rule: 'Logs you in · never share it',
+    rule: 'Username and password · never share it',
   },
   {
     name: 'Trip Token',
@@ -242,9 +241,9 @@ const TOKENS = [
  * is in frame now), and the Nepal row is back inside shot 2's crop, so "yen and rupees" is true of
  * the picture again — the exact reverse of the correction above.
  *
- * Shot 3 is NOT from that re-shoot and is deliberately older than the other two: CARTO now stamps
- * "API KEY REQUIRED" across the free dark-matter tiles `lib/map-style.ts` requests, so a fresh
- * capture shows the watermark. Re-shoot it once the basemap serves clean tiles again.
+ * Shot 3 is NOT from that re-shoot and is deliberately older than the other two: it was taken on
+ * the CARTO basemap, before CARTO started stamping "API KEY REQUIRED" on keyless tiles. The map is
+ * on OpenFreeMap now (D-606), so a re-shoot would show that basemap and need a new credit.
  */
 const SHOTS = [
   {
@@ -434,7 +433,7 @@ export default function LandingPage({
                 data-testid="landing-cta-login"
                 className="btn px-6"
               >
-                I have a key &mdash; log in
+                I have an account &mdash; log in
               </button>
               {/* The secondary's edge is --border-ui, not --border — that is `.btn--2`'s own
                   border, and it is why the outline shape is legal over a photograph. --border is
@@ -641,14 +640,13 @@ export default function LandingPage({
       >
         <div className="sec mx-auto max-w-[1200px] px-gut">
           <h2 id="landing-token-heading">Trips move as a token</h2>
-          <span className="sub">No member list</span>
+          <span className="sub">Token or invite</span>
         </div>
         <div className="mx-auto max-w-[1200px] px-gut">
           <p className="max-w-[64ch] text-t-body leading-relaxed text-ink-mid">
-            There is nobody to invite and no list to be added to. A trip has one string attached to
-            it, and whoever holds that string opens the same plan you are looking at &mdash; so you
-            send it the way you already talk to each other. Two keys, two jobs, and they are never
-            the same key.
+            A trip has one string attached to it, and you send it the way you already talk to each
+            other &mdash; or send a one-use invite link instead. Your account and a trip&rsquo;s token do
+            two different jobs, and they are never the same thing.
           </p>
         </div>
         <ul className="list mt-4">
@@ -677,7 +675,7 @@ export default function LandingPage({
         </span>
         <p className="text-display-xl">Start the countdown.</p>
         <p className="max-w-[38ch] text-t-body leading-relaxed">
-          No email, no password. Just a key you keep.
+          No email needed. Just a username and a password.
         </p>
         <button
           type="button"

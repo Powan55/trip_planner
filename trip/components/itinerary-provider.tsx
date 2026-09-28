@@ -287,7 +287,7 @@ export function runTripMetaSelfHeal(): () => void {
   void import('@/lib/trips-remote')
     .then(({ fetchTripMeta }) => fetchTripMeta(activeId))
     .then((remote) => {
-      if (cancelled) return;
+      if (cancelled || getActiveTripId() !== activeId) return; // forgotten mid-fetch (#656)
       if (!remote) return; // not there YET (or unreachable) — a later load retries
       // D-600: runs on every boot and applies a peer's rename/config by updatedAt LWW.
       if (!applyRemoteTripMeta(activeId, remote)) return;
@@ -348,10 +348,6 @@ export function runTripMembership(): () => void {
 
   void import('@/lib/trips-remote')
     .then(({ ensureMembership }) => ensureMembership(tripId))
-    // D-595: listeners refused before the self-join stay dead, so restart them with one reload.
-    .then((r) => {
-      if (r === 'joined') window.location.reload();
-    })
     .catch((err) => {
       console.warn('[itinerary-provider] membership enrolment unavailable:', err);
     });

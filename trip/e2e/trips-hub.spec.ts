@@ -21,7 +21,7 @@ import AxeBuilder from '@axe-core/playwright';
 const ACTIVE_TRIP_KEY = 'tripPlannerActiveTrip';
 const KNOWN_TRIPS_KEY = 'tripPlannerKnownTrips';
 const REMOVED_TRIPS_KEY = 'tripPlannerRemovedTrips';
-const SYNC_KEY = 'tripPlannerSyncCode'; // key 28 — the USER TOKEN on disk (D-239 keeps the name)
+const SYNC_KEY = 'tripPlannerSyncCode'; // key 28 — the account id on disk (D-660)
 const A_UUID = '11111111-2222-4333-8444-555566667777';
 /** Origin + '/' exactly — the post-switch landing target (mirrors token-trips.spec). */
 const HOME_URL = /^https?:\/\/[^/]+\/$/;
@@ -253,7 +253,7 @@ test.describe('S338B — /trips is the post-login surface (D-239: select · crea
     await expect(hub).not.toContainText('Trip Key');
     await expect(hub).not.toContainText('sync code');
     // S355 RETIREMENT GUARD: "User Token" is retired from user-visible copy — the account
-    // credential is "your key" now. Same guard shape as the two above, scoped to the hub, which is
+    // credential is a username and password now (D-660). Same guard shape as the two above, scoped to the hub, which is
     // where 6 of the 24 renamed sites live. Without it the rename has nothing behind it and the old
     // term can silently return under a fully green suite. "Trip Token" is a DIFFERENT concept and
     // is deliberately still asserted PRESENT two lines up.
@@ -270,56 +270,15 @@ test.describe('S338B — /trips is the post-login surface (D-239: select · crea
     await expect(page.getByTestId('trips-hub-copy-1')).toBeVisible();
   });
 
-  test('a grandfathered traveler (identity, no User Token) is NOT locked out and can finish their account', async ({
+  test('a traveler with no account id on this device is not locked out, and is not asked to mint a key', async ({
     page,
   }) => {
     await goto(page);
-    // The default fixture is exactly the grandfathered shape: nickname seeded, key 28 absent.
+    // The default fixture: nickname seeded, key 28 absent (a device admitted before D-660).
     await expect(page.getByTestId('trips-hub-row-0')).toBeVisible({ timeout: 15_000 });
     expect(await page.evaluate((k) => window.localStorage.getItem(k), SYNC_KEY)).toBeNull();
-    // Not locked out: the hub and its actions are fully usable before any upgrade.
     await expect(page.getByTestId('trips-hub-create')).toBeVisible();
-
-    const card = page.getByTestId('trips-hub-finish-account');
-    await expect(card).toBeVisible();
-    await page.getByTestId('trips-hub-finish-account-mint').click();
-
-    // Show-once: the minted User Token is displayed and is what landed on key 28.
-    const minted = await page.evaluate((k) => window.localStorage.getItem(k), SYNC_KEY);
-    expect(minted).toMatch(/^[0-9a-f-]{36}$/);
-    await expect(page.getByTestId('trips-hub-finish-account-show-once-value')).toHaveText(minted!);
-
-    // Minting touches ONLY key 28 (D-239): identity, the registry and the pointer are untouched.
-    const after = await page.evaluate(
-      ({ known, pointer }: { known: string; pointer: string }) => ({
-        token: window.localStorage.getItem('tripPlannerToken'),
-        known: window.localStorage.getItem(known),
-        pointer: window.localStorage.getItem(pointer),
-      }),
-      { known: KNOWN_TRIPS_KEY, pointer: ACTIVE_TRIP_KEY },
-    );
-    expect(after.token).toBe('Alina');
-    expect(after.known).toBeNull();
-    expect(after.pointer).toBeNull();
-
-    // S355: the confirm is gated on the "I've saved my key" acknowledgement (both mounts of the
-    // show-once screen — the grandfathered upgrade is handed the same irreplaceable credential).
-    const confirm = page.getByTestId('trips-hub-finish-account-show-once-confirm');
-    await expect(confirm).toBeDisabled();
-    await page.getByTestId('trips-hub-finish-account-show-once-ack').check();
-    await expect(confirm).toBeEnabled();
-
-    await confirm.click();
-    await expect(card).toHaveCount(0);
-  });
-
-  test('a traveler who already has a User Token never sees the upgrade card', async ({ page }) => {
-    await page.addInitScript(
-      ({ key, token }: { key: string; token: string }) => window.localStorage.setItem(key, token),
-      { key: SYNC_KEY, token: '99999999-8888-4777-8666-555544443333' },
-    );
-    await goto(page);
-    await expect(page.getByTestId('trips-hub-row-0')).toBeVisible({ timeout: 15_000 });
+    // D-660: accounts are username + password, so the old "Create my key" card is gone for good.
     await expect(page.getByTestId('trips-hub-finish-account')).toHaveCount(0);
   });
 });

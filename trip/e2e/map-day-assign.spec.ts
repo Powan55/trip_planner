@@ -59,7 +59,7 @@ const TOKYO_ID = 'jp-park-hyatt'; // Tokyo — ~5000 km from the Kathmandu marke
 const DESKTOP = { width: 1280, height: 900 } as const;
 
 const KNOWN_TILE_FETCH_NOISE =
-  /basemaps\.cartocdn\.com|AJAXError: Failed to fetch|Failed to load resource: net::ERR_INTERNET_DISCONNECTED/;
+  /tiles\.openfreemap\.org|AJAXError: Failed to fetch|Failed to load resource: net::ERR_INTERNET_DISCONNECTED/;
 
 function trackErrors(page: Page) {
   const errors: string[] = [];

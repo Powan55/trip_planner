@@ -2,96 +2,73 @@
 
 import { useState, useEffect, useRef, useId } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { Plane, KeyRound, User, ArrowRight } from 'lucide-react';
-import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
+import { Plane, User, AtSign, Lock, KeyRound, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import {
+  signIn,
+  DEFAULT_TRAVELER_NAME,
+  USERNAME_RE,
+  MIN_PASSWORD_LENGTH,
+  normalizeUsername,
+  usernameToEmail,
+} from '@/lib/token-auth';
+import { ACCOUNT_ID_RE, ACCOUNT_CLAIMED, OWNER_HANDOFF_FAILED } from '@/lib/account-codes';
 import { getUserName } from '@/lib/identity';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getSyncCode, setSyncCode, nameHintFlag } from '@/core/storage/gateway';
-import { joinTrip } from '@/core/trips/registry';
+import { joinTrip, parseTripToken } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import { TRIP_START } from '@/lib/trip-data';
 import { getNow } from '@/lib/trip-now';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
-import UserTokenShowOnce from '@/components/user-token-show-once';
 import LandingPage from '@/components/landing-page';
 import OptimizedImage from '@/components/optimized-image';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
+import type { AccountUpgrade } from '@/lib/firebase-remote';
 
 /**
- * The front door — the app's WALL, shown iff
- * `!traveler`. There is no guest mode: a logged-out visitor sees this wall on every
- * route, with no bypass.
+ * The front door — the app's WALL, shown iff `!traveler`. There is no guest mode: a logged-out
+ * visitor sees this wall on every route, with no bypass.
  *
- * TWO VIEWS: the wall opens on the marketing LANDING (`components/landing-page.tsx`,
- * zero live trip data) and swaps to the boarding-pass AUTH card when a landing CTA is pressed. Both
- * views render inside the SAME `role="dialog"` panel, which is the whole point of — the
- * landing inherits the focus trap, aria wiring and Esc capture instead of rebuilding them.
- * The dialog's `aria-labelledby`/`aria-describedby` targets move with the view: the landing puts
- * them on its <h1>/lead paragraph, the auth view on its own heading/blurb.
+ * TWO VIEWS: the wall opens on the marketing LANDING (`components/landing-page.tsx`, zero live
+ * trip data) and swaps to the boarding-pass AUTH card when a landing CTA is pressed. Both views
+ * render inside the SAME `role="dialog"` panel, so the landing inherits the focus trap, aria wiring
+ * and Esc capture. The dialog's `aria-labelledby`/`aria-describedby` targets move with the view.
  *
- * TWO TOKENS, NEVER MIXED:
- * - **User Token** = the ACCOUNT credential. It is the promoted Sync Code — SAME on-disk key
- * (`tripPlannerSyncCode`, gateway key 28), so every device that ever minted one is already an
- * account, with zero migration. It is what this door asks for, and the ONLY thing it asks for.
- * - **Trip Token** = one trip's capability (the trip id). It is NEVER a login. It is entered on
- * `/trips` ("add a trip"), by a user who is already logged in. #70: which is why the landing's
- * "Someone shared a trip with me" CTA opens path (b) and not (a) — someone holding one has no
- * User Token to type, and path (b) lands them on `/trips/`.
- * #10 — a NEW User Token pasted at login is now VALIDATED against the account's identity doc
- * (`probeAccountIdentity`, one lazy server read via a dynamic import — the door stays STATICALLY
- * firebase-free, see below). 'missing' rejects with an inline error and writes ZERO state;
- * 'unavailable' (dormant / offline / timeout / rules error) ADMITS — fail-open, a network failure
- * must never lock a real user out. The stored key is this device's live session credential and is
- * NEVER re-probed (a returning device logs in even fully offline). The trip-token side keeps the
- * LABELS + FLOW guard: a Trip Token pasted here that happens to name a trip with a `profile/`
- * subcollection still yields a working-but-empty account, losslessly recoverable by signing out
- * and logging in again — but an *invented* key no longer works at all.
+ * ACCOUNTS ARE USERNAME + PASSWORD (D-660), on Firebase Auth. The username maps to a synthetic
+ * email on the reserved `.invalid` TLD (`usernameToEmail`), so Auth enforces uniqueness and
+ * nothing is ever mailed. `users/{uid}` records which account id the user owns; that id is what
+ * key 28 (`tripPlannerSyncCode`) holds and what the trip list and identity docs are keyed by.
+ * - Create: link the device's anonymous session to the new credential (its uid is already in
+ *   trip rosters), mint an account id, write `users/{uid}`, seed the account docs.
+ * - Log in: `signInWithHandoff` (lib/account-handoff-remote) first grants the account's uid this device's
+ *   roles on every trip it can see, then swaps the session and reads `users/{uid}`. Present → adopt
+ *   its account id.
+ * - Log in, `users/{uid}` MISSING: an account made in the console with a temporary password. The
+ *   missing doc IS the must-change-password flag, so the CLAIM step asks for a new password,
+ *   then carries over this device's account id, or a pasted old key (validated by
+ *   `probeAccountIdentity`), or starts fresh. `users/{uid}` + `accountClaims/{id}` are written only
+ *   after the password change succeeds. An id someone else already claimed offers "Start fresh".
+ * - UPGRADE: a device admitted before passwords (anonymous session, account id in key 28) gets the
+ *   card over the app. "I was given a username" is log-in + claim with this device's id; "Create"
+ *   links the anonymous uid and writes `users/{uid}` naming the SAME id, with no reseed. When that
+ *   id is already claimed, only log-in is offered. "Later" defers to the next load; an
+ *   unconfirmable check shows nothing.
+ * - DORMANT build (no Firebase config — CI and e2e): no account server exists, so the form admits
+ *   locally, as the door always has there, and says so.
  *
- * TWO PATHS, both ending in a FULL reload ( shape — the reload is what re-arms the
- * provider's trip-list subscribe with code + traveler both present, so the door itself never needs
- * the network):
- * (a) **Log in** — User Token ONLY (decision 2026-07-30; the door asks for nothing else) →
- * `setSyncCode` → `signIn(displayName)` → reload landing `/trips/`. The display name is not
- * asked for here: it is reused from this device's identity slot if present, else taken off the
- * #10 probe's own snapshot (D-277 stores the name in the doc the probe reads), else defaults to
- * "Traveler" (renamable in Settings → Identity). The name is still load-bearing — it is the
- * identity slot `getActiveTraveler` reads to dismiss the wall and to attribute edits — the door
- * just no longer collects it. Offers this device's stored key-28 token when present ( soft
- * security; prevents orphan accounts after a sign-out with an unsaved token).
- * (b) **Create an account** — name → mint `crypto.randomUUID()` → `setSyncCode` + `signIn` →
- * kick off the ACCOUNT SEED (#10: `pushAccountIdentity` + `pushTripList` via dynamic import, so
- * the account exists server-side and the door's probe can find it later; `finish()` awaits it
- * under a 5s budget before the reload) → SHOW-ONCE screen (shared `UserTokenShowOnce`) →
- * explicit confirm → reload landing `/trips/`. The door does NOT create a trip: account creation
- * and trip creation are separate acts (trip creation lives on `/trips`).
+ * Every remote touch is a DYNAMIC import, so the door's static graph stays firebase-free (D-054).
+ * Every path ends in a FULL reload: the provider re-hydrates with the account id and traveler both
+ * present. A Trip Token is never a login: it is entered on `/trips`, after logging in.
  *
- * `?trip=` INVITATION: an unidentified visitor opening a share link has the pending Trip
- * Token read straight off the URL here (the door is on the same page as the link) and HELD; on
- * completion of (a) or (b) we `joinTrip(pending)` BEFORE the reload and land on `/` — the join IS
- * the selection. `trip-join-handshake.tsx` correspondingly skips unidentified visitors: joining now
- * requires a login, so the door owns that case.
+ * `?trip=` INVITATION: the pending Trip Token is read off the URL here and joined on completion,
+ * landing on `/` (the join IS the selection). An `&invite=` token leaves the URL on mount, is held in
+ * memory only, and is redeemed before the join; a refused invite joins nothing.
  *
- * ALWAYS-ON + DORMANT-SAFE: this shows in EVERY build, and STATICALLY imports ONLY pure
- * modules (token-auth · gateway · trips/registry · trip-data · countdown · the show-once view) and
- * never firebase. The two remote touches it now has — the login probe (#10) and the create-path
- * account seed — are DYNAMIC `import('@/lib/trips-remote')` calls whose functions self-gate on
- * `isRemoteConfigured()`, so the dormant bundle stays firebase-free and the dormant behavior is
- * byte-identical (probe → 'unavailable' → admit; seed → no-op).
- *
- * A11y reuses the modal contract VERBATIM: role="dialog" aria-modal aria-labelledby
- * aria-describedby, document-level Esc, a Tab-trap inside the panel, autofocus on the first field
- * (re-asserted when the form changes). Intentional DIVERGENCES — it is a WALL, not a dismissible
- * modal: NON-dismissible (no overlay-click-close, no X, Esc does not dismiss); no focus-return-to-
- * trigger. A submit is disabled until its fields are non-empty; anything that fails after that
- * lands in the wall's ONE failure slot (`role="alert"`, above the submit so it is reachable from
- * both forms, with an annunciator label naming the condition and a sentence saying what to do).
- * Three conditions reach it: a key the server says does not exist (#10), a browser refusing site
- * storage, and a refused sign-in. NOTHING here fails silently — a door that says nothing when it
- * cannot let you in is the failure mode this slot exists for.
- *
- * Motion uses the lightweight `m.*` only; reduced motion is honored by
- * the global <MotionConfig reducedMotion="user">. Tailwind classes are static literals; the
- * card is sized to never overflow @360/390/414. Countdown reuses the shared pure helper.
+ * A11y: role="dialog" aria-modal, document-level Esc capture (the wall does NOT dismiss), a
+ * Tab-trap inside the panel, autofocus on the first field. Every input has a <label> and an
+ * autocomplete token; errors land in one polite live region and focus moves to the field at fault.
+ * Motion uses `m.*` only; reduced motion is honored by the global <MotionConfig reducedMotion="user">.
  */
 
 export default function TokenGate() {
@@ -104,147 +81,290 @@ export default function TokenGate() {
   useEffect(() => setMounted(true), []);
 
   /**
-   * the wall must OUTLIVE `signIn`. Every identified path signs in *before* it is finished
-   * with the user — path (b) still owes them the show-once screen, and both paths still owe a full
-   * reload. `signIn` dispatches identity:changed, so without this hold the derived `show` would
-   * drop mid-flow and dissolve the wall (flashing the app behind, and unmounting the show-once
-   * screen outright). The wall itself sets this before it touches identity, and only a navigation
-   * ever clears it.
+   * the wall must OUTLIVE `signIn`. `signIn` dispatches identity:changed, so without this hold the
+   * derived `show` would drop before the reload and flash the app behind. The wall sets this before
+   * it touches identity, and only a navigation ever clears it.
    */
   const [held, setHeld] = useState(false);
 
-  const show = mounted && (held || !traveler);
+  /**
+   * UPGRADE (D-660): a device admitted before passwords, still on an anonymous session, is asked to
+   * attach a username + password to the account id it holds. Checked once per load; anything that
+   * cannot be confirmed (dormant, offline, auth unreachable) shows nothing and tries next load.
+   */
+  const signedIn = traveler !== null;
+  const [upgrade, setUpgrade] = useState<AccountUpgrade | null>(null);
+  useEffect(() => {
+    if (!mounted || !signedIn || !isRemoteConfigured()) return;
+    let live = true;
+    import('@/lib/firebase-remote')
+      .then(({ needsAccountUpgrade }) => needsAccountUpgrade())
+      .then(
+        (needed) => live && needed && setUpgrade(needed),
+        () => {},
+      );
+    return () => {
+      live = false;
+    };
+  }, [mounted, signedIn]);
+
+  const show = mounted && (held || !traveler || upgrade);
 
   return (
-    <AnimatePresence>{show && <TokenGateWall onHold={() => setHeld(true)} />}</AnimatePresence>
+    <AnimatePresence>
+      {show && (
+        <TokenGateWall
+          onHold={() => setHeld(true)}
+          upgrade={traveler ? upgrade : null}
+          onLater={() => setUpgrade(null)}
+        />
+      )}
+    </AnimatePresence>
   );
 }
 
 type Mode = 'login' | 'create';
-/**: the wall opens on the marketing landing; a CTA swaps it to the auth card. */
+/** The wall opens on the marketing landing; a CTA swaps it to the auth card. */
 type View = 'landing' | 'auth';
+/** 'claim' is the first sign-in of an account that has no `users/{uid}` yet. */
+type Stage = 'form' | 'claim';
+type FieldKey = 'name' | 'username' | 'password' | 'newPassword' | 'confirmPassword' | 'oldKey';
+
+/** How long the wall waits for account seeding / roster enrolment before navigating anyway. */
+const REMOTE_BUDGET_MS = 5000;
+
+function within(work: Promise<unknown>): Promise<unknown> {
+  return Promise.race([
+    work.catch(() => undefined),
+    new Promise((r) => setTimeout(r, REMOTE_BUDGET_MS)),
+  ]);
+}
+
+/** The wall's failure state: an annunciator label, the condition in words, and the field at fault. */
+type WallError = { label: string; text: string; field?: FieldKey };
 
 /**
- * #10 — how long `finish()` waits for the create-path account seed before navigating anyway.
- * Same rationale and value as trips-hub's `CREATE_PUSH_BUDGET_MS`: the writes usually land in
- * well under a second, but a dead network must never make "Continue" hang.
- */
-const SEED_PUSH_BUDGET_MS = 5000;
-
-/** The wall's failure state: an annunciator label, and the condition stated in words. */
-type WallError = { label: string; text: string };
-
-/**
- * Site storage refused (Safari "Block All Cookies", Chrome's on-device-site-data switch, a
- * sandboxed iframe). `core/storage/gateway.ts` degrades every write to a silent no-op by
- * contract — it never throws — so nothing is stored, nothing is raised, and the door would
- * simply re-open after the reload with nothing said. It has to be detected by reading back.
+ * Site storage refused (Safari "Block All Cookies", a sandboxed iframe). The gateway degrades every
+ * write to a silent no-op by contract, so this is detected by reading back.
  */
 const STORAGE_BLOCKED: WallError = {
   label: 'Storage · Blocked',
   text: 'This browser is blocking site storage, so this device cannot keep you signed in. Allow site data for this site, or leave private browsing, then try again.',
 };
 
-/** #10 — the probe's one rejection: a pasted key that names no account. */
-const KEY_REJECTED: WallError = {
-  label: 'Key · Rejected',
-  text: 'This user does not exist. Check your key, or create an account.',
-};
-
-/** `signIn` refused the display name. Storage is already proven writable by this point. */
 const SIGN_IN_FAILED: WallError = {
   label: 'Sign-in · Failed',
   text: 'We could not start a session on this device. Reload the page and try again.',
 };
 
-function TokenGateWall({ onHold }: { onHold: () => void }) {
-  const [view, setView] = useState<View>('landing');
-  /**
-   * (INTAKE-03) — the auth card ALWAYS opens on "Log in".
-   *
-   * It used to be `getSyncCode() ? 'login': 'create'`, i.e. a device with no stored User Token
-   * got the signup form. That read "first-timer default" but measured as "everyone in a private
-   * window", which is the whole of the reported problem: a RETURNING user whose device never has a
-   * stored key. The key-derived guess only ever helped a device that had already synced — and
-   * that device gets 'login' under this rule too, so nothing is lost.
-   *
-   * Signup is untouched and one click away: the mode toggle below is always rendered, and the
-   * landing keeps two "Create an account" CTAs.
-   *
-   * No longer needs an initializer function (it is a constant), so there is nothing client-only
-   * left in it — but `TokenGateWall` still only ever mounts client-side, via the parent's
-   * `mounted` gate.
-   *
-   * 🔴 (#70) THIS VALUE IS NO LONGER USER-OBSERVABLE, and that is the honest state of it. The card
-   * is only reachable from a landing CTA, and all three CTAs now set the mode: log in → 'login',
-   * create → 'create', and "Someone shared a trip with me" → 'create' (it was the one that
-   * inherited, which is the defect #70 reported). So this constant is a required starting value
-   * and nothing more — it renders for no one, and sabotaging it proves nothing.
-   * Where INTAKE-03's actual rule now lives, so nobody mistakes this line for the guard:
-   * "the door does not read as a signup page" is pinned by the ENTRY FOCUS assertions
-   * (`document.activeElement` === `landing-cta-login`, in both `s345-front-door.test.ts` and
-   * `e2e/login.spec.ts`) plus the per-CTA mode table in `s345-front-door.test.ts`.
-   */
+const BAD_USERNAME: WallError = {
+  label: 'Username',
+  text: 'Usernames are 3 to 20 characters: lowercase letters, numbers and underscores.',
+  field: 'username',
+};
+
+const SHORT_PASSWORD = (field: FieldKey): WallError => ({
+  label: 'Password',
+  text: `Passwords need at least ${MIN_PASSWORD_LENGTH} characters.`,
+  field,
+});
+
+const NO_NAME: WallError = { label: 'Name', text: 'Enter your name.', field: 'name' };
+
+const PASSWORD_MISMATCH: WallError = {
+  label: 'Password',
+  text: 'The two passwords do not match.',
+  field: 'confirmPassword',
+};
+
+// One message for a wrong password AND an unknown username, so the door does not tell a stranger
+// which usernames exist.
+const WRONG_CREDENTIALS: WallError = {
+  label: 'Log in · Refused',
+  text: 'Username or password is wrong.',
+  field: 'password',
+};
+
+const USERNAME_TAKEN: WallError = {
+  label: 'Username · Taken',
+  text: 'That username is taken. Pick another one.',
+  field: 'username',
+};
+
+const SIGN_IN_AGAIN: WallError = {
+  label: 'Log in · Again',
+  text: 'For your security, log in once more with the password you were given, then choose your new one.',
+  field: 'username',
+};
+
+const KEY_REJECTED: WallError = {
+  label: 'Key · Not found',
+  text: 'No account uses that key. Check it, or leave the field empty to start a fresh account.',
+  field: 'oldKey',
+};
+
+const KEY_UNCHECKED: WallError = {
+  label: 'Key · Not checked',
+  text: 'We could not check that key just now. Check your connection and try again.',
+  field: 'oldKey',
+};
+
+const KEY_MALFORMED: WallError = {
+  label: 'Key · Not valid',
+  text: 'That is not a key. Keys look like 8-4-4-4-12 groups of letters a to f and numbers.',
+  field: 'oldKey',
+};
+
+const INVITE_INVALID: WallError = {
+  label: 'Invite · Not valid',
+  text: 'You are logged in, but this invite has expired, was already used, or was cancelled. Ask the trip owner for a new link.',
+};
+
+const INVITE_FAILED: WallError = {
+  label: 'Invite · Not reached',
+  text: 'You are logged in, but we could not reach the trip to use this invite. Check your connection and try again.',
+};
+
+const ALREADY_CLAIMED: WallError = {
+  label: 'Account · Taken',
+  text: 'This account already has a username. Log in with it.',
+};
+
+/** Map a Firebase Auth rejection to words. Anything unrecognised reads as a connection problem. */
+function authError(err: unknown, field: FieldKey = 'password'): WallError {
+  switch ((err as { code?: unknown } | null)?.code) {
+    case ACCOUNT_CLAIMED:
+      return ALREADY_CLAIMED;
+    case OWNER_HANDOFF_FAILED:
+      return {
+        label: 'Log in · Stopped',
+        text: 'Your trips could not be moved to this account yet, so nothing changed on this device. Check your connection and try again.',
+      };
+    case 'permission-denied':
+      return {
+        label: 'Account · Refused',
+        text: 'The server refused that change. Nothing was saved. Try again, or ask the trip owner for help.',
+      };
+    case 'auth/email-already-in-use':
+    case 'auth/credential-already-in-use':
+      return USERNAME_TAKEN;
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+    case 'auth/invalid-email':
+      return WRONG_CREDENTIALS;
+    case 'auth/weak-password':
+      return { label: 'Password', text: 'Pick a longer or less common password.', field };
+    case 'auth/too-many-requests':
+      return {
+        label: 'Log in · Paused',
+        text: 'Too many attempts. Wait a few minutes, then try again.',
+      };
+    default:
+      return {
+        label: 'Account · Not reached',
+        text: 'We could not reach your account just now. Check your connection and try again.',
+      };
+  }
+}
+
+function TokenGateWall({
+  onHold,
+  upgrade: pendingUpgrade = null,
+  onLater,
+}: {
+  onHold: () => void;
+  /** An admitted device that still owes a username + password, or a claim left half done. */
+  upgrade?: AccountUpgrade | null;
+  onLater?: () => void;
+}) {
+  const remote = isRemoteConfigured();
+  const upgrade = pendingUpgrade !== null;
+  const resumeClaim = pendingUpgrade?.kind === 'claim' ? pendingUpgrade : null;
+  // This device's id already belongs to a username, so creating a second one for it would be refused.
+  const loginOnly = pendingUpgrade?.kind === 'anonymous' && pendingUpgrade.claimed;
+  const [view, setView] = useState<View>(upgrade ? 'auth' : 'landing');
+  // Every landing CTA sets the mode, so this starting value renders for no one (#70). The entry
+  // focus assertions in s345-front-door.test.ts and e2e/login.spec.ts pin the INTAKE-03 rule.
   const [mode, setMode] = useState<Mode>('login');
-  const [userToken, setUserToken] = useState('');
+  const [stage, setStage] = useState<Stage>(resumeClaim ? 'claim' : 'form');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [oldKey, setOldKey] = useState('');
   const [busy, setBusy] = useState(false);
-  /** The wall's one error slot, shared by both paths. Rendered as role="alert". */
   const [wallError, setWallError] = useState<WallError | null>(null);
-  /** Non-null once path (b) has minted + persisted: the wall becomes the show-once screen. */
-  const [minted, setMinted] = useState<string | null>(null);
-  /** This device's stored User Token, offered as a one-tap convenience. */
-  const [savedToken, setSavedToken] = useState<string | null>(null);
+  /** This device's account id, when it has one: the claim step carries it over without asking. */
+  const [savedCode, setSavedCode] = useState<string | null>(null);
+  /** Set by "Start fresh" after the carried-over id turned out to belong to someone else. */
+  const [startFresh, setStartFresh] = useState(false);
   /** A pending Trip Token from a `?trip=` invitation, joined after login/create. */
   const [pendingTrip, setPendingTrip] = useState<string | null>(null);
+  /** A single-use invite token off `&invite=`. Memory only, never written to storage. */
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  /** Signed in, but the invite was refused or unreachable; the wall offers retry / continue. */
+  const [inviteStuck, setInviteStuck] = useState(false);
+  const inviteActionRef = useRef<HTMLButtonElement>(null);
+
+  /** The signed-in user the claim step is finishing; a `minted` fresh id is kept so a retry reuses it. */
+  const claimRef = useRef<{ uid: string; username: string; minted?: string } | null>(
+    resumeClaim ? { uid: resumeClaim.uid, username: resumeClaim.username } : null,
+  );
+  /**
+   * A create whose Auth account exists but whose `users/{uid}` write failed. A retry finishes THAT
+   * account whatever is typed now (the username field locks), or a second Auth user would be made
+   * and the first username burned.
+   */
+  const [pendingCreate, setPendingCreate] = useState<{
+    uid: string;
+    username: string;
+    accountId: string;
+    reused: boolean;
+  } | null>(null);
 
   const baseId = useId();
   const titleId = `${baseId}-title`;
   const descId = `${baseId}-desc`;
-  const tokenFieldId = `${baseId}-user-token`;
-  const nameFieldId = `${baseId}-name`;
   const errorId = `${baseId}-error`;
+  const fieldId = (key: FieldKey) => `${baseId}-${key}`;
 
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
-  /**
-   * #10 — path (b)'s account seed: `pushAccountIdentity` + `pushTripList`, kicked off right after
-   * signIn (the show-once screen buys it time) and AWAITED under a budget in `finish()`. Without
-   * the await the reload kills the writes in flight (the S375 lesson), and a created account with
-   * no identity doc would be rejected by the door's own probe on the next device. A ref, not
-   * state: nothing renders from it. Both pushes never reject; the `.catch` covers the import.
-   */
-  const seedRef = useRef<Promise<unknown> | null>(null);
-
-  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Same hook as the
-  // other four modals; the wall has no `open` prop because mounting IS open (B-6).
+  // body[data-dialog-open] seam flag while open (the FAB hides on it). Mounting IS open.
   useDialogOpenFlag();
 
-  // Storage + URL are client-only facts; read once after mount (this island never SSRs its values).
+  // Storage + URL are client-only facts; read once after mount.
   useEffect(() => {
-    setSavedToken(getSyncCode());
-    const raw = new URLSearchParams(window.location.search).get('trip');
-    const t = raw?.trim();
+    const code = getSyncCode();
+    setSavedCode(code && ACCOUNT_ID_RE.test(code) ? code : null);
+    // An admitted device's link belongs to the join dialog, which already read it.
+    if (upgrade) return;
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('trip')?.trim();
+    const inv = params.get('invite')?.trim();
     if (t) setPendingTrip(t);
+    if (t && inv) setInviteToken(inv);
+    // The wall owns the link from here. Left in the URL, the join dialog would re-read `trip` once
+    // sign-in identifies the device and open over the wall.
+    if (params.has('trip') || params.has('invite')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('trip');
+      url.searchParams.delete('invite');
+      window.history.replaceState(window.history.state, '', url.toString());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Focus the first field on open and whenever the form swaps (login ⇄ create); re-assert shortly
-  // after in case the open animation steals focus, but only if focus isn't
-  // already in the panel. Skipped once the show-once screen is up — it autofocuses its own control.
-  // the landing view has no field, but it still MUST take focus. The Tab-trap below is
-  // an `onKeyDown` on the panel, so it only engages once focus is already inside — leaving focus on
-  // <body> let the very first Tab walk straight out of the wall into the page mounted behind it
-  // (caught by `e2e/login.spec.ts`, "Tab never escapes the wall"). Landing on the primary CTA is
-  // also the standard aria-modal entry: the dialog's labelledby/describedby announce the H1 and the
-  // lead paragraph on entry, so nothing is skipped.
-  // 🔴: `querySelector('button:not([disabled])')` is DOM-ORDER-SENSITIVE, and that is now
-  // load-bearing — it is the mechanism that puts entry focus on `landing-cta-login`, which is the
-  // first button in `landing-page.tsx`'s hero. Inserting any button above it in the panel moves
-  // the front door's focus. Pinned by `document.activeElement` assertions in
-  // `lib/__tests__/s345-front-door.test.ts` and `e2e/login.spec.ts`.
+  // Focus the first field on open and whenever the form swaps; re-assert shortly after in case the
+  // open animation steals focus, but only if focus isn't already in the panel. The landing view has
+  // no field but MUST still take focus, or the first Tab walks out of the wall.
+  // 🔴 `querySelector('button:not([disabled])')` is DOM-ORDER-SENSITIVE: it is what puts entry
+  // focus on `landing-cta-login`, the first button in `landing-page.tsx`'s hero.
   useEffect(() => {
-    if (minted) return;
     const timer = setTimeout(() => {
       const panel = panelRef.current;
       if (panel && !panel.contains(document.activeElement)) {
@@ -256,10 +376,17 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       }
     }, 50);
     return () => clearTimeout(timer);
-  }, [mode, minted, view]);
+  }, [mode, stage, view]);
 
-  // WALL DIVERGENCE: Esc is captured at the document level so it never falls through to
-  // anything behind the wall, but it does NOT dismiss — the wall is the front door.
+  // Move focus to the field an error names, so a keyboard or screen-reader user lands on the fix.
+  useEffect(() => {
+    if (wallError?.field) document.getElementById(fieldId(wallError.field))?.focus();
+    else if (inviteStuck) inviteActionRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallError]);
+
+  // WALL DIVERGENCE: Esc is captured so it never falls through to anything behind the wall, but it
+  // does NOT dismiss.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') e.preventDefault();
@@ -268,8 +395,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  // Lightweight Tab-trap inside the panel (no new deps), identical to name-prompt. Queried
-  // at keydown time, so it follows the panel's current contents (login / create / show-once).
+  // Lightweight Tab-trap inside the panel, queried at keydown time so it follows the current view.
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'Tab') return;
     const panel = panelRef.current;
@@ -296,178 +422,196 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     }
   };
 
-  /**
-   * The single exit for every identified path: adopt a pending invitation (the join IS the
-   * selection, so that lands Home), otherwise land on `/trips/` — the requested landing, and where the
-   * three trip actions live. FULL reload either way: the provider re-hydrates with the new
-   * identity and its trip-list subscribe re-arms with the User Token present.
-   */
-  const finish = () => {
-    const go = () => {
-      // D-546 — `joinTrip` now resolves which namespace the held token names (a `pack:` share id
-      // keeps the joiner on the default pack; anything else is a custom trip) and reports whether
-      // the switch landed. A token that could not be used falls through to the normal `/trips/`
-      // landing rather than dropping them Home on a trip they never joined.
-      if (pendingTrip && joinTrip(pendingTrip)) {
-        window.location.replace(withBasePath('/'));
-        return;
-      }
-      window.location.replace(withBasePath('/trips/'));
-    };
-    // #10 — when path (b) seeded the account docs (`seedRef`), the navigation WAITS for that seed
-    // under a 5s budget (`Promise.race`, the trips-hub CREATE_PUSH_BUDGET_MS shape): navigating
-    // immediately would abort the in-flight `setDoc`s and mint an account the door's probe cannot
-    // find. Login (path a) has no seed, so it navigates synchronously exactly as before.
-    const seed = seedRef.current;
-    if (!seed) {
-      go();
+  /** Adopt a pending invitation (lands Home), otherwise land on `/trips/`. FULL reload either way. */
+  const finish = async () => {
+    if (upgrade) {
+      window.location.reload();
       return;
     }
-    void Promise.race([seed, new Promise((r) => setTimeout(r, SEED_PUSH_BUDGET_MS))]).then(go, go);
+    const parsed = pendingTrip ? parseTripToken(pendingTrip) : null;
+    if (parsed && inviteToken && remote) {
+      const result = await within(
+        import('@/lib/invites-remote').then(({ redeemInvite }) => redeemInvite(parsed.id, inviteToken)),
+      );
+      if (result !== 'joined' && result !== 'already') {
+        if (result === 'invalid') setInviteToken(null);
+        setBusy(false);
+        setInviteStuck(true);
+        setWallError(result === 'invalid' ? INVITE_INVALID : INVITE_FAILED);
+        return;
+      }
+    }
+    // D-546 — a token that could not be used falls through to the normal `/trips/` landing.
+    if (pendingTrip && joinTrip(pendingTrip)) {
+      window.location.replace(withBasePath('/'));
+      return;
+    }
+    window.location.replace(withBasePath('/trips/'));
+  };
+
+  const fail = (err: WallError) => {
+    setBusy(false);
+    setWallError(err);
   };
 
   /**
-   * Write the credential, then read it back. The account IS localStorage on this device, and
-   * `writeString` swallows a blocked-storage failure by contract, so a write returning is not
-   * evidence that anything was stored — this is the only thing that distinguishes "saved" from
-   * "silently dropped", and without it a blocked browser loops back to this wall saying nothing.
+   * The single exit for every admitted path: store the account id (read back, because a blocked
+   * store is a silent no-op), sign in under a display name, reload. The name is the one typed at
+   * create, else this device's, else the account's own (D-277, off the probe's single read), else
+   * the placeholder plus a one-shot rename nudge.
    */
-  const persistToken = (token: string) => {
-    setSyncCode(token); // key 28 — the account credential (Trip Tokens never come here)
-    return getSyncCode() === token;
-  };
-
-  /** Path (a) — log in with the USER token ONLY (decision 2026-07-30). */
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (busy) return;
-    const token = userToken.trim();
-    if (!token) return;
-    setWallError(null);
-    setBusy(true);
-    // The door still does not ASK for a name (D-239, 2026-07-30): it reuses this device's saved
-    // display name, else the account's own, else the placeholder (renamable in Settings →
-    // Identity). Read BEFORE `signIn`, which writes the slot this reads.
+  const admit = async (accountId: string, typedName?: string) => {
+    setSyncCode(accountId);
+    if (getSyncCode() !== accountId) return fail(STORAGE_BLOCKED);
     const stored = getUserName()?.trim();
-    // ONE server read of `trips/{token}/profile/identity` answers BOTH questions the login has —
-    // #10's "is this key real?" and D-277's "what is this account called?" — because they live in
-    // the same document. Two reads with two budgets is what this replaced; one read means one 8s
-    // worst case, and the timeout case is the probe's own, already-tested one.
-    //
-    // Issued when the key is NEW (that is #10's validation, which a stored name does not excuse)
-    // or when this device has no name to reuse. A returning device with a name already stored
-    // skips it entirely and pays nothing — it must log in fully offline.
-    const fresh = token !== getSyncCode();
     let account: string | undefined;
-    if (fresh || !stored) {
-      // Dynamic import keeps the door STATICALLY firebase-free (D-239/D-054). The probe itself
-      // gates on isRemoteConfigured() and fails OPEN: dormant/offline/timeout → 'unavailable'.
+    if (!typedName && !stored) {
       const probe = await import('@/lib/trips-remote')
-        .then(({ probeAccountIdentity }) => probeAccountIdentity(token))
+        .then(({ probeAccountIdentity }) => probeAccountIdentity(accountId))
         .catch(() => ({ verdict: 'unavailable' as const, name: undefined }));
-      if (fresh && probe.verdict === 'missing') {
-        // An invented key must leave ZERO stored state: no setSyncCode, no signIn, no onHold.
-        // The stored key is this device's live session credential and is never re-gated.
-        setBusy(false);
-        setWallError(KEY_REJECTED);
-        return;
-      }
-      // 'exists' and 'unavailable' both proceed exactly as before #10.
       account = probe.name;
     }
-    // Before `onHold`, so a refused store leaves the wall exactly as it found it.
-    if (!persistToken(token)) {
-      setBusy(false);
-      setWallError(STORAGE_BLOCKED);
-      return;
-    }
     onHold();
-    // `signIn` needs a non-empty name — it IS the identity slot. Taking the account's name here is
-    // the fix for "I log in as Powan and it says Traveler": D-277 made the name an attribute of the
-    // account and left the correction to the provider's post-reload reconciler, which leaves the
-    // placeholder rendered and STAMPED onto anything edited before that read lands — and
-    // permanently so wherever no reconciler can run (a dormant build, or a read that fails).
-    // Dormant self-gates to `undefined`, so nothing changes for a build with no account layer.
-    const who = stored || account || DEFAULT_TRAVELER_NAME;
-    if (!signIn(who)) {
-      setBusy(false);
-      setWallError(SIGN_IN_FAILED);
-      return;
-    }
-    // A5: when the name truly defaulted to "Traveler" (nothing stored, and the account knows no
-    // name either), leave a one-shot cross-reload flag. The provider consumes it after the reload
-    // and nudges the traveler to rename themselves — otherwise they're never told their edits are
-    // attributed to "Traveler". (`signIn` above has since written the name into the slot, so
-    // capture `stored` pre-sign-in.)
-    if (!stored && !account) nameHintFlag.mark();
-    finish();
+    if (!signIn(typedName || stored || account || DEFAULT_TRAVELER_NAME)) return fail(SIGN_IN_FAILED);
+    if (!typedName && !stored && !account) nameHintFlag.mark();
+    return finish();
   };
 
-  /** Path (b) — create an account: mint, persist, then SHOW ONCE before anything navigates. */
-  const handleCreate = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
+    const u = normalizeUsername(username);
     const who = name.trim();
-    if (!who) return;
+    if (mode === 'create' && !upgrade && !who) return setWallError(NO_NAME);
+    if (!USERNAME_RE.test(u)) return setWallError(BAD_USERNAME);
+    if (password.length < MIN_PASSWORD_LENGTH) return setWallError(SHORT_PASSWORD('password'));
     setWallError(null);
     setBusy(true);
-    const token = crypto.randomUUID();
-    // A minted key that cannot be stored is worse than no account at all: the show-once screen
-    // would hand over a credential the device has already forgotten. Same read-back as path (a).
-    if (!persistToken(token)) {
-      setBusy(false);
-      setWallError(STORAGE_BLOCKED);
-      return;
+
+    // Dormant: no account server to check against. Admit locally, as the door always has here.
+    if (!remote) return admit(getSyncCode() ?? crypto.randomUUID(), mode === 'create' ? who : undefined);
+
+    let fr: typeof import('@/lib/firebase-remote');
+    try {
+      fr = await import('@/lib/firebase-remote');
+    } catch (err) {
+      return fail(authError(err));
     }
-    onHold();
-    if (!signIn(who)) {
-      setBusy(false);
-      setWallError(SIGN_IN_FAILED);
-      return;
+
+    if (mode === 'create') {
+      let created = pendingCreate;
+      let accountId: string;
+      try {
+        if (!created) {
+          const uid = await fr.createPasswordAccount(usernameToEmail(u), password);
+          // An upgrade keeps the account id this device already holds: its docs exist already.
+          const deviceCode = upgrade ? savedCode : null;
+          created = {
+            uid,
+            username: u,
+            accountId: deviceCode ?? crypto.randomUUID(),
+            reused: !!deviceCode,
+          };
+          setPendingCreate(created);
+        }
+        accountId = await fr.writeAccountLink(created.uid, {
+          username: created.username,
+          accountId: created.accountId,
+        });
+      } catch (err) {
+        return fail(authError(err, 'username'));
+      }
+      const typedName = upgrade ? undefined : who;
+      if (!created.reused) {
+        await within(
+          import('@/lib/trips-remote').then(({ seedAccountDocs }) =>
+            seedAccountDocs(accountId, typedName ?? getUserName()),
+          ),
+        );
+      }
+      return admit(accountId, typedName);
     }
-    // #10 — create BOTH account docs now (profile/identity + profile/tripList), so the account
-    // EXISTS server-side before the show-once confirm reloads: the door's login probe on the
-    // owner's next device finds it, and `subscribeTripList` no longer manufactures docs for
-    // unknown codes (its auto-seed branch is deleted). Dynamic import — the door stays statically
-    // firebase-free; both pushes self-gate dormant and never reject. `finish()` awaits this ref.
-    seedRef.current = import('@/lib/trips-remote')
-      .then(({ pushAccountIdentity, pushTripList }) =>
-        Promise.all([pushAccountIdentity(token, who), pushTripList(token)]),
-      )
-      .catch(() => undefined);
-    setMinted(token); // the wall becomes the show-once screen; `finish` runs on its confirm
+
+    try {
+      const { signInWithHandoff } = await import('@/lib/account-handoff-remote');
+      const { uid, link } = await signInWithHandoff(usernameToEmail(u), password);
+      if (link) return admit(link.accountId);
+      claimRef.current = { uid, username: u };
+    } catch (err) {
+      return fail(authError(err));
+    }
+    setBusy(false);
+    setStage('claim');
   };
 
-  const canSubmit = mode === 'login' ? !!userToken.trim() : !!name.trim();
+  /**
+   * First sign-in: new password first, then the account id, then `users/{uid}`. The trip grants
+   * already happened in `signInWithHandoff`, before the session swapped.
+   */
+  const handleClaim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const claim = claimRef.current;
+    if (busy || !claim) return;
+    if (newPassword.length < MIN_PASSWORD_LENGTH) return setWallError(SHORT_PASSWORD('newPassword'));
+    if (newPassword !== confirmPassword) return setWallError(PASSWORD_MISMATCH);
+    const pasted = startFresh ? '' : oldKey.trim().toLowerCase();
+    if (pasted && !ACCOUNT_ID_RE.test(pasted)) return setWallError(KEY_MALFORMED);
+    setWallError(null);
+    setBusy(true);
+
+    try {
+      const tr = await import('@/lib/trips-remote');
+      const fr = await import('@/lib/firebase-remote');
+      let accountId = startFresh ? null : savedCode;
+      if (!accountId && pasted) {
+        const probe = await tr.probeAccountIdentity(pasted);
+        if (probe.verdict === 'missing') return fail(KEY_REJECTED);
+        if (probe.verdict !== 'exists') return fail(KEY_UNCHECKED);
+        accountId = pasted;
+      }
+      // A minted id is kept across retries so a write whose answer was lost is not repeated under a new one.
+      const fresh = !accountId;
+      if (!accountId) accountId = claim.minted ??= crypto.randomUUID();
+
+      try {
+        await fr.changePassword(newPassword);
+      } catch (err) {
+        if ((err as { code?: unknown } | null)?.code === 'auth/requires-recent-login') {
+          setMode('login');
+          setStage('form');
+          return fail(SIGN_IN_AGAIN);
+        }
+        return fail(authError(err, 'newPassword'));
+      }
+      const id = await fr.writeAccountLink(claim.uid, { username: claim.username, accountId });
+      if (fresh && id === accountId) await within(tr.seedAccountDocs(id));
+      return admit(id);
+    } catch (err) {
+      return fail(authError(err, 'newPassword'));
+    }
+  };
 
   /**
-   * The `?trip=` invitation acknowledgement. An invitee must see it the moment they arrive, not
-   * only after they pick a path — the landing is where they actually land. Suppressed on the
-   * show-once screen, which owes them one thing at a time.
-   *
-   * #25 — built once here and PLACED by the view, instead of being hoisted above the view switch.
-   * The landing's cover now bleeds to the panel's top edge, so a sibling above it would sit under
-   * the photograph; the landing takes this as its `notice` slot and renders it inside the cover,
-   * first, over the picture. The auth card keeps it exactly where it was. One node either way —
-   * only one view is ever mounted — so `getByTestId` still resolves to a single element.
-   *
-   * Contrast over the photograph: the fill is surface-3, now OPAQUE rather than at 40 % — flat
-   * enamel, no glass — and surface-3 is darker than the cover's graded worst-case pixel, so it
-   * only ever darkens what is behind the text. Going opaque removes the photograph from behind
-   * the glyphs entirely, so the measured `door lead + join note (mid)` pair in
-   * scripts/contrast-tokens.mjs stays a lower bound and the real number is text-mid on
-   * surface-3, 8.67:1.
+   * The `?trip=` invitation acknowledgement, built once and PLACED by the view: the landing renders
+   * it inside its cover (#25), the auth card above its header.
    */
-  const invite =
-    pendingTrip && !minted ? (
-      <p
-        data-testid="token-gate-invite"
-        className="w-full max-w-[46ch] rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-overlay px-3 py-2.5 text-t-sm leading-relaxed text-ink-mid"
-      >
-        Someone shared a trip with you. Log in or create an account and we&rsquo;ll add it to your
-        trips.
-      </p>
-    ) : null;
+  const invite = pendingTrip && !upgrade ? (
+    <p
+      data-testid="token-gate-invite"
+      className="w-full max-w-[46ch] rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-overlay px-3 py-2.5 text-t-sm leading-relaxed text-ink-mid"
+    >
+      {inviteToken
+        ? 'Someone invited you to a trip. Log in or create an account to join it.'
+        : 'Someone shared a trip with you. Log in or create an account to open it.'}
+    </p>
+  ) : null;
+
+  const fieldProps = (key: FieldKey) => ({
+    id: fieldId(key),
+    readOnly: busy || inviteStuck,
+    invalid: wallError?.field === key,
+    errorId: wallError ? errorId : undefined,
+  });
 
   return (
     <m.div
@@ -646,185 +790,383 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
           <div className="border-t-hair border-dashed border-border" />
         </div>
 
-        {minted ? (
-          <>
-            <p id={descId} className="text-t-body text-ink-mid mb-4 leading-relaxed">
-              Your account is ready, {name.trim()}. One thing left.
-            </p>
-            <UserTokenShowOnce token={minted} onConfirm={finish} />
-          </>
-        ) : (
-          <>
-            <p id={descId} className="text-t-body text-ink-mid mb-4 leading-relaxed">
-              Log in with your key to reach your trips, or create an account.
-            </p>
+        <p id={descId} className="text-t-body text-ink-mid mb-4 leading-relaxed">
+          {stage === 'claim'
+            ? 'First sign-in on this account. Choose your own password to replace the temporary one.'
+            : loginOnly
+              ? 'Accounts now use a username and password, and this device’s account already has a username. Log in with it, and your trips on this device stay with you.'
+              : upgrade
+                ? 'Accounts now use a username and password. Set yours up once, and your trips on this device stay with you.'
+                : 'Log in with your username and password, or create an account.'}
+        </p>
+        {!remote && (
+          <p data-testid="token-gate-local-note" className="mb-4 text-t-sm leading-relaxed text-ink-mid">
+            This copy of the app has no account server, so signing in here only admits you on this
+            device.
+          </p>
+        )}
 
-            {/* Path switch. Two plain buttons with aria-pressed — no roving-tabindex tablist needed
-                for a two-way toggle that swaps a form (each stays individually tabbable).
-                The selected one is STRUCK, which is this system's one mark for "committed"; the
-                unselected one is an ordinary printed chip, NOT a dimmed copy of the struck one.
-                `whitespace-normal` beats `.chip`'s nowrap so "Create an account" wraps to two
-                lines in a 136px column at 360px instead of running out of the panel. */}
-            <div className="mb-4 grid grid-cols-2 gap-2">
+        {/* Path switch: two plain aria-pressed buttons. The selected one is STRUCK, this system's
+            mark for "committed". Hidden during the claim step, and when only log-in can work. */}
+        {stage === 'form' && !loginOnly && (
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            {(['login', 'create'] as const).map((opt) => (
               <button
+                key={opt}
                 type="button"
-                onClick={() => setMode('login')}
-                aria-pressed={mode === 'login'}
+                onClick={() => {
+                  setMode(opt);
+                  setWallError(null);
+                }}
+                aria-pressed={mode === opt}
                 disabled={busy}
-                data-testid="token-gate-mode-login"
+                data-testid={`token-gate-mode-${opt}`}
                 className={`chip min-h-tap justify-center whitespace-normal px-3 text-center leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo ${
-                  mode === 'login' ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
+                  mode === opt ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
                 }`}
               >
-                Log in
+                {opt === 'login'
+                  ? upgrade
+                    ? 'I was given a username'
+                    : 'Log in'
+                  : upgrade
+                    ? 'Create a username and password'
+                    : 'Create an account'}
               </button>
-              <button
-                type="button"
-                onClick={() => setMode('create')}
-                aria-pressed={mode === 'create'}
-                disabled={busy}
-                data-testid="token-gate-mode-create"
-                className={`chip min-h-tap justify-center whitespace-normal px-3 text-center leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo ${
-                  mode === 'create' ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
-                }`}
-              >
-                Create an account
-              </button>
-            </div>
+            ))}
+          </div>
+        )}
 
-            <form onSubmit={mode === 'login' ? handleLogin : handleCreate}>
-              {mode === 'login' && (
-                <>
-                  <label htmlFor={tokenFieldId} className="pr pr--lo mb-1.5 block">
-                    Your key
-                  </label>
-                  <div className="relative">
-                    <KeyRound
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo"
-                      aria-hidden="true"
-                    />
-                    <input
-                      id={tokenFieldId}
-                      ref={firstFieldRef}
-                      value={userToken}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserToken(e.target.value)}
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      readOnly={busy}
-                      placeholder="Paste your key"
-                      data-testid="token-gate-user-token"
-                      aria-describedby={wallError ? errorId : undefined}
-                      // #25 — the ruled field recipe, and the edge is the part that mattered.
-                      // --border-ui (4.94:1 on the page field, 3.72 on this surface-3 fill) is the
-                      // boundary of an INTERACTIVE control; --border and the old border-white/10
-                      // are decorative washes at ~1.2-1.7:1, which is under WCAG 1.4.11's 3:1 for
-                      // the one edge that says "you can type here". The fill stays surface-3 —
-                      // recessed against the surface-2 panel, and the pair contrast-tokens.mjs
-                      // measures — and only the width, radius and type step move onto the tokens.
-                      className="w-full min-h-tap pl-9 pr-3 py-2.5 rounded-r1 bg-surface-overlay border-hair border-[color:var(--border-ui)] text-ink-hi font-machine text-t-body placeholder:text-ink-lo placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
-                    />
-                  </div>
-                  {savedToken !== null && savedToken !== userToken && (
-                    <button
-                      type="button"
-                      onClick={() => setUserToken(savedToken)}
-                      disabled={busy}
-                      data-testid="token-gate-use-saved"
-                      className="mt-2 inline-flex min-h-tap items-center rounded-r1 px-1 font-sans text-t-sm font-semibold text-primary underline underline-offset-4 transition-colors outline-none hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo disabled:no-underline"
-                    >
-                      Use this device&rsquo;s saved key
-                    </button>
-                  )}
-                </>
-              )}
-
-              {/* Name is collected ONLY when creating an account (decision 2026-07-30 — login is token-
-                  only). On login the display name is reused from the device / defaults, not asked. */}
-              {mode === 'create' && (
-                <>
-                  <label htmlFor={nameFieldId} className="pr pr--lo mb-1.5 block">
-                    Your name
-                  </label>
-                  <div className="relative">
-                    <User
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo"
-                      aria-hidden="true"
-                    />
-                    <input
-                      id={nameFieldId}
-                      ref={firstFieldRef}
-                      value={name}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                      maxLength={24}
-                      autoComplete="off"
-                      autoCapitalize="words"
-                      spellCheck={false}
-                      readOnly={busy}
-                      placeholder="Enter your name"
-                      data-testid="token-gate-name"
-                      aria-describedby={wallError ? errorId : undefined}
-                      // The same field recipe as the key field above — see the note there for why
-                      // the edge is --border-ui and the fill is surface-3.
-                      className="w-full min-h-tap pl-9 pr-3 py-2.5 rounded-r1 bg-surface-overlay border-hair border-[color:var(--border-ui)] text-ink-hi text-t-body placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* THE WALL'S ONE FAILURE SLOT, and it sits outside the mode fork because two of
-                  its three conditions — refused site storage and a refused sign-in — reach it on
-                  the CREATE path as well as on log-in.
-
-                  The state gets its OWN material, a coral rule around it, rather than being a
-                  differently-tinted paragraph: an annunciator label says which condition, the
-                  sentence says what to do, and role="alert" announces it on insert. Colour is the
-                  last cue here, never the only one.
-
-                  --coral, not text-red-400: there are exactly six accents, coral is the one for
-                  warmth/warning, and it is the pair contrast-tokens.mjs already measures on this
-                  panel (`auth error (coral) on the panel`). A raw Tailwind hue is a colour no
-                  palette sweep is looking for. */}
-              {wallError && (
-                <div className="mt-3 border-hair border-[color:var(--coral)] rounded-r1 px-gut py-2">
-                  <p className="pr text-[color:var(--coral)]">{wallError.label}</p>
-                  <p
-                    id={errorId}
-                    role="alert"
-                    data-testid="token-gate-error"
-                    className="mt-1 text-t-sm leading-relaxed text-[color:var(--coral)]"
-                  >
-                    {wallError.text}
+        <form onSubmit={stage === 'claim' ? handleClaim : handleSubmit} noValidate>
+          <div className="flex flex-col gap-3">
+            {stage === 'form' && mode === 'create' && !upgrade && (
+              <TextField
+                {...fieldProps('name')}
+                inputRef={firstFieldRef}
+                label="Your name"
+                icon={User}
+                value={name}
+                onChange={setName}
+                maxLength={24}
+                autoComplete="name"
+                autoCapitalize="words"
+                testId="token-gate-name"
+              />
+            )}
+            {stage === 'form' && (
+              <>
+                <TextField
+                  {...fieldProps('username')}
+                  inputRef={mode === 'login' || upgrade ? firstFieldRef : undefined}
+                  label="Username"
+                  icon={AtSign}
+                  value={username}
+                  onChange={setUsername}
+                  maxLength={20}
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  testId="token-gate-username"
+                  readOnly={busy || (mode === 'create' && pendingCreate !== null)}
+                />
+                <PasswordField
+                  {...fieldProps('password')}
+                  label="Password"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  testId="token-gate-password"
+                />
+              </>
+            )}
+            {stage === 'claim' && (
+              <>
+                <PasswordField
+                  {...fieldProps('newPassword')}
+                  inputRef={firstFieldRef}
+                  label="New password"
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  autoComplete="new-password"
+                  testId="token-gate-new-password"
+                />
+                <PasswordField
+                  {...fieldProps('confirmPassword')}
+                  label="New password, again"
+                  noun="password confirmation"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  autoComplete="new-password"
+                  testId="token-gate-confirm-password"
+                />
+                {startFresh ? (
+                  <p data-testid="token-gate-claim-fresh" className="text-t-sm leading-relaxed text-ink-mid">
+                    Starting a fresh account for this username.
                   </p>
-                </div>
+                ) : savedCode ? (
+                  <p data-testid="token-gate-claim-device" className="text-t-sm leading-relaxed text-ink-mid">
+                    The trips on this device come with you.
+                  </p>
+                ) : (
+                  <TextField
+                    {...fieldProps('oldKey')}
+                    label="Your old key (optional)"
+                    hint="Paste the key you logged in with before, so your trips come with you. Leave it empty to start a fresh account."
+                    icon={KeyRound}
+                    value={oldKey}
+                    onChange={setOldKey}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    machine
+                    testId="token-gate-old-key"
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* The wall's ONE failure slot, a polite live region that is always mounted so an
+              inserted message is announced. --coral is the palette's warning accent and the pair
+              contrast-tokens.mjs measures on this panel; colour is never the only cue. */}
+          <div aria-live="polite">
+            {wallError && (
+              <div className="mt-3 border-hair border-[color:var(--coral)] rounded-r1 px-gut py-2">
+                <p className="pr text-[color:var(--coral)]">{wallError.label}</p>
+                <p
+                  id={errorId}
+                  data-testid="token-gate-error"
+                  className="mt-1 text-t-sm leading-relaxed text-[color:var(--coral)]"
+                >
+                  {wallError.text}
+                </p>
+              </div>
+            )}
+          </div>
+          {/* The carried-over id belongs to another username, so resubmitting can never succeed. */}
+          {stage === 'claim' && wallError === ALREADY_CLAIMED && (
+            <button
+              type="button"
+              onClick={() => {
+                setStartFresh(true);
+                setWallError(null);
+                document.getElementById(fieldId('newPassword'))?.focus();
+              }}
+              disabled={busy}
+              data-testid="token-gate-start-fresh"
+              className="btn btn--2 mt-3 w-full px-4"
+            >
+              Start fresh
+            </button>
+          )}
+
+          {inviteStuck && (
+            <>
+              {inviteToken && (
+                <button
+                  ref={inviteActionRef}
+                  type="button"
+                  onClick={() => {
+                    setBusy(true);
+                    setWallError(null);
+                    void finish();
+                  }}
+                  disabled={busy}
+                  data-testid="token-gate-invite-retry"
+                  className="btn mt-3 w-full px-4"
+                >
+                  Try again
+                </button>
               )}
-
               <button
-                type="submit"
-                disabled={!canSubmit || busy}
-                aria-busy={busy}
-                data-testid="token-gate-submit"
-                className="btn mt-3 w-full px-4"
+                ref={inviteToken ? undefined : inviteActionRef}
+                type="button"
+                onClick={() => window.location.replace(withBasePath('/trips/'))}
+                disabled={busy}
+                data-testid="token-gate-invite-continue"
+                className="btn btn--2 mt-3 w-full px-4"
               >
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                {mode === 'login' ? 'Log in' : 'Create account'}
+                Continue without joining
               </button>
+            </>
+          )}
 
-              {/* The never-mix guard, in copy: each form names the OTHER token and where it
-                  goes. (#10: the User Token side is additionally validated server-side on new
-                  logins; the Trip Token side stays labels + flow.) */}
-              <p className="mt-3 text-t-sm leading-relaxed text-ink-lo">
-                {mode === 'login'
-                  ? 'Your key is your account — it opens every trip you have. A Trip Token is not a login: add one from your Trips page after you log in.'
-                  : 'We’ll make your key — the one way back into your account — and show it to you once. Trips (and their Trip Tokens) come next, on your Trips page.'}
-              </p>
-            </form>
-          </>
+          <button
+            type="submit"
+            disabled={busy || inviteStuck}
+            aria-busy={busy}
+            data-testid="token-gate-submit"
+            className="btn mt-3 w-full px-4"
+          >
+            <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            {stage === 'claim' ? 'Save password and continue' : mode === 'login' ? 'Log in' : 'Create account'}
+          </button>
+
+          {stage === 'form' && (
+            <p className="mt-3 text-t-sm leading-relaxed text-ink-lo">
+              {mode === 'login'
+                ? loginOnly
+                  ? 'Use the username and password already set up for this account.'
+                  : upgrade
+                  ? 'Use the username and temporary password you were given.'
+                  : 'A Trip Token is not a login: add one from your Trips page after you log in.'
+                : `Usernames are 3 to 20 lowercase letters, numbers or underscores. Passwords need at least ${MIN_PASSWORD_LENGTH} characters.${upgrade ? '' : ' Trips come next, on your Trips page.'}`}
+            </p>
+          )}
+        </form>
+
+        {/* Not "skip forever": this asks again on the next app load. */}
+        {upgrade && onLater && stage === 'form' && (
+          <button
+            type="button"
+            onClick={onLater}
+            disabled={busy}
+            data-testid="token-gate-later"
+            className="btn btn--2 mt-3 w-full px-4"
+          >
+            Later
+          </button>
         )}
           </>
         )}
       </m.div>
     </m.div>
+  );
+}
+
+type FieldBase = {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: string;
+  testId: string;
+  readOnly: boolean;
+  invalid: boolean;
+  errorId?: string;
+  inputRef?: React.Ref<HTMLInputElement>;
+};
+
+// The ruled field recipe: --border-ui is the edge of an INTERACTIVE control (WCAG 1.4.11's 3:1),
+// on the recessed surface-3 fill that contrast-tokens.mjs measures against this panel.
+const INPUT_CLASS =
+  'w-full min-h-tap pl-9 py-2.5 rounded-r1 bg-surface-overlay border-hair border-[color:var(--border-ui)] text-ink-hi text-t-body placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2 aria-[invalid=true]:border-[color:var(--coral)]';
+
+// Module-level on purpose: a component declared inside the wall is a new type every render and
+// would remount the input on every keystroke.
+function TextField({
+  id,
+  label,
+  hint,
+  icon: Icon,
+  value,
+  onChange,
+  autoComplete,
+  autoCapitalize,
+  maxLength,
+  machine,
+  testId,
+  readOnly,
+  invalid,
+  errorId,
+  inputRef,
+}: FieldBase & {
+  hint?: string;
+  icon: typeof User;
+  autoCapitalize: string;
+  maxLength?: number;
+  machine?: boolean;
+}) {
+  const hintId = hint ? `${id}-hint` : undefined;
+  return (
+    <div>
+      <label htmlFor={id} className="pr pr--lo mb-1.5 block">
+        {label}
+      </label>
+      {hint && (
+        <p id={hintId} className="mb-1.5 text-t-sm leading-relaxed text-ink-mid">
+          {hint}
+        </p>
+      )}
+      <div className="relative">
+        <Icon
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo"
+          aria-hidden="true"
+        />
+        <input
+          id={id}
+          ref={inputRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          maxLength={maxLength}
+          autoComplete={autoComplete}
+          autoCapitalize={autoCapitalize}
+          spellCheck={false}
+          readOnly={readOnly}
+          aria-invalid={invalid || undefined}
+          aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined}
+          data-testid={testId}
+          className={`${INPUT_CLASS} pr-3 ${machine ? 'font-machine' : ''}`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  autoComplete,
+  testId,
+  readOnly,
+  invalid,
+  errorId,
+  inputRef,
+  noun,
+}: FieldBase & { /** What the show toggle names, when the label is too long for it. */ noun?: string }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div>
+      <label htmlFor={id} className="pr pr--lo mb-1.5 block">
+        {label}
+      </label>
+      <div className="relative">
+        <Lock
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo"
+          aria-hidden="true"
+        />
+        <input
+          id={id}
+          ref={inputRef}
+          type={shown ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
+          autoCapitalize="none"
+          spellCheck={false}
+          readOnly={readOnly}
+          aria-invalid={invalid || undefined}
+          aria-describedby={errorId}
+          data-testid={testId}
+          className={`${INPUT_CLASS} pr-12`}
+        />
+        <button
+          type="button"
+          onClick={() => setShown((s) => !s)}
+          aria-pressed={shown}
+          aria-label={`Show ${noun ?? label.toLowerCase()}`}
+          aria-controls={id}
+          data-testid={`${testId}-toggle`}
+          className="absolute right-0 top-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 text-ink-mid hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {shown ? (
+            <EyeOff className="w-4 h-4" aria-hidden="true" />
+          ) : (
+            <Eye className="w-4 h-4" aria-hidden="true" />
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 

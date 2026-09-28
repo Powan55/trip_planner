@@ -537,14 +537,20 @@ columns' single reachable stops, then Clear/Done/Close).
 
 S126. Two passive, non-destructive views on top of the structured time model (S124/S125):
 a pure view-level chronological sort (`sortItemsByTime`, stable, untimed items sink to the end
-preserving relative order; the calendar's manually-dragged order is never touched, D-018), and
-warn-only clash badges (`clashingItemIds`, half-open overlap on
+preserving relative order) and warn-only clash badges (`clashingItemIds`, half-open overlap on
 `effectiveStartMinutes`/`durationMinutes`). Zero store writes.
 
-Both functions are live; neither renders a `timeline-*` id any more. The sort's only production
-consumer is the map's per-day stop ordering (`lib/itinerary-map.ts`, one `sortItemsByTime` call,
-no second sort); the badge's is the calendar day-detail list, registered as
-`calendar-item-clash-<id>` in section 11 above. The net for the sort itself is a unit one —
+**D-606 widened the sort to every day list.** It was the map's per-day stop ordering alone; it is
+now the one order behind the planner's day detail (through `groupItemsByPhase`, section 23a), the
+Today panel, the Travel-Mode agenda, the printed sheet and the `/plan` + `/travel` day routes.
+Zero store writes still: it is a render-time projection, so the persisted order is untouched and
+D-018 holds — `e2e/sort-clash.spec.ts`'s zero-writes test asserts the stored bytes are still
+out of order while the screen is sorted. What D-606 retired is D-142's separate clause that the
+calendar RENDERS that stored order.
+
+Both functions are live; neither renders a `timeline-*` id any more. The badge's consumer is the
+calendar day-detail list, registered as `calendar-item-clash-<id>` in section 11 above. The net
+for the sort itself is a unit one —
 `lib/__tests__/sort-items-by-time.test.ts` :91 and :106 run the projection over the REAL seed
 content for the S377 Jan-9 date-line day (the DTW layover has to sort after the HND→DTW flight
 that produces it, and the rendered wall-clock stays deliberately non-monotonic), which is where a
@@ -558,6 +564,26 @@ proves only the calendar surface.
 > deleted that island: it held its own `selectedDate` and `LazyVisible` mounts islands prop-less,
 > so `/plan` shipped two 32-day day selectors that never synced. **Nothing replaced either id**,
 > and the behaviour they carried is asserted at the two consumers named above instead.
+
+### 23a. Chronological day lists and the locked grip (D-606)
+
+The planner's day detail renders `groupItemsByPhase(visibleItems, selectedDate, dayOffsetMin)` —
+`sortItemsByTime` first, then phase classification — so the `calendar-phase-header-<phase>-<id>`
+ids in section 11 appear in ascending phase order, each at most once. At most once is the part to
+hold on to: the sort key is the absolute INSTANT, so a date-line day can be correctly ordered
+with wall clocks running backwards, and the header rule stays rank-monotonic to keep "Afternoon"
+from printing a second time below "Evening" (#589).
+
+Because a timed row's place is decided by its time, drag now governs the untimed run only:
+
+| Id / attribute | Node | Notes |
+|---|---|---|
+| `data-drag-disabled="true"` | on `calendar-item-<id>` | Present only on a TIMED row. Absent (not `"false"`) on an untimed one, so assert with `not.toHaveAttribute`. The same boolean is passed to dnd-kit's `useSortable({ disabled })`, so the keyboard sensor and the pointer sensor agree — a timed row can neither be picked up nor dropped onto. |
+| `calendar-item-grip-locked-<id>` | the `<span>` replacing the grip on a timed row | Dimmed, `aria-hidden`, `title="Timed plans are ordered by time"`, same box as the button so the row's left edge stays aligned. NOT in the tab order or the a11y tree. |
+| `Reorder <title>` (role=button) | the grip `<button>` on an UNTIMED row | Unchanged, and still the keyboard-dnd entry point. The two keyboard-reorder specs (`e2e/mobile-planner.spec.ts`, `e2e/plan-map-split.spec.ts`) drive untimed fixtures, which is why they are untouched by D-606 — give either fixture a `startMinutes` and its grip disappears. |
+
+`e2e/sort-clash.spec.ts` owns the nets: the rendered order, the Morning-before-Afternoon header
+sequence (the reported defect), the trailing Anytime run, and the grip split above.
 
 The calendar's `calendar-item-clash-<id>` (added to section 11's table above) is the same badge
 pattern, computed at the day-render level (`clashingItemIds`, over the author-filtered
@@ -628,7 +654,7 @@ bottom tab bar or the desktop top row (D-071 slot ceilings).
 | testid | element | notes |
 |---|---|---|
 | `safety-kit` | the page's root `<div>` | Always present once the island mounts (its visibility is the E2E "kit is up" signal). |
-| `safety-contact-<id>` | each emergency/embassy contact's `<li>` | `<id>` is the contact's own stable id (e.g. `safety-contact-np-police`, `safety-contact-jp-us-embassy`). Contains a `tel:` `<a>` with an explicit `aria-label` (accessible name distinct from the visible digit string, D-074) and, for any contact not live-verified this session, a visible "Unverified this session" note (not color-only). |
+| `safety-contact-<id>` | each emergency/embassy contact's `<li>` | `<id>` is the contact's own stable id (e.g. `safety-contact-np-police`, `safety-contact-jp-us-embassy`). Contains a `tel:` `<a>` with an explicit `aria-label` (accessible name distinct from the visible digit string, D-074) and, for any unverified contact, a visible "unverified" note (not color-only). |
 | `safety-phrase-<id>` | each phrasebook entry's `<tr>` | `<id>` is the phrase's own stable id (e.g. `safety-phrase-hello`). 33 total, grouped into per-category `<table>`s (Greetings / Politeness / Basics / Numbers / Emergency / Directions / Food & Shopping), each wrapped in a horizontally-scrollable container so a narrow viewport never overflows the page (D-022). Each row's Nepali and Japanese cells hold the native script above its romanization; the script span carries `lang="ne"` / `lang="ja"` (#2), which `e2e/safety.spec.ts` asserts on every row — that attribute is the acceptance criterion, so it is a locator contract, not styling. |
 | `safety-checklist-<id>` | each document-checklist entry's `<li>` | `<id>` is the item's own stable id (e.g. `safety-checklist-passport-validity`). Grouped under "Before you go" / "Carry with you" / "Digital backups". Static (not an interactive checkbox), with deliberately no persisted checked-state, so it never implies a save it doesn't perform. |
 
@@ -1113,39 +1139,41 @@ conditionally in `e2e/travel-day-map.spec.ts` (the `custom-trip-gating.spec.ts` 
 | `concierge-trigger` / `concierge-panel` | the concierge, now reachable on `/travel` | Same ids as the navbar mount; there is only ever one mount at a time (the navbar returns null under `/travel`). Absent in a dormant build on both surfaces. |
 | `concierge-error` / `concierge-retry` | the `role="alert"` error row and its single "Try again" control (S389-C) | Present only while `error` is set. `concierge-error` became a `<div>` (it now wraps a button); the copy for a lost connection names being offline and no request is made at all. `concierge-retry` re-sends the last attempted turn: one control, no auto-retry or backoff. Both DOM-proven in `lib/__tests__/concierge-op-feedback.test.ts`. |
 
-## 41. Front door v3 (two-token) + `/trips` account affordances: `components/token-gate.tsx` · `components/user-token-show-once.tsx` · `components/trips-hub.tsx`, S338B (D-239, D-205 amended)
+## 41. Front door (username + password) + `/trips` account affordances: `components/token-gate.tsx` · `components/trips-hub.tsx` (D-660, superseding D-239's User Token door)
 
-D-239 splits one word into two capabilities, and the UI must never blur them:
-
-- User Token: the account credential. Same on-disk key as S255's Sync Code
-  (`tripPlannerSyncCode`, gateway key 28), promoted rather than migrated. Entered at the front
-  door only. Never shared.
+- Account: a username + password on Firebase Auth. `users/{uid}` names the account id, which is
+  what key 28 (`tripPlannerSyncCode`) holds. The id is internal: nothing reveals, mints or asks
+  the traveller to save it.
 - Trip Token: one trip's capability (the trip id, the old "Trip Key"). Entered in the
   add-a-trip form and `?trip=` links only. Sharing a trip is sharing its Trip Token.
 
-"Trip Key" and "Sync Code" are retired names in UI copy; the identity stays a plain "name".
-`getSyncCode`/`setSyncCode` and `Traveler.token` remain documented internal misnomers.
+"Trip Key", "Sync Code" and "User Token" are retired names in UI copy; the identity stays a plain
+"name". `getSyncCode`/`setSyncCode` and `Traveler.token` remain documented internal misnomers.
 
-The wall replaces the old nickname-only form (`Enter your name` + `Unlock` are gone). It has three
-paths and one extra state; the show-once screen is a state of the wall, not a route.
+The wall has two paths and one extra state; the claim step is a state of the wall, not a route.
 
 | testid | element | notes |
 |---|---|---|
-| `token-gate-mode-login` / `token-gate-mode-create` | the two path buttons (`aria-pressed`) | Login is the default. Create swaps the form to name-only. |
-| `token-gate-user-token` | the User Token `<input>` | Login mode only; absent in create mode (the token is minted for you). |
-| `token-gate-name` | the name `<input>` | Both modes. Login needs both fields non-empty to submit. |
-| `token-gate-use-saved` | "Use this device's saved User Token" | Rendered only when key 28 is set and differs from the field (a D-239 convenience); disappears once clicked. |
-| `token-gate-submit` | the primary submit | "Log in" / "Create account". Login → `setSyncCode` + `signIn` + full reload landing `/trips/`. Create → mint + persist + the show-once state. |
+| `token-gate-mode-login` / `token-gate-mode-create` | the two path buttons (`aria-pressed`) | Hidden during the claim step, and on an upgrade card whose key 28 is already in `accountClaims` (log-in only). |
+| `token-gate-name` | the name `<input>` | Create mode only. |
+| `token-gate-username` / `token-gate-password` | username + password `<input>`s | Both modes. `autocomplete` is `username` and `current-password` (login) / `new-password` (create). |
+| `token-gate-password-toggle` | show/hide control beside each password field | `{field testid}-toggle`, so also `token-gate-new-password-toggle` / `token-gate-confirm-password-toggle`. `aria-pressed`, accessible name "Show …". |
+| `token-gate-new-password` / `token-gate-confirm-password` | the claim step's password fields | First sign-in of an account with no `users/{uid}`: the missing doc is the must-change-password flag. |
+| `token-gate-claim-device` / `token-gate-old-key` | claim step: "this device's trips come with you" note, or the optional old-key `<input>` | One or the other: the note when key 28 holds a valid account id, the field when it does not. Empty field = start a fresh account. |
+| `token-gate-start-fresh` / `token-gate-claim-fresh` | claim step: "Start fresh" button, then its note | The button shows only after the link write is refused because another username owns the id; pressing it swaps the device note / key field for the fresh-account note. |
+| `token-gate-later` | "Later" on the upgrade card | Only on the upgrade card (a device admitted before D-660, anonymous session, account id in key 28). The card reuses the auth view with the mode buttons relabelled "I was given a username" / "Create a username and password" and no name field; Later hides it until the next load. |
+| `token-gate-local-note` | "no account server" note | Only on a build with no Firebase config, which admits locally. |
+| `token-gate-error` | the error text | Inside an always-mounted `aria-live="polite"` region; focus moves to the field named by the error. |
+| `token-gate-submit` | the primary submit | "Log in" / "Create account" / "Save password and continue". Every admitted path does a full reload landing `/trips/` (or `/` after a `?trip=` join). |
 | `token-gate-invite` | the `?trip=` invitation note | Only when the URL carries a `?trip=` token; that Trip Token is held and `joinTrip`ed after log-in/create, landing `/` instead of `/trips/`. **Moved by #25** — one node either way, but it is now placed by the VIEW rather than hoisted above the switch: on the landing it is the `notice` slot at the top of the photographic cover (the cover bleeds to the panel's top edge, so a sibling above it would be under the picture), on the auth card it is still the first thing in the panel. |
 | `door-wall-photo` | the cover photograph behind the AUTH view (#25) | Mounted only while `view === 'auth'`, as a sibling of the `role="dialog"` panel — the landing owns its own copy of the cover inside the panel, so this is what keeps the front door photographic in the second view (the ruled treatment: the panel scrim goes OVER the cover, not instead of it). Decorative: `aria-hidden`, `alt=""`. Nothing focusable, and deliberately outside `panelRef` so the Tab-trap and the entry-focus query cannot see it. |
-| `user-token-show-once` / `-value` / `-copy` / `-confirm` | the shared show-once block (`user-token-show-once.tsx`) | Prefix is configurable (`testIdPrefix`), so the /trips upgrade mounts it as `trips-hub-finish-account-show-once-*`. The wall is held mounted across `signIn` so this screen cannot be skipped; only `-confirm` moves on. |
 | `trips-hub-copy-token-{i}` | per-row "Trip Token" copy `<button>` | Copies the raw Trip Token (the `?trip=` link stays on `trips-hub-copy-{i}`). Logged-in only (D-238); absent when a row has no shareable token (dormant default pack). |
-| `trips-hub-finish-account` / `-mint` | the D-239 grandfathered upgrade card | Rendered only while `traveler && getSyncCode() === null`. `-mint` mints a User Token (key 28 only, leaving identity, registry and pointer untouched) and swaps the card to the show-once block. Never rendered for a guest. |
 
-Deleted here: `settings-sync-enter-input` / `settings-sync-enter-submit` (the Settings
-"Enter a code" form; entering a User Token is logging in, so the front door owns it, and
-switching accounts means sign out then log in). `settings-sync-*` and `settings-group-sync` keep
-their ids (the group is now titled "Your User Token").
+Deleted by D-660: `token-gate-user-token`, `token-gate-use-saved`, `trips-hub-finish-account*`,
+`trips-hub-sync-link`, `settings-group-sync`, `settings-sync-card` / `-code` / `-reveal` / `-copy`
+/ `-copy-error`, and `settings-identity-google*`. The sign-out dialog keeps its
+`{testId}-key-value` / `-ack` / `-confirm` show-once step (`user-token-show-once.tsx`) only on a
+device with no password session yet.
 
 ## Issue #3: `data-tier` marker, `components/page-hero.tsx` (routes: `/guides`, `/nepal`, `/japan`, `/map`, `/journal`, `/flights`)
 

@@ -7,6 +7,11 @@ function mk(id: string, fields: Partial<ItineraryItem> = {}): ItineraryItem {
   return { id, title: id, category: 'sightseeing', ...fields };
 }
 
+// A plain single-zone Nepal day — the ordering cases below are about the sort, not about
+// offsets, so they all share one date and its place offset. The date-line case names its own.
+const DAY = '2026-12-15';
+const DAY_OFFSET = 345; // NPT
+
 describe('phaseOfItem — boundary classification', () => {
   it('untimed -> anytime', () => {
     expect(phaseOfItem(mk('a'))).toBe('anytime');
@@ -41,34 +46,56 @@ describe('phaseOfItem — boundary classification', () => {
   });
 });
 
-describe('groupItemsByPhase — D-142 compatible (never re-sorts timed items)', () => {
-  it('an all-timed, out-of-chronological-order day is returned in the EXACT same order (D-142 regression net)', () => {
-    // Mirrors sort-clash.spec.ts's fixture: late(15:00), early(8:00), mid(12:00) — the
-    // calendar view must stay in stored order (only the Home timeline sorts).
-    const late = mk('late', { startMinutes: 900 });
-    const early = mk('early', { startMinutes: 480 });
-    const mid = mk('mid', { startMinutes: 720 });
-    const result = groupItemsByPhase([late, early, mid]);
-    expect(result.map((r) => r.item.id)).toEqual(['late', 'early', 'mid']);
-    // late=900min=15:00 -> afternoon; early=480min=8:00 -> morning; mid=720min=12:00 -> afternoon.
-    expect(result.map((r) => r.phase)).toEqual(['afternoon', 'morning', 'afternoon']);
-    // afternoon(late) heads; morning(early) ranks lower so no repeat header; afternoon(mid)
-    // ranks equal to the last-headed rank, also no repeat (#589 — no header thrash on a
-    // manually reordered day).
-    expect(result.map((r) => r.isNewPhase)).toEqual([true, false, false]);
+describe('groupItemsByPhase — chronological order (owner-instructed)', () => {
+  it('an all-timed, out-of-chronological-order day is SORTED by time (the reported defect)', () => {
+    // The exact shape that was reported: a 3pm plan stored before a 10am one. Before the sort,
+    // this printed "Afternoon" and then rendered the 10am plan underneath it. It must now come
+    // out early → mid → late, with Morning heading the day.
+    const late = mk('late', { startMinutes: 900 }); // 15:00 -> afternoon
+    const early = mk('early', { startMinutes: 480 }); // 08:00 -> morning
+    const mid = mk('mid', { startMinutes: 720 }); // 12:00 -> afternoon
+    const result = groupItemsByPhase([late, early, mid], DAY, DAY_OFFSET);
+    expect(result.map((r) => r.item.id)).toEqual(['early', 'mid', 'late']);
+    expect(result.map((r) => r.phase)).toEqual(['morning', 'afternoon', 'afternoon']);
+    // Morning heads; the first afternoon row heads; the second does not repeat the header.
+    expect(result.map((r) => r.isNewPhase)).toEqual([true, true, false]);
   });
 
-  it('a day crossing timezones forward (earlier local phase after later) gets no repeated header (#589)', () => {
-    // Jan 9: morning, afternoon, evening, then an afternoon- and evening-phase item again
-    // (e.g. an eastbound flight landing the same local day earlier in the clock).
-    const m = mk('m', { startMinutes: 6 * 60 }); // morning
-    const a1 = mk('a1', { startMinutes: 13 * 60 }); // afternoon
-    const e1 = mk('e1', { startMinutes: 18 * 60 }); // evening
-    const a2 = mk('a2', { startMinutes: 14 * 60 }); // afternoon
-    const e2 = mk('e2', { startMinutes: 20 * 60 }); // evening
-    const result = groupItemsByPhase([m, a1, e1, a2, e2]);
-    expect(result.map((r) => r.item.id)).toEqual(['m', 'a1', 'e1', 'a2', 'e2']);
-    expect(result.map((r) => r.isNewPhase)).toEqual([true, true, true, false, false]);
+  it('a 10am plan and a 3pm plan each sit under their OWN phase header, whatever the stored order', () => {
+    // Asserted in BOTH stored orders, because the defect was order-dependent: the header was
+    // only wrong when the later plan happened to be stored first.
+    const a = mk('a', { startMinutes: 10 * 60 }); // 10:00 -> morning
+    const b = mk('b', { startMinutes: 15 * 60 }); // 15:00 -> afternoon
+    for (const input of [[a, b], [b, a]]) {
+      const result = groupItemsByPhase(input, DAY, DAY_OFFSET);
+      expect(result.map((r) => [r.item.id, r.phase, r.isNewPhase])).toEqual([
+        ['a', 'morning', true],
+        ['b', 'afternoon', true],
+      ]);
+    }
+  });
+
+  it('ties keep their stored order (the sort is stable)', () => {
+    const first = mk('first', { startMinutes: 600 });
+    const second = mk('second', { startMinutes: 600 });
+    expect(groupItemsByPhase([first, second], DAY, DAY_OFFSET).map((r) => r.item.id))
+      .toEqual(['first', 'second']);
+    expect(groupItemsByPhase([second, first], DAY, DAY_OFFSET).map((r) => r.item.id))
+      .toEqual(['second', 'first']);
+  });
+
+  it('a date-line day sorts by INSTANT, so wall clocks may run backwards — and no header repeats (#589)', () => {
+    // 2027-01-09, the real Tokyo -> Detroit day. The JST flight (17:35, evening) departs BEFORE
+    // the EST layover it produces (15:35, afternoon) in absolute time. Chronological order is
+    // therefore evening-then-afternoon by wall clock, and a rank-blind header rule would print
+    // "Afternoon" a second time under "Evening". The monotonic guard is what prevents it.
+    const jst = mk('jst', { startMinutes: 17 * 60 + 35 }); // 17:35 JST -> evening
+    const est = mk('est', { startMinutes: 15 * 60 + 35, tzOffsetMin: -300 }); // 15:35 EST -> afternoon
+    const result = groupItemsByPhase([est, jst], '2027-01-09', 540);
+    // The flight sorts first because its INSTANT is earlier, despite the later wall clock.
+    expect(result.map((r) => r.item.id)).toEqual(['jst', 'est']);
+    expect(result.map((r) => r.phase)).toEqual(['evening', 'afternoon']);
+    expect(result.map((r) => r.isNewPhase)).toEqual([true, false]);
   });
 
   it('untimed items move to a single trailing run, preserving their own relative order', () => {
@@ -76,7 +103,7 @@ describe('groupItemsByPhase — D-142 compatible (never re-sorts timed items)', 
     const timed = mk('timed', { startMinutes: 600 }); // 10:00 -> morning
     const u2 = mk('u2');
     const u3 = mk('u3');
-    const result = groupItemsByPhase([u1, timed, u2, u3]);
+    const result = groupItemsByPhase([u1, timed, u2, u3], DAY, DAY_OFFSET);
     expect(result.map((r) => r.item.id)).toEqual(['timed', 'u1', 'u2', 'u3']);
     expect(result.map((r) => r.phase)).toEqual(['morning', 'anytime', 'anytime', 'anytime']);
     expect(result.map((r) => r.isNewPhase)).toEqual([true, true, false, false]);
@@ -86,19 +113,19 @@ describe('groupItemsByPhase — D-142 compatible (never re-sorts timed items)', 
     const a = mk('a', { startMinutes: 6 * 60 }); // morning
     const b = mk('b', { startMinutes: 7 * 60 }); // morning
     const c = mk('c', { startMinutes: 13 * 60 }); // afternoon
-    const result = groupItemsByPhase([a, b, c]);
+    const result = groupItemsByPhase([a, b, c], DAY, DAY_OFFSET);
     expect(result.map((r) => r.isNewPhase)).toEqual([true, false, true]);
   });
 
   it('never mutates the input array', () => {
     const items = [mk('b', { startMinutes: 600 }), mk('a')];
     const original = [...items];
-    groupItemsByPhase(items);
+    groupItemsByPhase(items, DAY, DAY_OFFSET);
     expect(items).toEqual(original);
   });
 
   it('empty input returns an empty array', () => {
-    expect(groupItemsByPhase([])).toEqual([]);
+    expect(groupItemsByPhase([], DAY, DAY_OFFSET)).toEqual([]);
   });
 });
 

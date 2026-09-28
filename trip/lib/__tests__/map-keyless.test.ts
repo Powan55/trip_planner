@@ -6,8 +6,8 @@ import { buildMapStyle } from '@/lib/map-style';
 /**
  * "The map says 'No API keys'" (owner report, blocks main).
  *
- * The map has no key branch to fix. D-079 (LOCKED) put the basemap on free keyless CARTO
- * raster tiles and D-319 moved the glyphs same-origin under `public/font/`, so there is no
+ * The map has no key branch to fix. D-606 put the basemap on free keyless OpenFreeMap
+ * vector tiles and D-319 moved the glyphs same-origin under `public/font/`, so there is no
  * provider account, no `NEXT_PUBLIC_*` map key, and no keyed/unkeyed state the UI could
  * report. What the owner read was OUR OWN marketing copy: `components/landing-page.tsx`
  * printed the words "no API key" on the annunciator row whose left column says "Map".
@@ -23,13 +23,13 @@ import { buildMapStyle } from '@/lib/map-style';
 
 const landingSrc = readFileSync(resolve(__dirname, '../../components/landing-page.tsx'), 'utf8');
 
-/** Every URL-shaped string the style hands to MapLibre: tile endpoints + the glyph template. */
+/** Every URL-shaped string the style hands to MapLibre: TileJSON/tile endpoints + the glyph template. */
 function styleUrls(): string[] {
   const style = buildMapStyle();
-  const sources = style.sources as Record<string, { tiles?: string[] }>;
+  const sources = style.sources as Record<string, { tiles?: string[]; url?: string }>;
   return [
     style.glyphs as string,
-    ...Object.values(sources).flatMap((s) => s.tiles ?? []),
+    ...Object.values(sources).flatMap((s) => [...(s.tiles ?? []), ...(s.url ? [s.url] : [])]),
   ];
 }
 

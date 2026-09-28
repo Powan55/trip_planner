@@ -32,10 +32,9 @@ function conciergeOrigin(): string {
 /**
  * Everything the app actually opens a connection to at runtime:
  *
- * - `https://*.basemaps.cartocdn.com` — CARTO dark-matter raster tiles (lib/map-style.ts
- *   `CARTO_DARK_TILES`, subdomains a-d). MapLibre pulls raster tiles through `fetch`,
- *   so this is the directive that governs them — NOT `img-src`. Verified by removing the
- *   origin from here: all 46 tile requests were blocked and the basemap went blank.
+ * - `https://tiles.openfreemap.org` — OpenFreeMap vector tiles (lib/map-style.ts
+ *   `OPENFREEMAP_TILEJSON` and the tiles it names). MapLibre pulls both through `fetch`, so this is the
+ *   directive that governs them — NOT `img-src`.
  * - `https://api.open-meteo.com` — forecasts (lib/weather.ts `OPEN_METEO_URL`).
  * - `https://air-quality-api.open-meteo.com` — air quality (lib/weather.ts
  *   `OPEN_METEO_AQ_URL`). Same operator, same keyless/no-account free tier as the forecast
@@ -57,7 +56,7 @@ function conciergeOrigin(): string {
  */
 const CONNECT_SRC = [
   "'self'",
-  'https://*.basemaps.cartocdn.com',
+  'https://tiles.openfreemap.org',
   'https://api.open-meteo.com',
   'https://air-quality-api.open-meteo.com',
   'https://api.frankfurter.dev',
@@ -117,15 +116,8 @@ export function buildCsp(): string {
 
     // `blob:` — photo object URLs (hooks/use-photo-object-url.ts).
     // `data:` — photos inlined into a vault backup (core/vault/backup.ts blobToDataUrl).
-    // NO carto origin here, and the reason is a runtime OPTION, not a missing code path.
-    // maplibre-gl 6 still ships an `Image()` decoder (`getImageUsingHtmlImage` in
-    // util/image_request.ts), but it is reached only when `supportImageRefresh === false`,
-    // and raster_tile_source.ts feeds that from the Map's `refreshExpiredTiles` option,
-    // which defaults to `true` (ui/map.ts). This app never passes it, so every tile goes
-    // through `fetch` and is governed by `connect-src` ONLY. Verified in Chromium: without
-    // the tile origin in `img-src`, all 24 tiles still load with zero violations.
-    // TRIPWIRE: if the app ever constructs the Map with `refreshExpiredTiles: false`, tiles
-    // switch to `<img>` and the carto origin has to be added to this line.
+    // No tile origin here: the basemap is vector, fetched as .pbf by the worker, so
+    // `connect-src` alone governs it.
     "img-src 'self' data: blob:",
 
     // maplibre-gl 6 spawns its worker straight from the same-origin /maplibre/ URL set in

@@ -13,6 +13,7 @@ import {
   getDefaultTripShareId,
   isSafeTripSegment,
   keyForTrip,
+  markDefaultTripAdopted,
   markTripCreatedHere,
   readString,
   setDefaultTripShareId,
@@ -77,6 +78,7 @@ async function settle(): Promise<void> {
     // Marked only once the claim is won, and in the same synchronous run as the adopt, so a failed
     // or lost claim leaves nothing behind.
     markTripCreatedHere(minted);
+    markDefaultTripAdopted(minted);
     markLocalDataDirty();
     setDefaultTripShareId(id);
     window.location.reload();
@@ -97,6 +99,7 @@ async function settle(): Promise<void> {
   setDefaultTripShareId(id);
   // Set before drop, so a write that didn't land can't cost the local plan.
   if (getDefaultTripShareId() !== id) return;
+  markDefaultTripAdopted(id);
   dropDefaultPackSyncedData();
   window.location.reload();
 }

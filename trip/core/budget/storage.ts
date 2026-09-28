@@ -25,8 +25,8 @@ export function loadBudget(): BudgetModel {
 }
 
 /** Normalize + persist the whole budget model. No-op / never-throws under SSR or storage failure. */
-export function saveBudget(model: BudgetModel): void {
-  budgetStore.set<BudgetModel>(normalizeModel(model));
+export function saveBudget(model: BudgetModel): boolean {
+  return budgetStore.set<BudgetModel>(normalizeModel(model));
 }
 
 // ── Expenses — mirrors the budget adapter exactly ──────
@@ -46,8 +46,8 @@ export function loadExpenses(): Expense[] {
  * failure (the gateway swallows quota / disabled-storage). Sanitizing on write keeps a corrupt
  * caller value from ever reaching disk.
  */
-export function saveExpenses(expenses: Expense[]): void {
-  expensesStore.set<Expense[]>(sanitizeExpenses(expenses));
+export function saveExpenses(expenses: Expense[]): boolean {
+  return expensesStore.set<Expense[]>(sanitizeExpenses(expenses));
 }
 
 /**

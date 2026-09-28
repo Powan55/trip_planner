@@ -78,15 +78,15 @@ async function readStoredFavorites(page: Page): Promise<string[] | null> {
   }, FAVORITES_KEY);
 }
 
-// This sandbox has no real internet access, so the map's raster tile source
-// (basemaps.cartocdn.com) always 404s/aborts/`ERR_INTERNET_DISCONNECTED`s —
+// This sandbox has no real internet access, so the map's tile source
+// (tiles.openfreemap.org) always 404s/aborts/`ERR_INTERNET_DISCONNECTED`s —
 // REGARDLESS of `context.setOffline` and regardless of this slice's changes (the
 // same tile-fetch noise appears in the pre-existing `e2e/map-trip-mode.spec.ts`
 // pack, unrelated to this feature). That's an environment limit, not a functional
 // regression, so it is filtered out of the "no console errors" assertions here —
 // anything else still fails the test.
 const KNOWN_TILE_FETCH_NOISE =
-  /basemaps\.cartocdn\.com|AJAXError: Failed to fetch|Failed to load resource: net::ERR_INTERNET_DISCONNECTED/;
+  /tiles\.openfreemap\.org|AJAXError: Failed to fetch|Failed to load resource: net::ERR_INTERNET_DISCONNECTED/;
 
 // The reload in the first test below races MapLibre's in-flight glyph fetch, whose abort logs a
 // bare `TypeError: Failed to fetch` that `KNOWN_TILE_FETCH_NOISE` cannot match by construction.
@@ -249,7 +249,7 @@ test.describe('FU-34 · offline connectivity hint', () => {
     // deliberately NOT precached per V6-14, so it's a real network round trip on first
     // load). A request killed mid-flight by the offline toggle surfaces as a bare
     // `Failed to load resource: net::ERR_FAILED`, which KNOWN_TILE_FETCH_NOISE does not
-    // match (it only covers cartocdn/AJAXError/ERR_INTERNET_DISCONNECTED) and which then
+    // match (it only covers openfreemap/AJAXError/ERR_INTERNET_DISCONNECTED) and which then
     // trips the no-console-errors assertion below — a CI-runner-timing race (#325), not a
     // product defect. The SW's atomic install (~200 precache entries on this build) takes
     // measurably longer than one small same-origin asset fetch, so waiting for it to finish

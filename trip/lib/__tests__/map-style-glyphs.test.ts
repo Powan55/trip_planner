@@ -87,6 +87,25 @@ describe('map glyphs — the PBFs sit where MapLibre will ask for them', () => {
     expect(readdirSync(publicFontDir).sort()).toEqual([...stacks].sort());
   });
 
+  it('basemap labels read name:latin only, from Regular, whose Latin ranges are on disk', () => {
+    const style = buildMapStyle();
+    const labels = (style.layers as Array<{ type: string; layout?: Record<string, unknown> }>)
+      .filter((l) => l.type === 'symbol');
+    expect(labels.length).toBeGreaterThan(0);
+    for (const l of labels) {
+      expect(l.layout?.['text-field']).toEqual(['get', 'name:latin']);
+      expect(l.layout?.['text-font']).toEqual(['Noto Sans Regular']);
+    }
+    for (const range of ['256-511', '7680-7935', '8192-8447']) {
+      const rel = (style.glyphs as string)
+        .replace('{fontstack}', 'Noto Sans Regular')
+        .replace('{range}', range);
+      const bytes = readFileSync(resolve(__dirname, '../../public', rel.replace(/^\//, '')));
+      expect(bytes.byteLength).toBeGreaterThan(20_000);
+      expect(bytes.subarray(0, 64).toString('latin1')).toContain('Noto Sans Regular');
+    }
+  });
+
   it.each(fontStacksFromSource())(
     '%s: the file exists at the path the template resolves to, and is that stack',
     (stack) => {

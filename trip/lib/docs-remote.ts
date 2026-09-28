@@ -82,9 +82,10 @@ export async function pushChecklistMerged(
   db: import('firebase/firestore').Firestore,
   fs: Pick<FirestoreMod, 'doc' | 'runTransaction'>,
   localRows: DocItem[],
+  tripId = getTripId(),
 ): Promise<void> {
   const { doc, runTransaction } = fs;
-  const ref = doc(db, 'trips', getTripId(), 'docs', 'checklist');
+  const ref = doc(db, 'trips', tripId, 'docs', 'checklist');
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const remoteRows: DocItem[] = snap.exists() ? docToRows(snap.data() as Record<string, unknown>) : [];
@@ -99,10 +100,10 @@ export async function pushChecklistMerged(
  * failure (getRemote rejects when unreachable; pushChecklistMerged rejects on a transport error) so
  * the decorator keeps the chunk dirty. Gated + lazy firebase stays behind `getRemote()`.
  */
-export async function pushDocsChunk(current: DocItem[], chunk: string): Promise<void> {
+export async function pushDocsChunk(current: DocItem[], chunk: string, tripId: string): Promise<void> {
   if (chunk !== 'checklist') return; // unknown chunk → ack (never a bad write)
   const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
-  await pushChecklistMerged(db, fs, current); // rejects on transport error → stays dirty
+  await pushChecklistMerged(db, fs, current, tripId); // rejects on transport error → stays dirty
 }
 
 /**

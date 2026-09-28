@@ -487,11 +487,12 @@ function SafetyRow({
             <a
               key={c.id}
               href={`tel:${c.tel}`}
-              aria-label={`Call ${c.service}, ${c.number}`}
+              aria-label={`Call ${c.service}, ${c.number}${c.verified ? '' : ' (unverified)'}`}
               data-testid={`travel-essentials-safety-${c.id}`}
-              className="chip chip--struck min-h-tap px-3 outline-none transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="chip chip--struck min-h-tap whitespace-normal break-words px-3 text-left outline-none transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {c.service}: {c.number}
+              {!c.verified && ' (unverified)'}
             </a>
           ))}
         </span>

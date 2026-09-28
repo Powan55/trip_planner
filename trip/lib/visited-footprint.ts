@@ -3,8 +3,8 @@
  * already has and NOT from a country dataset.
  *
  * ── WHY THERE IS NO POLYGON FILE HERE, AND WHY THIS IS NOT A COUNTRY BORDER ────────────────
- * The basemap is a RASTER source (CARTO dark-matter, `lib/map-style.ts`), so it carries no
- * vector country geometry to recolour. The only country-shaped data the repo holds is the pair
+ * The basemap (OpenFreeMap vector, `lib/map-style.ts`) carries border LINES but no country
+ * polygons to recolour. The only country-shaped data the repo holds is the pair
  * of leg bounding boxes in `core/places/model.ts` — rectangles used to decide which leg an
  * imported pin belongs to. Filling those rectangles and calling them Nepal and Japan would
  * paint the Korean peninsula and most of the Sea of Japan as "visited", which is the D-271

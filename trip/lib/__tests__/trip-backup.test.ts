@@ -39,6 +39,8 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 });
 // The four per-domain remote writers, reached by a dynamic import inside each `pushChunk`. Rejecting
 // keeps the chunk dirty deterministically — the offline case, and the state under test.
+const pushJournalEntryMock = vi.fn(() => Promise.resolve());
+vi.mock('@/lib/journal-remote', () => ({ pushJournalEntry: pushJournalEntryMock }));
 vi.mock('@/lib/expenses-remote', () => ({ pushExpenseChunk: () => Promise.reject(new Error('offline')) }));
 vi.mock('@/lib/budget-remote', () => ({ pushBudgetChunk: () => Promise.reject(new Error('offline')) }));
 vi.mock('@/lib/docs-remote', () => ({ pushDocsChunk: () => Promise.reject(new Error('offline')) }));
@@ -46,7 +48,7 @@ vi.mock('@/lib/places-remote', () => ({ pushPlacesChunk: () => Promise.reject(ne
 
 import { exportTripBackup, importTripBackup, BACKUP_VERSION } from '@/lib/trip-backup';
 import { outboxDirty } from '@/core/sync/outbox';
-import { supportsCompression, decompressBlobOrText } from '@/core/vault/compression';
+import { supportsCompression, decompressBlobOrText, compressToBlob } from '@/core/vault/compression';
 import { makeInMemoryBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import {
   journalStore,
@@ -58,6 +60,7 @@ import {
   dayAnchorStore,
   shareInboxStore,
   setActiveTripId,
+  markDefaultTripAdopted,
   wipeAllTripData,
   STORAGE_KEYS,
 } from '@/core/storage/gateway';
@@ -166,6 +169,7 @@ beforeEach(() => {
   localStorage.clear();
   setActiveTripId(''); // clear the active-trip pointer → default pack
   localStorage.clear();
+  pushJournalEntryMock.mockClear();
 });
 
 afterEach(() => {
@@ -771,6 +775,92 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(outboxDirty('docs')).toEqual(['checklist']);
     expect(outboxDirty('places')).toEqual(['list']);
   });
+
+  // #698: a local write the browser refuses (quota) must not still queue the restore for sync —
+  // that would push the rejected data to every other member while this device kept its old copy.
+  it('a domain whose local write is refused (quota) is not enqueued; the others still are', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    expensesStore.set([]);
+    budgetStore.set(normalizeModel({}));
+    docsStore.set([]);
+    myPlacesStore.set([]);
+
+    const realSetItem = Storage.prototype.setItem.bind(localStorage);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      if (key === STORAGE_KEYS.expenses) {
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      return realSetItem(key, value);
+    });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    expect(outboxDirty('expenses')).toEqual([]); // refused write → not enqueued
+    expect(outboxDirty('budget')).toEqual(['model']);
+    expect(outboxDirty('docs')).toEqual(['checklist']);
+    expect(outboxDirty('places')).toEqual(['list']);
+    // the UI's "Trip restored — X, Y are back" message is built from `restored`, so a refused
+    // domain must not be in it (the refusal must not be reported as a success).
+    expect(res.restored).not.toContain('expenses');
+    expect(res.restored).toContain('budget');
+  });
+
+  it('a refused journal write does not re-stamp/push the OLD local journal', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    const realSetItem = Storage.prototype.setItem.bind(localStorage);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      if (key === STORAGE_KEYS.journal) throw new DOMException('quota', 'QuotaExceededError');
+      return realSetItem(key, value);
+    });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(pushJournalEntryMock).not.toHaveBeenCalled();
+    expect(res.restored).not.toContain('journal');
+  });
+
+  it('reports ok:false, not a fake success, when every write is refused (storage full)', async () => {
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: { expenses: SEED_EXPENSES },
+      photos: { meta: [], blobs: {} },
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new DOMException('quota', 'QuotaExceededError');
+      });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/storage/i);
+  });
 });
 
 // ── The container version is READ, not just stamped ─────────────────────────────────────────────
@@ -948,6 +1038,85 @@ describe('#570 — a synced restore must come from the same shared trip', () => 
 
     expect(res.ok).toBe(true);
     expect(commit).toHaveBeenCalledWith(SEED_PLANS);
+  });
+
+  describe('#657 — an unshared default-pack backup after this device adopted the trip', () => {
+    async function unsharedBackup(): Promise<Blob> {
+      gate.tripId = '';
+      await seedAll(makeInMemoryBlobStore());
+      return exportTripBackup(makeInMemoryBlobStore());
+    }
+    const adopted = (shareId: string, at: string) =>
+      localStorage.setItem(STORAGE_KEYS.defaultTripAdopted, JSON.stringify({ shareId, at }));
+
+    it('restores a backup made before the adopt', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      markDefaultTripAdopted('share-X');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(true);
+      expect(commit).toHaveBeenCalledWith(SEED_PLANS);
+    });
+
+    it('refuses a backup made after the adopt', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      adopted('share-X', '2020-01-01T00:00:00.000Z');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toMatch(/unshared copy/);
+      expect(commit).not.toHaveBeenCalled();
+    });
+
+    it('refuses when the adopt was of a different shared trip', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      markDefaultTripAdopted('share-Z');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      expect(commit).not.toHaveBeenCalled();
+    });
+
+    it('refuses when exportedAt is not a parseable date', async () => {
+      const file = await unsharedBackup();
+      const text = (await decompressBlobOrText(file)).replace(/"exportedAt":"[^"]*"/, '"exportedAt":"not-a-date"');
+      const badFile = await compressToBlob(text);
+      localStorage.clear();
+      markDefaultTripAdopted('share-X');
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(badFile, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toMatch(/unshared copy/);
+      expect(commit).not.toHaveBeenCalled();
+    });
+
+    it('refuses on a joined trip, which leaves no adopt marker', async () => {
+      const file = await unsharedBackup();
+      localStorage.clear();
+      syncOn('share-X');
+      const commit = vi.fn();
+
+      const res = await importTripBackup(file, makeInMemoryBlobStore(), commit);
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toMatch(/unshared copy/);
+      expect(commit).not.toHaveBeenCalled();
+    });
   });
 
   it('refuses a legacy itinerary-only file on a synced device', async () => {

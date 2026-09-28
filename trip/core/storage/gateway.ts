@@ -538,6 +538,12 @@ export const STORAGE_KEYS = {
    */
   defaultTripShare: 'nepal_japan_default_trip_share',
   /**
+   * localStorage — JSON `{ shareId, at }`, set when THIS device turned its own default pack into a
+   * shared trip (mint, account adopt, or the share dialog), never on a join (key 52; D-651). Lets a
+   * backup made before that moment restore into it. Person data: sign-out clears it.
+   */
+  defaultTripAdopted: 'nepal_japan_default_trip_adopted',
+  /**
    * localStorage — JSON `string[]` of remote trip ids CREATED on this device (created-here, key 46;
    * D-551). The first-snapshot seed names this device `owner` only for these, so a joiner who
    * reaches a trip before its creator's doc landed cannot seed themselves owner. APP-SCOPED and
@@ -556,12 +562,6 @@ export const STORAGE_KEYS = {
    * `wipeAllTripData` removes it on sign-out. Shape owned by `lib/account-prefs-remote.ts`.
    */
   personPrefs: 'nepal_japan_person_prefs',
-  /**
-   * sessionStorage — comma-joined `string[]` of trip ids this tab has already reloaded for after
-   * joining their roster itself (self-join reload, key 49; D-595). Same shape as
-   * `tripMetaSelfHeal`. APP-SCOPED.
-   */
-  selfJoinReload: 'nepal_japan_self_join_reload',
   /**
    * localStorage — JSON `{ [date]: { hlc, dirty?, deletedAt? } }`, the per-entry sync stamps for
    * the journal's account copy (journal-sync, key 50; D-596). TRIP-SCOPED beside key 12. Sync
@@ -702,6 +702,20 @@ export function setDefaultTripShareId(id: string): void {
   else writeString('local', STORAGE_KEYS.defaultTripShare, trimmed);
 }
 
+export type DefaultTripAdopted = { shareId: string; at: string };
+
+/** Record that this device's own default pack became shared trip `shareId` (D-651). */
+export function markDefaultTripAdopted(shareId: string): void {
+  writeJson('local', STORAGE_KEYS.defaultTripAdopted, { shareId, at: new Date().toISOString() });
+}
+
+export function getDefaultTripAdopted(): DefaultTripAdopted | null {
+  const v = readJson<unknown>('local', STORAGE_KEYS.defaultTripAdopted, null);
+  if (typeof v !== 'object' || v === null) return null;
+  const { shareId, at } = v as Record<string, unknown>;
+  return typeof shareId === 'string' && typeof at === 'string' ? { shareId, at } : null;
+}
+
 /**
  * Raw known-trips accessor pair — byte-transport only, mirroring the
  * `activeTrip` pointer pattern. ALL shape/sanitize/policy logic (TripMeta parse, default-pack-
@@ -717,18 +731,16 @@ export function setKnownTripsRaw(raw: string): void {
 }
 
 /**
- * USER TOKEN accessor pair — byte-transport only, mirroring `knownTrips`.
+ * ACCOUNT ID accessor pair — byte-transport only, mirroring `knownTrips`.
  *
- * PROMOTED this value from "personal Sync Code" to the **User Token**: the account credential
- * the front door logs in with, owning the cross-device trip list. Deliberately the SAME on-disk key
- * (`tripPlannerSyncCode`) and the same remote path — so every device that ever minted a Sync Code is
- * already an account, with zero migration and zero Firestore-rules change. These two accessor names
- * are therefore documented INTERNAL MISNOMERS, kept because renaming them is churn with no behavior
- * It is NEVER a Trip Token and never shareable.
+ * The account id the signed-in user owns (`users/{uid}.accountId`, D-660): it keys the account's
+ * trip list and identity docs. The on-disk key (`tripPlannerSyncCode`) and these accessor names
+ * date from when this was a personal Sync Code and then the User Token the door logged in with;
+ * they are INTERNAL MISNOMERS, kept because renaming them is churn with no behavior change. It is
+ * NEVER a Trip Token and never shareable.
  *
- * Minting (`crypto.randomUUID()`) + all policy live in the callers (`components/token-gate.tsx`
- * create-account, `components/trips-hub.tsx` grandfathered upgrade, `components/settings-panel.tsx`
- * reveal, `lib/trips-remote.ts` push/subscribe); the gateway just reads/writes the raw string.
+ * Minting (`crypto.randomUUID()`) + all policy live in the callers (`components/token-gate.tsx`,
+ * `lib/trips-remote.ts` push/subscribe); the gateway just reads/writes the raw string.
  * APP-SCOPED, never namespaced. `null` when never minted. Never throws.
  */
 export function getSyncCode(): string | null {
@@ -903,6 +915,7 @@ export function wipeAllTripData(): void {
   // SHARED plan, so a sign-out that left it behind would silently sync the next person on this
   // device straight into that trip. Same reasoning as `syncCode` two lines up.
   removeKey('local', STORAGE_KEYS.defaultTripShare);
+  removeKey('local', STORAGE_KEYS.defaultTripAdopted);
   removeKey('local', STORAGE_KEYS.tripsCreatedHere);
   removeKey('local', STORAGE_KEYS.personPrefs);
 }
@@ -986,16 +999,21 @@ export function notifyQuotaExceeded(key: string): void {
   }
 }
 
-/** Write a raw string. No-op during SSR or if storage is unavailable. Never throws. */
-export function writeString(store: Store, key: string, value: string): void {
+/**
+ * Write a raw string. No-op during SSR or if storage is unavailable. Never throws.
+ * Returns true only when the write landed, so a synced caller can skip pushing a refused save.
+ */
+export function writeString(store: Store, key: string, value: string): boolean {
   const s = backing(store);
-  if (s === null) return;
+  if (s === null) return false;
   try {
     s.setItem(key, value);
+    return true;
   } catch (err) {
     // ignore (quota / disabled storage) — but surface a quota failure specifically;
     // writeJson delegates here, so this one call site covers both primitives.
     if (isQuotaError(err)) notifyQuotaExceeded(key);
+    return false;
   }
 }
 
@@ -1055,15 +1073,15 @@ export function readJson<T>(store: Store, key: string, fallback: T): T {
 }
 
 /** `JSON.stringify` + write a slot. No-op / never-throw exactly like `writeString`. */
-export function writeJson<T>(store: Store, key: string, value: T): void {
+export function writeJson<T>(store: Store, key: string, value: T): boolean {
   // stringify can throw on a cyclic value; keep the whole op total.
   let serialized: string;
   try {
     serialized = JSON.stringify(value);
   } catch {
-    return;
+    return false;
   }
-  writeString(store, key, serialized);
+  return writeString(store, key, serialized);
 }
 
 // ── Domain accessors — the actual public API ───────────────
@@ -1213,8 +1231,8 @@ export const budgetStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('budget'), fallback);
   },
-  set<T>(model: T): void {
-    writeJson('local', keyFor('budget'), model);
+  set<T>(model: T): boolean {
+    return writeJson('local', keyFor('budget'), model);
   },
 } as const;
 
@@ -1233,8 +1251,8 @@ export const expensesStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('expenses'), fallback);
   },
-  set<T>(expenses: T): void {
-    writeJson('local', keyFor('expenses'), expenses);
+  set<T>(expenses: T): boolean {
+    return writeJson('local', keyFor('expenses'), expenses);
   },
 } as const;
 
@@ -1253,8 +1271,8 @@ export const journalStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('journal'), fallback);
   },
-  set<T>(entries: T): void {
-    writeJson('local', keyFor('journal'), entries);
+  set<T>(entries: T): boolean {
+    return writeJson('local', keyFor('journal'), entries);
   },
 } as const;
 
@@ -1309,20 +1327,6 @@ export const tripMetaSelfHealGuard = {
     const ids = raw ? raw.split(',') : [];
     if (!ids.includes(tripId)) ids.push(tripId);
     writeString('session', STORAGE_KEYS.tripMetaSelfHeal, ids.join(','));
-  },
-} as const;
-
-/** At most one reload per trip per session after a roster self-join (key 49; D-595). */
-export const selfJoinReloadGuard = {
-  hasRun(tripId: string): boolean {
-    const raw = readString('session', STORAGE_KEYS.selfJoinReload);
-    return raw !== null && raw.split(',').includes(tripId);
-  },
-  markRun(tripId: string): void {
-    const raw = readString('session', STORAGE_KEYS.selfJoinReload);
-    const ids = raw ? raw.split(',') : [];
-    if (!ids.includes(tripId)) ids.push(tripId);
-    writeString('session', STORAGE_KEYS.selfJoinReload, ids.join(','));
   },
 } as const;
 
@@ -1595,8 +1599,8 @@ export const docsStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('docsChecklist'), fallback);
   },
-  set<T>(items: T): void {
-    writeJson('local', keyFor('docsChecklist'), items);
+  set<T>(items: T): boolean {
+    return writeJson('local', keyFor('docsChecklist'), items);
   },
 } as const;
 

@@ -76,9 +76,10 @@ export async function pushBudgetMerged(
   db: import('firebase/firestore').Firestore,
   fs: Pick<FirestoreMod, 'doc' | 'runTransaction'>,
   localModel: BudgetModel,
+  tripId = getTripId(),
 ): Promise<void> {
   const { doc, runTransaction } = fs;
-  const ref = doc(db, 'trips', getTripId(), 'budget', 'model');
+  const ref = doc(db, 'trips', tripId, 'budget', 'model');
   const localFields = modelToFields(localModel);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
@@ -94,10 +95,10 @@ export async function pushBudgetMerged(
  * (getRemote rejects when unreachable; pushBudgetMerged rejects on a transport error) so the
  * decorator keeps the chunk dirty. Gated + lazy firebase stays behind `getRemote()`.
  */
-export async function pushBudgetChunk(current: BudgetModel, chunk: string): Promise<void> {
+export async function pushBudgetChunk(current: BudgetModel, chunk: string, tripId: string): Promise<void> {
   if (chunk !== 'model') return; // unknown chunk → ack (never a bad write)
   const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
-  await pushBudgetMerged(db, fs, current); // rejects on transport error → stays dirty
+  await pushBudgetMerged(db, fs, current, tripId); // rejects on transport error → stays dirty
 }
 
 /**

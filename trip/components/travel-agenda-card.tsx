@@ -6,6 +6,7 @@ import { useTravelTick } from '@/lib/travel-tick';
 import { offsetForCountry, getCountryForDate, getCityForDate, TRIP_DATES } from '@/core/dates';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import TripAgenda from '@/components/trip-agenda';
+import { sortItemsByTime } from '@/lib/sort-items-by-time';
 
 /**
  * — Travel Mode agenda island.
@@ -52,7 +53,18 @@ export default function TravelAgendaCard({ date }: { date?: string } = {}) {
 
   const resolvedDate = date ?? todayInTrip!.date;
   const resolvedCountry = getCountryForDate(resolvedDate);
-  const items = getDayPlan(resolvedDate).items;
+  // CHRONOLOGICAL (owner-instructed), matching the planner's day list and the Today panel: timed
+  // items ascend by absolute instant (which is what gets the 2027-01-09 date-line day right),
+  // untimed ones sink to a stable trailing run. Travel mode used to print the STORED order, so a
+  // later plan entered first led the day. Pure view-level projection, no store write.
+  //
+  // Not a `useMemo`: this sits after the two early returns above, where a hook would break the
+  // call-order rule. One day of a 32-day trip is a handful of rows, so the sort is free.
+  const items = sortItemsByTime(
+    getDayPlan(resolvedDate).items,
+    resolvedDate,
+    offsetForCountry(resolvedCountry),
+  );
 
   return (
     <TripAgenda

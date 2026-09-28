@@ -179,6 +179,13 @@ jobs:
           NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
         run: npm run build
 
+      # Reads out/sw.js post-build and gzips everything it precaches — the install
+      # payload asset-budget.mjs above can't see, since it runs before out/ exists.
+      - name: Precache byte budget
+        env:
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+        run: npm run precache-budget
+
   # firestore.rules is published by the release now (deploy.yml's `publish-rules`, issue #39 /
   # D-399), so it can no longer ship unproven: this job runs scripts/rules-check.mjs against the
   # REAL Cloud Firestore rules engine in the local emulator, every phase in its header including the negative
@@ -322,6 +329,24 @@ jobs:
         env:
           CI: '1'
         run: npm run test:e2e -- --grep-invert @visual
+
+      # D-652. The build above has no firebase env, so isRemoteConfigured() is false and every
+      # @firebase spec self-skips (proven by the Behavioural suite step, which runs them too).
+      # Rebuilding here with a fake, demo- prefixed project id flips that gate for real without
+      # an emulator or any credential — no request the app makes under it can resolve.
+      - name: Rebuild with a Firebase-configured build
+        env:
+          NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
+          NEXT_PUBLIC_FIREBASE_API_KEY: demo-key
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: demo-e2e
+          NEXT_PUBLIC_FIREBASE_APP_ID: demo-app
+        run: npm run build
+
+      - name: Firebase-configured suite
+        env:
+          CI: '1'
+          E2E_FIREBASE: '1'
+        run: npm run test:e2e -- --grep "@firebase"
 
       - name: Upload the Playwright report
         if: failure()

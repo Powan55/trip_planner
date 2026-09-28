@@ -61,11 +61,18 @@ export async function resolvePlaceLink(
     // #10 — same Worker, same header: a Firebase ID token when there is a session, and
     // nothing at all when there isn't (see lib/worker-auth.ts). Inside the try, so a failure here
     // degrades to `null` like every other one rather than throwing out of a total function.
-    const auth = await workerAuthHeader();
+    // The timeout covers the token wait too (#668).
+    const signal = AbortSignal.timeout(timeoutMs);
+    const auth = await Promise.race([
+      workerAuthHeader(),
+      new Promise<Record<string, string>>((resolveHeader) => {
+        signal.addEventListener('abort', () => resolveHeader({}), { once: true });
+      }),
+    ]);
     const res = await fetchImpl(`${base}/resolve?url=${encodeURIComponent(url)}`, {
       method: 'GET',
       headers: { 'X-Trip-Token': getActiveTripId(), ...auth },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal,
     });
     if (!res.ok) return null;
     const data = (await res.json()) as Record<string, unknown>;

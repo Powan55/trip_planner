@@ -788,7 +788,7 @@ Below `lg`, the Plan page renders a single-day agenda instead of the month grid:
 - **Container sizing (the trap):** the map container is `h-full w-full` inside a definite-height parent, not `absolute inset-0`. MapLibre stamps `position:relative` on the container node, which defeats `absolute inset-0` and collapses it to 0px, rendering nothing.
 - **Popups:** the MapLibre `Popup` receives an empty DOM node and the React content renders into it via `createPortal`, so the popup stays inside `MapSection`'s React tree. Context flows, so `AddToPlanButton` is consumed as-is (D-069's portal spirit). The "My itinerary" overlay reads the shared store (D-026) and live-updates without reload.
 - **D-004 stays intact:** no key, no server we run, no paid provider. This entry supersedes only D-003's mock stance.
-- **Two new render-time externals** (flag for the mirror/deploy CSP review at the next mirror sync, D-033/D-046): the CARTO tile CDN and the demotiles glyph server, both free and keyless. Self-hosting tiles and glyphs is a possible future slice, not built. **[Superseded for GLYPHS by D-319 (issue #8, 2026-08-14): the glyph server is gone and the PBFs are served from `public/font/` and precached. Tiles are unchanged and remain cross-origin.]**
+- **Two new render-time externals** (flag for the mirror/deploy CSP review at the next mirror sync, D-033/D-046): the CARTO tile CDN and the demotiles glyph server, both free and keyless. Self-hosting tiles and glyphs is a possible future slice, not built. **[Superseded for GLYPHS by D-319 (issue #8, 2026-08-14): the glyph server is gone and the PBFs are served from `public/font/` and precached. Tiles are unchanged and remain cross-origin.]** **[Superseded for TILES by D-606 (issue #646, 2026-09-26): CARTO now requires a key; the basemap is OpenFreeMap vector tiles, still keyless and cross-origin.]**
 
 **Why:** the approved M14 plan greenlit the "Better map". With the dependency already present and keyless tiles available, the real map costs no new dependency, no key and no backend, so D-003's original "changes if" condition fired.
 **Changes if:** CARTO or demotiles change terms or availability (swap another keyless source, or vendor the assets, and record it), or a keyed provider is greenlit (that reopens the D-004 seam conversation).
@@ -5907,6 +5907,15 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 
 **Trade-off.** Other devices see only the first 4000 characters. If one of them edits the text, that capped edit comes back to the author's device and replaces the full text. Accepted.
 
+### D-606 · Supersedes the tile clause of D-079 (LOCKED), by owner decision · (issue #646, 2026-09-26) · The basemap is OpenFreeMap vector tiles with an inlined dark style
+
+**Decision.** `lib/map-style.ts` uses OpenFreeMap's vector tiles (`tiles.openfreemap.org`, OpenMapTiles schema) with a small dark layer set written in the file: water, parks, buildings, roads by class, rail, borders, and place/road labels. The OpenFreeMap style JSON is not fetched at runtime and there is no sprite. The source points at OpenFreeMap's TileJSON (`https://tiles.openfreemap.org/planet`) rather than an inlined tile URL, because the dated planet build it names rotates weekly; the TileJSON is one small request, cached for a day. Every label reads `name:latin` only, so MapLibre asks for glyph ranges we host and never Devanagari or kana ones. Glyphs stay self-hosted (D-319). `Noto Sans Regular` gains 256-511, 7680-7935 and 8192-8447 (285 KiB, runtime-cached like the rest, not precached): the ranges a browser probe saw the labels request over Nepal, Japan and the default view, for macrons (Tōkyō), Vietnamese letters and curly apostrophes. Each file is byte-identical to the OpenFreeMap and demotiles copies. Attribution is "OpenFreeMap © OpenMapTiles Data from OpenStreetMap". CSP `connect-src` swaps the CARTO origin for `https://tiles.openfreemap.org`.
+
+**Why.** Around 2026-09-23 CARTO started returning an "API KEY REQUIRED" tile for every keyless request, so the map had no usable basemap. The owner chose OpenFreeMap over registering a free CARTO key: no key, no account, no stated limits. Esri was rejected because its free tiles have no Japan or Nepal detail past z10. Stadia needs a registered domain.
+
+**Trade-off.** Tiles and the TileJSON are still cross-origin and uncached, so offline is unchanged: ground colour, pins and route (D-286). A label with a codepoint outside the hosted ranges logs a 404 and MapLibre draws that glyph locally. Vector tiles stop at z14 and overzoom past it.
+
+**Changes if:** OpenFreeMap changes its TileJSON location or schema · or labels need a script we do not host, which means adding that range under `public/font/`, never a third-party glyph host.
 ### D-603 · Amends D-598 · (issue #642, 2026-09-25) · Adopting the account's default trip asks before replacing a local plan
 
 **Decision.** When a device with no share id claims and the account already holds a different one, it no longer marks its local plan dirty and merges it in. If the default pack holds no synced data it adopts silently as before. If it does, and the tab is visible, it asks through `replaceLocalPlanCopy` with its own lead line, since the join box's "Their plan" reads wrong for the person's own account and the prompt appears on load unasked. Yes sets the share id, confirms it stuck, then drops the pack's outbox and synced slots and reloads. No marks the session guard and changes nothing, so it is not asked again until the next session. A hidden tab does nothing and leaves the guard unset, so the next load asks. Only a device whose own mint won still marks its plan dirty.
@@ -5930,3 +5939,88 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 **Why.** Only identity and tripList were carved out, so `profile/prefs` and `profile/journal_*` fell to the member-only subtree block and were denied whenever the account token was also a member-gated trip id.
 
 **Trade-off.** A stranger holding a gated trip id can plant these two docs under it, the same accepted cost as identity and tripList. rules-check 9b/9c pin the allows and the near-miss ids (`journal`, `journal_`, `prefsx`), and the allows fail against the pre-D-605 rules.
+
+### D-642 · (issue #667, 2026-09-26) · A member can add others only as `member`
+
+**Decision.** `addsMembersOnly()` also requires the count of non-`member` roster values to be unchanged. With no key removed or changed, that means every added value is `member`, so a member can no longer add an `owner` (or any other role). No extra reads. Supersedes ceiling (1) of D-300.
+
+**Status.** Repo only until the rules are actually published (#263). rules-check 7e now expects these adds to be denied.
+
+### D-606 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
+
+**Decision.** A day's plans render in time order on every surface that lists them: the planner's day detail (`lib/phase-of-day.ts`'s `groupItemsByPhase`, which now sorts before it classifies), the Today panel, the Travel-Mode agenda card, the printed itinerary, and the numbered day route on the `/plan` and `/travel` maps (`buildItineraryStops` passes `chrono: true`). One key throughout: `sortItemsByTime`, so timed items ascend by absolute INSTANT, untimed items sink to a single trailing run preserving their own relative order, and equal instants keep their stored order. `groupItemsByPhase` therefore takes the day's date and place offset — an instant-accurate sort cannot be done without them, and there is no second time-math path.
+
+D-142's "stored manual order is what the calendar renders" clause is retired. Everything else in D-142 stands, and so does D-018: the sort is a pure render-time projection, writes nothing, and the persisted order remains the persisted truth. The zero-writes proof in `e2e/sort-clash.spec.ts` is unchanged and still passes on the same bytes.
+
+The `isNewPhase` rank-monotonic guard (#589) is KEPT, not made redundant. Sorting by instant means a day crossing time zones can be in perfect chronological order with its wall clocks running backwards — the 2027-01-09 Tokyo→Detroit day reads 17:35 JST then 15:35 EST — so a phase rank can still drop, and a rank-blind rule would print "Afternoon" a second time beneath "Evening".
+
+Drag-and-drop consequently governs the untimed ("Anytime") run only. A timed row passes `dragDisabled` to `SortableItem`, which tells dnd-kit itself (so the keyboard sensor agrees with the pointer one) and renders a dimmed non-interactive glyph in place of the grip, keeping the row's left edge aligned without putting a dead control in the tab order.
+
+**Why.** A day holding a 3pm plan before a 10am one printed "Afternoon" as the day's first header and then rendered the morning plan underneath it, because headers were emitted wherever the phase changed between two ADJACENT rows in stored order. The plan list disagreed with the clock on the one screen whose job is the clock. Sorting the projection fixes every surface at once and leaves the store alone.
+
+**Trade-off.** Manual ordering of timed plans is gone — their time is now the only thing that places them, which is what was asked for. A drag of an untimed row past a timed one still rewrites stored order, so it can land the row at a different spot within the trailing untimed run than the drop point suggested; the run's own order is all that is observable, so this is cosmetic. On a date-line day the displayed times are correctly ordered but visually non-monotonic, with nothing on screen explaining why — the pre-existing accepted cost `lib/sort-items-by-time.ts` already records, now reachable from the day list rather than only the map.
+
+**Changes if.** Manual ordering of timed plans is wanted back: it returns as an explicit per-day "Time / Manual" toggle, never as a silent reversion, since the sort is what makes the phase headers trustworthy.
+
+### D-651 · Amends D-575 · (issue #657, 2026-09-27) · A pre-adopt default-trip backup restores into the trip it became
+
+**Decision.** When this device turns its own default pack into a shared trip (account mint, account adopt, or the share dialog) it records `{ shareId, at }` under `nepal_japan_default_trip_adopted`. A default-pack backup with no remote id restores into a synced trip only if that marker names the current trip and the file's `exportedAt` is not later than `at`. Everything else without a remote id stays UNMATCHED. Joining never writes the marker, so it is not set inside `setDefaultTripShareId`. Sign-out clears it.
+
+**Why.** The adopt prompt says to back up first, and that backup has an empty remote id, so D-575 refused it once the adopt happened. The only way back was signing out, which wipes local data.
+
+**Trade-off.** Any unshared default-pack backup older than the adopt restores over the shared trip without any further prompt, not just one made on this device.
+
+### D-652 · (issue #674, 2026-09-27) · CI's `e2e` job runs a second, Firebase-configured build for `@firebase` specs
+
+**Decision.** After the behavioural suite, `e2e` rebuilds with `NEXT_PUBLIC_FIREBASE_*` set to fake, `demo-`-prefixed values (no emulator, no credential) and runs `--grep "@firebase"`. Specs tagged `@firebase` self-skip unless `E2E_FIREBASE` is set, so they no-op on every other build and on the first, dormant build in this same job.
+
+**Why.** Trip access and the Google link are gated on `isRemoteConfigured()`, a build-time env read; nothing in CI ever flipped it, so that surface had no real browser coverage at all.
+
+### D-650 · Amends D-148, D-604 · (issue #666, 2026-09-27) · A refused local save is never pushed
+
+**Decision.** `writeString`, `writeJson` and `saveItinerary` return `true` only once `setItem` succeeds, and `false` on every failure (quota, storage disabled or absent, a stringify throw). The synced saves and their store `.set` methods pass that through, and `commit()` skips `sync.push` when `save` returns `false`. `StoragePort.save` is `boolean | void`, so a port that returns nothing still pushes as before. The D-604 snap-back and the `trip:quota-exceeded` toast are unchanged.
+
+**Why.** Local storage is the truth. A save refused for quota snapped back on screen but still synced, so the user re-added the expense and every member saw it twice.
+
+**Trade-off.** A change that fails locally never reaches other devices, even when the network is fine. Restore paths and the outbox flush still ignore the result.
+
+### D-661 · (issue #641, 2026-09-27) · An account id belongs to one uid, and the username is the signed-in email's
+
+**Decision.** Creating `users/{uid}` now also requires the token's email to be `<username>@accounts.trip-planner.invalid`, a lowercase-UUID `accountId`, and `accountClaims/{accountId}` naming the same uid after the write. The claim doc is `{uid}` only, create-only, and must be written in the same batch as the users doc. Signed-in clients may read a claim; nobody may list, update or delete one.
+
+**Why.** `users/{uid}` checked only the shape, so any signed-in device could create an account doc pointing at someone else's account id, or under a username it had not signed in with.
+
+**Trade-off.** Two extra document reads per account link, once. The first claim wins: any new email account that knows an unclaimed account id can claim it in its own link batch. Knowing the id already grants its profile docs, so today the gain is locking the real owner out of linking; once profile access depends on claims it becomes a takeover. `users` docs written before this rule have no claim.
+
+**Before publishing (#263).** List the existing `users` docs in the console and create each one's `accountClaims` doc. Until that is done, nothing may treat a claim as proof of ownership.
+
+### D-662 · Supersedes D-593 · (issue #641, 2026-09-27) · Joining a rostered trip takes a single-use invite
+
+**Decision.** `selfJoinsAsMember` is removed. The owner mints `trips/{tripId}/invites/{token}` (a lowercase UUID) as `{createdBy, createdAt}` with a server timestamp, lists them, and revokes one by deleting it. It expires 7 days after `createdAt`; there is no expiry field. A non-member redeems in one batch: the invite gets `{redeemedBy, redeemedAt}` and the trip gets `members.<uid> = 'member'` plus `joinInvite = token`, both by field path. Each half checks the other, so neither lands alone, and an invite can be redeemed once. The subtree wildcard excludes `invites` so members cannot read, forge or delete them. The share link carries `?trip=` and `&invite=`; for the default pack the trip param is `pack:<id>`, as in existing share links. A plain `?trip=` still joins an open trip and ends at access-pending on a rostered one. The client no longer adds itself to a roster on a refused read. Session key 49 (`selfJoinReload`, D-595) is retired with self-join, and its number must not be reused. Open trips have no owner, so no invites.
+
+**Why.** Under D-593 the trip id was the whole capability: a removed member could add itself back, and any anonymous uid could take a roster slot. Now removal sticks, and each join spends an invite the owner chose to give.
+
+**Trade-off.** One extra read of the invite doc per redeem, and one of the trip doc per mint or redeem; nothing on the heartbeat path. Repo only until the rules are actually published (#263), and publishing them before the invite client ships stops new joins on rostered trips.
+
+### D-660 · (issue #641, 2026-09-27) · Username + password accounts
+
+**Decision.** The front door signs in with a username and password on Firebase Auth (Email/Password), superseding D-239's User Token door. A username is `trim().toLowerCase()` matching `^[a-z0-9_]{3,20}$`, mapped to `<username>@accounts.trip-planner.invalid` (reserved TLD, nothing is mailed); Auth enforces uniqueness, so there is no usernames collection. Passwords are at least 8 characters. Sign-in errors for a wrong password and an unknown username read the same. `users/{uid}` = `{ username, accountId }` records which account id the user owns, and `accountClaims/{accountId}` = `{ uid }` records who owns the id; both are created in one batch and are create-only (D-661). Account ids are lowercase UUIDs, checked by the client before any probe or write; the account id stays in key 28 (`tripPlannerSyncCode`) and still keys `trips/{accountId}/profile/*`. It is never put in the Auth display name or custom claims, because ID tokens go to the Worker.
+- **Sign-up** links the device's anonymous session to the new credential, so the uid already in trip rosters becomes the account's, then mints an account id, writes `users/{uid}` and seeds the account docs.
+- **Sign-in hands trip access over before it swaps the session.** Rosters name this device's anonymous uid (B), and once the session is the account's uid (A) nobody here can add A. So a secondary Firebase app with in-memory persistence signs in first, learns A and reads `users/{A}` and the account's trip list; then, still as B, every known trip plus every listed trip where B is rostered and A is not gets `members.A = members[B]` (field path). A failed owner grant aborts the sign-in with nothing swapped, since a lost owner role cannot be restored from the client; member grants are best-effort. The secondary app is deleted afterwards. This replaces self-join enrolment, which D-662 removes. A failed `users/{uid}` read is an error, never "missing".
+- **First sign-in** (an account made in the console with a temporary password): a missing `users/{uid}` IS the must-change-password flag. The door asks for a new password, then takes the account id from this device's key 28, else a pasted old key (format-checked, then validated by `probeAccountIdentity`; a key it cannot confirm is refused), else starts a fresh account. The link batch is written only after `updatePassword` succeeds. If the id is already claimed by another user the door says "This account already has a username. Log in with it." and offers Start fresh, so a half-done claim cannot retry the same refused id forever.
+- The client writes the link once; a retry that finds `users/{uid}` already there adopts the account id it names.
+- Logging in overwrites key 28 with the account's id. The trip-list subscribe unions the account list with this device's registry and pushes local extras up, so no trip known here is dropped.
+- `getRemote()` signs in anonymously only when there is no session at all. Every password sign-in or link rebinds the cached handle's uid, so presence, membership and trip creation never write under the old anonymous one.
+- **Upgrade:** a device already admitted but still on an anonymous session gets the card over the app: sign in with a given username (claiming THIS device's id if `users/{uid}` is missing, or the old-key/fresh choice when it holds none), or create a username + password linked to the anonymous uid, with `users/{uid}` naming the id already in key 28 and no reseed (a device with no id mints and seeds one). When `accountClaims/{key 28}` already exists, the card offers log-in only. A password session with no `users/{uid}` (a claim left half done) resumes at the claim step. "Later" defers to the next load and is offered only before a password sign-in; an unconfirmable check (dormant, offline, auth unreachable) shows nothing. Password sign-in first flushes writes queued under the anonymous uid (bounded).
+- A build with no Firebase config admits locally, as the door always has there, and says so on the card.
+- All User Token minting and reveal UI is gone: the door's create-and-show-once, the /trips "Finish setting up your account" card, and the Settings key card. The sign-out dialog keeps its show-my-key step only on a device that has no password session yet, since the key is then its only way to claim. The Google link is removed. `tripPlannerToken` stays as the local "admitted" marker.
+
+Amends D-296: the identity probe now runs only on the claim path (plus the display-name read). Amends D-299: anonymous auth is only the pre-sign-in session, and Google linking is removed. Amends D-249: sign-out of a password session also signs out of Firebase Auth; an anonymous session keeps its rostered uid unless it is Forget this device.
+
+**Why.** The owner wants real accounts: a unique username and a private password. A User Token was a bearer credential people had to store themselves, and losing it lost the account.
+
+**Ship order.** The `users/{uid}` and `accountClaims` rules (D-661) must be merged, published and live-probed before this reaches `main`, because key login is gone.
+
+**Owner migration.** A legacy trip owner keeps the role either way: "Create a username and password" links the owner uid itself, and logging in with a console-created account on the owner's device grants the account uid `owner` before the swap. Logging in on a device that is not on the roster carries nothing over.
+
+**Trade-off.** `accountClaims` makes an account id claimable once, but the first claimant is self-asserted: whoever writes the claim first owns the id. Trips on a pasted old key's list are not granted, because the uid they name belongs to a device that is not here; those need an invite (D-662). Until the Firestore rules are published (#263), the password guards the app screens, not the stored data. "Later" was kept rather than a hard block because the `users/{uid}` write is not yet verified against live rules, and a hard block that cannot complete would lock every existing user out. Recovery: there is no in-app password reset yet (it needs an admin path on the Worker with the Admin SDK, deferred). Console "Reset password" sends mail, which cannot reach a `.invalid` address, so the interim is to delete the user and recreate it with a temporary password; the owner then signs in and re-claims with their old key or this device's account id.

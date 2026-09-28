@@ -84,7 +84,7 @@ const rawEmergencyContacts: EmergencyContact[] = [
     tel: '+97714247041',
     sourceUrl: 'https://ntb.gov.np/',
     verified: false,
-    note: 'Not live-verified this session — confirm the current Tourist Police line on the Nepal Tourism Board site before relying on it.',
+    note: 'Confirm this number on the Nepal Tourism Board site before relying on it.',
   },
   {
     id: 'np-us-embassy',
@@ -94,7 +94,7 @@ const rawEmergencyContacts: EmergencyContact[] = [
     tel: '+97714234000',
     sourceUrl: 'https://np.usembassy.gov/',
     verified: false,
-    note: 'Not live-verified this session — confirm the current switchboard number on the official embassy site before relying on it.',
+    note: 'Confirm this number on the official embassy site before relying on it.',
   },
   {
     id: 'jp-police',
@@ -122,7 +122,7 @@ const rawEmergencyContacts: EmergencyContact[] = [
     tel: '+815038162787',
     sourceUrl: 'https://www.japan.travel/en/plan/hotline/',
     verified: false,
-    note: 'Not live-verified this session — confirm the current JNTO hotline number on the official site before relying on it.',
+    note: 'Confirm this number on the official JNTO site before relying on it.',
   },
   {
     id: 'jp-us-embassy',
@@ -132,7 +132,7 @@ const rawEmergencyContacts: EmergencyContact[] = [
     tel: '+81332245000',
     sourceUrl: 'https://jp.usembassy.gov/',
     verified: false,
-    note: 'Not live-verified this session — confirm the current switchboard number on the official embassy site before relying on it.',
+    note: 'Confirm this number on the official embassy site before relying on it.',
   },
 ];
 

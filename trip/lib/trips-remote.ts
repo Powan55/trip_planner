@@ -53,7 +53,6 @@ import {
   DEFAULT_TRIP_ID,
   getActiveTripId,
   isSafeTripSegment,
-  selfJoinReloadGuard,
   wasTripCreatedHere,
 } from '@/core/storage/gateway';
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
@@ -401,14 +400,7 @@ async function readAccountVerdict(code: string): Promise<AccountProbeResult> {
 // (rules reject a create whose map does not name the creator owner). `ensureMembership` adds ONE
 // entry — this device's — using a FIELD-PATH update so the write touches only the members map: a
 // whole-document overwrite is rejected for a non-owner, whose only legal edit is an add-only
-// members diff. `owner` may remove/re-role; `member` may add.
-//
-// ⚠ CEILING, KNOWN AND ACCEPTED: rules can prove an added-only diff but cannot inspect the VALUE
-// of an added key (no map comprehension in the rules language), so a `member` can technically add
-// a third uid as `owner`. The threat model is three friends who already hold each other's trip
-// links. The named upgrade path is members as a SUBCOLLECTION (`members/{uid}` → `{ role }`),
-// where the value becomes a document whose own write rule can check the role — a data migration,
-// not a rules edit, which is why it is not done here.
+// members diff. `owner` may remove/re-role; `member` may add, and only as 'member' (D-642).
 
 export type TripRole = 'owner' | 'member';
 
@@ -427,7 +419,7 @@ export const TRIP_ACCESS_PENDING_EVENT = 'trip:access-pending';
  * The members map off a raw trip doc, or `undefined` when the rules' `isOpen()` reads the trip as
  * open: no map, not a map, or no value equal to 'owner' (#453). Must stay in step with isOpen().
  */
-function readMembers(data: Record<string, unknown> | undefined): Record<string, string> | undefined {
+export function readMembers(data: Record<string, unknown> | undefined): Record<string, string> | undefined {
   const raw = data?.members;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   if (!Object.values(raw).includes('owner')) return undefined;
@@ -490,11 +482,10 @@ export async function createTripDoc(tripId: string): Promise<void> {
  * non-owner exactly one shape of edit — a diff that touches only `members` and only ADDS keys.
  *
  * A `permission-denied` (the trip is member-gated and this device is not in the map — the read
- * itself is refused) first tries a blind self-add as `'member'` and returns `'joined'` (D-595). Only
- * if that is refused too, or this session already self-joined the trip, does it dispatch
- * `trip:access-pending` instead of throwing: the "ask a member to add your device code" flow.
+ * itself is refused) dispatches `trip:access-pending` instead of throwing. Joining a gated trip
+ * takes an invite link (`lib/invites-remote.ts`); there is no self-join.
  */
-export async function ensureMembership(tripId: string): Promise<'joined' | void> {
+export async function ensureMembership(tripId: string): Promise<void> {
   // This function also repairs every known trip after Google-account adoption, when the
   // active pack may be the local-only sample. Gate the explicit target, not the active pack.
   if (!isRemoteConfigured() || !isSafeTripSegment(tripId) || tripId === DEFAULT_TRIP_ID) return;
@@ -509,18 +500,7 @@ export async function ensureMembership(tripId: string): Promise<'joined' | void>
     // - stale roster missing this uid where the server already has it as `'owner'` ⇒ the write
     //   below is `members.<uid> = 'member'`, and the rules evaluate `isOwner()` against the STORED
     //   doc, so it is ALLOWED: the owner silently demotes itself.
-    let snap: Awaited<ReturnType<typeof getDocFromServer>>;
-    try {
-      snap = await getDocFromServer(ref);
-    } catch (err) {
-      // D-595: a gated trip refuses a non-member's read, so join blind (the rules allow adding
-      // only yourself, only as 'member'). Listeners already refused stay dead, so the page-load
-      // caller reloads on 'joined'; the guard caps that at once per trip per session.
-      if (!isPermissionDenied(err) || selfJoinReloadGuard.hasRun(tripId)) throw err;
-      await updateDoc(ref, { [`members.${uid}`]: 'member' });
-      selfJoinReloadGuard.markRun(tripId);
-      return 'joined';
-    }
+    const snap = await getDocFromServer(ref);
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
     if (!members) {
@@ -599,8 +579,7 @@ export type MemberWriteResult = 'ok' | 'denied' | 'failed';
  * add-only members diff from a member — which is what makes "send me your code and I'll add you"
  * work without an invite server.
  *
- * Always `'member'`: this UI never mints a second owner. (The rules cannot enforce that — see the
- * ceiling note at the top of this section — so the client not offering it is the whole guard.)
+ * Always `'member'`: the rules refuse any other role from a member (D-642).
  */
 export async function addTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
   return writeMemberField(tripId, uid, 'member');
