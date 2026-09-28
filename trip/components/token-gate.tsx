@@ -15,7 +15,7 @@ import { ACCOUNT_ID_RE, ACCOUNT_CLAIMED, OWNER_HANDOFF_FAILED } from '@/lib/acco
 import { getUserName } from '@/lib/identity';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getSyncCode, setSyncCode, nameHintFlag } from '@/core/storage/gateway';
-import { joinTrip } from '@/core/trips/registry';
+import { joinTrip, parseTripToken } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import { TRIP_START } from '@/lib/trip-data';
@@ -62,7 +62,8 @@ import type { AccountUpgrade } from '@/lib/firebase-remote';
  * present. A Trip Token is never a login: it is entered on `/trips`, after logging in.
  *
  * `?trip=` INVITATION: the pending Trip Token is read off the URL here and joined on completion,
- * landing on `/` (the join IS the selection).
+ * landing on `/` (the join IS the selection). An `&invite=` token leaves the URL on mount, is held in
+ * memory only, and is redeemed before the join; a refused invite joins nothing.
  *
  * A11y: role="dialog" aria-modal, document-level Esc capture (the wall does NOT dismiss), a
  * Tab-trap inside the panel, autofocus on the first field. Every input has a <label> and an
@@ -214,6 +215,16 @@ const KEY_MALFORMED: WallError = {
   field: 'oldKey',
 };
 
+const INVITE_INVALID: WallError = {
+  label: 'Invite · Not valid',
+  text: 'You are logged in, but this invite has expired, was already used, or was cancelled. Ask the trip owner for a new link.',
+};
+
+const INVITE_FAILED: WallError = {
+  label: 'Invite · Not reached',
+  text: 'You are logged in, but we could not reach the trip to use this invite. Check your connection and try again.',
+};
+
 const ALREADY_CLAIMED: WallError = {
   label: 'Account · Taken',
   text: 'This account already has a username. Log in with it.',
@@ -292,6 +303,11 @@ function TokenGateWall({
   const [startFresh, setStartFresh] = useState(false);
   /** A pending Trip Token from a `?trip=` invitation, joined after login/create. */
   const [pendingTrip, setPendingTrip] = useState<string | null>(null);
+  /** A single-use invite token off `&invite=`. Memory only, never written to storage. */
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  /** Signed in, but the invite was refused or unreachable; the wall offers retry / continue. */
+  const [inviteStuck, setInviteStuck] = useState(false);
+  const inviteActionRef = useRef<HTMLButtonElement>(null);
 
   /** The signed-in user the claim step is finishing; a `minted` fresh id is kept so a retry reuses it. */
   const claimRef = useRef<{ uid: string; username: string; minted?: string } | null>(
@@ -325,9 +341,22 @@ function TokenGateWall({
   useEffect(() => {
     const code = getSyncCode();
     setSavedCode(code && ACCOUNT_ID_RE.test(code) ? code : null);
-    const raw = new URLSearchParams(window.location.search).get('trip');
-    const t = raw?.trim();
+    // An admitted device's link belongs to the join dialog, which already read it.
+    if (upgrade) return;
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('trip')?.trim();
+    const inv = params.get('invite')?.trim();
     if (t) setPendingTrip(t);
+    if (t && inv) setInviteToken(inv);
+    // The wall owns the link from here. Left in the URL, the join dialog would re-read `trip` once
+    // sign-in identifies the device and open over the wall.
+    if (params.has('trip') || params.has('invite')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('trip');
+      url.searchParams.delete('invite');
+      window.history.replaceState(window.history.state, '', url.toString());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Focus the first field on open and whenever the form swaps; re-assert shortly after in case the
@@ -352,6 +381,7 @@ function TokenGateWall({
   // Move focus to the field an error names, so a keyboard or screen-reader user lands on the fix.
   useEffect(() => {
     if (wallError?.field) document.getElementById(fieldId(wallError.field))?.focus();
+    else if (inviteStuck) inviteActionRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallError]);
 
@@ -393,10 +423,23 @@ function TokenGateWall({
   };
 
   /** Adopt a pending invitation (lands Home), otherwise land on `/trips/`. FULL reload either way. */
-  const finish = () => {
+  const finish = async () => {
     if (upgrade) {
       window.location.reload();
       return;
+    }
+    const parsed = pendingTrip ? parseTripToken(pendingTrip) : null;
+    if (parsed && inviteToken && remote) {
+      const result = await within(
+        import('@/lib/invites-remote').then(({ redeemInvite }) => redeemInvite(parsed.id, inviteToken)),
+      );
+      if (result !== 'joined' && result !== 'already') {
+        if (result === 'invalid') setInviteToken(null);
+        setBusy(false);
+        setInviteStuck(true);
+        setWallError(result === 'invalid' ? INVITE_INVALID : INVITE_FAILED);
+        return;
+      }
     }
     // D-546 — a token that could not be used falls through to the normal `/trips/` landing.
     if (pendingTrip && joinTrip(pendingTrip)) {
@@ -431,7 +474,7 @@ function TokenGateWall({
     onHold();
     if (!signIn(typedName || stored || account || DEFAULT_TRAVELER_NAME)) return fail(SIGN_IN_FAILED);
     if (!typedName && !stored && !account) nameHintFlag.mark();
-    finish();
+    return finish();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -557,13 +600,15 @@ function TokenGateWall({
       data-testid="token-gate-invite"
       className="w-full max-w-[46ch] rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-overlay px-3 py-2.5 text-t-sm leading-relaxed text-ink-mid"
     >
-      Someone shared a trip with you. Log in or create an account to open it.
+      {inviteToken
+        ? 'Someone invited you to a trip. Log in or create an account to join it.'
+        : 'Someone shared a trip with you. Log in or create an account to open it.'}
     </p>
   ) : null;
 
   const fieldProps = (key: FieldKey) => ({
     id: fieldId(key),
-    readOnly: busy,
+    readOnly: busy || inviteStuck,
     invalid: wallError?.field === key,
     errorId: wallError ? errorId : undefined,
   });
@@ -913,9 +958,40 @@ function TokenGateWall({
             </button>
           )}
 
+          {inviteStuck && (
+            <>
+              {inviteToken && (
+                <button
+                  ref={inviteActionRef}
+                  type="button"
+                  onClick={() => {
+                    setBusy(true);
+                    setWallError(null);
+                    void finish();
+                  }}
+                  disabled={busy}
+                  data-testid="token-gate-invite-retry"
+                  className="btn mt-3 w-full px-4"
+                >
+                  Try again
+                </button>
+              )}
+              <button
+                ref={inviteToken ? undefined : inviteActionRef}
+                type="button"
+                onClick={() => window.location.replace(withBasePath('/trips/'))}
+                disabled={busy}
+                data-testid="token-gate-invite-continue"
+                className="btn btn--2 mt-3 w-full px-4"
+              >
+                Continue without joining
+              </button>
+            </>
+          )}
+
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || inviteStuck}
             aria-busy={busy}
             data-testid="token-gate-submit"
             className="btn mt-3 w-full px-4"

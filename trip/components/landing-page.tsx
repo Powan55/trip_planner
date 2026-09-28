@@ -92,8 +92,8 @@ import { entranceFor } from '@/lib/motion';
  * The fact strip — the four figures a stranger actually decides on, in the instrument cells the
  * app uses for every other reading. Static literals (the zero-live-trip-data rule above), and each
  * is checkable: 32 days is the same figure `first-run-tour.tsx` and `map-section.tsx` print, the
- * two legs are the two the app ships, there is no invite mechanism at all, and the stack has no
- * paid service in it.
+ * two legs are the two the app ships, an invite link lasts 7 days, and the stack has no paid
+ * service in it.
  *
  * These readings are written for a stranger, so they carry no developer vocabulary. "no API key"
  * used to sit here and on the Map row below, where it read as a fault report on the map rather
@@ -102,7 +102,7 @@ import { entranceFor } from '@/lib/motion';
 const FACTS = [
   { label: 'Days', value: '32', foot: 'Dec 2026 — Jan 2027' },
   { label: 'Countries', value: '02', foot: 'Nepal, then Japan' },
-  { label: 'Invites to send', value: '00', foot: 'One Trip Token instead' },
+  { label: 'Invite links', value: '07', foot: 'Days each, one use' },
   { label: 'Price', value: '0', foot: 'Free, no card needed' },
 ] as const;
 
@@ -640,14 +640,13 @@ export default function LandingPage({
       >
         <div className="sec mx-auto max-w-[1200px] px-gut">
           <h2 id="landing-token-heading">Trips move as a token</h2>
-          <span className="sub">No member list</span>
+          <span className="sub">Token or invite</span>
         </div>
         <div className="mx-auto max-w-[1200px] px-gut">
           <p className="max-w-[64ch] text-t-body leading-relaxed text-ink-mid">
-            There is nobody to invite and no list to be added to. A trip has one string attached to
-            it, and whoever holds that string opens the same plan you are looking at &mdash; so you
-            send it the way you already talk to each other. Your account and a trip&rsquo;s token do two
-            different jobs, and they are never the same thing.
+            A trip has one string attached to it, and you send it the way you already talk to each
+            other &mdash; or send a one-use invite link instead. Your account and a trip&rsquo;s token do
+            two different jobs, and they are never the same thing.
           </p>
         </div>
         <ul className="list mt-4">

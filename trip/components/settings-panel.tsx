@@ -38,6 +38,7 @@ import {
   syncPausedPrefs,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
+import TripInvites from '@/components/trip-invites';
 import {
   joinTrip,
   formatShareToken,
@@ -385,9 +386,8 @@ function RenameIdentity({ current }: { current: string }) {
 /**
  * #10 — TRIP ACCESS: this device's code, and the roster of devices that may open this trip.
  *
- * THE DEVICE CODE IS THE WHOLE MECHANISM. There is no invite server and no email — a trip's roster
- * names device identities, so joining is out-of-band: you send a friend your code, they paste it
- * here. Logging in with a username and password on a new device brings the same code with it.
+ * A trip's roster names device identities. A friend joins either by sending you their device code
+ * to paste here, or through a one-use invite link from the owner (TripInvites). Logging in with a username and password on a new device brings the same code with it.
  *
  * WHO MAY DO WHAT mirrors the rules exactly, and is enforced there, not here: any member may ADD a
  * device; only the owner may REMOVE one. The Remove control is therefore rendered only for an
@@ -793,6 +793,9 @@ function TripAccessGroup() {
           </p>
         )}
       </div>
+      )}
+      {!paused && (
+        <TripInvites tripId={tripKey ?? ''} isOwner={myRole === 'owner'} open={members === null} />
       )}
     </div>
   );

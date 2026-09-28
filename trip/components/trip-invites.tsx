@@ -58,8 +58,7 @@ export default function TripInvites({
   if (open) {
     return (
       <p data-testid="trip-invites-open" className="max-w-2xl text-t-body text-ink-mid">
-        Invite links need a trip with a member list. Anyone holding this trip&rsquo;s Trip Token can
-        already open it.
+        This trip has no member list, so it can&rsquo;t use invite links.
       </p>
     );
   }
