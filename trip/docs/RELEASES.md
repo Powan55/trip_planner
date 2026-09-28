@@ -2,13 +2,42 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.4.2`, deployed 2026-09-22. The newest live worker is `v1.11.0`, deployed 2026-09-17: v1.10.0's membership gate and rate limiter plus the opt-in Kimi K3 leg (see v7.2.0). The gate and limiter went live together in `v1.10.0`, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.5.0`, deployed 2026-09-26. The newest live worker is `v1.11.0`, deployed 2026-09-17: v1.10.0's membership gate and rate limiter plus the opt-in Kimi K3 leg (see v7.2.0). The gate and limiter went live together in `v1.10.0`, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
 
 **`v7.1.1` shipped on 2026-09-06.** Tag `v7.1.1` is `0f39f3e`, that commit is `origin/main`'s head, and its deploy run (`34078213707`) succeeded — verified against the tag and the run, not against this paragraph. `v7.1.0` shipped on 2026-09-01 as `974f960`, run `33501267415`. The live CSS carries `--plate-split` and no longer carries `railwrap`, which is the served-bytes half of that check. `v7.0.1` shipped earlier the same day as `fa2f497`, run `33476633246`. That gap is the drift this paragraph keeps falling into — it named `v6.1.0` for a day after `v7.0.0` went live, and then `v7.0.0` after `v7.0.1` did. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
+
+---
+
+## v7.6.0 (app) · 2026-09-27 · worker stays at v1.11.0
+
+Accounts replace the old key door (#641). Sign in with a username and password instead of
+pasting a device key; existing devices get folded in with a one-time claim prompt. Joining a
+trip is now a single-use invite link (7-day expiry, owner can revoke) instead of anyone
+holding the trip id self-joining, and a member can add others only as a plain member, never
+as owner (#667). Invites live in Settings. Rules for all of this are published and live.
+
+The map's basemap is OpenFreeMap vector tiles, with a daily probe watching the live tiles
+(#646, #673); stop popups no longer fight the route effect on a slow-loading map.
+
+Fixes: a save that fails to write locally no longer pushes to sync or reports success (#657,
+#666, #698); the palette's "no results" text was hidden behind the results list (#663); the
+presence pill no longer overlaps the quick-add button on mobile (#670); place lookup starts
+its timeout before waiting on the token (#668); Google's country-coded (`.com.XX`) place
+links are accepted again (#669); trip access copy and the emergency chip's wrapping and
+unverified-number marking are fixed (#658, #661, #664, #671); the command palette announces
+result counts (#656, #672); the last home-currency tap wins instead of losing to an
+overlapping write; day plans sort by time; keyboard focus stays inside the map in fullscreen
+and popups (#662); marker-check now scans UTF-16 files and fails on an embedded NUL (#660);
+close-on-dev requires a word boundary before a closing keyword (#655).
+
+Also: a Firebase-configured E2E build now covers trip access end to end (#674); precache
+size is budgeted in CI (#676); TypeScript checks against es2022.
+
+**Deploy targets:** GitHub Pages mirror. No worker changes this release.
 
 ---
 
