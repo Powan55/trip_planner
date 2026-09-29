@@ -26,6 +26,7 @@ import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budge
 import { docsSyncPort, docsOutboxSync, docsStoragePort } from '@/lib/docs-ports';
 import { placesSyncPort, placesOutboxSync, myPlacesStoragePort } from '@/lib/places-ports';
 import { withBasePath } from '@/lib/utils';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 import { syncPriorNames } from '@/lib/prior-names-sync';
 import { toast } from 'sonner';
 import TokenGate from '@/components/token-gate';
@@ -335,6 +336,7 @@ export function runTripMembership(): () => void {
   if (!isRemoteConfigured()) return noop;
   const tripId = getTripId();
   if (!tripId) return noop; // the unshared sample is local-only — no members map
+  if (tripId === SHARED_TRIP_ID) return noop; // closed by the rules' allowlist, no roster to join
   if (!getActiveTraveler()) return noop; // guest / signed-out never enrols
 
   const onAccessPending = () => {

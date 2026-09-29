@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 /**
  * S232 (D-205 amends D-172 item 5 / D-210) — the sync gate + dynamic trip id. This file
@@ -52,18 +53,18 @@ describe('firebase-config sync gate + dynamic trip id (S232 / D-205 / D-210)', (
 
   // ── getTripId() — the REMOTE capability token (D-205 fork 1, amended by #10) ─────────────────
   describe('getTripId() resolves the Firestore path segment per active pack', () => {
-    it("default pack ⇒ '' — the sample is LOCAL-ONLY, it has no remote path (#10)", async () => {
+    it('default pack ⇒ the shared trip id, for every account and device', async () => {
       const { getTripId } = await loadConfigWithEnv();
-      expect(getTripId()).toBe('');
+      expect(getTripId()).toBe(SHARED_TRIP_ID);
     });
 
-    it("default pack (pointer explicitly written) is still '' — and the retired NEXT_PUBLIC_TRIP_ID env is ignored", async () => {
+    it('default pack (pointer explicitly written) is still the shared trip — and the retired NEXT_PUBLIC_TRIP_ID env is ignored', async () => {
       // #10 retired the env read outright: a NEXT_PUBLIC_* value inlines into the public bundle,
       // so it was never the secret its docblock claimed. Stubbing it must change nothing.
       vi.stubEnv('NEXT_PUBLIC_TRIP_ID', 'secret-remote-token-abc');
       const { getTripId } = await loadConfigWithEnv();
       localStorage.setItem('tripPlannerActiveTrip', 'nepal-japan-2026');
-      expect(getTripId()).toBe('');
+      expect(getTripId()).toBe(SHARED_TRIP_ID);
     });
 
     it('non-default pack ⇒ the local pack id IS the capability token (returned verbatim)', async () => {
@@ -93,13 +94,13 @@ describe('firebase-config sync gate + dynamic trip id (S232 / D-205 / D-210)', (
   });
 
   // ── isTripRemoteConfigured() — the TRIP-scoped gate (#10) ────────────────────────────────────
-  // The full matrix: it is `isRemoteConfigured() && getTripId() !== ''`, so the default pack is
-  // false in EVERY build (nothing syncs on the sample) while custom trips follow the web config.
+  // The full matrix: it is `isRemoteConfigured() && getTripId() !== ''`, so every pack follows the
+  // web config and a dormant build syncs nothing.
   describe('isTripRemoteConfigured() — config × active-pack matrix', () => {
-    it('config present + DEFAULT pack ⇒ FALSE (the sample never syncs)', async () => {
+    it('config present + DEFAULT pack ⇒ TRUE (it syncs to the shared trip)', async () => {
       const { isTripRemoteConfigured, isRemoteConfigured } = await loadConfigWithEnv();
-      expect(isRemoteConfigured()).toBe(true); // the web config alone is on…
-      expect(isTripRemoteConfigured()).toBe(false); // …but the default pack has no remote id
+      expect(isRemoteConfigured()).toBe(true);
+      expect(isTripRemoteConfigured()).toBe(true);
     });
 
     it('config present + custom pack ⇒ TRUE (custom trips unchanged)', async () => {

@@ -17,7 +17,7 @@ import { realClock } from './trip-now';
 
 export { getCachedPrefs, hasAccount, type PrefEntries, type PrefEntry } from './account-prefs';
 
-// Stamps a local-only edit made before getRemote() is known to work (paused, offline).
+// Stamps a local-only edit made before getRemote() is known to work (offline).
 const LOCAL_ACTOR = 'local';
 
 function newer(a: PrefEntry | undefined, b: PrefEntry | undefined): PrefEntry | undefined {
@@ -110,7 +110,7 @@ const latest: Record<string, number> = {};
 
 /**
  * Set one field: an explicit edit, so it always wins (the latest, when taps overlap). Mirrors
- * locally (synchronously, marked dirty) before touching the network, so a paused or offline
+ * locally (synchronously, marked dirty) before touching the network, so an offline
  * edit stays on this device and
  * `getPrefs`/`subscribePrefs` push it later. Then, in a transaction, stamps past the newer of the
  * mirror's and the account's stamp (so a slow clock or an unread account can't lose the edit)

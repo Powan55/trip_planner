@@ -34,15 +34,6 @@ vi.mock('@/lib/trips-remote', () => ({
 const getRemote = vi.fn(async () => ({ uid: 'me' }));
 vi.mock('@/lib/firebase-remote', () => ({ getRemote: () => getRemote() }));
 
-let syncPaused = false;
-vi.mock('@/core/storage/gateway', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/core/storage/gateway')>();
-  return {
-    ...actual,
-    syncPausedPrefs: { get: () => syncPaused, set: vi.fn() },
-  };
-});
-
 const commit = vi.fn();
 const setHomeCurrency = vi.fn();
 vi.mock('@/hooks/use-budget', () => ({
@@ -74,7 +65,6 @@ let container: HTMLDivElement;
 
 beforeEach(() => {
   online = true;
-  syncPaused = false;
   vi.clearAllMocks();
   Object.assign(navigator, { clipboard: { writeText: vi.fn(async () => {}) } });
   container = document.createElement('div');
@@ -117,21 +107,6 @@ describe('TripAccessGroup — #565 offline gate + confirm-before-remove', () => 
     expect(removeTripMember).toHaveBeenCalledWith('trip-key-1', 'them');
     // try/finally cleared busy: the add form is usable again (not permanently disabled by busy).
     expect(must<HTMLButtonElement>('settings-access-add-submit').disabled).toBe(true); // still empty input
-  });
-
-  it('#671 — shows one paused state instead of offline/needs-a-connection copy', async () => {
-    syncPaused = true;
-    root = createRoot(container);
-    act(() => root.render(createElement(TripAccessGroup)));
-    await flush();
-
-    expect(must('settings-access-paused').textContent).toMatch(/sync is off/i);
-    expect(q('settings-access-offline')).toBeNull();
-    expect(q('settings-access-unknown')).toBeNull();
-    expect(q('settings-access-uid')).toBeNull();
-    expect(q('settings-access-uid-copy')).toBeNull();
-    expect(getRemote).not.toHaveBeenCalled();
-    expect(fetchTripMembers).not.toHaveBeenCalled();
   });
 
   it('shows the clipboard fallback message when writeText rejects', async () => {

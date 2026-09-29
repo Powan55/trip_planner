@@ -29,3 +29,17 @@ export function setReadDenied(domain: SyncDomain, denied: boolean): void {
 export function isReadDenied(): boolean {
   return readDenied.size > 0;
 }
+
+// The default pack only syncs for a password account; an anonymous session is turned away in
+// `getSharedRemote()` before any read is spent. Same session lifetime and event as the flag above.
+let signInRequired = false;
+
+export function setSignInRequired(required: boolean): void {
+  if (required === signInRequired) return;
+  signInRequired = required;
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
+}
+
+export function isSignInRequired(): boolean {
+  return signInRequired;
+}

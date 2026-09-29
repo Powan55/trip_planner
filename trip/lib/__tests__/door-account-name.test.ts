@@ -139,7 +139,7 @@ describe("the door signs in as the account's name, not the placeholder", () => {
       cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await logInWithPassword(view);
-    await flush();
+    await vi.waitFor(() => expect(getActiveTraveler()).not.toBeNull(), { timeout: 5000 });
 
     // ONE read (with the key, not something else) served both the #10 validation and the name,
     // and the name is what got signed in.
@@ -167,7 +167,7 @@ describe("the door signs in as the account's name, not the placeholder", () => {
       cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await logInWithPassword(view);
-    await flush();
+    await vi.waitFor(() => expect(getActiveTraveler()).not.toBeNull(), { timeout: 5000 });
 
     expect(probeAccountIdentityMock).toHaveBeenCalledTimes(1);
     expect(getActiveTraveler()?.name).toBe(DEFAULT_TRAVELER_NAME);

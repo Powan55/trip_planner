@@ -41,6 +41,7 @@ import type { DayPlan, ItineraryItem } from './trip-data';
 import { savePlans, loadPlans, hasStoredPlans } from './itinerary-storage';
 import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
+import { SHARED_TRIP_ID } from './shared-trip';
 import { getActiveTraveler } from './token-auth';
 import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
@@ -54,7 +55,7 @@ import { isPermissionDenied } from '@/core/sync/denied';
 import { setReadDenied } from '@/core/sync/read-denied';
 import { wasTripCreatedHere } from '@/core/storage/gateway';
 import { realClock } from './trip-now';
-import { getRemote, type FirestoreMod } from './firebase-remote';
+import { getSharedRemote, type FirestoreMod } from './firebase-remote';
 
 /**
  * Map a raw Firestore day-doc into a DayPlan. Defensive: tolerate partial/legacy docs
@@ -221,7 +222,7 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
 
   const tripId = getTripId();
   try {
-    const { db, fs } = await getRemote();
+    const { db, fs } = await getSharedRemote();
     const { doc, deleteDoc } = fs;
 
     const prevByDate = new Map(prev.map((d) => [d.date, d]));
@@ -306,7 +307,7 @@ export async function pushDayMerged(
 export async function pushDayChunk(current: DayPlan[], date: string, tripId: string): Promise<void> {
   const day = current.find((d) => d.date === date);
   if (!day) return; // absent day → skip (ack), never a blind delete
-  const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
+  const { db, fs } = await getSharedRemote(); // rejects when unreachable → decorator keeps it dirty
   await pushDayMerged(db, fs, day, tripId); // rejects on transport error → decorator keeps it dirty
 }
 
@@ -487,7 +488,7 @@ export function subscribeRemote(): () => void {
     if (cancelled || established || settingUp) return;
     settingUp = true;
     try {
-      const { db, fs, uid } = await getRemote();
+      const { db, fs, uid } = await getSharedRemote();
       if (cancelled || established) return;
 
       const { collection, onSnapshot, doc, getDoc, getDocFromServer, setDoc, serverTimestamp } = fs;
@@ -701,6 +702,10 @@ async function reconcileFirstSnapshot(
   // whole-day removal is not a user-reachable operation (trip dates are fixed; `clearDay` keeps the
   // day), so a completely empty remote means "never pushed to", never "deliberately emptied".
   //
+  // The shared trip is never created from a device's defaults, nor filled with the sample when
+  // its doc exists but holds no days. A persisted local plan still takes the heal path below.
+  if (tripId === SHARED_TRIP_ID && (!tripExists || (remoteDays.length === 0 && !localWasPersisted))) return;
+
   // Trip doc ABSENT → never synced → THIS client seeds the group.
   // Seed source by LOCAL intent: key present ⇒ the user's own
   // local edits (incl. a deliberate empty); key absent ⇒ the untouched SAMPLE_ITINERARY
