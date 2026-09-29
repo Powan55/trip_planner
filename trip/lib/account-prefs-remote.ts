@@ -234,8 +234,11 @@ export function subscribePrefs(cb: (prefs: Record<string, unknown>) => void): ()
       console.warn('[account-prefs] subscribe unavailable:', err);
     }
   })();
+  const onOnline = () => void pushDirty(code);
+  window.addEventListener('online', onOnline);
   return () => {
     cancelled = true;
     unsub?.();
+    window.removeEventListener('online', onOnline);
   };
 }
