@@ -20,12 +20,14 @@ import { VIBES, DEFAULT_VIBE } from '@/core/trips/custom';
 import { formatDateLong } from '@/core/dates/trip-dates';
 import {
   getActiveTripId,
+  getDefaultTripShareId,
   DEFAULT_TRIP_ID,
   getSyncCode,
   markTripCreatedHere,
 } from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -146,10 +148,14 @@ export default function TripsHub() {
   /** D-546 — the one refusal this form can now make: a token that could never compose a path. */
   const [joinError, setJoinError] = useState<string | null>(null);
   const [forgetId, setForgetId] = useState<string | null>(null);
+  // Read once after mount: on an untouched device getDefaultTripShareId() writes storage. A device
+  // holding local edits with no id reads '' and stays local-only until account-share moves it.
+  const [defaultSynced, setDefaultSynced] = useState(false);
 
   useEffect(() => {
     setTrips(listKnownTrips());
     setActiveId(getActiveTripId());
+    setDefaultSynced(isRemoteConfigured() && getDefaultTripShareId() !== '');
   }, []);
 
   const forgetTrip = forgetId ? (trips ?? []).find((t) => t.id === forgetId) : undefined;
@@ -166,7 +172,7 @@ export default function TripsHub() {
   /** The shareable capability token for a row, or null when none exists (see header). */
   const shareTokenFor = (id: string): string | null => {
     if (id !== DEFAULT_TRIP_ID) return id; // non-default pack: the id IS the token
-    return null; // default pack: a local-only sample with no remote path (#10) — unshareable
+    return null; // default pack: the shared trip or a local-only sample — no token to hand out
   };
 
   /**
@@ -415,11 +421,13 @@ export default function TripsHub() {
             {(trips ?? []).map((t, i) => {
               const isCurrent = t.id === activeId;
               const token = shareTokenFor(t.id);
-              // #10 — the default pack is honest about what it now is: a local-only sample
-              // (no remote path, nothing syncs, nothing to share).
+              // The default pack is the shared trip on a build with sync, and a local-only sample
+              // (nothing syncs, nothing to share) on one without.
               const subtitle =
                 t.id === DEFAULT_TRIP_ID
-                  ? 'Sample — on this device only'
+                  ? defaultSynced
+                    ? 'Shared trip — synced'
+                    : 'Sample — on this device only'
                   : // through the shared formatter, which pins 'en-US' — a bare
                     // `toLocaleDateString()` rendered `2026/8/21` on a ja-JP device next to the
                     // app's own `Aug 21, 2026`.

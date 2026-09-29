@@ -46,8 +46,9 @@ test.describe('D-660 — no key surfaces', () => {
     await gotoSettings(page);
     await expect(page.getByTestId('settings-group-sync')).toHaveCount(0);
     await page.getByTestId('settings-group-trip-toggle').click();
-    // #10: the default pack renders the sample note in place of a Trip Token value.
-    await expect(page.getByTestId('settings-trip-key-sample')).toBeVisible();
+    // The default pack renders a note in place of a Trip Token value.
+    await expect(page.getByTestId('settings-trip-key-default')).toBeVisible();
+    await expect(page.getByTestId('settings-trip-key')).toHaveCount(0);
 
     const panel = page.getByTestId('settings-panel');
     await expect(panel).toContainText('Trip Token');

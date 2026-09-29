@@ -32,6 +32,7 @@ import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
 import { syncPriorNames } from '@/lib/prior-names-sync';
 import {
   getActiveTripId,
+  getDefaultTripShareId,
   DEFAULT_TRIP_ID,
   getSyncCode,
   identityStore,
@@ -913,9 +914,9 @@ function ClaimOldName({ current }: { current: string }) {
  * (the REMOTE capability) — treated as a SECRET in copy: anyone holding it can read+write this trip
  * It is NOT the User Token, which is the account credential
  * and lives in its own group below — the two are never mixed.
- * #10 — on the DEFAULT pack `getTripId()` is now `''` (the sample is local-only; the old
- * `NEXT_PUBLIC_TRIP_ID` remote id is retired), so the token card renders an honest "no Trip
- * Token — this is the sample" note instead of an empty secret with copy buttons.
+ * On the DEFAULT pack there is no Trip Token to show (it is the shared trip, or the local-only
+ * sample on a build with no sync), so the token card renders a note instead of an empty secret
+ * with copy buttons.
  *
  * Deliberately NOT inside `TokenGate`: the front-door wall stays a zero-regression surface;
  * trip management is an opt-in Settings action most default-pack demo visitors never touch.
@@ -936,15 +937,21 @@ function TripGroup() {
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
   // grandfathered default pack; read client-side like the Trip Token below.
   const [onSharedTrip, setOnSharedTrip] = useState(false);
+  // Read once after mount: getDefaultTripShareId() writes storage on an untouched device. A device
+  // holding local edits with no id reads '' and stays local-only until account-share moves it.
+  const [defaultSynced, setDefaultSynced] = useState(false);
   const { copy: copyToClipboard, error: copyError } = useClipboardCopy();
 
   // Read the active trip's remote token + pack identity after mount (client-only; ssr:false island).
   useEffect(() => {
     const active = getActiveTripId();
-    const remote = getTripId();
+    // The default pack's id is the shared trip's, which is closed to its three accounts: not a
+    // token anyone can be handed.
+    const remote = active === DEFAULT_TRIP_ID ? '' : getTripId();
     setTripKey(remote);
     setShareToken(formatShareToken(active, remote));
     setOnSharedTrip(active !== DEFAULT_TRIP_ID);
+    setDefaultSynced(isRemoteConfigured() && getDefaultTripShareId() !== '');
   }, []);
 
   const shareLink =
@@ -1017,14 +1024,15 @@ function TripGroup() {
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <h3 className="pr pr--l text-ink-hi">This trip&rsquo;s Trip Token</h3>
         {tripKey === '' ? (
-          // #10 — the default pack is a local-only sample: no remote path, no token, nothing to
-          // share. Rendering the empty string as a "secret" with live copy buttons would hand the
-          // user a broken share link.
+          // The default pack has no Trip Token to hand out: the shared trip is closed to its own
+          // accounts, and a build with no sync keeps the sample on this device.
           <p
-            data-testid="settings-trip-key-sample"
+            data-testid="settings-trip-key-default"
             className="mt-1 max-w-2xl text-t-sm text-ink-mid"
           >
-            This is the sample trip &mdash; it lives on this device only and has no Trip Token.
+            {defaultSynced
+              ? 'This is the shared trip — it syncs for everyone on it and has no Trip Token to share. '
+              : 'This is the sample trip — it lives on this device only and has no Trip Token. '}
             Create a trip from your Trips page to get one you can share.
           </p>
         ) : (
@@ -1652,4 +1660,4 @@ function ClearRow({
 
 // Named exports for targeted component tests (offline gate, remove-confirm, clipboard fallback,
 // aria-pressed currency toggle) — the default export is the whole `/settings` island.
-export { TripAccessGroup, CurrencyGroup };
+export { TripAccessGroup, TripGroup, CurrencyGroup };
