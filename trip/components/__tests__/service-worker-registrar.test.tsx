@@ -102,6 +102,32 @@ describe('ServiceWorkerRegistrar — hadController reload gating', () => {
     expect(reload).not.toHaveBeenCalled();
   });
 
+  it('#713 — a tab first opened uncontrolled swallows the first claim, then reloads on a later update after Refresh', async () => {
+    const registration = makeRegistration();
+    const sw = makeServiceWorkerContainer(null, registration);
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
+
+    await mount();
+    // First-install clients.claim(): controller appears, no reload, no prompt.
+    sw.controller = {};
+    sw.fire('controllerchange');
+    expect(reload).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
+
+    // A later update installs; this tab's Refresh must now reload.
+    const installing = makeWorker();
+    registration.installing = installing;
+    registration.fire('updatefound');
+    installing.state = 'installed';
+    installing.fire('statechange');
+    const onClick = (vi.mocked(toast).mock.calls[0][1] as unknown as { action: { onClick: () => void } }).action.onClick;
+    onClick();
+    expect(installing.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+    sw.fire('controllerchange');
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it('a real update reloads once on controllerchange in the tab that clicked Refresh', async () => {
     const waiting = makeWorker();
     const sw = makeServiceWorkerContainer({}, makeRegistration(waiting));
