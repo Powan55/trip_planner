@@ -62,7 +62,7 @@ export interface DocsStore {
    * is genuinely newer than the current live row DOES win. DORMANT: a plain local overwrite (no
    * stamps exist to compare, byte-identical to the old behavior).
    */
-  restoreDocsChecklist(backup: DocItem[]): void;
+  restoreDocsChecklist(backup: DocItem[]): boolean;
   /**
    * — reclaim the attribution stamps left under a name the traveler used to go by (the docs
    * half of the itinerary's owner-initiated `claimAuthorship`,/Q3). `updatedBy` is the ONLY
@@ -161,10 +161,9 @@ export function useDocs(): DocsStore {
       // wins per id; a fixed 18-id template means every id is present on both sides already, so
       // there is nothing to tombstone and no id to mint.
       if (!syncEnabled()) {
-        commit(() => backup);
-        return;
+        return commit(() => backup);
       }
-      commit((current) => mergeItems(current, backup));
+      return commit((current) => mergeItems(current, backup));
     },
     [commit],
   );

@@ -225,6 +225,23 @@ describe('quota — a full device keeps the host entry/expense saved', () => {
   });
 });
 
+describe('#704 — a refused index write does not report an added photo', () => {
+  it('deletes the just-put blob and returns {ok:false,quota}; no meta lands', async () => {
+    const t = render();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
+      if (key === STORAGE_KEYS.photos) throw new DOMException('quota', 'QuotaExceededError');
+    });
+    let result: unknown;
+    await t.run(async (c) => {
+      result = await c.photos.addPhoto(DAY, file(), 'no room');
+    });
+    expect(result).toEqual({ ok: false, reason: 'quota' });
+    expect(rawMeta()).toEqual([]);
+    expect(await h.store.list()).toEqual([]); // blob not left orphaned
+    t.unmount();
+  });
+});
+
 describe('sync-on expense Undo re-point (D-160) — the receipt follows a fresh-id restore', () => {
   it('restoreExpense returns a FRESH id and repointExpense moves the receipt meta old→new', async () => {
     const t = render();

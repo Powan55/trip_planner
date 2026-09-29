@@ -94,7 +94,11 @@ export function usePhotos(): PhotosStore {
         createdAt: new Date().toISOString(),
       };
       if (trimmedCaption !== undefined) meta.caption = trimmedCaption;
-      commit((current) => addPhotoMeta(current, meta));
+      // A refused index write leaves the blob nameless (invisible + uncollectable), so drop it.
+      if (!commit((current) => addPhotoMeta(current, meta))) {
+        await defaultBlobStore.delete(put.id);
+        return { ok: false, reason: 'quota' };
+      }
       return { ok: true, id: put.id };
     },
     [commit],

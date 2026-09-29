@@ -15,9 +15,9 @@ export function loadPhotos(): PhotoMeta[] {
   return sanitizePhotos(photosStore.get<unknown>([]));
 }
 
-/** Sanitize + persist the whole photo-metadata list as JSON. No-op / never-throws under SSR/failure. */
-export function savePhotos(metas: PhotoMeta[]): void {
-  photosStore.set<PhotoMeta[]>(sanitizePhotos(metas));
+/** Sanitize + persist the whole photo-metadata list as JSON. Never throws; false when the write was refused. */
+export function savePhotos(metas: PhotoMeta[]): boolean {
+  return photosStore.set<PhotoMeta[]>(sanitizePhotos(metas));
 }
 
 /**

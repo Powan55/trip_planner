@@ -70,7 +70,7 @@ export interface MyPlacesStore {
    * survives the next snapshot instead of being merged back with rows added after the backup, and
    * a restored row can never lose to its own tombstone on an HLC tie.
    */
-  restoreMyPlaces(backup: MyPlace[]): void;
+  restoreMyPlaces(backup: MyPlace[]): boolean;
 }
 
 // The shared hydrate/listen/commit skeleton, instantiated once for the my-places domain WITH its
@@ -168,11 +168,10 @@ export function useMyPlaces(): MyPlacesStore {
       // savePlans-style replace. SYNC ON: tombstone-replace in ONE commit (mirrors restorePlans /
       // restoreExpenses).
       if (!syncEnabled()) {
-        commit(() => backup);
-        return;
+        return commit(() => backup);
       }
       const name = actor();
-      commit((current) => {
+      return commit((current) => {
         // (a) Tombstone every currently-live row (the SAME stamp `remove` applies) — so a row added
         // after the backup was taken does not survive as a live row (issue #239).
         let next = current.map((p) => {
