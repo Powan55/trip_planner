@@ -30,11 +30,14 @@ import {
 export default function PhotoAttach({
   owner,
   heading = 'Photos',
+  regionLabel,
   altPlaceholder = 'Describe this photo',
   helperText,
 }: {
   owner: PhotoOwner;
   heading?: string;
+  /** Accessible name when several photo regions share the same visible heading. */
+  regionLabel?: string;
   altPlaceholder?: string;
   /** Optional note rendered under the heading (e.g. the docs-row on-device-only + sensitivity copy). */
   helperText?: ReactNode;
@@ -118,7 +121,7 @@ export default function PhotoAttach({
   };
 
   return (
-    <section data-testid="photo-attach" aria-label={heading} className="mt-4">
+    <section data-testid="photo-attach" aria-label={regionLabel ?? heading} className="mt-4">
       <div className="mb-2 flex items-center justify-between gap-3">
         <h4 className="pr flex items-center gap-2">
           <Camera className="h-3.5 w-3.5" aria-hidden="true" />
