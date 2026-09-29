@@ -364,6 +364,21 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     }
   });
 
+  it('#714 — a 413 with history in the body says to start a new chat, not to shorten the question', async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () =>
+      calls++ === 0 ? jsonResponse({ reply: 'ok', ops: [] }) : jsonResponse({ error: 'too big' }, 413),
+    ) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('first');
+    await h.send('second');
+
+    expect(h.error).toContain('Start a new chat');
+    expect(h.error).not.toContain('Shorten');
+    h.unmount();
+  });
+
   // The defect the issue names: a dead/unreachable provider while the device believes it is ONLINE
   // (Worker deleted, DNS/TLS failure, CORS rejection) rejects with `TypeError: Failed to fetch`,
   // and that exact machine string used to reach the traveller through the catch's `err.message`.

@@ -70,7 +70,7 @@ const DIGEST_CAP = 9500;
 
 // Outgoing-history caps — TWO bounds, both applied (see `capHistory`).
 // `HISTORY_CAP` is the conversational one: the last 12 turns, unchanged since.
-// `HISTORY_CHAR_CAP` is the BYTE-BUDGET one and exists only to protect the Worker's
+// `HISTORY_BYTE_CAP` is the BYTE-BUDGET one and exists only to protect the Worker's
 // `MAX_BODY_BYTES = 16 * 1024` (worker/src/index.ts:24), which 413s on the WHOLE JSON string —
 // digest AND history AND message together. 12 turns bounds the turn COUNT but not their length,
 // so one long pasted exchange was the wildcard that could push a request over the limit; raising
@@ -88,7 +88,13 @@ const DIGEST_CAP = 9500;
 // a normal 12-turn conversation (~80-char asks, ~400-char replies ≈ 2.9 KB) still fits whole, so
 // the bound only bites on the long pasted exchanges that are the actual 413 risk.
 const HISTORY_CAP = 12;
-const HISTORY_CHAR_CAP = 3000;
+const HISTORY_BYTE_CAP = 3000;
+// Both bounds are UTF-8 BYTES, because the Worker's 413 counts bytes: a Japanese turn weighs ~3x its
+// character count, so a character budget let non-ASCII chats through to a 413 on every later turn.
+// Second bound: whatever the rest of the body leaves under the Worker's cap, minus a margin.
+const MAX_BODY_BYTES = 16 * 1024;
+const BODY_SAFETY_MARGIN = 512;
+const utf8Bytes = (s: string) => new TextEncoder().encode(s).length;
 
 // Abort ceiling for the whole turn, the only client bound on the Worker's Groq 120b → 20b ladder.
 // Kimi gets 215s: its free queue measured 81–89s for a short reply and 135s with a full plan, and
@@ -308,12 +314,15 @@ export function buildTripDigest(): string {
 
 /**
  * The outgoing history: the last `HISTORY_CAP` turns, then oldest-first dropped until the
- * serialized result fits `HISTORY_CHAR_CAP`. Both bounds matter — see the constants above.
+ * serialized UTF-8 size fits `HISTORY_BYTE_CAP` and what the rest of the body leaves under the
+ * Worker's cap. `otherBytes` is the size of the whole request body serialized with `history: []`.
  * Newest turns are the ones the model actually needs, so the drop order is never in question.
  */
-export function capHistory(turns: ChatTurn[]): ChatTurn[] {
+export function capHistory(turns: ChatTurn[], otherBytes = 0): ChatTurn[] {
+  // "[]" is already counted in otherBytes, so history may use its own size minus those 2 bytes.
+  const budget = Math.min(HISTORY_BYTE_CAP, MAX_BODY_BYTES - BODY_SAFETY_MARGIN - otherBytes + 2);
   let out = turns.slice(-HISTORY_CAP);
-  while (out.length > 0 && JSON.stringify(out).length > HISTORY_CHAR_CAP) out = out.slice(1);
+  while (out.length > 0 && utf8Bytes(JSON.stringify(out)) > budget) out = out.slice(1);
   return out;
 }
 
@@ -352,11 +361,16 @@ export type ChatStatus = 'idle' | 'streaming' | 'error';
  * action, never show machine text. The buckets are the ones with DIFFERENT next actions — an
  * auth failure must not tell someone to press "Try again" forever.
  */
-function statusMessage(status: number): string {
+function statusMessage(status: number, hasHistory = false): string {
   if (status === 401 || status === 403) {
     return "The concierge couldn't confirm this trip is yours. Sign in again, or open the trip from your trips list.";
   }
-  if (status === 413) return 'That message was too long to send. Shorten it and try again.';
+  if (status === 413) {
+    // With history in the body, shortening the question can't help; only a fresh thread does.
+    return hasHistory
+      ? 'This chat has grown too long to send. Start a new chat and ask again.'
+      : 'That message was too long to send. Shorten it and try again.';
+  }
   if (status === 429) return "You've sent a lot of messages in a short time. Wait a minute, then try again.";
   return 'The concierge is having trouble right now. Try again in a moment.';
 }
@@ -500,20 +514,22 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
             signal.addEventListener('abort', () => resolveHeader({}), { once: true });
           }),
         ]);
+        // `trip` is spread in only when there IS one — the key is ABSENT on the default trip,
+        // not `null`. See `buildTripDescriptor`: absent is what selects the Worker's richer
+        // default persona, and it also keeps the default body byte-identical to today's.
+        // Same rule for `provider`: absent on the Groq default.
+        const payload = {
+          message: trimmed,
+          history: [] as ChatTurn[],
+          context,
+          ...(trip ? { trip } : {}),
+          ...(provider === 'kimi' ? { provider } : {}),
+        };
+        const sentHistory = capHistory(history, utf8Bytes(JSON.stringify(payload)));
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId(), ...auth },
-          // `trip` is spread in only when there IS one — the key is ABSENT on the default trip,
-          // not `null`. See `buildTripDescriptor`: absent is what selects the Worker's richer
-          // default persona, and it also keeps the default body byte-identical to today's.
-          body: JSON.stringify({
-            message: trimmed,
-            history: capHistory(history),
-            context,
-            ...(trip ? { trip } : {}),
-            // Same rule as `trip`: absent on the Groq default, so that body stays byte-identical.
-            ...(provider === 'kimi' ? { provider } : {}),
-          }),
+          body: JSON.stringify({ ...payload, history: sentHistory }),
           // The POST stays at the BARE origin with no path suffix — the Worker accepts `POST /`
           // specifically because of this. Do not "tidy" it into `${CONCIERGE_URL}/chat`.
           signal,
@@ -523,7 +539,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         // rendered verbatim, which put whatever the Worker (or anything in front of it) wrote in
         // front of a traveller. See `statusMessage` for the rule and the evidence behind it.
         if (!res.ok) {
-          fail(statusMessage(res.status));
+          fail(statusMessage(res.status, sentHistory.length > 0));
           return; // `finally` still clears sendingRef
         }
 
