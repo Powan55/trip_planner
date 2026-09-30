@@ -861,6 +861,85 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     if (res.ok) return;
     expect(res.error).toMatch(/storage/i);
   });
+
+  // #711: a real export always carries an itinerary, which used to make `restored` non-empty
+  // no matter what landed, so the all-refused guard above never fired for a real file.
+  it('#711: a real export with every write refused is ok:false and claims nothing', async () => {
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
+    const res = await importTripBackup(file, seedStore);
+    setItemSpy.mockRestore();
+
+    expect(res.ok).toBe(false);
+    // live photos are device-only: a refused restore must not have deleted their bytes
+    expect(await seedStore.get('ph-seed-0')).not.toBeNull();
+    expect(await seedStore.get('ph-seed-1')).not.toBeNull();
+  });
+
+  it('#711: an injected commit that returns false is reported as refused, not restored', async () => {
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    const res = await importTripBackup(
+      file,
+      makeInMemoryBlobStore(),
+      () => false,
+      () => false,
+      () => false,
+      () => false,
+    );
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.refused.sort()).toEqual(['docsChecklist', 'expenses', 'itinerary', 'myPlaces']);
+    for (const slot of res.refused) expect(res.restored).not.toContain(slot);
+    expect(res.restored).toContain('journal');
+  });
+
+  it('#711: a legacy itinerary-only file whose commit is refused is ok:false', async () => {
+    savePlans(SEED_PLANS);
+    const file = new Blob([exportItinerary()], { type: 'application/json' });
+    const res = await importTripBackup(file, makeInMemoryBlobStore(), () => false);
+    expect(res.ok).toBe(false);
+  });
+
+  // #704: photos have no remote copy, so a refused index write must leave every live blob alone
+  // and only clear the strays this very import just put.
+  it('#704: a refused photo-index write keeps live blobs, drops only the strays it put', async () => {
+    const backupStore = makeInMemoryBlobStore();
+    await seedAll(backupStore, 3); // backup names ph-seed-0..2
+    const file = await exportTripBackup(backupStore);
+
+    const live = makeInMemoryBlobStore();
+    await live.putWithId('ph-live', blobOf(99));
+    await live.putWithId('ph-seed-0', blobOf(98)); // also named by the backup, and live
+    savePhotos([photoMeta('ph-live'), photoMeta('ph-seed-0')]);
+    const liveIndex = localStorage.getItem(STORAGE_KEYS.photos);
+
+    const realSetItem = Storage.prototype.setItem.bind(localStorage);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      if (key === STORAGE_KEYS.photos) throw new DOMException('quota', 'QuotaExceededError');
+      return realSetItem(key, value);
+    });
+    const res = await importTripBackup(file, live);
+    setItemSpy.mockRestore();
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).not.toContain('photos');
+    expect(res.refused).toEqual(['photos']);
+    expect(localStorage.getItem(STORAGE_KEYS.photos)).toBe(liveIndex);
+    expect(await live.get('ph-live')).not.toBeNull();
+    expect(await live.get('ph-seed-0')).not.toBeNull();
+    expect(await live.get('ph-seed-1')).toBeNull();
+    expect(await live.get('ph-seed-2')).toBeNull();
+  });
 });
 
 // ── The container version is READ, not just stamped ─────────────────────────────────────────────

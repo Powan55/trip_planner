@@ -82,7 +82,7 @@ const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
  * synced traveler is signed in, so a restore PROPAGATES to the shared trip and survives the next server
  * snapshot instead of being unwound. Same `(plans) => void` shape either way.
  */
-export type CommitItinerary = (plans: DayPlan[]) => void;
+export type CommitItinerary = (plans: DayPlan[]) => boolean | void;
 
 /**
  * How the myPlaces domain is committed on import — the SAME dual-path idea as `CommitItinerary`,
@@ -91,7 +91,7 @@ export type CommitItinerary = (plans: DayPlan[]) => void;
  * `restorePlans`/`restoreExpenses`) when a synced traveler is signed in, so a row added to myPlaces
  * after the backup was taken is tombstoned by the restore instead of surviving the next merge.
  */
-export type CommitMyPlaces = (places: MyPlace[]) => void;
+export type CommitMyPlaces = (places: MyPlace[]) => boolean | void;
 
 /**
  * How the docsChecklist domain is committed on import — issue #295, the deliberately-deferred
@@ -103,11 +103,11 @@ export type CommitMyPlaces = (places: MyPlace[]) => void;
  * remotely) when a synced traveler is signed in, so a row edited after the backup was taken keeps
  * its win instead of being blindly clobbered by the restore's bare write.
  */
-export type CommitDocsChecklist = (items: DocItem[]) => void;
+export type CommitDocsChecklist = (items: DocItem[]) => boolean | void;
 
 /** How the expenses domain is committed on import — same shape and idea as `CommitMyPlaces`; the UI
  * injects `restoreExpenses` (tombstone-replace) under sync. Absent ⇒ generic bare write + merge. */
-export type CommitExpenses = (expenses: Expense[]) => void;
+export type CommitExpenses = (expenses: Expense[]) => boolean | void;
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
@@ -133,8 +133,11 @@ export interface TripBackup {
   photos: { meta: PhotoMeta[]; blobs: Record<string, string> };
 }
 
+const NOTHING_WRITTEN =
+  'Nothing could be restored — your browser refused every write, likely because storage is full. No changes were made to your trip.';
+
 export type ImportBackupResult =
-  | { ok: true; restored: string[]; photosSkipped: number }
+  | { ok: true; restored: string[]; photosSkipped: number; refused: string[] }
   | { ok: false; error: string };
 
 /** Sentinel telling an absent/corrupt slot from a legitimately-stored value on export (see below). */
@@ -481,8 +484,8 @@ export async function importTripBackup(
         error: 'This backup is from a different trip. Switch to that trip, then restore it there.',
       };
     }
-    commitItinerary(pr.plans);
-    return { ok: true, restored: ['itinerary'], photosSkipped: 0 };
+    if (commitItinerary(pr.plans) === false) return { ok: false, error: NOTHING_WRITTEN };
+    return { ok: true, restored: ['itinerary'], photosSkipped: 0, refused: [] };
   }
 
   // A-5: refuse a cross-trip restore rather than silently overwriting the active trip. `env.tripId`
@@ -581,11 +584,15 @@ export async function importTripBackup(
 
   // ── Phase B — commit ──
   const restored: string[] = [];
+  // Domains whose local write was refused (e.g. quota): named so the caller can say so, never claimed.
+  const refused: string[] = [];
 
   // Blobs FIRST (id-preserving), so a re-import doesn't duplicate and meta↔blob links hold.
+  const putIds = new Set<string>();
   for (const [id, blob] of decoded) {
     const res = await blobStore.putWithId(id, blob);
-    if (!res.ok) photosSkipped++; // stored blob failed → meta stays as a placeholder
+    if (res.ok) putIds.add(id);
+    else photosSkipped++; // stored blob failed → meta stays as a placeholder
   }
   // Any meta whose blob was never provided at all is also a placeholder.
   photosSkipped += metas.filter((m) => env.photos?.blobs?.[m.id] === undefined).length;
@@ -595,10 +602,19 @@ export async function importTripBackup(
     // from the restored set is being dropped here — without this, its blob orphans forever in the
     // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).
     const keptIds = new Set(metas.map((m) => m.id));
-    const orphaned = loadPhotos().filter((m) => !keptIds.has(m.id));
-    savePhotos(metas);
-    if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
-    if (metas.length > 0) restored.push('photos');
+    const live = loadPhotos();
+    if (savePhotos(metas)) {
+      const orphaned = live.filter((m) => !keptIds.has(m.id));
+      if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
+      if (metas.length > 0) restored.push('photos');
+    } else {
+      // Index write refused: the live index still names its blobs, so keep every one of them.
+      // Only the blobs put above that no live photo owns are strays — drop those.
+      refused.push('photos');
+      const liveIds = new Set(live.map((m) => m.id));
+      const strays = metas.filter((m) => putIds.has(m.id) && !liveIds.has(m.id));
+      if (strays.length > 0) await deletePhotoBlobs(strays, blobStore);
+    }
   }
 
   // `slot` here is a runtime string key (built from `Object.entries` above), not one of DOMAINS'
@@ -609,22 +625,20 @@ export async function importTripBackup(
     // UI passes the store's `restoreMyPlaces` under sync), route through it INSTEAD of the bare
     // write + generic merge enqueue — same idea as `commitItinerary`, one domain narrower. Absent
     // ⇒ unchanged default behavior below.
+    // Only an explicit `false` is a refusal, so a commit that returns nothing still counts as landed.
     if (slot === 'expenses' && commitExpenses) {
-      commitExpenses(cleaned as Expense[]);
-      restored.push(slot);
+      (commitExpenses(cleaned as Expense[]) === false ? refused : restored).push(slot);
       continue;
     }
     if (slot === 'myPlaces' && commitMyPlaces) {
-      commitMyPlaces(cleaned as MyPlace[]);
-      restored.push(slot);
+      (commitMyPlaces(cleaned as MyPlace[]) === false ? refused : restored).push(slot);
       continue;
     }
     // docsChecklist's injected dual path (issue #295): a same-id UPSERT via `mergeItems`, not a
     // tombstone-replace — the fixed 18-id template has no add/remove path. Same idea as the
     // myPlaces branch above, one domain narrower.
     if (slot === 'docsChecklist' && commitDocsChecklist) {
-      commitDocsChecklist(cleaned as DocItem[]);
-      restored.push(slot);
+      (commitDocsChecklist(cleaned as DocItem[]) === false ? refused : restored).push(slot);
       continue;
     }
     // Capture BEFORE the write: it reads the pre-restore local state as the push's `prev`. The
@@ -633,24 +647,21 @@ export async function importTripBackup(
     // other member's copy with data this device never kept.
     const pushRestored = domainsBySlot[slot].enqueueRestore?.(cleaned);
     const ok = domainsBySlot[slot].write(cleaned);
-    if (ok === false) continue; // refused local write: don't claim it, don't queue it (#698)
+    if (ok === false) {
+      refused.push(slot); // refused local write: don't claim it, don't queue it (#698)
+      continue;
+    }
     pushRestored?.();
     restored.push(slot);
   }
 
   if (itinPlans !== null) {
-    commitItinerary(itinPlans); // dual path: restorePlans under sync, savePlans local
-    restored.push('itinerary');
+    // dual path: restorePlans under sync, savePlans local
+    (commitItinerary(itinPlans) === false ? refused : restored).push('itinerary');
   }
 
   // Content existed but every write was refused, so nothing changed on disk.
-  if (restored.length === 0) {
-    return {
-      ok: false,
-      error:
-        'Nothing could be restored — your browser refused every write, likely because storage is full. No changes were made to your trip.',
-    };
-  }
+  if (restored.length === 0) return { ok: false, error: NOTHING_WRITTEN };
 
-  return { ok: true, restored, photosSkipped };
+  return { ok: true, restored, photosSkipped, refused };
 }

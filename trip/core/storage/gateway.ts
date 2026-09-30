@@ -1438,8 +1438,8 @@ export const favoritesStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('favorites'), fallback);
   },
-  set<T>(ids: T): void {
-    writeJson('local', keyFor('favorites'), ids);
+  set<T>(ids: T): boolean {
+    return writeJson('local', keyFor('favorites'), ids);
   },
 } as const;
 
@@ -1458,8 +1458,8 @@ export const photosStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('photos'), fallback);
   },
-  set<T>(metas: T): void {
-    writeJson('local', keyFor('photos'), metas);
+  set<T>(metas: T): boolean {
+    return writeJson('local', keyFor('photos'), metas);
   },
 } as const;
 
@@ -1531,8 +1531,8 @@ export const packingStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('packing'), fallback);
   },
-  set<T>(items: T): void {
-    writeJson('local', keyFor('packing'), items);
+  set<T>(items: T): boolean {
+    return writeJson('local', keyFor('packing'), items);
   },
 } as const;
 
@@ -1552,8 +1552,8 @@ export const dayAnchorStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('dayAnchors'), fallback);
   },
-  set<T>(map: T): void {
-    writeJson('local', keyFor('dayAnchors'), map);
+  set<T>(map: T): boolean {
+    return writeJson('local', keyFor('dayAnchors'), map);
   },
 } as const;
 
@@ -1572,8 +1572,8 @@ export const shareInboxStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('shareInbox'), fallback);
   },
-  set<T>(items: T): void {
-    writeJson('local', keyFor('shareInbox'), items);
+  set<T>(items: T): boolean {
+    return writeJson('local', keyFor('shareInbox'), items);
   },
 } as const;
 

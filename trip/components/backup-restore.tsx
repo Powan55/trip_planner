@@ -182,9 +182,13 @@ export default function BackupRestore() {
           ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} could not be restored (storage limit).`
           : '';
       const names = result.restored.map((slot) => DOMAIN_LABELS[slot] ?? slot);
+      const notSaved =
+        result.refused.length > 0
+          ? ` Not restored (storage is full): ${joinNames(result.refused.map((slot) => DOMAIN_LABELS[slot] ?? slot))}.`
+          : '';
       setStatus({
         kind: 'success',
-        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped} Reloading…`,
+        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped}${notSaved} Reloading…`,
       });
       // Reload so every store re-hydrates from the freshly-written localStorage/IndexedDB. A
       // short delay lets the aria-live status announce before the navigation.

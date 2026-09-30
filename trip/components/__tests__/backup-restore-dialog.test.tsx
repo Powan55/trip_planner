@@ -230,6 +230,7 @@ describe('BackupRestore — the outcome reports what was actually restored', () 
       ok: true,
       restored: ['itinerary', 'journal', 'photos'],
       photosSkipped: 0,
+      refused: [],
     });
     await openConfirm();
     await confirmAndSettle();
@@ -246,6 +247,7 @@ describe('BackupRestore — the outcome reports what was actually restored', () 
       ok: true,
       restored: ['expenses', 'docsChecklist'],
       photosSkipped: 2,
+      refused: [],
     });
     await openConfirm();
     await confirmAndSettle();
@@ -254,5 +256,21 @@ describe('BackupRestore — the outcome reports what was actually restored', () 
     expect(text).toContain('Trip restored — expenses and documents checklist are back.');
     expect(text).toContain('2 photos could not be restored');
     expect(text).not.toContain('itinerary');
+    expect(text).not.toContain('Not restored');
+  });
+
+  it('names the domains whose write was refused', async () => {
+    vi.mocked(importTripBackup).mockResolvedValueOnce({
+      ok: true,
+      restored: ['itinerary'],
+      photosSkipped: 0,
+      refused: ['photos', 'expenses'],
+    });
+    await openConfirm();
+    await confirmAndSettle();
+
+    const text = must('backup-status').textContent ?? '';
+    expect(text).toContain('Trip restored — itinerary is back.');
+    expect(text).toContain('Not restored (storage is full): photos and expenses.');
   });
 });

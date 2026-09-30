@@ -46,8 +46,8 @@ export interface PhotosStore {
    * host journal entry / expense is unaffected. `altText` is required (a11y); `caption` optional.
    */
   addPhoto(owner: PhotoOwner, file: File | Blob, altText: string, caption?: string): Promise<AddPhotoResult>;
-  /** Remove a photo: delete the blob first (fail-safe order), then drop its meta. */
-  removePhoto(id: string): Promise<void>;
+  /** Remove a photo: drop its meta, then delete the blob. False (nothing deleted) when the index write is refused. */
+  removePhoto(id: string): Promise<boolean>;
   /**
    * Re-point expense-owned photos `oldId → newId`: the sync-on expense Undo re-adds a
    * FRESH-ID copy, so the receipt meta must follow. No-op when the id is unchanged (dormant restore).
@@ -94,7 +94,11 @@ export function usePhotos(): PhotosStore {
         createdAt: new Date().toISOString(),
       };
       if (trimmedCaption !== undefined) meta.caption = trimmedCaption;
-      commit((current) => addPhotoMeta(current, meta));
+      // A refused index write leaves the blob nameless (invisible + uncollectable), so drop it.
+      if (!commit((current) => addPhotoMeta(current, meta))) {
+        await defaultBlobStore.delete(put.id);
+        return { ok: false, reason: 'quota' };
+      }
       return { ok: true, id: put.id };
     },
     [commit],
@@ -102,10 +106,11 @@ export function usePhotos(): PhotosStore {
 
   const removePhoto = useCallback(
     async (id: string) => {
-      // Blob first, then meta: a meta without a blob renders as a placeholder (harmless); a blob
-      // without a meta is invisible+orphaned — so delete in the order that fails safe.
+      // Meta first: if the index write is refused, both meta and bytes stay intact. Photos are
+      // device-only, so deleting the bytes while the index still names them is unrecoverable.
+      if (!commit((current) => removePhotoMeta(current, id))) return false;
       await defaultBlobStore.delete(id);
-      commit((current) => removePhotoMeta(current, id));
+      return true;
     },
     [commit],
   );

@@ -79,7 +79,7 @@ export interface ExpenseStore {
    * ONE commit, so the restore PROPAGATES + survives the next snapshot instead of being unwound,
    * and a restored row can never lose to its own tombstone on an HLC tie.
    */
-  restoreExpenses(backup: Expense[]): void;
+  restoreExpenses(backup: Expense[]): boolean;
   /**
    * — reclaim the ATTRIBUTION stamps left under a name the traveler used to go by. The
    * expense-store half of the itinerary's owner-initiated `claimAuthorship`: rewrites
@@ -230,11 +230,10 @@ export function useExpenses(): ExpenseStore {
     // DORMANT: a plain local overwrite — there is no sync to unwind, byte-identical to
     // a savePlans-style replace. SYNC ON: tombstone-replace in ONE commit (mirrors restorePlans).
     if (!syncEnabled()) {
-      commit(() => backup);
-      return;
+      return commit(() => backup);
     }
     const name = actor();
-    commit((current) => {
+    return commit((current) => {
       // (a) Tombstone every currently-live row (the SAME stamp clearAll applies).
       let next = current.reduce((acc, e) => {
         if (e.deleted === true) return acc;
