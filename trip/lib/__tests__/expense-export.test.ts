@@ -10,7 +10,8 @@ import {
 } from '@/lib/expense-export';
 import type { Expense } from '@/core/budget/expenses';
 import { exportItinerary } from '@/core/vault/export-import';
-import { setActiveTripId, keyFor, STORAGE_KEYS } from '@/core/storage/gateway';
+import { getActiveTripId, setActiveTripId, keyFor, STORAGE_KEYS } from '@/core/storage/gateway';
+import * as firebaseConfig from '@/lib/firebase-config';
 
 const E1: Expense = {
   id: 'e1',
@@ -43,6 +44,8 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     expect(envelope.schemaVersion).toBe(EXPENSE_EXPORT_VERSION);
     expect(typeof envelope.updatedAt).toBe('string');
     expect(Array.isArray(envelope.payload)).toBe(true);
+    expect(envelope.tripId).toBe(getActiveTripId());
+    expect(envelope.remoteId).toBe(firebaseConfig.getTripId());
 
     const parsed = parseExpenseBackup(json);
     expect(parsed.ok).toBe(true);
@@ -177,6 +180,55 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     const result = parseExpenseBackup(raw);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.expenses).toEqual([E1]);
+  });
+});
+
+describe('expense backup trip matching (#705)', () => {
+  it('refuses a different local trip without writing to the active trip', () => {
+    const json = exportExpenses([E1]);
+    setActiveTripId('another-trip');
+    const before = { ...localStorage };
+
+    expect(parseExpenseBackup(json)).toMatchObject({ ok: false, error: expect.stringMatching(/different trip/) });
+    expect({ ...localStorage }).toEqual(before);
+  });
+
+  it('refuses different shared trips even when their local pack ids match', () => {
+    vi.spyOn(firebaseConfig, 'isTripRemoteConfigured').mockReturnValue(true);
+    const remoteId = vi.spyOn(firebaseConfig, 'getTripId').mockReturnValue('shared-A');
+    const json = exportExpenses([E1]);
+    remoteId.mockReturnValue('shared-B');
+    const before = { ...localStorage };
+
+    expect(parseExpenseBackup(json)).toMatchObject({ ok: false, error: expect.stringMatching(/different shared trip/) });
+    expect({ ...localStorage }).toEqual(before);
+  });
+
+  it('allows the same shared trip', () => {
+    vi.spyOn(firebaseConfig, 'isTripRemoteConfigured').mockReturnValue(true);
+    vi.spyOn(firebaseConfig, 'getTripId').mockReturnValue('shared-A');
+
+    expect(parseExpenseBackup(exportExpenses([E1]))).toEqual({ ok: true, expenses: [E1] });
+  });
+
+  it.each([undefined, ''])('refuses unproven shared restores with remoteId %s', (remoteId) => {
+    vi.spyOn(firebaseConfig, 'isTripRemoteConfigured').mockReturnValue(true);
+    vi.spyOn(firebaseConfig, 'getTripId').mockReturnValue('shared-A');
+    const json = JSON.stringify({
+      schemaVersion: EXPENSE_EXPORT_VERSION,
+      tripId: remoteId === undefined ? undefined : getActiveTripId(),
+      remoteId,
+      payload: [E1],
+    });
+
+    expect(parseExpenseBackup(json)).toMatchObject({ ok: false, error: expect.stringMatching(/unshared copy/) });
+  });
+
+  it('keeps legacy files restorable on an unshared trip', () => {
+    vi.spyOn(firebaseConfig, 'isTripRemoteConfigured').mockReturnValue(false);
+    const json = JSON.stringify({ schemaVersion: EXPENSE_EXPORT_VERSION, payload: [E1] });
+
+    expect(parseExpenseBackup(json)).toEqual({ ok: true, expenses: [E1] });
   });
 });
 

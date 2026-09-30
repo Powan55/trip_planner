@@ -1491,7 +1491,10 @@ function ExpensesBackupRestore({
     const parsed = parseExpenseBackup(pendingImport.text);
     setPendingImport(null);
     if (parsed.ok) {
-      restoreExpenses(parsed.expenses);
+      if (!restoreExpenses(parsed.expenses)) {
+        setStatus({ kind: 'error', message: 'Could not save the imported expenses. No changes were made to your expenses.' });
+        return;
+      }
       setStatus({
         kind: 'success',
         message: 'Expenses imported. Your logged expenses have been replaced with the backup.',
@@ -1576,7 +1579,8 @@ function ExpensesBackupRestore({
             <AlertDialogDescription className="text-t-body text-ink-mid">
               Importing <span className="font-machine text-t-sm text-ink-hi">{pendingImport?.name}</span> will
               replace your current expenses with the contents of that file. On a shared trip this
-              replaces expenses for everyone. This cannot be undone.
+              replaces expenses for everyone. Older files without trip information can only be
+              restored to an unshared trip; check that the file belongs to this trip. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
