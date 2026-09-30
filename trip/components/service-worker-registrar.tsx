@@ -40,7 +40,7 @@ export function ServiceWorkerRegistrar() {
     // then is a spurious ~200ms post-load refresh that re-hydrates the whole tree and
     // wipes any in-flight form state (e.g. a token typed into the gate). Only an UPDATE
     // (page was already controlled → SKIP_WAITING handshake) warrants a reload.
-    const hadController = !!navigator.serviceWorker.controller;
+    let hadController = !!navigator.serviceWorker.controller;
 
     // clients.claim() in the activate handler fires `controllerchange` in EVERY
     // open tab, not just the one whose user clicked Refresh (#531) — so only the
@@ -52,8 +52,14 @@ export function ServiceWorkerRegistrar() {
     // SKIP_WAITING), reload once onto the new version — but never on the first-install
     // claim (see `hadController`), and never in a tab that didn't click Refresh.
     const onControllerChange = () => {
-      if (!hadController || refreshing) return;
+      if (refreshing) return;
       if (!clickedRefresh) {
+        // A tab first opened uncontrolled sees the first-install claim once; swallow it
+        // so a LATER update's claim still reaches the reload path (#713).
+        if (!hadController) {
+          hadController = true;
+          return;
+        }
         // No worker ref: the controller here is already the NEW (active) worker,
         // so passing it would re-post SKIP_WAITING to an already-active worker
         // (a no-op — no second controllerchange, no reload). Omitting it routes

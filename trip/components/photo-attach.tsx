@@ -145,6 +145,7 @@ export default function PhotoAttach({
           onChange={onPick}
           data-testid="photo-file-input"
           aria-label={`Add a photo to ${heading}`}
+          tabIndex={-1}
           className="sr-only"
         />
       </div>

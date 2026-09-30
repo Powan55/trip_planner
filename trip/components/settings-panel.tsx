@@ -1534,6 +1534,7 @@ function ExpensesBackupRestore({
           onChange={handleFileChange}
           data-testid="settings-import-expenses-input"
           aria-label="Choose an expenses backup file to restore"
+          tabIndex={-1}
           className="sr-only"
         />
       </div>
