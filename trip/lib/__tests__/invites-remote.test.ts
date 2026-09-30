@@ -17,7 +17,7 @@ vi.mock('firebase/app', () => ({
   getApp: () => ({ name: 'fake' }),
 }));
 vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'me', getIdToken: async () => 'tok' } }),
+  getAuth: () => ({ currentUser: { email: 'fake@accounts.trip-planner.invalid', uid: 'me', getIdToken: async () => 'tok' } }),
   onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
     queueMicrotask(() => next({ uid: 'me' }));
     return () => {};

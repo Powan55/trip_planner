@@ -58,14 +58,9 @@ export function isRemoteConfigured(): boolean {
  * Resolve the Firestore path segment for the ACTIVE pack — the trip's REMOTE capability token.
  * Dynamic, read per call (never cached at module scope) so a pack switch picks up the new id.
  *
- * - Default pack (id-equality with `DEFAULT_TRIP_ID`): the DEVICE-MINTED share id (D-542), or
- * `''` when this device has never opted in. `''` is #10's behaviour verbatim — a LOCAL-ONLY
- * SAMPLE with no remote path — and it stays the default, so an untouched device is unchanged.
- * The old `NEXT_PUBLIC_TRIP_ID` env read stays retired and is NOT what this restores: it was
- * described as "a separately-minted secret", which was false — a NEXT_PUBLIC_* value inlines
- * into the public bundle at build time, so the "secret" shipped to every visitor. The D-542 id
- * is minted by `crypto.randomUUID()` on the device that opts in and is only ever in
- * localStorage, so it is a real capability token rather than a bundled one.
+ * - Default pack (id-equality with `DEFAULT_TRIP_ID`): the shared trip's id (`SHARED_TRIP_ID`) for
+ * every account and device, or the id a device is still on until `lib/account-share.ts` moves it.
+ * `''` only for a device holding local edits that have not been moved yet (local-only until then).
  * - Every other pack: the local pack id IS the capability token — return it verbatim.
  *
  * #476 — either way the id must occupy EXACTLY ONE path segment, or this returns `''`
@@ -77,8 +72,7 @@ export function isRemoteConfigured(): boolean {
  * written BEFORE that guard existed.
  *
  * Never throws (getActiveTripId inherits the gateway's never-throw). SSR-safe: getActiveTripId
- * returns DEFAULT_TRIP_ID with no window and getDefaultTripShareId reads '' with no window, so
- * SSR still resolves '' (nothing remote server-side).
+ * returns DEFAULT_TRIP_ID with no window; nothing remote runs server-side.
  */
 export function getTripId(): string {
   const activeId = getActiveTripId();

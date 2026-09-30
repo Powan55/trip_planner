@@ -64,7 +64,7 @@ function pathOf(segments: string[]): string {
 // `getRemote()` signs the device in anonymously before it resolves (the rules have an auth floor),
 // so the auth module is faked here too — same shape as docs-remote-sync.test.ts.
 vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
+  getAuth: () => ({ currentUser: { email: 'fake@accounts.trip-planner.invalid', uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
   onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
     queueMicrotask(() => next(null));
     return () => {};

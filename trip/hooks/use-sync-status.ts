@@ -6,11 +6,9 @@ import {
   getActiveTripId,
   getDefaultTripShareId,
   DEFAULT_TRIP_ID,
-  STORAGE_KEYS,
-  syncPausedPrefs,
 } from '@/core/storage/gateway';
 import { outboxBlocked, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
-import { isReadDenied } from '@/core/sync/read-denied';
+import { isReadDenied, isSignInRequired } from '@/core/sync/read-denied';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 
 /**
@@ -51,7 +49,7 @@ export interface SyncStatus {
   lastAckAt: string | null;
   /**
    * D-542 — this device is on the DEFAULT pack, the build CAN sync (firebase web config present),
-   * and no share id has been minted, so every edit is device-only and nothing will ever upload.
+   * and the local plan has not been moved onto the shared trip yet, so edits are device-only.
    *
    * This is the state that previously rendered as complete silence: the outbox is gated off, so
    * it reads the neutral `{pending:0, blocked:0, lastAckAt:null}` shape — indistinguishable from
@@ -62,8 +60,8 @@ export interface SyncStatus {
    * env) sharing is not merely off, it is impossible, so offering it would be a dead end.
    */
   localOnly: boolean;
-  /** #600: "Sync this device" is off. Edits still queue in `pending`; nothing is sent or received. */
-  paused: boolean;
+  /** An anonymous session on the default pack: edits queue in `pending`; nothing is sent until sign-in. */
+  signInRequired: boolean;
 }
 
 const SSR_DEFAULT: SyncStatus = {
@@ -72,7 +70,7 @@ const SSR_DEFAULT: SyncStatus = {
   readBlocked: false,
   lastAckAt: null,
   localOnly: false,
-  paused: false,
+  signInRequired: false,
 };
 
 function readStatus(): SyncStatus {
@@ -90,7 +88,7 @@ function readStatus(): SyncStatus {
       isRemoteConfigured() &&
       getActiveTripId() === DEFAULT_TRIP_ID &&
       getDefaultTripShareId() === '',
-    paused: isRemoteConfigured() && syncPausedPrefs.get(),
+    signInRequired: isRemoteConfigured() && isSignInRequired(),
   };
 }
 
@@ -107,11 +105,6 @@ export function useSyncStatus(): SyncStatus {
       setStatus(readStatus());
     };
     const onStorage = (e: StorageEvent) => {
-      // Another tab flipped sync on or off: this tab's listeners were armed under the old state.
-      if (e.key === STORAGE_KEYS.syncPaused) {
-        window.location.reload();
-        return;
-      }
       if (e.key === keyFor('syncOutbox') || e.key === null) reread();
     };
     window.addEventListener(SYNC_OUTBOX_CHANGED_EVENT, reread);

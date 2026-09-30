@@ -38,7 +38,7 @@ const calls = vi.hoisted(() => ({ initializeFirestore: 0, writes: 0 }));
 // observer must resolve after the synchronous return of `onAuthStateChanged` (as the real SDK
 // does) but WITHOUT depending on a timer, so a suite running under fake timers still gets a handle.
 vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
+  getAuth: () => ({ currentUser: { email: 'fake@accounts.trip-planner.invalid', uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
   onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
     queueMicrotask(() => next(null)); // no restored session ⇒ the anonymous sign-in below runs
     return () => {};

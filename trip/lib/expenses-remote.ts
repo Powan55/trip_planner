@@ -35,7 +35,8 @@ import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 import { LEGS, isLeg, type Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
-import { getRemote, type FirestoreMod } from './firebase-remote';
+import { SHARED_TRIP_ID } from './shared-trip';
+import { getSharedRemote, type FirestoreMod } from './firebase-remote';
 import { mergeItems, gcTombstoneRows, DEFAULT_GC_HORIZON_MS } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
 import { isPermissionDenied } from '@/core/sync/denied';
@@ -143,7 +144,7 @@ export async function pushChunkMerged(
 export async function pushExpenseChunk(current: Expense[], leg: string, tripId: string): Promise<void> {
   if (!LEGS.includes(leg)) return; // not a chunk of the ACTIVE pack → ack (never a bad write)
   const legRows = current.filter((e) => e.leg === leg);
-  const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
+  const { db, fs } = await getSharedRemote(); // rejects when unreachable → decorator keeps it dirty
   await pushChunkMerged(db, fs, leg, legRows, current.filter((e) => e.leg !== leg), tripId); // rejects on transport error → stays dirty
 }
 
@@ -243,7 +244,7 @@ export function subscribeRemoteExpenses(): () => void {
         } else {
           // Never synced for this leg → seed from local (push up), keep local as-is.
           result.push(...localLeg);
-          seedUp(leg, localLeg, others);
+          if (getTripId() !== SHARED_TRIP_ID) seedUp(leg, localLeg, others);
         }
       } else {
         // Steady-state (or a dirty leg on first snapshot): item-level merge so an unpushed local
@@ -259,7 +260,7 @@ export function subscribeRemoteExpenses(): () => void {
     if (cancelled || established || settingUp) return;
     settingUp = true;
     try {
-      const { db, fs } = await getRemote();
+      const { db, fs } = await getSharedRemote();
       if (cancelled || established) return;
       const { collection, onSnapshot } = fs;
       const expensesCol = collection(db, 'trips', getTripId(), 'expenses');

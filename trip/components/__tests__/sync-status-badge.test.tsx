@@ -124,15 +124,18 @@ describe('#271 — SyncStatusBadge reflects a permission-denied read, not just a
   });
 });
 
+const holdLocalEdits = () => localStorage.setItem(STORAGE_KEYS.itinerary, '[]');
+
 /**
- * D-542 — the state that used to be silence. On the default pack with no share id the outbox is
+ * D-542 — the state that used to be silence. On the default pack holding edits with no id yet the outbox is
  * gated off, so every field reads neutral and the badge rendered NOTHING: identical to "all
  * synced". That silence is the whole bug report, so these assert the pill is present, says which,
  * and offers the way out.
  */
-describe('D-542 — the local-only state is visible and actionable', () => {
-  it('says "This device only" when the default pack has no share id', async () => {
+describe('D-542 — the local-only state is visible', () => {
+  it('says "This device only" when the default pack holds edits and no share id', async () => {
     localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
+    holdLocalEdits();
     const c = await mount();
     const badge = c.querySelector('[data-testid="sync-status-badge"]');
     expect(badge).not.toBeNull();
@@ -142,13 +145,17 @@ describe('D-542 — the local-only state is visible and actionable', () => {
     );
   });
 
-  it('is a real button that opens the share dialog — keyboard reachable, not a clickable div', async () => {
+  it('is not a button: there is nothing to share, the way out is signing in', async () => {
+    localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
+    holdLocalEdits();
+    const c = await mount();
+    expect(c.querySelector('[data-testid="sync-status-share-cta"]')).toBeNull();
+  });
+
+  it('an untouched device with no stored id is on the shared trip and shows nothing', async () => {
     localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
     const c = await mount();
-    const cta = c.querySelector('[data-testid="sync-status-share-cta"]');
-    expect(cta).not.toBeNull();
-    expect(cta?.tagName).toBe('BUTTON');
-    expect(cta?.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
   });
 
   it('goes quiet again the moment a share id exists — the offer is not permanent nagging', async () => {
@@ -156,8 +163,9 @@ describe('D-542 — the local-only state is visible and actionable', () => {
     expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
   });
 
-  it('stays quiet on a DORMANT build — sharing is impossible there, so offering it is a dead end', async () => {
+  it('stays quiet on a DORMANT build — there is nothing to sync to', async () => {
     localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
+    holdLocalEdits();
     gate.remoteOn = false;
     const c = await mount();
     expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();

@@ -20,6 +20,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Firestore } from 'firebase/firestore';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 import {
   setActiveTripId,
@@ -81,14 +82,10 @@ beforeEach(() => {
 });
 
 describe('S234 Part A — remote write path targets trips/{token} for the active pack', () => {
-  it("DEFAULT pack: getTripId() is '' and the trip-scoped gate is closed (#10 — the sample has no remote path)", () => {
-    // No pointer → getActiveTripId() === DEFAULT_TRIP_ID → getTripId() === '' (#10 retired the
-    // NEXT_PUBLIC_TRIP_ID remote id; the default pack is a local-only sample). The old form of
-    // this test drove pushChunkMerged/pushDayMerged here — those writers are now unreachable on
-    // the default pack (every entry gate + the outbox check isTripRemoteConfigured), so the
-    // load-bearing assertions are the empty id and the closed gate.
-    expect(getTripId()).toBe('');
-    expect(isTripRemoteConfigured()).toBe(false); // no firebase env in tests, AND no remote id
+  it('DEFAULT pack: getTripId() is the shared trip, and the trip-scoped gate follows the web config', () => {
+    // No pointer → getActiveTripId() === DEFAULT_TRIP_ID → the one shared trip's id.
+    expect(getTripId()).toBe(SHARED_TRIP_ID);
+    expect(isTripRemoteConfigured()).toBe(false); // no firebase env in tests
   });
 
   it('NON-default pack: writes target trips/{token} and NEVER the default remote path', async () => {
