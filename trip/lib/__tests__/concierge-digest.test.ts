@@ -82,7 +82,7 @@ describe('trip-context digest (S244)', () => {
     const body = JSON.parse(init.body as string) as { message: string; history: unknown[]; context: string };
 
     expect(typeof body.context).toBe('string');
-    expect(body.context.length).toBeLessThanOrEqual(9500); // DIGEST_CAP raised 7000→9500 (S362)
+    expect(new TextEncoder().encode(body.context).length).toBeLessThanOrEqual(9500);
     expect(body.context).toContain('Trip:');
     // S362: the wire really carries the enriched per-item encoding, not just the titles. Pinned on
     // the header line that teaches the model the format, plus a real timed seed item.
@@ -146,6 +146,30 @@ describe('trip-context digest (S244)', () => {
     // The end of the line: the whole serialized POST body clears the Worker's 413 ceiling.
     expect(new TextEncoder().encode(raw).length).toBeLessThan(16 * 1024);
 
+    h.unmount();
+  });
+
+  it('keeps a Japanese digest and question under the Worker body limit', async () => {
+    localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify([{
+      date: '2026-12-09', city: '東京', country: 'japan',
+      items: [{ id: 'jp-1', title: '京都😀'.repeat(2500), category: 'sightseeing' }],
+    } satisfies DayPlan]));
+    const fetchImpl = vi.fn(async () => jsonEnvelope('ok')) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('京都'.repeat(2000));
+    const [, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const raw = init.body as string;
+    const body = JSON.parse(raw) as { context: string; message: string };
+    expect(body.message).toBe('京都'.repeat(2000));
+    expect(body.context).toContain('Trip:');
+    expect(new TextEncoder().encode(body.context).length).toBeLessThanOrEqual(9500);
+    expect(new TextEncoder().encode(raw).length).toBeLessThan(16 * 1024);
+    await h.send('京都'.repeat(500));
+    const nextRaw = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[1][1].body as string;
+    expect((JSON.parse(nextRaw) as { history: unknown[] }).history.length).toBeGreaterThan(0);
+    expect(new TextEncoder().encode(nextRaw).length).toBeLessThan(16 * 1024);
+    await h.send('京都'.repeat(10000));
+    expect(fetchImpl).toHaveBeenCalledTimes(2); // question alone exceeds the Worker limit
     h.unmount();
   });
 });
