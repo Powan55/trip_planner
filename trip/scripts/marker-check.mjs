@@ -21,6 +21,7 @@
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert';
 
@@ -336,7 +337,7 @@ function selfTest() {
   // The dangling-doc-ref rule is part of the marker set too, and its left edge
   // is where the punctuation defect lived: a reference in markdown bold was not
   // checked at all. Both spellings must reach the filesystem check.
-  const repoRoot = path.resolve(process.cwd(), process.cwd().endsWith('trip') ? '..' : '.');
+  const repoRoot = repoRootOf();
   const refs = (s) => scanDocRefs(s, 'x.md', repoRoot).map((h) => h.text);
   assert.deepEqual(refs('see docs/definitely-not-here.md'), ['docs/definitely-not-here.md']);
   assert.deepEqual(refs('see **docs/definitely-not-here.md**'), ['docs/definitely-not-here.md']);
@@ -381,68 +382,104 @@ function selfTest() {
 
   assert.deepEqual(decodeForScan(Buffer.from('plain\0text'), 'x.md'), { unscanned: true });
   assert.deepEqual(decodeForScan(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x00]), 'x.png'), { binary: true });
+  // A commit records the index, not the working copy: a flagged phrase staged and then
+  // edited clean must still be reported, and the root must not depend on the cwd.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'marker-check-'));
+  try {
+    const git = (...a) => execFileSync('git', a, { cwd: tmp });
+    git('init', '-q');
+    fs.mkdirSync(path.join(tmp, 'sub'));
+    fs.writeFileSync(path.join(tmp, 'a.ts'), MUST_CATCH['role-word'] + '\n');
+    git('add', 'a.ts');
+    fs.writeFileSync(path.join(tmp, 'a.ts'), '// fine\n');
+    assert.equal(fs.realpathSync(repoRootOf(path.join(tmp, 'sub'))), fs.realpathSync(tmp));
+    const r = scanRepo(tmp);
+    assert.deepEqual(r.hits.map((h) => [h.file, h.rule]), [['a.ts (staged)', 'role-word']]);
+    assert.equal(r.scanned, 1);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 
   console.log('self-test: all assertions passed');
 }
 
-function main() {
-  const repoRoot = path.resolve(process.cwd(), process.cwd().endsWith('trip') ? '..' : '.');
-  const files = execFileSync('git', ['ls-files'], { cwd: repoRoot, encoding: 'utf-8' })
-    .split('\n')
-    .filter(Boolean);
+// The repo root is where git says it is, not where the shell happens to be: from a
+// subfolder, a cwd-relative root scans a subset and still reports clean.
+function repoRootOf(cwd = process.cwd()) {
+  return path.resolve(execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf-8' }).trim());
+}
 
+const gitList = (root, args) =>
+  execFileSync('git', args, { cwd: root, encoding: 'utf-8', maxBuffer: 1 << 28 }).split('\0').filter(Boolean);
+
+// Scans one file's bytes. `buf` is null when the bytes could not be read.
+function scanFile(rel, buf, repoRoot) {
+  if (!buf) {
+    return { hits: [{ file: rel, line: 0, rule: 'unscanned', text: 'tracked but unreadable — nothing was scanned' }] };
+  }
+  const unscanned = (text) => ({ hits: [{ file: rel, line: 0, rule: 'unscanned', text }] });
+  // Skip binaries by content, not by extension, so an unknown text extension
+  // is still scanned rather than silently ignored.
+  const decoded = decodeForScan(buf, rel);
+  if (decoded.binary) return { hits: [] };
+  if (decoded.unscanned) {
+    return unscanned('contains a NUL byte but has a text extension — refusing to silently skip it as binary');
+  }
+  if (buf.length > READ_CAP_BYTES) {
+    return unscanned(`${buf.length} bytes, over the ${READ_CAP_BYTES}-byte read cap — nothing was scanned`);
+  }
+  const text = decoded.text;
+  const hits = scanText(text, rel);
+  if (path.extname(rel).toLowerCase() === '.md') {
+    hits.push(...scanDocRefs(text, rel, repoRoot), ...scanTripIds(text, rel));
+  }
+  return { hits, scanned: true, warning: capWarning(buf.length, rel) };
+}
+
+function scanRepo(repoRoot) {
   const hits = [];
   const warnings = [];
   let scanned = 0;
-  for (const rel of files) {
-    if (EXEMPT_FILES.has(rel)) continue;
-    const abs = path.join(repoRoot, rel);
-    let buf;
-    try {
-      buf = fs.readFileSync(abs);
-    } catch {
-      hits.push({
-        file: rel,
-        line: 0,
-        rule: 'unscanned',
-        text: 'tracked but unreadable — nothing was scanned',
-      });
-      continue;
+  const seen = new Set();
+  const key = (h) => `${h.file}\0${h.line}\0${h.rule}\0${h.text}`;
+  const add = (r, tag) => {
+    if (r.warning && !tag) warnings.push(r.warning);
+    for (const h of r.hits) {
+      if (seen.has(key(h))) continue;
+      seen.add(key(h));
+      hits.push(tag ? { ...h, file: `${h.file} ${tag}` } : h);
     }
-    // Skip binaries by content, not by extension, so an unknown text extension
-    // is still scanned rather than silently ignored.
-    const decoded = decodeForScan(buf, rel);
-    if (decoded.binary) continue;
-    if (decoded.unscanned) {
-      hits.push({
-        file: rel,
-        line: 0,
-        rule: 'unscanned',
-        text: 'contains a NUL byte but has a text extension — refusing to silently skip it as binary',
-      });
-      continue;
-    }
-    if (buf.length > READ_CAP_BYTES) {
-      hits.push({
-        file: rel,
-        line: 0,
-        rule: 'unscanned',
-        text: `${buf.length} bytes, over the ${READ_CAP_BYTES}-byte read cap — nothing was scanned`,
-      });
-      continue;
-    }
-    const nearCap = capWarning(buf.length, rel);
-    if (nearCap) warnings.push(nearCap);
-    const ext = path.extname(rel).toLowerCase();
+  };
 
-    const text = decoded.text;
-    scanned++;
-    hits.push(...scanText(text, rel));
-    if (ext === '.md') {
-      hits.push(...scanDocRefs(text, rel, repoRoot));
-      hits.push(...scanTripIds(text, rel));
-    }
+  for (const rel of gitList(repoRoot, ['ls-files', '-z'])) {
+    if (EXEMPT_FILES.has(rel)) continue;
+    let buf = null;
+    try {
+      buf = fs.readFileSync(path.join(repoRoot, rel));
+    } catch { /* reported as unscanned */ }
+    const r = scanFile(rel, buf, repoRoot);
+    if (r.scanned) scanned++;
+    add(r);
   }
+
+  // What a commit records is the index, not the working copy. A file staged with a
+  // flagged phrase and then edited clean is invisible to the pass above, so scan the
+  // staged blob of every file where the two differ (deleted-in-worktree included).
+  // Hits identical to a working-copy hit are dropped by `seen`.
+  for (const rel of gitList(repoRoot, ['diff', '--name-only', '-z'])) {
+    if (EXEMPT_FILES.has(rel)) continue;
+    let buf = null;
+    try {
+      buf = execFileSync('git', ['show', `:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 28 });
+    } catch { /* reported as unscanned */ }
+    add(scanFile(rel, buf, repoRoot), '(staged)');
+  }
+  return { hits, warnings, scanned };
+}
+
+function main() {
+  const repoRoot = repoRootOf();
+  const { hits, warnings, scanned } = scanRepo(repoRoot);
 
   // FAILS CLOSED. A zero scan means the enumeration or the root moved, at which point a
   // clean verdict proves nothing — which is the failure mode a green run hides.
