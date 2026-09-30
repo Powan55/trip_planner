@@ -244,6 +244,30 @@ describe('buildTripDigest (S327)', () => {
       expect(JSON.stringify(out)).not.toContain('t0-'); // the oldest is the one dropped
     });
 
+    // #714: the Worker counts bytes; Japanese is ~3 bytes/char, so 3000 chars was ~9 KB of history.
+    it('budgets history in UTF-8 bytes, not characters (Japanese)', () => {
+      const jp = Array.from({ length: 12 }, (_, i) => ({
+        role: (i % 2 === 0 ? 'user' : 'assistant') as ChatTurn['role'],
+        content: `t${i}-${'京都の寺'.repeat(60)}`, // ~245 chars, ~730 bytes each
+      }));
+      const bytes = (t: ChatTurn[]) => new TextEncoder().encode(JSON.stringify(t)).length;
+      const out = capHistory(jp);
+      expect(bytes(out)).toBeLessThanOrEqual(HISTORY_CHAR_CAP);
+      expect(out.length).toBeGreaterThan(0);
+      expect(out.length).toBeLessThan(12);
+      expect(out[out.length - 1].content).toContain('t11-');
+    });
+
+    it('shrinks history to what the rest of the body leaves under the Worker cap', () => {
+      const t = turns(4, 200);
+      const roomy = capHistory(t, 1000);
+      expect(roomy).toHaveLength(4);
+      // Only ~600 bytes of room left after margin: fewer turns survive, newest first.
+      const tight = capHistory(t, MAX_BODY_BYTES - 512 - 600 + 2);
+      expect(tight.length).toBeLessThan(4);
+      expect(capHistory(t, MAX_BODY_BYTES)).toEqual([]);
+    });
+
     it('a single turn larger than the whole budget degrades to empty rather than 413ing', () => {
       expect(capHistory(turns(1, HISTORY_CHAR_CAP * 2))).toEqual([]);
     });
