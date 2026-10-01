@@ -10,7 +10,7 @@ import {
 } from '@/lib/expense-export';
 import type { Expense } from '@/core/budget/expenses';
 import { exportItinerary } from '@/core/vault/export-import';
-import { getActiveTripId, setActiveTripId, keyFor, STORAGE_KEYS } from '@/core/storage/gateway';
+import { getActiveTripId, setActiveTripId, keyFor, STORAGE_KEYS, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
 import * as firebaseConfig from '@/lib/firebase-config';
 
 const E1: Expense = {
@@ -202,6 +202,35 @@ describe('expense backup trip matching (#705)', () => {
 
     expect(parseExpenseBackup(json)).toMatchObject({ ok: false, error: expect.stringMatching(/different shared trip/) });
     expect({ ...localStorage }).toEqual(before);
+  });
+
+  it.each(['default-to-joined', 'joined-to-default'])('restores the same real shared trip across local aliases (%s)', (direction) => {
+    vi.spyOn(firebaseConfig, 'isTripRemoteConfigured').mockReturnValue(true);
+    const sharedId = firebaseConfig.getTripId();
+    expect(sharedId).not.toBe('');
+    expect(sharedId).not.toBe(DEFAULT_TRIP_ID);
+    if (direction === 'joined-to-default') setActiveTripId(sharedId);
+    const json = exportExpenses([E1]);
+    const sourceId = getActiveTripId();
+    setActiveTripId(direction === 'default-to-joined' ? sharedId : DEFAULT_TRIP_ID);
+
+    expect(getActiveTripId()).not.toBe(sourceId);
+    expect(firebaseConfig.getTripId()).toBe(sharedId);
+    const before = { ...localStorage };
+    expect(parseExpenseBackup(json)).toEqual({ ok: true, expenses: [E1] });
+    expect({ ...localStorage }).toEqual(before);
+  });
+
+  it.each(['tripId', 'remoteId'])('rejects malformed %s despite matching shared identity', (field) => {
+    vi.spyOn(firebaseConfig, 'isTripRemoteConfigured').mockReturnValue(true);
+    const envelope = JSON.parse(exportExpenses([E1]));
+    for (const invalid of [null, 42, {}, [], 'foreign/path', '.', '__reserved__', 'bad token']) {
+      const before = { ...localStorage };
+      expect(parseExpenseBackup(JSON.stringify({ ...envelope, [field]: invalid }))).toMatchObject({
+        ok: false, error: expect.stringMatching(/invalid trip information/),
+      });
+      expect({ ...localStorage }).toEqual(before);
+    }
   });
 
   it('allows the same shared trip', () => {

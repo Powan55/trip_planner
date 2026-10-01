@@ -20,7 +20,7 @@
  */
 import { makeEnvelope } from '@/core/vault/envelope';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
-import { getActiveTripId, keyFor, readString, writeString } from '@/core/storage/gateway';
+import { getActiveTripId, isSafeTripSegment, keyFor, readString, writeString } from '@/core/storage/gateway';
 import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
 
 export const EXPENSE_EXPORT_VERSION = 1;
@@ -97,13 +97,10 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
     remoteId?: unknown;
     payload: unknown[];
   };
-  if (tripId !== undefined && tripId !== getActiveTripId()) {
-    return {
-      ok: false,
-      error: 'This expenses backup is from a different trip. Switch to that trip, then restore it there. No changes were made to your expenses.',
-    };
-  }
-  if (remoteId !== undefined && typeof remoteId !== 'string') {
+  if (
+    (tripId !== undefined && (typeof tripId !== 'string' || (tripId !== '' && !isSafeTripSegment(tripId)))) ||
+    (remoteId !== undefined && (typeof remoteId !== 'string' || (remoteId !== '' && !isSafeTripSegment(remoteId))))
+  ) {
     return { ok: false, error: 'That expenses file has invalid trip information. No changes were made to your expenses.' };
   }
   if (isTripRemoteConfigured()) {
@@ -119,6 +116,11 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
         error: 'This expenses backup is from a different shared trip. Switch to that trip, then restore it there. No changes were made to your expenses.',
       };
     }
+  } else if (tripId !== undefined && tripId !== getActiveTripId()) {
+    return {
+      ok: false,
+      error: 'This expenses backup is from a different trip. Switch to that trip, then restore it there. No changes were made to your expenses.',
+    };
   }
   // An empty payload is the one file the all-or-nothing guard below cannot see: `0 !== 0` is
   // false, so it passed, and the caller's tombstone-replace then deleted every logged expense on
