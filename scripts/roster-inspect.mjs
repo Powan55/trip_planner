@@ -13,9 +13,9 @@
  *     node scripts/roster-inspect.mjs /path/to/service-account.json
  *     node scripts/roster-inspect.mjs --self-test        # no network, no credential
  *
- * The key path may also come from GOOGLE_APPLICATION_CREDENTIALS. Exit 0 = nothing found that
- * publishing would break; exit 1 = at least one trip where publishing can lock someone out (or
- * the run was inconclusive). The exit code is the signal — the per-trip lines are the evidence.
+ * The key path may also come from GOOGLE_APPLICATION_CREDENTIALS. Audit runs exit 1: this tool
+ * cannot verify the D-663 Auth accounts or reconcile travellers with its email allowlist.
+ * Only --self-test can exit 0; that is an offline test result, never publication approval.
  *
  * WHY THIS EXISTS AT ALL. `firestore.rules` in this repo has never been published: the
  * `FIREBASE_SERVICE_ACCOUNT` secret does not exist, so `publish-rules` in
@@ -37,17 +37,17 @@
  *
  * ── THE THREE BUCKETS, AND WHY THEY ARE THESE THREE ────────────────────────────────────────────
  *
- * Everything below is derived from ONE function in firestore.rules, and it is worth quoting
- * because the classification is meaningless without it (firestore.rules:186-191):
+ * The ordinary-trip buckets follow isOpen() in firestore.rules. The D-663 shared trip is
+ * excluded by !isShared() and always needs separate owner review, regardless of its roster:
  *
  *     function isOpen() {
- *       return !exists(tripPath())
+ *       return !isShared() && (!exists(tripPath())
  *         || !('members' in get(tripPath()).data)
  *         || !(roster() is map)
- *         || !roster().values().hasAny(['owner']);
+ *         || !roster().values().hasAny(['owner']));
  *     }
  *
- * A trip is gated only when `members` is a map naming at least one 'owner'. Every other shape —
+ * An ordinary trip is gated only when `members` is a map naming at least one 'owner'. Other shapes —
  * no key, a scalar, a list, null, an empty map, a map of 'member's or 'viewer's or a mis-cased
  * 'Owner' — reads OPEN (#453), and `rosterIsWellFormed()` refuses any write that would leave one.
  * So a gated trip always has an owner, and the total-lockout and no-owner shapes this script used
@@ -81,7 +81,10 @@
  *                has EFFECTIVE entries. This is the bucket the whole script exists for: publishing
  *                can lock one of those people out. Heuristic — see the ceiling.
  *
- * A trip lands in exactly one bucket. Only AT_RISK fails the run.
+ *   SHARED_REVIEW  D-663 email allowlist applies independently of the roster. Root existence
+ *                  is reported, but Auth accounts and traveller eligibility remain unverified.
+ *
+ * A trip lands in exactly one bucket. No bucket grants publication approval.
  *
  * ── WHERE THE "OBSERVED NAMES" COME FROM ───────────────────────────────────────────────────────
  *
@@ -148,8 +151,7 @@
  * doc are also withheld: the `trips` collection doubles as the account path (D-239/D-296 —
  * lib/trips-remote.ts:148 writes `trips/{userToken}/profile/identity`), the userToken IS the
  * capability, and there is no reason to spray those into a terminal's scrollback. They are
- * counted, and counting is all they need: with no trip doc, `!exists(tripPath())` makes them
- * OPEN, so publishing cannot touch them.
+ * counted as OPEN for ordinary trips only. A missing D-663 shared root is reported separately.
  */
 
 import { createSign } from 'node:crypto';
@@ -176,6 +178,7 @@ const BUCKETS = {
   OPEN: 'no members map, or one naming no owner — publishing changes nothing for these',
   GATED_OK: 'effective roster is at least as large as the names observed in the trip',
   AT_RISK: 'MORE names observed than EFFECTIVE roster entries — someone can be locked out',
+  SHARED_REVIEW: 'D-663 email allowlist; roster grants nothing; owner verification required',
 };
 const SEVERE = ['AT_RISK'];
 
@@ -250,10 +253,18 @@ function harvestNames(node, into) {
  *              apart from a real but field-less document.
  * @param names the deduped observed-name Map from harvestNames.
  */
-function classifyTrip(doc, names) {
+function classifyTrip(doc, names, sharedId) {
   const exists = Boolean(doc.createTime);
   const observed = [...names.values()];
   const base = { exists, observed, rosterSize: 0, effectiveSize: 0, roles: {}, note: '' };
+
+  if (docId(doc.name) === sharedId) {
+    return {
+      ...base,
+      bucket: 'SHARED_REVIEW',
+      note: `shared root ${exists ? 'PRESENT' : 'MISSING'}; roster ignored; Auth accounts and access UNVERIFIED`,
+    };
+  }
 
   // `!exists(tripPath())` — the first arm of isOpen(). No doc, no members key, nothing to gate.
   if (!exists) return { ...base, bucket: 'OPEN', note: 'no trip doc' };
@@ -473,6 +484,31 @@ function assertRulesMatchBuckets() {
       + '  run would still call those trips OPEN — an all-clear over a lockout. Re-derive the\n'
       + '  buckets against the new isOpen() before trusting a run.');
   }
+  const shared = sharedPolicy(rules);
+  if (!shared) {
+    return die('D-663 shared-trip policy is missing or changed in firestore.rules. Publication'
+      + ' remains BLOCKED; re-read the rules before trusting this inspection.');
+  }
+  return shared;
+}
+
+function sharedPolicy(rules) {
+  const source = rules.replace(
+    /('(?:\\[\s\S]|[^'\\])*'|"(?:\\[\s\S]|[^"\\])*")|\/\/[^\r\n]*|\s+/g,
+    (_match, literal) => literal ?? '',
+  );
+  const body = (name) => source.match(new RegExp(`function${name}\\(\\)\\{([^}]*)\\}`))?.[1];
+  const id = body('isShared')?.match(/^returntripId=='([0-9a-f-]{36})';$/)?.[1];
+  const list = body('isAllowlisted')?.match(
+    /^returnrequest\.auth!=null&&request\.auth\.token\.get\('email',''\)in\[('[-a-z0-9@.]+'(?:,'[-a-z0-9@.]+')*)\];$/,
+  )?.[1];
+  const emails = list?.match(/[-a-z0-9@.]+/g) ?? [];
+  if (!id || emails.length !== 3 || new Set(emails).size !== 3
+    || body('isOpen') !== "return!isShared()&&(!exists(tripPath())||!('members'inget(tripPath()).data)||!(roster()ismap)||!roster().values().hasAny(['owner']));"
+    || body('isMember') !== "returnrequest.auth!=null&&((isShared()&&isAllowlisted())||(!isShared()&&(isOpen()||role()in['owner','member'])));") {
+    return null;
+  }
+  return { id, emails };
 }
 
 /** The isOpen() guards the buckets depend on that `rules` lacks; `null` when isOpen() is absent. */
@@ -519,14 +555,15 @@ async function main(keyPath) {
     die('could not read .firebaserc next to this script — run it from a full checkout.');
   }
   if (!configured) die('.firebaserc has no projects.default.');
-  assertRulesMatchBuckets();
+  const shared = assertRulesMatchBuckets();
   if (key.project_id !== configured) {
     die(`this key is for project "${key.project_id}", but .firebaserc says the live project is`
       + ` "${configured}". Refusing to inspect the wrong project.`);
   }
 
   console.log(`\nroster-inspect — project ${configured}`);
-  console.log('READ-ONLY: this script issues GETs only, and writes nothing.\n');
+  console.log('READ-ONLY: Firestore GETs only; OAuth token exchange uses POST. No data writes.');
+  console.log('Publication BLOCKED: this audit cannot verify D-663 Auth accounts or access.\n');
 
   const token = await getAccessToken(key);
   const trips = await listDocuments(token, configured, 'trips', true);
@@ -534,6 +571,11 @@ async function main(keyPath) {
   const results = [];
   let docless = 0;
   for (const doc of trips) {
+    const id = docId(doc.name);
+    if (id === shared.id) {
+      results.push([id, classifyTrip(doc, new Map(), shared.id)]);
+      continue;
+    }
     // A parent with no trip doc of its own is OPEN whatever sits under it (`!exists(tripPath())`
     // is the first arm of isOpen()), so its bucket is already decided — skip the subcollection
     // reads rather than spending NAME_SOURCES.length round trips to reach a foregone conclusion.
@@ -541,64 +583,73 @@ async function main(keyPath) {
       docless += 1;
       continue;
     }
-    const id = docId(doc.name);
     const names = new Map();
     for (const sub of NAME_SOURCES) {
       const docs = await listDocuments(token, configured, `trips/${encodeURIComponent(id)}/${sub}`);
       for (const d of docs) harvestNames(decodeFields(d.fields), names);
     }
-    results.push([id, classifyTrip(doc, names)]);
+    results.push([id, classifyTrip(doc, names, shared.id)]);
   }
 
+  process.exit(reportAudit(results, docless, trips.length, shared));
+}
+
+function reportAudit(results, docless, tripCount, shared, log = console.log) {
   for (const [id, r] of results) {
-    if (!SEVERE.includes(r.bucket)) console.log(line(id, r));
+    if (!SEVERE.includes(r.bucket)) log(line(id, r));
   }
 
   const tally = Object.fromEntries(Object.keys(BUCKETS).map((b) => [b, 0]));
   for (const [, r] of results) tally[r.bucket] += 1;
   tally.OPEN += docless;
 
-  console.log('\n────────────────────────────────────────────────────────────────────────────');
+  log('\n────────────────────────────────────────────────────────────────────────────');
   for (const [bucket, blurb] of Object.entries(BUCKETS)) {
-    console.log(`  ${bucket.padEnd(13)} ${String(tally[bucket]).padStart(4)}   ${blurb}`);
+    log(`  ${bucket.padEnd(13)} ${String(tally[bucket]).padStart(4)}   ${blurb}`);
   }
-  console.log(`  ${'(no trip doc)'.padEnd(13)} ${String(docless).padStart(4)}   counted in OPEN;`
+  log(`  ${'(no trip doc)'.padEnd(13)} ${String(docless).padStart(4)}   counted in OPEN;`
     + ' ids withheld (the trips collection doubles as the account path)');
-  console.log(`  ${'trips seen'.padEnd(13)} ${String(trips.length).padStart(4)}`);
-  console.log('────────────────────────────────────────────────────────────────────────────');
+  log(`  ${'trips seen'.padEnd(13)} ${String(tripCount).padStart(4)}`);
+  log('────────────────────────────────────────────────────────────────────────────');
 
-  if (trips.length === 0) {
-    console.log('\nINCONCLUSIVE: the trips collection came back empty. That is not an all-clear —');
-    console.log('it means this run proved nothing. Check the project and the key\'s access.\n');
-    process.exit(1);
+  const sharedRoot = results.find(([id]) => id === shared.id)?.[1];
+  log(`\nD-663 shared root: ${sharedRoot?.exists ? 'PRESENT' : 'MISSING or UNVERIFIED'}.`);
+  log(`Auth accounts UNVERIFIED: owner must confirm all ${shared.emails.length} exist in the Auth console:`);
+  log(`  ${shared.emails.join(', ')}`);
+  log('Shared-trip access UNVERIFIED: reconcile every expected traveller with that email allowlist.');
+  log('Members and display-name counts cannot establish shared-trip eligibility.');
+  log('Publication BLOCKED. Do not arm FIREBASE_SERVICE_ACCOUNT based on this audit.');
+
+  if (tripCount === 0) {
+    log('\nINCONCLUSIVE: the trips collection came back empty. That is not an all-clear —');
+    log('it means this run proved nothing. Check the project and the key\'s access.\n');
+    return 1;
   }
 
   const severe = results.filter(([, r]) => SEVERE.includes(r.bucket));
   if (severe.length === 0) {
-    console.log('\nNo trip would lose a traveller if firestore.rules were published now.');
-    console.log('NOT a proof: GATED_OK compares a count of display names against a count of');
-    console.log('device uids, and one person with two devices fills two roster slots. Sanity-check');
-    console.log('each roster size against the humans you expect on that trip before arming the');
-    console.log('secret.\n');
-    process.exit(0);
+    log('\nNo ordinary-trip roster count mismatch found. This is not proof of access.');
+    log('GATED_OK compares display-name counts with device-uid counts; owner must reconcile');
+    log('each roster with expected travellers. D-663 checks above still block publication.\n');
+    return 1;
   }
 
-  console.log(`\n${'='.repeat(76)}`);
-  console.log(`  ${severe.length} TRIP(S) WHERE PUBLISHING firestore.rules CAN LOCK SOMEONE OUT`);
-  console.log(`${'='.repeat(76)}`);
+  log(`\n${'='.repeat(76)}`);
+  log(`  ${severe.length} TRIP(S) WHERE PUBLISHING firestore.rules CAN LOCK SOMEONE OUT`);
+  log(`${'='.repeat(76)}`);
   for (const [id, r] of severe) {
-    console.log(`\n  ${id}   ${r.bucket}`);
-    console.log(`    roster       ${r.rosterSize} listed, ${r.effectiveSize} effective`
+    log(`\n  ${id}   ${r.bucket}`);
+    log(`    roster       ${r.rosterSize} listed, ${r.effectiveSize} effective`
       + `  [${rolesLabel(r.roles)}]`);
-    console.log(`    observed     ${r.observed.length} distinct names: `
+    log(`    observed     ${r.observed.length} distinct names: `
       + `${r.observed.join(', ') || '(none)'}`);
-    console.log(`    why          ${r.note}`);
-    console.log('    effect       a device not in the roster loses access, and only a member can add it'
+    log(`    why          ${r.note}`);
+    log('    effect       a device not in the roster loses access, and only a member can add it'
       + ' back.');
   }
-  console.log('\n  Do not arm FIREBASE_SERVICE_ACCOUNT until each of these is resolved — after the');
-  console.log('  publish there is no self-service route back in, and no rollback.\n');
-  process.exit(1);
+  log('\n  Do not arm FIREBASE_SERVICE_ACCOUNT until each of these is resolved — after the');
+  log('  publish there is no self-service route back in, and no rollback.\n');
+  return 1;
 }
 
 // ── self-test: classification + decoding, against inline fixtures. No network, no credential. ──
@@ -761,14 +812,66 @@ function selfTest() {
   assert.deepEqual(risk.observed, ['Ana', 'Ben']);
   assert.equal(risk.note, '2 names vs 1 effective roster entries');
 
-  // Only AT_RISK is allowed to fail the run.
   assert.deepEqual(SEVERE, ['AT_RISK']);
-  assert.deepEqual(Object.keys(BUCKETS), ['OPEN', 'GATED_OK', 'AT_RISK']);
+  assert.deepEqual(Object.keys(BUCKETS), ['OPEN', 'GATED_OK', 'AT_RISK', 'SHARED_REVIEW']);
+
+  const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf-8');
+  const shared = sharedPolicy(rules);
+  assert.deepEqual(shared, {
+    id: 'b2826dc5-d103-4a8c-a053-30531b4fd4b0',
+    emails: [
+      'powan@accounts.trip-planner.invalid',
+      'uttam@accounts.trip-planner.invalid',
+      'sushil@accounts.trip-planner.invalid',
+    ],
+  }, 'derive the current D-663 id and accounts from this checkout');
+  assert.equal(sharedPolicy(''), null);
+  assert.equal(sharedPolicy(rules.replace('return tripId ==', 'return tripId !=')), null);
+  assert.equal(sharedPolicy(rules.replace(".get('email', '')", ".get('name', '')")), null);
+  assert.equal(sharedPolicy(rules.replace('sushil@', 'powan@')), null, 'duplicate accounts fail closed');
+  assert.equal(sharedPolicy(rules.replace('return !isShared() && (!exists', 'return (!exists')), null);
+  assert.equal(sharedPolicy(rules.replace('(isShared() && isAllowlisted())', 'isShared()')), null);
+  assert.equal(sharedPolicy(rules.replace("'sushil@accounts.trip-planner.invalid'", '')), null);
+  for (const literal of [shared.id, shared.emails[0], 'owner']) {
+    for (const changed of [`${literal} `, `${literal.slice(0, 5)} ${literal.slice(5)}`]) {
+      assert.equal(sharedPolicy(rules.replaceAll(`'${literal}'`, `'${changed}'`)), null,
+        'whitespace in a quoted policy value must not be normalized away');
+    }
+  }
+  assert.deepEqual(sharedPolicy(rules.replace('function isShared()', 'function  isShared ( )')),
+    shared, 'whitespace outside literals is insignificant');
+
+  for (const doc of [
+    { name: `.../trips/${shared.id}` },
+    { ...trip(), name: `.../trips/${shared.id}` },
+    { ...trip(members({})), name: `.../trips/${shared.id}` },
+    { ...trip(members({ 'uid-a': 'owner' })), name: `.../trips/${shared.id}` },
+    { ...trip(members({ 'uid-a': 'owner', 'uid-b': 'member', 'uid-c': 'member' })), name: `.../trips/${shared.id}` },
+  ]) {
+    const result = classifyTrip(doc, nameSet('Ana', 'Ben'), shared.id);
+    assert.equal(result.bucket, 'SHARED_REVIEW', 'shared access ignores every roster shape');
+    assert.equal(result.effectiveSize, 0, 'a shared roster grants no access');
+    assert.match(result.note, /Auth accounts and access UNVERIFIED/);
+    const output = [];
+    assert.equal(reportAudit([[shared.id, result], ['t1', ok]], 0, 2, shared,
+      (message) => output.push(message)), 1, 'even an adequate roster and existing root cannot clear Auth');
+    assert.match(output.join('\n'), /Publication BLOCKED/);
+    assert.match(output.join('\n'), /Auth accounts UNVERIFIED/);
+    assert.match(output.join('\n'), doc.createTime ? /shared root: PRESENT/ : /shared root: MISSING/);
+    assert.doesNotMatch(output.join('\n'), /No trip would lose/);
+  }
+  for (const entries of [[], [['t1', ok]], [['t1', risk]], [['t1', classifyTrip(trip(), nameSet())]]]) {
+    const output = [];
+    assert.equal(reportAudit(entries, 0, entries.length, shared, (message) => output.push(message)), 1);
+    assert.match(output.join('\n'), /shared root: MISSING or UNVERIFIED/,
+      'a shared root absent from the complete listing cannot be an all-clear');
+    assert.match(output.join('\n'), /Publication BLOCKED/);
+  }
 
   // The rules guard: this checkout's isOpen() carries both guards, and the pre-#453 body, which
   // tested key presence alone, is caught missing both.
   assert.deepEqual(
-    missingIsOpenGuards(readFileSync(new URL('../firestore.rules', import.meta.url), 'utf-8')),
+    missingIsOpenGuards(rules),
     [],
   );
   assert.deepEqual(
