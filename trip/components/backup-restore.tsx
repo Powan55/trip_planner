@@ -42,7 +42,7 @@ import {
  * A11y / contrast: ruled instrument blocks; the quietest caption is `text-ink-mid`, whose token
  * clears AA on every surface step by construction (#27); status/error use their
  * own AA-clearing tints; buttons expose visible focus rings and the file input is a real,
- * keyboard-reachable, labelled `<input type="file">`. No text animates through low opacity.
+ * labelled `<input type="file">` (tabIndex -1: the button opens it). No text animates through low opacity.
  *
  * Overlay mounting: the confirm dialog is a `fixed` overlay. Inline `fixed` route content is
  * trapped by `app/template.tsx`'s `.animate-route-fade` stacking context, so the app `<footer>`
@@ -182,9 +182,13 @@ export default function BackupRestore() {
           ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} could not be restored (storage limit).`
           : '';
       const names = result.restored.map((slot) => DOMAIN_LABELS[slot] ?? slot);
+      const notSaved =
+        result.refused.length > 0
+          ? ` Not restored (storage is full): ${joinNames(result.refused.map((slot) => DOMAIN_LABELS[slot] ?? slot))}.`
+          : '';
       setStatus({
         kind: 'success',
-        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped} Reloading…`,
+        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped}${notSaved} Reloading…`,
       });
       // Reload so every store re-hydrates from the freshly-written localStorage/IndexedDB. A
       // short delay lets the aria-live status announce before the navigation.
@@ -262,9 +266,8 @@ export default function BackupRestore() {
               <Upload className="h-4 w-4" aria-hidden="true" />
               Choose backup file
             </button>
-            {/* Real, keyboard-reachable file input. Visually hidden (not display:none, so
-                it stays focusable/labelled); the button above opens it, and E2E drives it
-                directly via setInputFiles. */}
+            {/* Real labelled file input, visually hidden (not display:none) and out of the tab
+                order: the button above opens it, and E2E drives it via setInputFiles. */}
             <input
               ref={fileInputRef}
               type="file"
@@ -272,6 +275,7 @@ export default function BackupRestore() {
               onChange={handleFileChange}
               data-testid="backup-import-input"
               aria-label="Choose a trip backup file to import"
+              tabIndex={-1}
               className="sr-only"
             />
           </div>

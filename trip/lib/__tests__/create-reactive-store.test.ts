@@ -203,6 +203,25 @@ describe('createReactiveStore — the shared hydrate/listen/commit skeleton (D-1
     h.unmount();
   });
 
+  it('commit returns false only for a refused save; a save that returns nothing counts as landed (#711)', async () => {
+    const { port } = makeStorage([1]);
+    let verdict: boolean | 'void' = false;
+    const useStore = createReactiveStore<number[]>({
+      eventName: EVENT,
+      storageKeys: [KEY],
+      storage: { ...port, save: (v) => (verdict === 'void' ? void port.save(v) : verdict) },
+    });
+    const h = render(useStore);
+    const got: boolean[] = [];
+    await h.run((c) => { got.push(c.commit((cur) => [...cur, 2])); });
+    verdict = true;
+    await h.run((c) => { got.push(c.commit((cur) => [...cur, 3])); });
+    verdict = 'void';
+    await h.run((c) => { got.push(c.commit((cur) => [...cur, 4])); });
+    expect(got).toEqual([false, true, true]);
+    h.unmount();
+  });
+
   it('with NO SyncPort, commit never pushes and never throws (local-only domain)', async () => {
     const { port, disk } = makeStorage([1]);
     const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port });

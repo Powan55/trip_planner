@@ -52,7 +52,7 @@ export interface ItineraryStore {
   clearDay(date: string): void;
   clearAll(): void;
   restoreDay(date: string, items: ItineraryItem[]): void;
-  restorePlans(backup: DayPlan[]): void;
+  restorePlans(backup: DayPlan[]): boolean;
   /** Returns the id the item ACTUALLY landed on — under sync that is a FRESHLY MINTED id, not
    * `itemId` (see the impl). `undefined` when nothing moved. Callers that only need the side
    * effect (drag-and-drop) ignore it; anything building an INVERSE must use it. */
@@ -352,11 +352,10 @@ export function useItinerary(): ItineraryStore {
   const restorePlans = useCallback(
     (backup: DayPlan[]) => {
       if (!syncEnabled()) {
-        commit(() => backup);
-        return;
+        return commit(() => backup);
       }
       const actor = syncActor();
-      commit((current) => {
+      return commit((current) => {
         // (a) Tombstone every live item on every current day (raw base — tombstones already dead
         // are left as-is; gcTombstones prunes them past the 365-day horizon).
         let next = current;

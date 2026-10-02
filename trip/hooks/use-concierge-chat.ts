@@ -31,64 +31,30 @@ export interface ChatTurn {
   model?: string;
 }
 
-// Client digest char cap. Coupled to the Worker's CONTEXT_TRUNCATE_LENGTH (worker/src/
-// providers.ts) — BOTH are CHARACTER caps, and the Worker re-slices `context` to its own
-// ceiling before folding it into the system prompt. This cap MUST stay ≤ the Worker ceiling.
-// raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
-// without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
-// per-item time + category prefix. MEASURED, not estimated:
-// fully-planned 32-day sample trip, 158 items: 6636 chars BEFORE → 9452 AFTER.
-// Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
-// lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
-// slack claim below is backed by a test that goes red rather than by a run someone did once —
-// change what the digest emits and that test fails and asks you to re-measure.
-//
-// ⚠️ THE SLACK IS THIN NOW, AND IT CANNOT BE BOUGHT BACK FROM THIS FILE. #12 spent 402 of it:
-// +351 taking the per-item times 24-hour → 12-hour (`18:30` → `6:30 PM`, the bug), and +51
-// making the date line unconditional. #18 then spent 26 more, and NOT by changing this format:
-// D-327 retitled a seed item, the title is in the digest, and the digest grew. Worst case is now
-// 9461 chars, on an in-window clock (the "(Day 31 of 32, Tokyo)." branch is longer than
-// "(before the trip)."), leaving about 39 chars — under one itinerary item, where there used to
-// be room for ten. Note what that means: this budget is now spent by editing the TRIP, not only
-// by editing the builder, so a longer plan title is a cap change. The cap test in that same
-// file walks all 32 trip days and fails if any of them truncates.
-// If a future change needs more room, DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move
-// TOGETHER, in a Worker deploy. Raising this one alone does not buy room, it just moves the
-// truncation server-side where nothing turns red (see the coupling note below).
-// Keep these two constants equal; a higher client cap would ship bytes the server silently
-// discards. (They land + deploy together per the coupling; don't raise one without
-// the other.)
-// WHY THAT COUPLING IS THE WHOLE PROTECTION: while the two are equal, the server's
-// `context.slice(0, CONTEXT_TRUNCATE_LENGTH)` (worker/src/providers.ts) is structurally
-// UNREACHABLE — `context` IS this digest, so the client cannot send more than the server keeps.
-// That guard has therefore never fired in production and no test covers it, nor can one while
-// the caps match. Raise the client cap alone and the branch flips from inert to silently active
-// with nothing turning red — and it degrades WITH TRIP SIZE, so small fixtures stay under the
-// limit and only real, fully-planned trips lose their tail. The equality is the protection;
-// the slice() is not a backstop.
+// Client digest UTF-8 byte cap. The Worker's CONTEXT_TRUNCATE_LENGTH (worker/src/
+// providers.ts) counts characters; this byte cap also keeps its re-slice unreachable.
+// Keep this no higher than the Worker character ceiling. Body sizing below uses actual
+// serialized bytes, including JSON escaping, history, and the current question.
 const DIGEST_CAP = 9500;
 
-// Outgoing-history caps — TWO bounds, both applied (see `capHistory`).
-// `HISTORY_CAP` is the conversational one: the last 12 turns, unchanged since.
-// `HISTORY_CHAR_CAP` is the BYTE-BUDGET one and exists only to protect the Worker's
-// `MAX_BODY_BYTES = 16 * 1024` (worker/src/index.ts:24), which 413s on the WHOLE JSON string —
-// digest AND history AND message together. 12 turns bounds the turn COUNT but not their length,
-// so one long pasted exchange was the wildcard that could push a request over the limit; raising
-// DIGEST_CAP 7000 → 9500 ate 2500 chars of what used to be slack, which is what makes bounding it
-// worth doing now.
-//
-// SIZED AGAINST THE CLIENT'S OWN `DIGEST_CAP` (9500), NOT the Worker's CONTEXT_TRUNCATE_LENGTH.
-// That distinction is load-bearing: the Worker's 413 check runs on the raw request body BEFORE it
-// truncates `context`, so a smaller server-side context ceiling buys this budget nothing at all —
-// the bytes still have to leave the client. Budget measured, not guessed (the MEASUREMENT test in
-// lib/__tests__/concierge-digest-s327.test.ts builds the real worst-case body and asserts it):
-// 9500 digest (multi-byte inflated) + ≤3000 history + 2000 message + JSON keys/escapes
-// ≈ 14.1 KB of 16384, leaving ~2.2 KB of genuine headroom.
-// 3000 rather than 4000 for that extra ~1 KB of margin: JSON escaping inflates unpredictably, and
-// a normal 12-turn conversation (~80-char asks, ~400-char replies ≈ 2.9 KB) still fits whole, so
-// the bound only bites on the long pasted exchanges that are the actual 413 risk.
+// Outgoing history: last 12 turns, at most 3000 serialized UTF-8 bytes, then trimmed
+// further when the rest of the request leaves less room under the Worker's 16 KB cap.
 const HISTORY_CAP = 12;
-const HISTORY_CHAR_CAP = 3000;
+const HISTORY_BYTE_CAP = 3000;
+// Both bounds are UTF-8 BYTES, because the Worker's 413 counts bytes: a Japanese turn weighs ~3x its
+// character count, so a character budget let non-ASCII chats through to a 413 on every later turn.
+// Second bound: whatever the rest of the body leaves under the Worker's cap, minus a margin.
+const MAX_BODY_BYTES = 16 * 1024;
+const BODY_SAFETY_MARGIN = 512;
+const utf8Bytes = (s: string) => new TextEncoder().encode(s).length;
+function truncateUtf8(text: string, cap: number): string {
+  const bytes = new TextEncoder().encode(text);
+  if (bytes.length <= cap) return text;
+  if (cap < 3) return '';
+  let end = cap - 3;
+  while ((bytes[end] & 0xc0) === 0x80) end--;
+  return `${new TextDecoder().decode(bytes.subarray(0, end))}…`;
+}
 
 // Abort ceiling for the whole turn, the only client bound on the Worker's Groq 120b → 20b ladder.
 // Kimi gets 215s: its free queue measured 81–89s for a short reply and 135s with a full plan, and
@@ -173,7 +139,7 @@ export function buildTripDescriptor(): TripDescriptor | null {
  * though `12-20` would save ~160 chars, because a non-ISO date echoed back into an op is dropped
  * silently by `validateOps` — the bug class, not worth reintroducing.
  *
- * Hard-capped at `DIGEST_CAP` chars (truncate + '…') — a token-budget guard for the Worker call.
+ * Hard-capped at `DIGEST_CAP` UTF-8 bytes (truncate + '…') for the Worker call.
  */
 // The digest is a LINE-oriented format ("date city: item; item") assembled by interpolation, and
 // every field it interpolates reaches storage from paths no `<input>` constrains: a restored backup
@@ -293,27 +259,30 @@ export function buildTripDigest(): string {
     ].join('\n');
 
   // KNOWN CEILING: O(days²) re-assembly, fine at 32 trip days; revisit only if TRIP_DATES grows a lot.
-  for (let i = 0; i < days.length && assemble().length > DIGEST_CAP; i++) {
+  for (let i = 0; i < days.length && utf8Bytes(assemble()) > DIGEST_CAP; i++) {
     if (days[i].date < now.date) dropped.add(i); // already-happened day: drop it whole
   }
   // Still over budget: condense from the FARTHEST-out remaining day backward, so the days
   // nearest to "today" (the ones a traveller is most likely asking about) stay uncondensed.
-  for (let i = days.length - 1; i >= 0 && assemble().length > DIGEST_CAP; i--) {
+  for (let i = days.length - 1; i >= 0 && utf8Bytes(assemble()) > DIGEST_CAP; i--) {
     if (!dropped.has(i)) condensed.add(i);
   }
 
   const digest = assemble();
-  return digest.length > DIGEST_CAP ? `${digest.slice(0, DIGEST_CAP - 1)}…` : digest;
+  return truncateUtf8(digest, DIGEST_CAP);
 }
 
 /**
  * The outgoing history: the last `HISTORY_CAP` turns, then oldest-first dropped until the
- * serialized result fits `HISTORY_CHAR_CAP`. Both bounds matter — see the constants above.
+ * serialized UTF-8 size fits `HISTORY_BYTE_CAP` and what the rest of the body leaves under the
+ * Worker's cap. `otherBytes` is the size of the whole request body serialized with `history: []`.
  * Newest turns are the ones the model actually needs, so the drop order is never in question.
  */
-export function capHistory(turns: ChatTurn[]): ChatTurn[] {
+export function capHistory(turns: ChatTurn[], otherBytes = 0): ChatTurn[] {
+  // "[]" is already counted in otherBytes, so history may use its own size minus those 2 bytes.
+  const budget = Math.min(HISTORY_BYTE_CAP, MAX_BODY_BYTES - BODY_SAFETY_MARGIN - otherBytes + 2);
   let out = turns.slice(-HISTORY_CAP);
-  while (out.length > 0 && JSON.stringify(out).length > HISTORY_CHAR_CAP) out = out.slice(1);
+  while (out.length > 0 && utf8Bytes(JSON.stringify(out)) > budget) out = out.slice(1);
   return out;
 }
 
@@ -352,11 +321,16 @@ export type ChatStatus = 'idle' | 'streaming' | 'error';
  * action, never show machine text. The buckets are the ones with DIFFERENT next actions — an
  * auth failure must not tell someone to press "Try again" forever.
  */
-function statusMessage(status: number): string {
+function statusMessage(status: number, hasHistory = false): string {
   if (status === 401 || status === 403) {
     return "The concierge couldn't confirm this trip is yours. Sign in again, or open the trip from your trips list.";
   }
-  if (status === 413) return 'That message was too long to send. Shorten it and try again.';
+  if (status === 413) {
+    // With history in the body, shortening the question can't help; only a fresh thread does.
+    return hasHistory
+      ? 'This chat has grown too long to send. Start a new chat and ask again.'
+      : 'That message was too long to send. Shorten it and try again.';
+  }
   if (status === 429) return "You've sent a lot of messages in a short time. Wait a minute, then try again.";
   return 'The concierge is having trouble right now. Try again in a moment.';
 }
@@ -500,20 +474,32 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
             signal.addEventListener('abort', () => resolveHeader({}), { once: true });
           }),
         ]);
+        // `trip` is spread in only when there IS one — the key is ABSENT on the default trip,
+        // not `null`. See `buildTripDescriptor`: absent is what selects the Worker's richer
+        // default persona, and it also keeps the default body byte-identical to today's.
+        // Same rule for `provider`: absent on the Groq default.
+        const payload = {
+          message: trimmed,
+          history: [] as ChatTurn[],
+          context,
+          ...(trip ? { trip } : {}),
+          ...(provider === 'kimi' ? { provider } : {}),
+        };
+        const bodyLimit = MAX_BODY_BYTES - BODY_SAFETY_MARGIN;
+        let payloadBytes = utf8Bytes(JSON.stringify(payload));
+        while (payloadBytes > bodyLimit && payload.context) {
+          payload.context = truncateUtf8(context, Math.max(0, utf8Bytes(payload.context) - (payloadBytes - bodyLimit)));
+          payloadBytes = utf8Bytes(JSON.stringify(payload));
+        }
+        if (payloadBytes > bodyLimit) {
+          fail('Message is too long. Shorten it and try again.');
+          return;
+        }
+        const sentHistory = capHistory(history, payloadBytes);
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId(), ...auth },
-          // `trip` is spread in only when there IS one — the key is ABSENT on the default trip,
-          // not `null`. See `buildTripDescriptor`: absent is what selects the Worker's richer
-          // default persona, and it also keeps the default body byte-identical to today's.
-          body: JSON.stringify({
-            message: trimmed,
-            history: capHistory(history),
-            context,
-            ...(trip ? { trip } : {}),
-            // Same rule as `trip`: absent on the Groq default, so that body stays byte-identical.
-            ...(provider === 'kimi' ? { provider } : {}),
-          }),
+          body: JSON.stringify({ ...payload, history: sentHistory }),
           // The POST stays at the BARE origin with no path suffix — the Worker accepts `POST /`
           // specifically because of this. Do not "tidy" it into `${CONCIERGE_URL}/chat`.
           signal,
@@ -523,7 +509,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         // rendered verbatim, which put whatever the Worker (or anything in front of it) wrote in
         // front of a traveller. See `statusMessage` for the rule and the evidence behind it.
         if (!res.ok) {
-          fail(statusMessage(res.status));
+          fail(statusMessage(res.status, sentHistory.length > 0));
           return; // `finally` still clears sendingRef
         }
 

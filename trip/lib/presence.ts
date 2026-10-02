@@ -37,8 +37,8 @@
 
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
-import { getRemote, isPermissionDenied, type RemoteHandle } from './firebase-remote';
-import { deviceStore, syncPausedPrefs } from '@/core/storage/gateway';
+import { getSharedRemote, isPermissionDenied, type RemoteHandle } from './firebase-remote';
+import { deviceStore } from '@/core/storage/gateway';
 
 // ---------------------------------------------------------------------------
 // Tuning constants. HEARTBEAT_MS MUST stay >= 30_000 (free-tier hard rule).
@@ -87,7 +87,7 @@ export interface PresenceRecord {
  * intent — "presence never initializes firebase itself" — stays readable.
  */
 export function getPresence(): Promise<Pick<RemoteHandle, 'db' | 'fs'>> {
-  return getRemote();
+  return getSharedRemote();
 }
 
 /**
@@ -175,6 +175,7 @@ async function writeHeartbeat(): Promise<void> {
       console.warn('[presence] heartbeat denied by the rules — this device is not a member of this trip; loop stopped');
       return;
     }
+    if ((err as { code?: string })?.code === 'sign-in-required') return; // anonymous: the badge says so
     // Any other failed heartbeat must not break the app — degrade to silent local-only.
     console.warn('[presence] heartbeat write failed, staying local-only:', err);
   }
@@ -195,7 +196,6 @@ async function writeHeartbeat(): Promise<void> {
 export function startPresence(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   if (!isTripRemoteConfigured()) return; // dormant or the local-only default pack (#10) ⇒ no loop
-  if (syncPausedPrefs.get()) return;
   const traveler = getActiveTraveler();
   if (!traveler) return; // guest / signed-out ⇒ never start
 

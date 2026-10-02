@@ -214,7 +214,7 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
     <li data-testid={`safety-contact-${contact.id}`}>
       <a
         href={`tel:${contact.tel}`}
-        aria-label={`Call ${contact.service}, ${contact.number}`}
+        aria-label={`Call ${contact.service}, ${contact.number}${unverified ? ', unverified' : ''}`}
         className="r [--cols:1fr_auto] no-underline"
       >
         <span className="min-w-0">

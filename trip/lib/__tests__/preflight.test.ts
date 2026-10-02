@@ -282,11 +282,11 @@ describe('#20 · trip data (outbox, per D-193 — not Firestore hasPendingWrites
     expect(evaluateSync({ pending: 1, lastAckAt: null }).headline).toBe('1 change waiting to upload');
   });
 
-  it('#600: sync off on this device outranks the pending row', () => {
-    const check = evaluateSync({ pending: 2, lastAckAt: null, paused: true });
+  it('signed out of the default pack outranks the pending row', () => {
+    const check = evaluateSync({ pending: 2, lastAckAt: null, signInRequired: true });
     expect(check.state).toBe('attention');
-    expect(check.headline).toBe('Sync is off on this device');
-    expect(check.detail).toBe('2 changes are saved here and upload when sync is turned back on in Settings.');
+    expect(check.headline).toBe('Sign in to sync');
+    expect(check.detail).toBe('2 changes are saved here and upload once you sign in.');
   });
 
   it('PASS: nothing queued and a confirmed upload reports when it landed', () => {

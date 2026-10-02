@@ -27,6 +27,8 @@
  * module, made uniform and centrally tested here.
  */
 
+import { SHARED_TRIP_ID } from '@/core/trips/shared-trip';
+
 // ── Store selector ──────────────────────────────────────────────────────────
 export type Store = 'local' | 'session';
 
@@ -551,9 +553,8 @@ export const STORAGE_KEYS = {
    */
   tripsCreatedHere: 'nepal_japan_trips_created_here',
   /**
-   * localStorage — boolean-as-string, `'true'` when the traveler switched sync off on THIS device
-   * (sync-paused, key 47; D-594). APP-SCOPED and per device: it is never synced, and sign-out
-   * leaves it alone, because it describes the device rather than the person.
+   * localStorage — RETIRED (key 47). The per-device sync switch is gone and a stored `'true'` is
+   * ignored. The constant stays so the number is not reused.
    */
   syncPaused: 'nepal_japan_sync_paused',
   /**
@@ -582,6 +583,7 @@ function tripsCreatedHere(): unknown[] {
 }
 
 export function markTripCreatedHere(id: string): void {
+  if (id === SHARED_TRIP_ID) return; // the shared trip has no owner device
   const ids = tripsCreatedHere();
   if (!ids.includes(id)) writeJson('local', STORAGE_KEYS.tripsCreatedHere, [...ids, id]);
 }
@@ -654,16 +656,30 @@ export function setActiveTripId(id: string): void {
 }
 
 /**
- * Read the REMOTE trip id the DEFAULT pack syncs to, or `''` when this device has never opted in
- * (D-542). `''` is the #10 behaviour verbatim — local-only, no Firestore path — so an untouched
- * device is byte-identical to before this existed.
+ * The id stored on this device for the default pack, or `''` when none. Not what the pack syncs
+ * to: that is `getDefaultTripShareId()`. Trimmed on read so a stray space can't compose into
+ * `trips/ abc/days`, a different, silently-empty trip.
+ */
+export function getStoredDefaultTripShareId(): string {
+  return (readString('local', STORAGE_KEYS.defaultTripShare) ?? '').trim();
+}
+
+/**
+ * The remote trip id the DEFAULT pack syncs to: the shared trip, for every account and device.
  *
- * Trimmed on read because the value can arrive from a human paste (the "join a shared plan" box),
- * and a stray space would compose into `trips/ abc/days` — a different, silently-empty trip.
- * TOTAL, never-throws, SSR-safe (both inherited from `readString`).
+ * Two cases hold back from it. A device still on some other id keeps that one until
+ * `lib/account-share.ts` has confirmed the shared trip is readable and the person has agreed to
+ * replace their plan. A device with no id but local edits reads `''` (local-only) for the same
+ * reason: the shared trip's first snapshot would otherwise replace those edits without asking.
+ * TOTAL, never-throws, SSR-safe (inherited from `readString`).
  */
 export function getDefaultTripShareId(): string {
-  return (readString('local', STORAGE_KEYS.defaultTripShare) ?? '').trim();
+  const stored = getStoredDefaultTripShareId();
+  if (stored !== '') return stored;
+  if (defaultPackHasSyncedData()) return '';
+  // Untouched device: record it now, so its first edit cannot turn this into the held-back case.
+  writeString('local', STORAGE_KEYS.defaultTripShare, SHARED_TRIP_ID);
+  return SHARED_TRIP_ID;
 }
 
 const DEFAULT_SHARE_SYNCED_SLOTS = [
@@ -696,10 +712,15 @@ export function setDefaultTripShareId(id: string): void {
   const trimmed = id.trim();
   // D-561 — the outbox and the synced slots belong to the trip they were edited under, not to the
   // pack. Moving from one shared trip to another would otherwise push them into the new one.
-  const prev = getDefaultTripShareId();
-  if (prev !== '' && trimmed !== '' && prev !== trimmed) dropDefaultPackSyncedData();
-  if (trimmed === '') removeKey('local', STORAGE_KEYS.defaultTripShare);
-  else writeString('local', STORAGE_KEYS.defaultTripShare, trimmed);
+  const prev = getStoredDefaultTripShareId();
+  if (trimmed === '') {
+    removeKey('local', STORAGE_KEYS.defaultTripShare);
+    return;
+  }
+  // Dropped only once the new id is stored, so a write that fails cannot cost the plan.
+  if (writeString('local', STORAGE_KEYS.defaultTripShare, trimmed) && prev !== '' && prev !== trimmed) {
+    dropDefaultPackSyncedData();
+  }
 }
 
 export type DefaultTripAdopted = { shareId: string; at: string };
@@ -1340,6 +1361,9 @@ export const defaultShareReloadGuard = {
     writeString('session', STORAGE_KEYS.defaultShareReload, '1');
     return this.hasRun();
   },
+  reset(): void {
+    removeKey('session', STORAGE_KEYS.defaultShareReload);
+  },
 } as const;
 
 /**
@@ -1414,8 +1438,8 @@ export const favoritesStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('favorites'), fallback);
   },
-  set<T>(ids: T): void {
-    writeJson('local', keyFor('favorites'), ids);
+  set<T>(ids: T): boolean {
+    return writeJson('local', keyFor('favorites'), ids);
   },
 } as const;
 
@@ -1434,8 +1458,8 @@ export const photosStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('photos'), fallback);
   },
-  set<T>(metas: T): void {
-    writeJson('local', keyFor('photos'), metas);
+  set<T>(metas: T): boolean {
+    return writeJson('local', keyFor('photos'), metas);
   },
 } as const;
 
@@ -1491,16 +1515,6 @@ export const mapWakeLockPrefs = {
   },
 } as const;
 
-/** "Sync this device" off switch (key 47). Same `String(boolean)` shape; absent reads as not paused. */
-export const syncPausedPrefs = {
-  get(): boolean {
-    return readString('local', STORAGE_KEYS.syncPaused) === 'true';
-  },
-  set(value: boolean): void {
-    writeString('local', STORAGE_KEYS.syncPaused, String(value));
-  },
-} as const;
-
 /**
  * Packing checklist slot — the `PackingItem[]` JSON list. localStorage backend
  *; additive, no migration, NOT part of the itinerary Vault. Mirrors `favoritesStore`/
@@ -1517,8 +1531,8 @@ export const packingStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('packing'), fallback);
   },
-  set<T>(items: T): void {
-    writeJson('local', keyFor('packing'), items);
+  set<T>(items: T): boolean {
+    return writeJson('local', keyFor('packing'), items);
   },
 } as const;
 
@@ -1538,8 +1552,8 @@ export const dayAnchorStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('dayAnchors'), fallback);
   },
-  set<T>(map: T): void {
-    writeJson('local', keyFor('dayAnchors'), map);
+  set<T>(map: T): boolean {
+    return writeJson('local', keyFor('dayAnchors'), map);
   },
 } as const;
 
@@ -1558,8 +1572,8 @@ export const shareInboxStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('shareInbox'), fallback);
   },
-  set<T>(items: T): void {
-    writeJson('local', keyFor('shareInbox'), items);
+  set<T>(items: T): boolean {
+    return writeJson('local', keyFor('shareInbox'), items);
   },
 } as const;
 

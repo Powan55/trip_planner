@@ -58,6 +58,7 @@ import {
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
+import { SHARED_TRIP_ID } from './shared-trip';
 
 export type TripMetaPayload = { name: string; config?: TripConfigBlock; updatedAt?: number };
 
@@ -488,7 +489,7 @@ export async function createTripDoc(tripId: string): Promise<void> {
 export async function ensureMembership(tripId: string): Promise<void> {
   // This function also repairs every known trip after Google-account adoption, when the
   // active pack may be the local-only sample. Gate the explicit target, not the active pack.
-  if (!isRemoteConfigured() || !isSafeTripSegment(tripId) || tripId === DEFAULT_TRIP_ID) return;
+  if (!isRemoteConfigured() || !isSafeTripSegment(tripId) || tripId === DEFAULT_TRIP_ID || tripId === SHARED_TRIP_ID) return;
   try {
     const { db, fs, uid } = await getRemote();
     const { doc, getDocFromServer, updateDoc } = fs;

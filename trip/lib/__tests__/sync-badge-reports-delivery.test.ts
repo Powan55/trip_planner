@@ -68,7 +68,7 @@ function render(el: ReactElement) {
 describe('D-546 — the sync badge reports delivery, not just transport', () => {
   beforeEach(() => {
     h.presence = [];
-    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false, paused: false };
+    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false, signInRequired: false };
   });
 
   it('with no one else on the trip it says "Saved", never "Synced"', () => {
@@ -135,13 +135,13 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
 
   it('a live outbox fact still outranks the audience — pending and blocked are unchanged', () => {
     h.presence = [peer('Uttam')];
-    h.sync = { pending: 3, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false, paused: false };
+    h.sync = { pending: 3, blocked: 0, readBlocked: false, lastAckAt: ACKED, localOnly: false, signInRequired: false };
     const pendingRender = render(createElement(SyncStatusBadge));
     expect(pendingRender.text()).toBe('3 pending');
     expect(pendingRender.state()).toBe('pending');
     pendingRender.unmount();
 
-    h.sync = { pending: 3, blocked: 3, readBlocked: false, lastAckAt: ACKED, localOnly: false, paused: false };
+    h.sync = { pending: 3, blocked: 3, readBlocked: false, lastAckAt: ACKED, localOnly: false, signInRequired: false };
     const blockedRender = render(createElement(SyncStatusBadge));
     expect(blockedRender.text()).toBe('3 not syncing');
     expect(blockedRender.state()).toBe('blocked');
@@ -149,18 +149,18 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
   });
 
   it('the local-only offer is untouched — an unshared pack has no audience to report', () => {
-    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: true, paused: false };
+    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: true, signInRequired: false };
     const r = render(createElement(SyncStatusBadge));
 
     expect(r.text()).toBe('This device only');
     expect(r.state()).toBe('local-only');
-    // Still the one interactive state: a real button, not a pill with a click handler.
-    expect(r.q('[data-testid="sync-status-share-cta"]')?.tagName).toBe('BUTTON');
+    // There is nothing to activate: the way out is signing in, not a dialog.
+    expect(r.q('[data-testid="sync-status-share-cta"]')).toBeNull();
     r.unmount();
   });
 
   it('nothing to report is still nothing to render (dormant / guest)', () => {
-    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false, paused: false };
+    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false, signInRequired: false };
     h.presence = [peer('Uttam')];
     const r = render(createElement(SyncStatusBadge));
 

@@ -6024,3 +6024,21 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Owner migration.** A legacy trip owner keeps the role either way: "Create a username and password" links the owner uid itself, and logging in with a console-created account on the owner's device grants the account uid `owner` before the swap. Logging in on a device that is not on the roster carries nothing over.
 
 **Trade-off.** `accountClaims` makes an account id claimable once, but the first claimant is self-asserted: whoever writes the claim first owns the id. Trips on a pasted old key's list are not granted, because the uid they name belongs to a device that is not here; those need an invite (D-662). Until the Firestore rules are published (#263), the password guards the app screens, not the stored data. "Later" was kept rather than a hard block because the `users/{uid}` write is not yet verified against live rules, and a hard block that cannot complete would lock every existing user out. Recovery: there is no in-app password reset yet (it needs an admin path on the Worker with the Admin SDK, deferred). Console "Reset password" sends mail, which cannot reach a `.invalid` address, so the interim is to delete the user and recreate it with a temporary password; the owner then signs in and re-claims with their old key or this device's account id.
+
+### D-663 · Supersedes D-542 minting and D-598 claimField for the default pack · Amends D-662 · (issue #728, 2026-09-28) · The shared trip belongs to three named accounts
+
+**Decision.** For the shared trip id (`isShared()` in `firestore.rules`) the rules ignore the trip doc and its roster. Read and write go to a token whose email is `powan@`, `uttam@` or `sushil@accounts.trip-planner.invalid`, and to nobody else. There is no `get()` on that path, so it holds when the trip doc or its members map does not exist, and a members map someone writes there grants nothing. Invites and the meta/profile carve-outs are closed for that id. Every other trip is unchanged.
+
+**Why.** Only people with trip access may see, read or write it. An absent doc read as open, so any signed-in device that knew the id was in.
+
+**Trust basis.** Auth email uniqueness. The three accounts exist, so EMAIL_EXISTS stops anyone else signing up with those addresses. Never delete and recreate one of them: the D-661 recovery does exactly that and leaves a window where a squatter can take the email.
+
+**Supersedes.** The default pack is no longer minted per device (D-542) or shared through the account's claimField (D-598), and the D-597 pause goes away for it. D-662 invites do not apply to this trip.
+
+**The id must be an existing trip doc.** Use the owner's current trip id, or create the doc in the console first. Nothing in the client creates `trips/{shared}`, `sharedTripReadable()` needs `.exists()`, and the Worker's concierge gate (a user-token GET, `res.ok`) turns a missing doc's 404 into a 403. A fresh id would never sync anyone.
+
+**Client gate.** The anonymous-session gate applies to shared-trip content only, not to the invite, meta or profile paths.
+
+**Ship order.** Before publishing, the owner checks the Auth console lists all three users (`powan@`, `uttam@`, `sushil@accounts.trip-planner.invalid`). EMAIL_EXISTS is the only thing stopping a squatter, so create any that is missing first. Then publish the rules and probe them with real headers. The id is in the branch, so it is public on the first push; until the rules are live, anyone who reads it can reach the trip. Publish and probe before the branch merges, and push only when the window is acceptable.
+
+**Trade-off.** Denied reads still count against the free quota; App Check is the upgrade path. Adding a fourth person means editing the list and publishing.

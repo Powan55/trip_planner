@@ -12,12 +12,9 @@
  */
 import {
   DEFAULT_TRIP_ID,
+  defaultShareReloadGuard,
   getActiveTripId,
   setActiveTripId,
-  getDefaultTripShareId,
-  setDefaultTripShareId,
-  defaultPackHasSyncedData,
-  dropDefaultPackSyncedData,
   getKnownTripsRaw,
   setKnownTripsRaw,
   getRemovedTripsRaw,
@@ -35,6 +32,7 @@ import { sanitizePhotos } from '@/core/photos/model';
 // pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
 // the trip's own record, never written into that shared table.
 import type { CityCoord } from '@/lib/city-coords';
+import { SHARED_TRIP_ID } from '@/core/trips/shared-trip';
 
 /**
  * Per-trip user config for a CUSTOM (non-default-pack) trip. Lives INSIDE the
@@ -517,25 +515,19 @@ export function joinTrip(id: string, name?: string): boolean {
   const token = parseTripToken(id);
   if (!token || isOwnAccountToken(id)) return false;
   if (token.kind === 'default') {
-    // #572 — an unshared pack's local rows would otherwise merge into the joined trip.
-    if (getDefaultTripShareId() === '') dropDefaultPackSyncedData();
-    setDefaultTripShareId(token.id);
+    // The default pack has one trip. Any other `pack:` id is an old per-account link.
+    if (token.id !== SHARED_TRIP_ID) return false;
+    // Only brings the browser back to the pack. The id is never written and nothing is dropped
+    // here: `lib/account-share.ts` moves a device onto the shared trip once the signed-in session
+    // can read it and the person has agreed to replace their plan.
+    // A link join after an earlier declined prompt lets it ask again this session.
+    defaultShareReloadGuard.reset();
     setActiveTripId(DEFAULT_TRIP_ID);
-    return getDefaultTripShareId() === token.id && getActiveTripId() === DEFAULT_TRIP_ID;
+    return getActiveTripId() === DEFAULT_TRIP_ID;
   }
   upsertKnownTrip(token.id, name);
   setActiveTripId(token.id);
   return getActiveTripId() === token.id;
-}
-
-/** True when `joinTrip(id)` would drop this device's copy of the default pack's plan (D-561):
- * moving off one shared trip onto another, or joining from an unshared pack that holds data.
- * Paste boxes confirm before that. */
-export function joinReplacesLocalPlan(id: string): boolean {
-  const token = parseTripToken(id);
-  if (token?.kind !== 'default' || isOwnAccountToken(id)) return false;
-  const current = getDefaultTripShareId();
-  return current === '' ? defaultPackHasSyncedData() : current !== token.id;
 }
 
 export const REPLACE_LOCAL_PLAN_COPY =

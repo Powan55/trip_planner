@@ -11,6 +11,8 @@ import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
 import { useInView } from '@/hooks/use-in-view';
 import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta } from '@/core/photos/model';
+import { elapsedTripDates } from '@/core/recap/model';
+import { getNowAtTrip } from '@/lib/trip-now';
 
 /**
  * — the journal BROWSE view (`/journal`, `app/journal/page.tsx`). Lists every persisted
@@ -85,6 +87,10 @@ export default function JournalBrowse() {
   const { photosFor, hydrated: photosHydrated } = usePhotos();
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  // '' until mount (SSR-safe); the same trip clock the recap uses, so `?today=` overrides apply.
+  const [nowDateStr, setNowDateStr] = useState('');
+  useEffect(() => setNowDateStr(getNowAtTrip().date), []);
+  const pickerRef = useRef<HTMLSelectElement>(null);
   // A discarded draft, handed back by JournalCard's undo toast (#530 follow-up) — the card that
   // wrote it is already gone (browse unmounts it on close), so the parent re-mounts a fresh one
   // for the same date and seeds it with this via `initialDraft`.
@@ -96,7 +102,8 @@ export default function JournalBrowse() {
   useEffect(() => {
     const prev = prevEditingDateRef.current;
     if (prev && editingDate === null) {
-      document.querySelector<HTMLButtonElement>(`[data-testid="journal-browse-edit-${prev}"]`)?.focus();
+      // A day opened from the picker has no row to return to when closed empty — fall back to the picker.
+      (document.querySelector<HTMLElement>(`[data-testid="journal-browse-edit-${prev}"]`) ?? pickerRef.current)?.focus();
     }
     prevEditingDateRef.current = editingDate;
   }, [editingDate]);
@@ -123,6 +130,9 @@ export default function JournalBrowse() {
   const dates = new Set(matched.map((e) => e.date));
   if (editingDate) dates.add(editingDate);
   const datesDesc = [...dates].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  // Elapsed trip days with no entry yet (empty before the trip starts, so the picker hides itself).
+  const written = new Set(entries.map((e) => e.date));
+  const missedDays = elapsedTripDates(nowDateStr).filter((d) => !written.has(d)).reverse();
 
   return (
     <section
@@ -184,6 +194,30 @@ export default function JournalBrowse() {
         </div>
       )}
 
+      {missedDays.length > 0 && (
+        <div className="mb-6">
+          <label htmlFor="journal-missed-day" className="pr mb-2 block">
+            Write about a day with no entry
+          </label>
+          <select
+            id="journal-missed-day"
+            ref={pickerRef}
+            value=""
+            disabled={editingDate !== null}
+            onChange={(e) => e.target.value && setEditingDate(e.target.value)}
+            data-testid="journal-browse-missed-day"
+            className="min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-low px-3 text-t-body text-ink-hi focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 disabled:opacity-50"
+          >
+            <option value="">Choose a day…</option>
+            {missedDays.map((d) => (
+              <option key={d} value={d}>
+                {formatDateLong(d)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {datesDesc.length > 0 ? (
         <ul data-testid="journal-browse-list" className="space-y-4">
           {datesDesc.map((date) => (
@@ -217,7 +251,9 @@ export default function JournalBrowse() {
         <div data-testid="journal-browse-empty" className="empty-frame p-6 text-center">
           <p className="empty">Unwritten &mdash; every trip day is still blank.</p>
           <p className="empty mt-1">
-            Write about a trip day from the Today panel — it will show up here.
+            {missedDays.length > 0
+              ? 'Pick a day above to write about it — it will show up here.'
+              : 'Once the trip starts, write about each day from the Today panel — it will show up here.'}
           </p>
         </div>
       ) : (

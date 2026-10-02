@@ -10,6 +10,7 @@ import {
   type TripToken,
 } from '@/core/trips/registry';
 import { getActiveTripId, getDefaultTripShareId, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 import { withBasePath } from '@/lib/utils';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import {
@@ -104,7 +105,8 @@ export default function TripJoinHandshake() {
     // can never be used (empty, path-unsafe, reserved) stops here with a stated refusal rather
     // than being pasted into a Firestore path and opening a silently-empty trip.
     const parsed = parseTripToken(t);
-    if (!parsed) {
+    // The default pack has one trip; a link naming any other `pack:` id predates that.
+    if (!parsed || (parsed.kind === 'default' && parsed.id !== SHARED_TRIP_ID)) {
       setStatus('unusable');
       return;
     }

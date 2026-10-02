@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Inbox, Link2, Trash2, CalendarDays, MapPin } from 'lucide-react';
 import { useShare } from '@/hooks/use-share';
 import type { ShareItem } from '@/core/share/model';
+import { sharePlaceUrl } from '@/core/share/place-url';
 import { TRIP_DATES, formatDate } from '@/core/dates';
 import { isGooglePlaceUrl } from '@/core/places/model';
 import { haptic } from '@/lib/haptics';
@@ -55,7 +56,7 @@ export default function ShareInbox() {
   };
   const openRowImport = (item: ShareItem) => {
     importTriggerRef.current = (document.activeElement as HTMLElement) ?? null;
-    setImportState({ url: item.url ?? '', editable: false, rowId: item.id });
+    setImportState({ url: sharePlaceUrl(item) ?? '', editable: false, rowId: item.id });
   };
   // Remove the source inbox row only on a real import (the sheet's onImported fires before onClose).
   const handleImported = () => {
@@ -226,8 +227,8 @@ function ShareRow({
 }) {
   const heading = item.title || item.text || item.url || 'Shared item';
   const selectId = `share-day-${item.id}`;
-  // "Import as place" only on rows whose url is a Google place link (same allow-list as the sheet).
-  const canImport = isGooglePlaceUrl(item.url);
+  // Both explicit URLs and text-only Maps shares use the sheet's Google URL allow-list.
+  const canImport = isGooglePlaceUrl(sharePlaceUrl(item));
 
   return (
     <li data-testid={`share-item-${item.id}`} className="border-b-hair border-border">

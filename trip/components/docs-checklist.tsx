@@ -158,6 +158,7 @@ function DocRow({
         <PhotoAttach
           owner={{ kind: 'docs', itemId: item.id }}
           heading="Photo"
+          regionLabel={`Photo for ${item.label}`}
           altPlaceholder="Describe this document photo"
           helperText={DOCS_PHOTO_HELPER}
         />

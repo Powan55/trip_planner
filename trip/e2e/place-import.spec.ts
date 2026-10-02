@@ -289,6 +289,24 @@ test.describe('S285 · place import — resolution failure degrades to a working
 });
 
 test.describe('S285 · inbox rows — "Import as place" only on Google-host links', () => {
+  test('an Android text-only Maps share seeds and resolves the import sheet', async ({ page }) => {
+    const hits = await stubResolve(page, RESOLVE_OK);
+    const sharedText = `S285 Test Spot\n${GOOGLE_URL}.\nShared from Google Maps`;
+    await page.goto(`/share/?title=Maps%20share&text=${encodeURIComponent(sharedText)}`, { waitUntil: 'load' });
+    await expect(page.getByTestId('share-inbox')).toBeVisible();
+    await expect(page.locator('li[data-testid^="share-item-"]')).toHaveCount(1);
+
+    await page.locator('[data-testid^="share-item-import-"]').click();
+    await expect(page.getByTestId('import-place-sheet')).toBeVisible();
+    await expect(page.getByTestId('import-place-url-readonly')).toContainText(GOOGLE_URL);
+    await expect(page.getByTestId('import-place-url-readonly')).not.toContainText(`${GOOGLE_URL}.`);
+    await assertResolveWired(page, hits);
+    await expect(page.getByTestId('import-place-name-input')).toHaveValue(PLACE_NAME);
+
+    await page.getByTestId('import-place-confirm').click();
+    await expect(page.locator('li[data-testid^="share-item-"]')).toHaveCount(0);
+  });
+
   test('a maps.app.goo.gl row shows the button; a non-Google row does not; import removes the row', async ({
     page,
   }) => {
