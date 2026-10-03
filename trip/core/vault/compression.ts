@@ -33,7 +33,7 @@ export function supportsCompression(): boolean {
 }
 
 /** Wrap a single chunk of bytes as a one-shot ReadableStream (source for pipeThrough). */
-function bytesToStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
+function bytesToStream(bytes: Uint8Array<ArrayBuffer>): ReadableStream<Uint8Array<ArrayBuffer>> {
   return new ReadableStream({
     start(controller) {
       controller.enqueue(bytes);
