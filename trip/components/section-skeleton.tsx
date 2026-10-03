@@ -104,9 +104,6 @@ export default function SectionSkeleton({
               be a phantom in the outline and exposed to nobody. */}
           <div className="flex items-baseline justify-between gap-3 border-b-2 border-[hsl(var(--border))] pb-2">
             <span className="pr pr--l">Loading</span>
-            <span className="pr pr--lo">
-              {rows} {rows === 1 ? 'row' : 'rows'} reserved
-            </span>
           </div>
 
           {/* The rows the section will fill, at the size they will be. */}

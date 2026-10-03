@@ -197,7 +197,7 @@ export function cellPaint(
     return {
       color: 'var(--text-hi)',
       borderColor: TRANSIT_COLOR,
-      background: `linear-gradient(135deg, ${from} 0 46%, ${TRANSIT_COLOR} 46% 54%, ${tint(s.transit.to, 18)} 54% 100%)`,
+      background: `linear-gradient(135deg, ${from} 0 47%, ${tint(TRANSIT_COLOR, 40)} 47% 53%, ${tint(s.transit.to, 18)} 53% 100%)`,
     };
   }
   const out: Record<string, string> = { borderColor: tint(s.color, planned ? border : 55) };

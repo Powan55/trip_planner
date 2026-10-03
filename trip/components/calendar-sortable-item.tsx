@@ -192,8 +192,8 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
               )}
             </span>
           )}
-          {item.duration && <span>• {item.duration}</span>}
-          {item.location && <span>• {item.location}</span>}
+          {item.duration && <span className="min-w-0 [overflow-wrap:anywhere]">• {item.duration}</span>}
+          {item.location && <span className="min-w-0 [overflow-wrap:anywhere]">• {item.location}</span>}
           {clashes && (
             <span
               title="Overlaps another timed item"

@@ -87,7 +87,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
       // containment so a horizontal flick never chains to the page scroll. Pure CSS —
       // snapping is instant positioning (not vestibular motion), and the JS auto-centre
       // already honours reduced motion via behavior:'auto'.
-      className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide pb-1 snap-x snap-mandatory scroll-px-3 overscroll-x-contain"
+      className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide pt-5 pb-1 snap-x snap-mandatory scroll-px-3 overscroll-x-contain"
     >
       {dates.map((date) => {
         const { weekday, dayNum, long } = parseDay(date);
@@ -136,7 +136,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             {/* THE STAMP — applied after printing, in another ink, off-register. There is
                 exactly one of these on the strip and it answers "what is now?". */}
             {isToday && (
-              <span className="stamp stamp--live absolute -top-2 z-[1] px-1 py-0" aria-hidden="true">
+              <span className="stamp stamp--live absolute -top-3.5 left-1 z-[1] px-1 py-0" aria-hidden="true">
                 Today
               </span>
             )}

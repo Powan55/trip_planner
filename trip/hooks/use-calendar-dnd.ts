@@ -9,16 +9,35 @@
 import { useState } from 'react';
 import {
   KeyboardSensor, PointerSensor, useSensor, useSensors,
-  DragEndEvent, DragOverEvent, DragStartEvent,
+  Announcements, DragEndEvent, DragOverEvent, DragStartEvent, UniqueIdentifier,
 } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { DayPlan, ItineraryItem } from '@/lib/trip-data';
+import { DayPlan, ItineraryItem, formatDateLong } from '@/lib/trip-data';
 
 interface CalendarDndDeps {
   plans: DayPlan[];
   getDayPlan(date: string): DayPlan;
   moveItem(itemId: string, fromDate: string, toDate: string): void;
   reorderItems(date: string, orderedIds: string[]): void;
+}
+
+// Screen-reader text for keyboard drags. dnd-kit's default reads the raw ids (item UUIDs, and
+// `day-<date>` for the day droppable); resolve both to something a person can hear.
+export function makeAnnouncements(plans: DayPlan[]): Announcements {
+  const name = (id: UniqueIdentifier | undefined): string => {
+    const s = String(id ?? '');
+    if (s.startsWith('day-')) return formatDateLong(s.slice(4));
+    const hit = plans.flatMap((p) => p.items ?? []).find((i) => i.id === s);
+    return hit?.title || 'item';
+  };
+  return {
+    onDragStart: ({ active }) => `Picked up ${name(active.id)}.`,
+    onDragOver: ({ active, over }) =>
+      over ? `${name(active.id)} is over ${name(over.id)}.` : `${name(active.id)} is no longer over a drop area.`,
+    onDragEnd: ({ active, over }) =>
+      over ? `${name(active.id)} was dropped over ${name(over.id)}.` : `${name(active.id)} was dropped.`,
+    onDragCancel: ({ active }) => `Dragging was cancelled. ${name(active.id)} was returned to its place.`,
+  };
 }
 
 export function useCalendarDnd({ plans, getDayPlan, moveItem, reorderItems }: CalendarDndDeps) {
@@ -99,5 +118,5 @@ export function useCalendarDnd({ plans, getDayPlan, moveItem, reorderItems }: Ca
 
   const activeItem = activeId ? plans.flatMap((p) => p.items ?? []).find((i: ItineraryItem) => i.id === activeId) : null;
 
-  return { sensors, activeId, activeItem, handleDragStart, handleDragOver, handleDragEnd };
+  return { sensors, announcements: makeAnnouncements(plans), activeId, activeItem, handleDragStart, handleDragOver, handleDragEnd };
 }
