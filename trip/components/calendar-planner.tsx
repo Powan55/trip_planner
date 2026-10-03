@@ -36,6 +36,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
 import QuickAddInput from '@/components/quick-add-input';
 import MapIslandBoundary from '@/components/map-island-boundary';
+import { prefersReducedMotion } from '@/lib/motion';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -1847,7 +1848,8 @@ export default function CalendarPlanner() {
                 </SortableContext>
               </DroppableDay>
 
-              <DragOverlay>
+              {/* dnd-kit's drop animation is WAAPI, which the CSS reduce block cannot reach (#782). */}
+              <DragOverlay dropAnimation={prefersReducedMotion() ? null : undefined}>
                 {activeItem ? (
                   <div className="drag-overlay border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-overlay))] p-3">
                     <div className="flex items-center gap-2">
