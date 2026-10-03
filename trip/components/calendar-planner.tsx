@@ -1361,10 +1361,10 @@ export default function CalendarPlanner() {
             pane — a box exactly as tall as the strip, so `sticky` was a no-op there. As a
             direct child of the planner container it now stays pinned under the navbar for
             the whole scroll, which is the point: the day you are editing is always visible.
-            `top-16` is the fixed navbar's height (h-16); `h-[76px]` is declared, not
+            `top-[var(--nav-h)]` is the fixed navbar's height; `h-[76px]` is declared, not
             incidental, because the composer below parks at exactly navbar+strip (see its
-            `top-[140px]`). Desktop keeps the month grid as its picker and never renders this. */}
-        <div className="sticky top-16 z-20 -mx-4 mb-4 flex h-[76px] items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden">
+            `top-[calc(var(--nav-h)+76px)]`). Desktop keeps the month grid as its picker and never renders this. */}
+        <div className="sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex h-[76px] items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden">
           <div className="min-w-0 flex-1">
             <DayStrip
               dates={TRIP_DATES}
@@ -1602,7 +1602,7 @@ export default function CalendarPlanner() {
 
             {/* — the composer. Moved out from under the list to directly under the day
                 header and made STICKY, so on a long day the primary add path never scrolls away.
-                `top-16` is the fixed navbar's exact height (h-16), so it parks just below it;
+                `top-[var(--nav-h)]` is the fixed navbar's exact height, so it parks just below it;
                 `z-10` keeps it inside this card's stacking context, far under the editor portal
                 (z-50) and the map sheet (z-40). Full-bleed via -mx to cover the card's padding
                 gutters while rows scroll behind it.
@@ -1613,9 +1613,9 @@ export default function CalendarPlanner() {
                 the pair the editor writes. "Details" opens the FULL editor for anything one
                 line can't say — it is the same trigger the dashed "Add Activity" button was,
                 relocated, not removed (it is the ONLY path to a blank editor). */}
-            {/* parks at navbar (64px) + sticky day strip (76px) below `lg`, where both
+            {/* parks at navbar (`--nav-h`) + sticky day strip (76px) below `lg`, where both
                 bands are pinned; at `lg+` there is no strip so it returns to the navbar. */}
-            <div className="sticky top-[140px] lg:top-16 z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
+            <div className="sticky top-[calc(var(--nav-h)+76px)] lg:top-[var(--nav-h)] z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
               <div className="flex items-center gap-2">
                 <QuickAddInput
                   className="min-w-0 flex-1"
@@ -1867,7 +1867,7 @@ export default function CalendarPlanner() {
           {showMap && isDesktop && (
             <aside
               aria-label={`Map of stops for ${formatDateLong(selectedDate)}`}
-              className="hidden lg:block sticky top-24 h-[480px] xl:h-[560px] overflow-hidden border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]"
+              className="hidden lg:block sticky top-[calc(6rem+var(--safe-top))] h-[480px] xl:h-[560px] overflow-hidden border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]"
             >
               {mapEl}
             </aside>

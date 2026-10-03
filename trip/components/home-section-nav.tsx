@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
  * mounts; a short bounded poll attaches the observer to each target once it exists in the DOM.
  *
  * `position:sticky` (not `fixed`) reserves its own space in normal flow, so it can never
- * overlap page content on any breakpoint; `top-16` matches the fixed navbar's `h-16` so this
+ * overlap page content on any breakpoint; `.home-nav`'s `top: var(--nav-h)` matches the fixed navbar so this
  * strip docks directly under it once it scrolls into sticky range. `z-20` — below the navbar
  * (`z-50`) AND below its mobile-menu scrim (`z-30`), so an open hamburger menu still overlays it.
  *

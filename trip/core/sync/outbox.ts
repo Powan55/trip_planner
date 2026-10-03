@@ -476,16 +476,25 @@ export function withOutbox<T>(cs: ChunkSync<T>): SyncPort<T>['push'] {
   };
 }
 
-// One in-flight flag per trip and domain: a concurrent flush for the same pair is a
-// no-op; cross-tab double-flush is harmless (idempotent writes). Module-scope, matching the one
-// shared outbox.
-const inFlight = new Set<string>();
+/** #748: does this domain hold a dirty chunk worth retrying? Refused chunks (#267) don't count, so
+ * a timer never re-arms on them. Same gate as every other entry point; never throws. */
+export function outboxRetryable(domain: SyncDomain): boolean {
+  if (!enabled()) return false;
+  const packId = getActiveTripId();
+  return (loadSlot(packId).dirty[domain] ?? []).some((c) => !denied.has(deniedKey(packId, domain, c)));
+}
+
+// One flush per trip and domain at a time; cross-tab double-flush is harmless (idempotent writes).
+// #748: a call landing mid-flush flags a rerun instead of returning early, because the running pass
+// may already have failed past its attempt (an `online` flush arriving while the offline one is
+// still settling would otherwise be lost). Module-scope, matching the one shared outbox.
+const inFlight = new Map<string, { promise: Promise<void>; rerun: boolean }>();
 
 /**
- * Flush a domain's dirty set. Called on `online` / visible / app-start. Reads the
+ * Flush a domain's dirty set. Called on `online` / visible / app-start / retry timer. Reads the
  * FRESHEST local state (`storage.load()`) and re-pushes each dirty chunk with the same ack rule, so
- * the flush pushes the netted local state once. Dormant/guest ⇒ no-op. Concurrent same-domain
- * flushes are guarded. Never throws.
+ * the flush pushes the netted local state once. Dormant/guest ⇒ no-op. A concurrent same-domain
+ * flush joins the running one and makes it take one more pass. Never throws.
  *
  * The commit path deliberately does NOT take this domain flag — a commit while a flush runs must
  * still push, and it can: it lands in `pushChunkOnce`, which either starts its own run for an
@@ -497,15 +506,27 @@ export async function flushOutbox<T>(cs: ChunkSync<T>, storage: StoragePort<T>):
   const t = enabled() ? captureTarget() : null;
   if (!t) return;
   const fk = [t.packId, t.remoteId, cs.domain].join('\u0000');
-  if (inFlight.has(fk)) return;
-  const slot = loadSlot(t.packId);
-  const chunks = slot.dirty[cs.domain] ?? [];
-  if (chunks.length === 0) return;
-  inFlight.add(fk);
-  try {
-    // #544: counters read before the state, so the pushed state is at least as new as they are.
-    await pushChunks(cs, t, storage.load(), chunks, { ...slot.seq?.[cs.domain] });
-  } finally {
-    inFlight.delete(fk);
+  const live = inFlight.get(fk);
+  if (live) {
+    live.rerun = true;
+    return live.promise;
   }
+  if ((loadSlot(t.packId).dirty[cs.domain] ?? []).length === 0) return;
+  const entry = { promise: Promise.resolve(), rerun: false };
+  inFlight.set(fk, entry);
+  entry.promise = (async () => {
+    try {
+      do {
+        entry.rerun = false;
+        const slot = loadSlot(t.packId);
+        const chunks = slot.dirty[cs.domain] ?? [];
+        if (chunks.length === 0) break;
+        // #544: counters read before the state, so the pushed state is at least as new as they are.
+        await pushChunks(cs, t, storage.load(), chunks, { ...slot.seq?.[cs.domain] });
+      } while (entry.rerun);
+    } finally {
+      inFlight.delete(fk);
+    }
+  })();
+  return entry.promise;
 }

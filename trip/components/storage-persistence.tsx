@@ -59,7 +59,7 @@ import { getActiveTrip } from '@/core/trips';
 // night-before "Storage room" row reads the same `estimate()` and must call "nearly full" at the
 // same point this toast does; tune it there and both surfaces move together.
 // From lib/storage-quota.ts, NOT lib/preflight.ts — this component is mounted in app/layout.tsx,
-// and importing the constant from preflight put that module's `maplibregl` marker into the root
+// and until #757 importing the constant from preflight put that module's `maplibregl` marker into the root
 // layout's chunk. See the header of lib/storage-quota.ts; e2e/pwa.spec.ts:651 is the proof.
 import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
 
