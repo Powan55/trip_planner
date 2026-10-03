@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Connectivity signal behind the app-wide offline banner
@@ -157,4 +157,26 @@ export function useOnline(): boolean {
   }, []);
 
   return online;
+}
+
+/** True for 2.5s after a real offline spell ends; never on first paint. */
+export function useBackOnline(): boolean {
+  const online = useOnline();
+  const [back, setBack] = useState(false);
+  const wasOffline = useRef(false);
+
+  useEffect(() => {
+    if (!online) {
+      wasOffline.current = true;
+      setBack(false);
+      return;
+    }
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
+    setBack(true);
+    const t = setTimeout(() => setBack(false), 2500);
+    return () => clearTimeout(t);
+  }, [online]);
+
+  return back;
 }
