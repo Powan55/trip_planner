@@ -158,7 +158,7 @@ export function SyncStatusBadge() {
                       ? 'synced'
                       : 'synced-alone'
             }
-            className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
+            className={`fixed ${online ? 'top-[calc(5rem+var(--safe-top))]' : 'top-[calc(8rem+var(--safe-top))]'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
           >
             {/* Printed stock, not glass. The FILL grammar carries the state: a struck
                 (solid) rule when synced, a hollow dashed one when the sync has not
