@@ -1834,11 +1834,12 @@ html {
    brackets a route change with html[data-vt-active]; for that window the template
    route fade is suppressed so the VT cross-fade is the ONLY motion (no double
    animation — template.tsx stays untouched). Safe because.animate-route-fade rests
-   at opacity:1 (the keyframe animates 0→1), so `animation: none` = immediately
-   visible, no flash. The attribute is removed on the transition's `finished` + a
+   at opacity:1 (the keyframe animates 0→1), so `animation-duration: 0s` = immediately
+   visible, no flash. Never `animation: none`: changing the name restarts the fade
+   when the attribute is removed (blank, then re-fade). The attribute is removed on the transition's `finished` + a
    ~1500ms safety timeout, so this only ever applies for the transition's lifetime. */
 html[data-vt-active] .animate-route-fade {
-  animation: none;
+  animation-duration: 0s;
 }
 
 /* Shared-element names. Additive,
