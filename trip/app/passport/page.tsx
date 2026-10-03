@@ -27,7 +27,7 @@ export const metadata = {
 export default function PassportPage() {
   return (
     <main className="min-h-screen bg-surface">
-      <div className="px-gutter pb-16 pt-24 sm:pt-28">
+      <div className="px-gutter pb-16 pt-[calc(6rem+var(--safe-top))] sm:pt-[calc(7rem+var(--safe-top))]">
         {/* The one entrance on this surface. `<Reveal>` is the canonical one and asks
             `entranceFor()` for the decision, so the tier gate, the once-per-session ledger
             and prefers-reduced-motion are all honoured without a second opinion here. */}
