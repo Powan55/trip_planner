@@ -45,8 +45,8 @@
 
        Every value below is a straight HSL conversion of a hex whose contrast is
        measured; `npm run contrast-check` (scripts/contrast-tokens.mjs) re-measures the
-       whole set and exits non-zero on any regression. Tightest text pair is 5.48:1
-       (--text-lo on --surface-3), so all twelve text/surface pairings clear AA. */
+       whole set and exits non-zero on any regression. Tightest text pair is 7.24:1
+       (--text-lo on --surface-3, issue #781), so all twelve text/surface pairings clear AA. */
     --background: 247.5 50% 6.3%;   /* #0A0818 -- the page field.  was 253 56% 8%  */
     --foreground: 0 0% 100%;     /* #FFFFFF -- --text-hi.        unchanged        */
     --card: 244 48% 19%;         /* #1C1948 -- surface-2.        was 254 50% 18%  */
@@ -74,8 +74,8 @@
     --secondary: 246.9 52.2% 13.1%; /* #141033 -- surface-1.     was 255 52% 12%  */
     --secondary-foreground: 0 0% 100%;
     --muted: 243 45% 25%;        /* #26235C -- surface-3.        was 255 46% 24%  */
-    --muted-foreground: 259 23% 68%;    /* #A79BC0 --text-lo — the FLOOR tier, 7.63:1
-                                           on the page field. Not moved by the re-cast.
+    --muted-foreground: 257.6 29.3% 77.3%;  /* #BEB4D6 --text-lo — the FLOOR tier, 10.08:1
+                                           on the page field. Lifted from #A79BC0 by #781.
                                            There is no fourth text tier below this. */
     /* shadcn interactive-fill accent (menus/toggles/selected). One chrome accent
        site-wide, now volt — same one-accent rule, new hue. The Japan/Nepal
@@ -205,10 +205,11 @@
        ================================================================ */
 
     /* ---- Text — THREE TIERS, AND NO FOURTH ----
-       THE THREE HEXES DID NOT MOVE UNDER D-334 and re-hueing them is out of scope of
-       any recolour that does not also sweep the ~728 sites that were moved onto them
-       under issue #27. Re-MEASURED on the new ramp: hi 19.80/18.23/16.38/14.21,
-       mid 12.07/11.12/9.99/8.67, lo 7.63/7.03/6.31/5.48. All twelve clear AA and
+       hi and mid did not move under D-334. --text-lo was LIFTED by #781 (D-675),
+       #A79BC0 -> #BEB4D6, for outdoor reading in the base app: same hue family, lighter
+       only, so the ~728 sites swept onto it under issue #27 keep their role and just
+       read brighter. Measured on the ramp (bg/s1/s2/s3): hi 19.80/18.23/16.38/14.21,
+       mid 12.07/11.12/9.99/8.67, lo 10.08/9.28/8.34/7.24. All twelve clear AA and
        --text-lo IS the floor — there is nothing below it. Because no tier is
        expressed as an alpha on white, a wrapper opacity can no longer multiply a
        floored alpha below AA, which is the D-100 / D-246 defect class by
@@ -218,7 +219,7 @@
        is a different defect and is what FADE_FLOOR still guards.) */
     --text-hi: #FFFFFF;
     --text-mid: #CFC6E0;
-    --text-lo: #A79BC0;
+    --text-lo: #BEB4D6;
     --on-accent: #140F20;      /* the ONLY ink permitted on a saturated fill */
 
     /* ==== THE ALPHA RAMP -> TIER MAPPING (issue #27). READ THIS BEFORE SWEEPING ====
@@ -497,7 +498,11 @@
        value is in rem precisely so the outdoor root bump moves it. NO `text-[Npx]` is
        legal anywhere; a literal px size opts out of that bump by definition.
 
-       --t-micro is THE FLOOR and it is one spelling of the micro-label role. Uppercase
+       --t-micro is THE FLOOR and it is one spelling of the micro-label role. Issue #781
+       (D-675) raised it 11.69px -> 12.75px, so it now equals --t-label: the old floor
+       was the size every meta row and chip read at outdoors. The two names stay
+       because they are two roles (mono caps key vs sentence-case meta), and a later
+       split should move the label, never drop the floor back under 12.75px. Uppercase
        mono takes .08-.14em of tracking — the tracking is what stops mono caps reading as
        a terminal dump, and it is part of the step, not decoration.
 
@@ -510,7 +515,7 @@
        lighter intent would be invisible. Where lighter machine text is wanted, use
        --font-sans with `tnum`, already loaded. */
     --font-machine: var(--font-plex-mono), ui-monospace, 'Cascadia Mono', Consolas, monospace;
-    --t-micro: 0.6875rem;  /* 11.69px — annunciator keys, tick labels, chips. THE FLOOR */
+    --t-micro: 0.75rem;    /* 12.75px — annunciator keys, tick labels, chips. THE FLOOR */
     --t-label: 0.75rem;    /* 12.75px — section headings, row meta                      */
     --t-sm: 0.8125rem;     /* 13.81px — conditions, table cells                         */
     --t-body: 0.9375rem;   /* 15.94px — row titles, prose                               */
@@ -1590,10 +1595,10 @@ html {
    White is the bound that holds for all three, so the ramp is sized by it and the
    cap is only ever headroom. At 0.76 over white: --text-hi 9.68:1, --text-mid
    5.91:1, and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.96:1
-   and 5.49:1. --text-lo measures 3.73:1 there and therefore MAY NOT BE USED AS TEXT
-   OVER THE PHOTOGRAPH — in the hero it appears only on the opaque countdown
-   cells (6.31:1 on surface-2). 3.55 does clear the 3:1 bar for a decorative
-   non-text mark, and nothing in the hero relies on that.
+   and 5.49:1. --text-lo was 3.73:1 there before #781 lifted it; it is 4.93:1 now,
+   but the rule stands: it MAY NOT BE USED AS TEXT OVER THE PHOTOGRAPH until someone
+   re-tiers hero copy on purpose (D-675). In the hero it appears only on the opaque
+   countdown cells (8.34:1 on surface-2).
 
    The last stop is the opaque page field, so the section blends into the
    `bg-surface` page below it with no seam, and every stop is the same token — the
@@ -1654,10 +1659,10 @@ html {
    measures this composite: --text-hi 11.16 (NP) / 11.41 (JP) and --text-mid 6.80 /
    6.96 at the 0.76 scrim floor, both up from 9.68 / 5.91 against bare white.
 
-   IT DOES NOT UNLOCK THE FLOOR TIER. --text-lo measures 4.30 (NP) / 4.40 (JP) here,
-   still short of 4.5, so the hero's "no floor-tier copy over the photograph" rule
-   stands exactly as written and the harness guard that encodes it still fails on
-   purpose. Do not re-tier hero copy off the back of this layer.
+   IT DOES NOT UNLOCK THE FLOOR TIER BY ITSELF. --text-lo measured 4.30 (NP) / 4.40 (JP)
+   here before #781; the lifted tier measures 5.68 / 5.81, so the harness guard became
+   a "not used" pairing. The hero's "no floor-tier copy over the photograph" rule still
+   stands as written (D-675). Do not re-tier hero copy off the back of a token lift.
 
    Deliberately NOT the full `.photo-header` duotone recipe: that opens with
    `filter: grayscale(1)` plus a `lighten` shadow floor, and greyscaling Home would
@@ -3291,8 +3296,8 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      specificity 0, so a plain class selector wins the !important tie without anything
      louder. Measured on white by the same WCAG relative-luminance math
      scripts/contrast-tokens.mjs uses: #000 21.00:1, #333 12.63:1, #555 7.46:1. The floor
-     tier lands within 0.17 of the screen ramp's own floor (--text-lo, 7.63:1 on the page
-     field), so the D-100 / D-246 contrast floor holds on paper as written rather than by
+     tier lands within 0.17 of the screen ramp's own floor (the pre-#781 --text-lo, 7.63:1 on
+     the page field), so the D-100 / D-246 contrast floor holds on paper as written rather than by
      luck — and there is still no fourth tier.
 
      Each tier ALSO matches its escaped-bang twin. `!text-ink-mid` compiles to a SEPARATE
