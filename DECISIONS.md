@@ -6050,3 +6050,11 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Why.** A failed push stayed dirty until the next foreground or edit, so a traveller who stayed on one screen never synced, and sign-out wiped those edits without trying once more.
 
 **Trade-off.** Up to 6 extra writes per stuck chunk per trigger, which the cap exists for (free-tier write budget). Sign-out can take up to 8s longer on a dead network. A push that acks after the sign-out wipe can write `{dirty:{}, lastAckAt}` into the wiped slot, which is harmless.
+
+### D-675 · Amends D-546 and D-504 · (issue #775, 2026-10-03) · A join refuses ids that are not trips, and the front door never switches trips
+
+**Decision.** `parseTripToken` reads the shared trip's id, bare or `pack:`-prefixed and in any case, as the default pack, and refuses any other `pack:` id and the legacy account names (`SHARED_TRIP_USERNAMES`, case-folded). `joinTrip` still switches to a row the registry already holds under such an id, and parse/merge never drop one, because its `trip:{id}:*` data lives under that id. The sign-in wall no longer calls `joinTrip`: after redeeming any invite it reloads to `/?trip=<token>` and the join dialog asks first, as it does for a signed-in device.
+
+**Why.** A link could set a legacy account path or the shared trip's own id as a custom trip, and the wall switched trips without the confirm the dialog exists for.
+
+**Trade-off.** Other people's account ids are uuids, the same shape as trip ids, so the client cannot tell them apart and does not try. Only the rules can refuse those. Cancelling the confirm after the wall leaves the redeemed membership written with no registry row; opening the plain `?trip=<id>` link again joins it (the invite reads as already used).

@@ -33,6 +33,7 @@ import {
   importRemoteTrips,
   DEFAULT_SHARE_PREFIX,
   isOwnAccountToken,
+  parseTripToken,
 } from '@/core/trips/registry';
 
 /**
@@ -243,6 +244,31 @@ describe('trip registry (S238)', () => {
       expect(joinTrip(`${DEFAULT_SHARE_PREFIX}${UUID}`, 'Shared trip')).toBe(false);
       expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBeNull();
       expect(getStoredDefaultTripShareId()).toBe('');
+    });
+
+    // #775 — legacy account names are account paths (trips/<Name>/profile/...), never trips.
+    it.each(['Sushil', 'powan', '  UTTAM '])('refuses the legacy account name %j as a new trip', (raw) => {
+      expect(parseTripToken(raw)).toBeNull();
+      expect(joinTrip(raw, 'Shared trip')).toBe(false);
+      expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBeNull();
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it('the shared trip id, bare or in capitals, means the default pack, not a custom trip', () => {
+      expect(parseTripToken(SHARED_TRIP_ID)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
+      expect(parseTripToken(SHARED_TRIP_ID.toUpperCase())).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
+      expect(joinTrip(SHARED_TRIP_ID, 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID);
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    });
+
+    it.each([['Sushil'], [SHARED_TRIP_ID]])('an existing %j row is kept and still switchable', (id) => {
+      window.localStorage.setItem(KEY, JSON.stringify([{ id, name: 'Old', joinedAt: 1 }]));
+      expect(listKnownTrips().some((t) => t.id === id)).toBe(true);
+      expect(mergeTripLists([{ id, name: 'Old', joinedAt: 1 }], []).merged.some((t) => t.id === id)).toBe(true);
+      expect(joinTrip(id)).toBe(true);
+      expect(getActiveTripId()).toBe(id);
+      expect(read()).toEqual([expect.objectContaining({ id, name: 'Old' })]);
     });
 
     // The other door into the same invariant: an entry can arrive in the known-trips list WITHOUT
