@@ -37,6 +37,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
 import QuickAddInput from '@/components/quick-add-input';
 import MapIslandBoundary from '@/components/map-island-boundary';
+import { prefersReducedMotion } from '@/lib/motion';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -691,6 +692,18 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
 }
 
 export default function CalendarPlanner() {
+  // Compact day strip once scrolled (#776). Hysteresis (64 in / 8 out) because the strip's own
+  // height change shifts content and would otherwise re-cross a single threshold.
+  const [stripCompact, setStripCompact] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setStripCompact((c) => (c ? y > 8 : y > 64));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   // search-within-plan: cross-route focus channel. `?focus=<itemId>` (pushed by
   // the command palette's "In your plan" results, which live OUTSIDE the provider and
   // so cannot share `highlightId` state directly) is read reactively via
@@ -1364,9 +1377,10 @@ export default function CalendarPlanner() {
             direct child of the planner container it now stays pinned under the navbar for
             the whole scroll, which is the point: the day you are editing is always visible.
             `top-[var(--nav-h)]` is the fixed navbar's height; `h-[104px]` is declared, not
-            incidental, because the composer below parks at exactly navbar+strip (see its
-            `top-[calc(var(--nav-h)+104px)]`). Desktop keeps the month grid as its picker and never renders this. */}
-        <div className="sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex h-[104px] items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden">
+            incidental: it is the strip's resting height and `h-[72px]` its compact height once the page
+            scrolls (#776; hysteresis below stops flicker at the threshold). Nothing else parks on it
+            now that the composer scrolls. Desktop keeps the month grid as its picker and never renders this. */}
+        <div className={`sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex ${stripCompact ? 'h-[72px]' : 'h-[104px]'} items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden`}>
           <div className="min-w-0 flex-1">
             <DayStrip
               dates={TRIP_DATES}
@@ -1534,7 +1548,7 @@ export default function CalendarPlanner() {
             <div className="flex items-center justify-between gap-1 mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 hover:bg-white/5 text-ink-mid disabled:text-ink-lo disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
-                <h3 className="num text-n-sm uppercase text-ink-hi sm:text-n-md">{formatDateLong(selectedDate)}</h3>
+                <h3 className="font-sans text-n-sm font-semibold text-ink-hi sm:text-n-md">{formatDateLong(selectedDate)}</h3>
                 <p className="pr pr--lo mt-0.5">
                   <span
                     aria-hidden="true"
@@ -1615,9 +1629,9 @@ export default function CalendarPlanner() {
                 the pair the editor writes. "Details" opens the FULL editor for anything one
                 line can't say — it is the same trigger the dashed "Add Activity" button was,
                 relocated, not removed (it is the ONLY path to a blank editor). */}
-            {/* parks at navbar (`--nav-h`) + sticky day strip (104px) below `lg`, where both
-                bands are pinned; at `lg+` there is no strip so it returns to the navbar. */}
-            <div className="sticky top-[calc(var(--nav-h)+104px)] lg:top-[var(--nav-h)] z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
+            {/* scrolls with the content (#776): only the navbar + day strip stay pinned, so the add row
+                no longer costs another ~89px of the viewport. */}
+            <div className="z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
               <div className="flex items-center gap-2">
                 <QuickAddInput
                   className="min-w-0 flex-1"
@@ -1849,7 +1863,8 @@ export default function CalendarPlanner() {
                 </SortableContext>
               </DroppableDay>
 
-              <DragOverlay>
+              {/* dnd-kit's drop animation is WAAPI, which the CSS reduce block cannot reach (#782). */}
+              <DragOverlay dropAnimation={prefersReducedMotion() ? null : undefined}>
                 {activeItem ? (
                   <div className="drag-overlay border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-overlay))] p-3">
                     <div className="flex items-center gap-2">

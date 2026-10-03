@@ -15,7 +15,7 @@ import { ACCOUNT_ID_RE, ACCOUNT_CLAIMED, OWNER_HANDOFF_FAILED } from '@/lib/acco
 import { getUserName } from '@/lib/identity';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getSyncCode, setSyncCode, nameHintFlag } from '@/core/storage/gateway';
-import { joinTrip, parseTripToken } from '@/core/trips/registry';
+import { parseTripToken } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import { TRIP_START } from '@/lib/trip-data';
@@ -61,9 +61,9 @@ import type { AccountUpgrade } from '@/lib/firebase-remote';
  * Every path ends in a FULL reload: the provider re-hydrates with the account id and traveler both
  * present. A Trip Token is never a login: it is entered on `/trips`, after logging in.
  *
- * `?trip=` INVITATION: the pending Trip Token is read off the URL here and joined on completion,
- * landing on `/` (the join IS the selection). An `&invite=` token leaves the URL on mount, is held in
- * memory only, and is redeemed before the join; a refused invite joins nothing.
+ * `?trip=` INVITATION: the pending Trip Token is read off the URL here and, on completion, handed
+ * back as `/?trip=` so the join dialog confirms it. An `&invite=` token leaves the URL on mount, is
+ * held in memory only, and is redeemed first; a refused invite hands nothing on.
  *
  * A11y: role="dialog" aria-modal, document-level Esc capture (the wall does NOT dismiss), a
  * Tab-trap inside the panel, autofocus on the first field. Every input has a <label> and an
@@ -301,7 +301,7 @@ function TokenGateWall({
   const [savedCode, setSavedCode] = useState<string | null>(null);
   /** Set by "Start fresh" after the carried-over id turned out to belong to someone else. */
   const [startFresh, setStartFresh] = useState(false);
-  /** A pending Trip Token from a `?trip=` invitation, joined after login/create. */
+  /** A pending Trip Token from a `?trip=` invitation, handed to the join dialog after login/create. */
   const [pendingTrip, setPendingTrip] = useState<string | null>(null);
   /** A single-use invite token off `&invite=`. Memory only, never written to storage. */
   const [inviteToken, setInviteToken] = useState<string | null>(null);
@@ -441,9 +441,10 @@ function TokenGateWall({
         return;
       }
     }
-    // D-546 — a token that could not be used falls through to the normal `/trips/` landing.
-    if (pendingTrip && joinTrip(pendingTrip)) {
-      window.location.replace(withBasePath('/'));
+    // D-675 (#775) — the wall never switches trips itself: it hands the link (invite already
+    // redeemed and stripped) to the join dialog, which asks first. An unusable token lands `/trips/`.
+    if (pendingTrip && parsed) {
+      window.location.replace(withBasePath(`/?trip=${encodeURIComponent(pendingTrip)}`));
       return;
     }
     window.location.replace(withBasePath('/trips/'));

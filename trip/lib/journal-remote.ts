@@ -196,6 +196,12 @@ function flush(t: Target): Promise<void> {
   return run;
 }
 
+/** Push every queued journal day now. Sign-out awaits this before the wipe (#816). Never rejects. */
+export function flushJournal(): Promise<void> {
+  const t = target();
+  return t ? flush(t) : Promise.resolve();
+}
+
 /**
  * Call after an explicit edit or delete of `date` has been saved locally. No-op without a sync
  * code. Never rejects.
