@@ -236,7 +236,7 @@ test.describe('S99 — weather + golden hour (stubbed Open-Meteo)', () => {
     await settleWeatherCard(page);
 
     const cachedIndicator = page.getByTestId('weather-cached-indicator');
-    await expect(cachedIndicator).toContainText("Couldn't refresh");
+    await expect(cachedIndicator).toContainText('Couldn’t refresh');
     await expect(cachedIndicator).not.toContainText('Offline');
   });
 });
