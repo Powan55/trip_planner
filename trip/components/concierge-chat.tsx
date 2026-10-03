@@ -508,6 +508,14 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
       <SheetContent
         side={side}
         data-testid="concierge-panel"
+        aria-modal="true"
+        onOpenAutoFocus={(e) => {
+          // Message box first, so you can type at once; on touch that would raise the keyboard
+          // over the sheet, so focus the panel there instead.
+          e.preventDefault();
+          if (window.matchMedia?.('(pointer: fine)').matches) inputRef.current?.focus();
+          else (e.currentTarget as HTMLElement).focus();
+        }}
         className="sheet-surface flex h-[100dvh] w-full flex-col gap-0 p-0 sm:max-w-xl"
       >
         <SheetHeader className="shrink-0 space-y-1.5 border-b-hair border-[color:hsl(var(--border))] px-gut pb-3 pr-16 pt-5 text-left">

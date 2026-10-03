@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import { MapPin, ArrowRight } from 'lucide-react';
 import {
@@ -22,6 +22,7 @@ import { fetchWeather, type WeatherResult } from '@/lib/weather';
 import { getActiveTripCityCoord } from '@/core/trips/registry';
 import { describeItemTime } from '@/lib/item-time-display';
 import { FADE_FLOOR } from '@/lib/motion';
+import { useRefreshKey } from '@/hooks/use-refresh-key';
 
 /**
  * —: the "Today" screen (the operational core).
@@ -77,15 +78,20 @@ export default function TodayPanel() {
   const city = todayInTrip?.city ?? null;
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const refreshKey = useRefreshKey();
+  const weatherCity = useRef<string | null>(null);
 
   useEffect(() => {
     if (city === null) {
       setWeather(null);
       setWeatherLoading(false);
+      weatherCity.current = null;
       return;
     }
     let cancelled = false;
-    setWeatherLoading(true);
+    // A refresh for the same city keeps the card on screen instead of flashing the skeleton.
+    if (weatherCity.current !== city) setWeatherLoading(true);
+    weatherCity.current = city;
     // #250: prefer this trip's own resolved coordinate over the static default-pack table.
     fetchWeather(city, fetch, getActiveTripCityCoord(city)).then((result) => {
       if (cancelled) return;
@@ -95,7 +101,7 @@ export default function TodayPanel() {
     return () => {
       cancelled = true;
     };
-  }, [city]);
+  }, [city, refreshKey]);
 
   // Renders nothing outside the trip window (the home page is unchanged pre-/post-trip). Dormant/
   // portfolio (clock outside Dec 9–Jan 9) always takes this branch → byte-identical to before.

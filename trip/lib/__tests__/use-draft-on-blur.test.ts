@@ -187,4 +187,14 @@ describe('useDraftOnBlur (V6-2)', () => {
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith('175');
   });
+
+  it('blur re-syncs the draft when the commit leaves committed unchanged (#785)', () => {
+    const onCommit = vi.fn(); // owner normalises -5 to the stored sentinel: committed stays ''
+    const h = render('', onCommit);
+    h.type('-5');
+    h.blur();
+    expect(onCommit).toHaveBeenCalledWith('-5');
+    expect(h.value()).toBe('');
+    h.unmount();
+  });
 });

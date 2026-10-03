@@ -77,6 +77,15 @@ const PRECACHE_PREFIX = 'trip-precache-';
 const MAPLIBRE_MARKER = atob('bWFwbGlicmVnbA==');
 
 /**
+ * #808: the marker alone is not proof of the engine. The ~31 KB `trip-map` chunk also carries it
+ * (CSS class strings), so with the ~591 KB engine evicted and trip-map left cached the row would
+ * pass. A chunk only counts as the engine if it is also engine-sized. Measured on the decoded
+ * text (never the `content-length` hint, which can be absent): far above trip-map, far below the
+ * engine.
+ */
+const MAPLIBRE_ENGINE_MIN_CHARS = 200_000;
+
+/**
  * The ceiling, stated in the UI rather than hidden in a comment: absolute clock correctness is
  * NOT locally answerable. Detecting that this device's clock is minutes or hours off needs a
  * trusted time source, i.e. a network, which this screen deliberately does not use. What IS
@@ -158,7 +167,8 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
     }
     entries.sort((a, b) => b.size - a.size);
     for (const { res } of entries) {
-      if ((await res.text()).includes(MAPLIBRE_MARKER)) {
+      const text = await res.text();
+      if (text.length >= MAPLIBRE_ENGINE_MIN_CHARS && text.includes(MAPLIBRE_MARKER)) {
         return {
           ...base,
           state: 'ok',
@@ -331,7 +341,7 @@ export function evaluateSync(
   status: { pending: number; blocked?: number; lastAckAt: string | null; signInRequired?: boolean },
   now: Date = new Date()
 ): PreflightCheck {
-  const base = { id: 'sync', label: 'Trip data' };
+  const base = { id: 'sync', label: 'Your changes' };
   // #267 — checked BEFORE `pending`, of which it is a subset. The pending row promises these
   // "will upload on their own next time you're online", and for a change the rules REFUSED that
   // sentence is false: no amount of connectivity lands it. This module's whole rule is that

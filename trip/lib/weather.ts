@@ -494,6 +494,8 @@ function buildAqiUrl(coords: { latitude: number; longitude: number }): string {
   return `${OPEN_METEO_AQ_URL}?${params.toString()}`;
 }
 
+const FORECAST_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 /** The compound cache key the 7-day outlook is stored under — reuses `weatherCache`'s
  * existing get/set surface with a distinct string, so `core/storage/gateway.ts` stays
  * untouched and the current-conditions entry under the plain `city` key is unaffected. */
@@ -553,6 +555,12 @@ export function getCachedForecastForDate(city: string, date: string): ForecastDa
   // profile — survives every gate above and reaches `.find()`, which throws a TypeError. This
   // one is on Home's render path, so the throw is a blank page rather than a missing forecast.
   if (!Array.isArray(forecast)) return null;
+  // The outlook has no timestamp of its own; it was written in the same round-trip as the
+  // current-conditions entry, so that entry's `fetchedAt` is its age. Past 24h (or unknown) it is
+  // a stale guess presented as a day's forecast, so say nothing.
+  const fetchedAt = weatherCache.get<WeatherNow>(city)?.fetchedAt;
+  const age = Date.now() - new Date(fetchedAt ?? NaN).getTime();
+  if (!(age <= FORECAST_MAX_AGE_MS)) return null;
   return forecast.find((day) => day.date === date) ?? null;
 }
 
@@ -598,7 +606,9 @@ export async function fetchWeather(
     // the 7-day outlook, parsed from the SAME body (no second fetch), cached under its
     // own compound key so the current-conditions entry above stays byte-identical to pre-.
     const forecast = parseForecast(json);
-    if (forecast) weatherCache.set<ForecastDay[]>(forecastCacheKey(city), forecast);
+    // Overwrite even when this body had no outlook, or the previous fetch's days would sit
+    // under the fresh `fetchedAt` and read as current.
+    weatherCache.set<ForecastDay[]>(forecastCacheKey(city), forecast ?? []);
     return { status: 'ok', data: { ...parsed, forecast: forecast ?? null } };
   } catch {
     // Any failure → cached last-good (stale), else the quiet unavailable state. Never throws.

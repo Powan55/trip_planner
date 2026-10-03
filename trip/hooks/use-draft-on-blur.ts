@@ -19,9 +19,12 @@ export function useDraftOnBlur(committed: string, onCommit: (value: string) => v
     if (d !== c) commit(d);
   };
 
+  // A commit the owner normalises back to the same stored value (-5 -> 0 sentinel) leaves
+  // `committed` unchanged; the blur tick re-runs this so the rejected draft doesn't linger.
+  const [blurTick, setBlurTick] = useState(0);
   useEffect(() => {
     if (!dirtyRef.current) setDraft(committed);
-  }, [committed]);
+  }, [committed, blurTick]);
 
   useEffect(() => {
     const onVisibility = () => {
@@ -44,8 +47,10 @@ export function useDraftOnBlur(committed: string, onCommit: (value: string) => v
       latest.current.draft = e.target.value;
     },
     onBlur: () => {
-      if (dirtyRef.current) flush();
-      else setDraft(latest.current.committed);
+      if (dirtyRef.current) {
+        flush();
+        setBlurTick((t) => t + 1);
+      } else setDraft(latest.current.committed);
     },
   };
 }

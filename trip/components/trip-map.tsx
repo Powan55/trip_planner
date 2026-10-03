@@ -31,7 +31,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { type MapMarker, type MarkerCategory } from '@/lib/map-data';
-import { buildMapStyle, CATEGORY_COLOR, BRAND } from '@/lib/map-style';
+import { buildMapStyle, CATEGORY_COLOR, BRAND, OPENFREEMAP_TILEJSON } from '@/lib/map-style';
+import { useOnline } from '@/hooks/use-online';
 import { buildMapsDirectionsUrl } from '@/lib/maps-link';
 import { placeColor } from '@/lib/city-palette';
 import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
@@ -586,6 +587,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   // Issue #502 — set when the WebGL2 context can't be created; renders the
   // unavailable message in place of the canvas instead of leaving it blank.
   const [mapUnavailable, setMapUnavailable] = useState(false);
+  // Basemap source failed on a connection that is otherwise up; cleared when it loads.
+  const [basemapFailed, setBasemapFailed] = useState(false);
+  const online = useOnline();
   // The marker whose popup is currently open — drives the React portal content.
   const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
   // The DOM node inside the open popup that we portal React content into.
@@ -593,6 +597,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
+  const basemapFailedRef = useRef(false);
+  const retryBasemapRef =useRef<() => void>(() => {});
+  const offRetryRef = useRef<() => void>(() => {});
   const popupRef = useRef<MLPopup | null>(null);
   const popupElRef = useRef<HTMLElement | null>(null);
   const popupOpenerRef = useRef<HTMLElement | null>(null);
@@ -796,6 +803,30 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         );
       });
       geolocate.on('geolocate', () => onGeoNoteRef.current?.(null));
+
+      // Any 'error' listener silences MapLibre's default console output, so re-log the rest.
+      map.on('error', (e) => {
+        if ((e as { sourceId?: string }).sourceId === 'openfreemap') {
+          basemapFailedRef.current = true;
+          setBasemapFailed(true);
+        } else console.error(e.error);
+      });
+      map.on('sourcedata', (e) => {
+        if (e.sourceId === 'openfreemap' && e.isSourceLoaded) {
+          basemapFailedRef.current = false;
+          setBasemapFailed(false);
+        }
+      });
+      // setUrl, not setStyle: setStyle would wipe the pin/route layers added on load.
+      const m = map;
+      const retryBasemap = () =>
+        basemapFailedRef.current &&
+        (m.getSource('openfreemap') as { setUrl?: (u: string) => void } | undefined)?.setUrl?.(
+          OPENFREEMAP_TILEJSON,
+        );
+      retryBasemapRef.current = retryBasemap;
+      window.addEventListener('online', retryBasemap);
+      offRetryRef.current = () => window.removeEventListener('online', retryBasemap);
 
       map.on('load', () => {
         if (cancelled) return;
@@ -1058,6 +1089,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
     return () => {
       cancelled = true;
+      offRetryRef.current();
       popupRef.current?.remove();
       popupRef.current = null;
       mapRef.current?.remove();
@@ -1289,6 +1321,25 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             This device or browser can&apos;t create the map engine&apos;s WebGL2
             context. Everything else on this page still works.
           </p>
+        </div>
+      )}
+
+      {/* Basemap failed while the connection is up: say so and offer a retry. A strip at the
+          bottom, not a cover, so pins stay tappable. Offline has its own hint in map-section. */}
+      {basemapFailed && online && !mapUnavailable && (
+        <div
+          data-testid="map-basemap-error"
+          role="status"
+          className="absolute inset-x-2 bottom-8 z-10 mx-auto flex max-w-md items-center justify-between gap-3 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-gut py-2 text-t-sm text-ink-mid"
+        >
+          <span>Map background didn&apos;t load. Pins and route still work.</span>
+          <button
+            type="button"
+            onClick={() => retryBasemapRef.current()}
+            className="min-h-[var(--tap)] shrink-0 rounded-r1 border-hair border-[color:hsl(var(--border))] px-3 text-ink-hi"
+          >
+            Retry
+          </button>
         </div>
       )}
 
