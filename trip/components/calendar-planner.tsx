@@ -690,6 +690,18 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
 }
 
 export default function CalendarPlanner() {
+  // Compact day strip once scrolled (#776). Hysteresis (64 in / 8 out) because the strip's own
+  // height change shifts content and would otherwise re-cross a single threshold.
+  const [stripCompact, setStripCompact] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setStripCompact((c) => (c ? y > 8 : y > 64));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   // search-within-plan: cross-route focus channel. `?focus=<itemId>` (pushed by
   // the command palette's "In your plan" results, which live OUTSIDE the provider and
   // so cannot share `highlightId` state directly) is read reactively via
@@ -1362,9 +1374,10 @@ export default function CalendarPlanner() {
             direct child of the planner container it now stays pinned under the navbar for
             the whole scroll, which is the point: the day you are editing is always visible.
             `top-[var(--nav-h)]` is the fixed navbar's height; `h-[104px]` is declared, not
-            incidental, because the composer below used to park at exactly navbar+strip (no longer pinned, see its
-            `top-[calc(var(--nav-h)+104px)]`). Desktop keeps the month grid as its picker and never renders this. */}
-        <div className="sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex h-[104px] items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden">
+            incidental: it is the strip's resting height and `h-[72px]` its compact height once the page
+            scrolls (#776; hysteresis below stops flicker at the threshold). Nothing else parks on it
+            now that the composer scrolls. Desktop keeps the month grid as its picker and never renders this. */}
+        <div className={`sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex ${stripCompact ? 'h-[72px]' : 'h-[104px]'} items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden`}>
           <div className="min-w-0 flex-1">
             <DayStrip
               dates={TRIP_DATES}
