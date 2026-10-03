@@ -346,6 +346,7 @@ export default function ExpenseDialog({
               <input
                 id={noteFieldId}
                 data-testid="expense-note-input"
+                maxLength={200}
                 value={note}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNote(e.target.value)}
                 className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
