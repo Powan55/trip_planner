@@ -6042,3 +6042,11 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Ship order.** Before publishing, the owner checks the Auth console lists all three users (`powan@`, `uttam@`, `sushil@accounts.trip-planner.invalid`). EMAIL_EXISTS is the only thing stopping a squatter, so create any that is missing first. Then publish the rules and probe them with real headers. The id is in the branch, so it is public on the first push; until the rules are live, anyone who reads it can reach the trip. Publish and probe before the branch merges, and push only when the window is acceptable.
 
 **Trade-off.** Denied reads still count against the free quota; App Check is the upgrade path. Adding a fourth person means editing the list and publishing.
+
+### D-673 · (issues #761, #762, 2026-10-03) · A deploy is checked against the live site
+
+**Decision.** `deploy.yml` has a `smoke` job after `deploy`, on push to `main` only (never in `ci.yml`, which pull requests run). It is read-only (`contents: read`), uses no secrets, and runs no schedule. The build job records the sha256 of `out/sw.js`; smoke polls the live `sw.js` for up to ten minutes (Pages caches about ten; the job times out at fifteen) until the bytes match, then requires 200 on `/` and the manifest with a `start_url` under the repo base path, and an OPTIONS preflight to the concierge Worker answering 204 with `Access-Control-Allow-Origin`. It never sends a POST, and skips the preflight if the repo variable is unset.
+
+**Why.** `deploy-pages` succeeding only means Pages accepted the artifact. With no rollback (see `rule.md`), a stale or broken live site should show up in the run, not on a traveller's phone.
+
+**Trade-off.** A red smoke does not stop or undo anything, since the deploy already happened. The only alert is GitHub's default failure email to whoever merged. Recovery stays forward-only. The hash is passed as a job output rather than downloading the Pages artifact, which avoids another action.

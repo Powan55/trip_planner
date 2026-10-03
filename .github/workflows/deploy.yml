@@ -69,6 +69,8 @@ jobs:
   build:
     needs: [version-gate, checks]
     runs-on: ubuntu-latest
+    outputs:
+      sw-sha: ${{ steps.sw.outputs.sha }}
     # configure-pages below needs Pages access; everything else here is read-only.
     permissions:
       contents: read
@@ -155,6 +157,11 @@ jobs:
           fi
           echo "firebase-config present: 6/6"
           npm run build
+      # What the smoke job compares the live sw.js against. Hash of the built file, so no
+      # artifact download is needed.
+      - name: Record the built service worker hash
+        id: sw
+        run: echo "sha=$(sha256sum out/sw.js | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
@@ -334,3 +341,70 @@ jobs:
             node scripts/release-notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
+
+  # Did the live site actually pick up what this run built? deploy-pages going green only means
+  # Pages accepted the artifact; the CDN can keep serving the old bytes for several minutes, and
+  # with no rollback a broken release is worth knowing about now, not when a phone fails to update.
+  # Read-only and GET/OPTIONS only: nothing here writes to the app or the Worker. A red run does
+  # not undo the deploy, it just says look at the site. See rule.md, "Recovering from a bad deploy".
+  smoke:
+    name: Smoke test the live site
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: {}
+    env:
+      EXPECTED_SW_SHA: ${{ needs.build.outputs.sw-sha }}
+      CONCIERGE_URL: ${{ vars.NEXT_PUBLIC_CONCIERGE_URL }}
+    steps:
+      - name: Live service worker matches this build
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          BASE="https://$OWNER.github.io/$REPO"
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          # Pages caches for about ten minutes, so poll rather than fail on the first read.
+          # The query string only dodges intermediate caches; the file is the same bytes.
+          for i in $(seq 1 60); do
+            LIVE=$(curl -fsS --max-time 20 "$BASE/sw.js?smoke=$GITHUB_RUN_ID-$i" | sha256sum | cut -d' ' -f1) || LIVE=""
+            if [ "$LIVE" = "$EXPECTED_SW_SHA" ]; then
+              echo "sw.js matches the build after $i attempt(s)"
+              exit 0
+            fi
+            echo "attempt $i: live sw.js is not this build yet"
+            sleep 10
+          done
+          echo "::error::Live sw.js still differs from this run's build after 10 minutes."
+          exit 1
+
+      - name: Home page and manifest respond
+        run: |
+          CODE=$(curl -s --max-time 20 -o /dev/null -w '%{http_code}' "$BASE/?smoke=$GITHUB_RUN_ID")
+          [ "$CODE" = "200" ] || { echo "::error::$BASE/ returned $CODE"; exit 1; }
+          REPO="${GITHUB_REPOSITORY#*/}"
+          curl -fsS --max-time 20 "$BASE/manifest.webmanifest?smoke=$GITHUB_RUN_ID" -o "$RUNNER_TEMP/m.json" \
+            || { echo "::error::manifest.webmanifest did not return 200"; exit 1; }
+          START=$(node -p "require('$RUNNER_TEMP/m.json').start_url")
+          case "$START" in
+            "/$REPO/"*) echo "start_url ok: $START" ;;
+            *) echo "::error::manifest start_url is '$START', expected prefix /$REPO/"; exit 1 ;;
+          esac
+
+      # Preflight only, never POST: a POST would spend model quota. Skipped when the variable is
+      # unset (it is required for the build, so this is a belt-and-braces guard).
+      - name: Concierge Worker answers CORS preflight
+        run: |
+          if [ -z "${CONCIERGE_URL//[[:space:]]/}" ]; then
+            echo "NEXT_PUBLIC_CONCIERGE_URL not set, skipping"
+            exit 0
+          fi
+          ORIGIN="https://${GITHUB_REPOSITORY_OWNER,,}.github.io"
+          curl -s --max-time 20 -D "$RUNNER_TEMP/h.txt" -o /dev/null -X OPTIONS "$CONCIERGE_URL" \
+            -H "Origin: $ORIGIN" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type,authorization"
+          head -1 "$RUNNER_TEMP/h.txt" | grep -q ' 204' \
+            || { echo "::error::Worker preflight did not return 204"; exit 1; }
+          grep -qi '^access-control-allow-origin:' "$RUNNER_TEMP/h.txt" \
+            || { echo "::error::Worker preflight has no Access-Control-Allow-Origin"; exit 1; }
+          echo "preflight ok"
