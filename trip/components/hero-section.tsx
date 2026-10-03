@@ -699,10 +699,11 @@ export default function HeroSection() {
                   >
                     <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
                   </div>
-                  {/* 0.588rem == 9.996px at the 17px root, i.e. the shipped 10px, expressed
-                      in rem so it is not a `text-[Npx]` that opts out of the outdoor root
-                      bump. --t-micro is 0.6875rem and would GROW the frozen cell by 17%. */}
-                  <div className="text-[0.588rem] sm:text-xs text-ink-lo uppercase tracking-wider mt-1 font-bold">{label}</div>
+                  {/* --t-label (12.75px), the same size sm:text-xs already gave wider screens.
+                      Issue #781 lifted this off the shipped 10px: it was the smallest text in
+                      the app and the first thing lost in sunlight. Mobile drops the tracking
+                      so MINUTES still fits the 320px grid-cols-3 cell. */}
+                  <div className="text-t-label text-ink-lo uppercase tracking-normal sm:tracking-wider mt-1 font-bold">{label}</div>
                 </div>
                 );
               })}
