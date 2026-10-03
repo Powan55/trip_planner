@@ -280,6 +280,8 @@ export default function HomePage() {
         </div>
         <HeroSection />
       </div>
+      {/* In-trip agenda first, outside the 100svh column (D-311); null pre-trip. */}
+      <TodayPanel />
       {/* The stat band reads as part of the hero and is the first thing under the fold
           line — so it goes here, OUTSIDE the 100svh column. Inside it, it would have eaten
           the hero's flex-1 space and pushed the hero's own CTA down (D-311). */}
@@ -290,7 +292,6 @@ export default function HomePage() {
           would eat the hero's flex-1 and push its CTA down (D-311). Below it they cost the
           fold budget nothing. */}
       <LazyVisible component={HomeJourneyBar} minHeight={JOURNEY_H} />
-      <TodayPanel />
       <TripRecap />
       <LazyVisible component={HomeBento} minHeight={BENTO_H} />
       {/* The readiness roll-up sits AFTER the bento deliberately: "at a glance" is the
