@@ -6043,6 +6043,13 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 
 **Trade-off.** Denied reads still count against the free quota; App Check is the upgrade path. Adding a fourth person means editing the list and publishing.
 
+### D-673 · (issues #761, #762, 2026-10-03) · A deploy is checked against the live site
+
+**Decision.** `deploy.yml` has a `smoke` job after `deploy`, on push to `main` only (never in `ci.yml`, which pull requests run). It is read-only (`contents: read`), uses no secrets, and runs no schedule. The build job records the sha256 of `out/sw.js`; smoke polls the live `sw.js` for up to ten minutes (Pages caches about ten; the job times out at fifteen) until the bytes match, then requires 200 on `/` and the manifest with a `start_url` under the repo base path, and an OPTIONS preflight to the concierge Worker answering 204 with `Access-Control-Allow-Origin`. It never sends a POST, and skips the preflight if the repo variable is unset.
+
+**Why.** `deploy-pages` succeeding only means Pages accepted the artifact. With no rollback (see `rule.md`), a stale or broken live site should show up in the run, not on a traveller's phone.
+
+**Trade-off.** A red smoke does not stop or undo anything, since the deploy already happened. The only alert is GitHub's default failure email to whoever merged. Recovery stays forward-only. The hash is passed as a job output rather than downloading the Pages artifact, which avoids another action.
 ### D-670 · Extends D-150 · (issue #748, 2026-10-03) · A failed push retries on a timer, and sign-out flushes first
 
 **Decision.** `useDomainSync` keeps one retry timer per domain, armed by `SYNC_OUTBOX_CHANGED_EVENT` while that domain has a dirty chunk the rules have not refused (`outboxRetryable`). Backoff starts at 10s, above the 8s remote write timeout so a timed flush never joins a slow commit push, and doubles to a 5 min cap, for at most 6 attempts. Mount, `online` and tab-visible reset the count; an edit pushes itself once. A clean outbox, unmount, an identity change, the sync gate closing, or `navigator.onLine === false` stops it. Refused chunks (#267) never arm it. `flushOutbox`'s in-flight guard is now a map of promises with a rerun flag: a flush landing mid-run makes the running one take one more pass instead of returning, so an `online` flush is not lost behind a failing offline one. `flushAllDomains()` flushes every mounted domain; the sign-out dialog awaits it, bounded at 8s (the remote write timeout), before clearing blobs, the remote cache, or local data, and shows "Syncing your last changes…" in a status region meanwhile.
