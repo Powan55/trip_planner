@@ -32,7 +32,7 @@ import { sanitizePhotos } from '@/core/photos/model';
 // pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
 // the trip's own record, never written into that shared table.
 import type { CityCoord } from '@/lib/city-coords';
-import { SHARED_TRIP_ID } from '@/core/trips/shared-trip';
+import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/core/trips/shared-trip';
 
 /**
  * Per-trip user config for a CUSTOM (non-default-pack) trip. Lives INSIDE the
@@ -462,10 +462,23 @@ export function parseTripToken(raw: string): TripToken | null {
   const trimmed = (raw ?? '').trim();
   if (trimmed.startsWith(DEFAULT_SHARE_PREFIX)) {
     const id = trimmed.slice(DEFAULT_SHARE_PREFIX.length).trim();
-    return isSafeTripSegment(id) ? { kind: 'default', id } : null;
+    // The default pack has one trip. Any other `pack:` id is an old per-account link.
+    return id.toLowerCase() === SHARED_TRIP_ID ? { kind: 'default', id: SHARED_TRIP_ID } : null;
   }
   if (!isSafeTripSegment(trimmed)) return null;
+  // D-675 (#775) — the shared trip's id, bare, means the pack; taken as a custom trip it would
+  // open the shared doc without the pack's legs or content.
+  if (trimmed.toLowerCase() === SHARED_TRIP_ID) return { kind: 'default', id: SHARED_TRIP_ID };
+  // The legacy account names are account paths (`trips/<Name>/profile/...`), never trips.
+  if (isLegacyAccountKey(trimmed)) return null;
   return { kind: 'custom', id: trimmed };
+}
+
+const LEGACY_ACCOUNT_KEYS = new Set<string>(SHARED_TRIP_USERNAMES.map((n) => n.toLowerCase()));
+
+/** A legacy account name (`trips/<Name>/profile/...`), case-folded. Never a trip. */
+export function isLegacyAccountKey(id: string): boolean {
+  return LEGACY_ACCOUNT_KEYS.has(id.trim().toLowerCase());
 }
 
 /**
@@ -489,7 +502,10 @@ export function formatShareToken(packId: string, remoteId: string): string {
  */
 export function isOwnAccountToken(raw: string): boolean {
   const account = getSyncCode();
-  const id = parseTripToken(raw)?.id;
+  // Not parseTripToken: that already refuses every `pack:` id but the shared trip's, and this
+  // answer picks the refusal copy.
+  const t = (raw ?? '').trim();
+  const id = (t.startsWith(DEFAULT_SHARE_PREFIX) ? t.slice(DEFAULT_SHARE_PREFIX.length) : t).trim();
   return !!account && !!id && id.toLowerCase() === account.trim().toLowerCase();
 }
 
@@ -512,11 +528,12 @@ export const OWN_ACCOUNT_TOKEN_COPY =
  * writing nothing, for an unusable token or this device's own account key (`isOwnAccountToken`).
  */
 export function joinTrip(id: string, name?: string): boolean {
-  const token = parseTripToken(id);
+  // A row this browser already holds stays switchable even if parseTripToken now refuses its id:
+  // its `trip:{id}:*` data lives under that id. Only new joins are refused.
+  const existing = getKnownTrip((id ?? '').trim());
+  const token: TripToken | null = existing ? { kind: 'custom', id: existing.id } : parseTripToken(id);
   if (!token || isOwnAccountToken(id)) return false;
   if (token.kind === 'default') {
-    // The default pack has one trip. Any other `pack:` id is an old per-account link.
-    if (token.id !== SHARED_TRIP_ID) return false;
     // Only brings the browser back to the pack. The id is never written and nothing is dropped
     // here: `lib/account-share.ts` moves a device onto the shared trip once the signed-in session
     // can read it and the person has agreed to replace their plan.

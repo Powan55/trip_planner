@@ -6067,6 +6067,13 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Trade-off.** Any cross-midnight item with a duration holds the day, a late night out as well as a flight. A night out still belongs to the evening it started, so that is the intended reading. The open-ended "until the next item, max 2h" block never holds a day. Each call reads the stored plan once, on the 20 to 60s ticks the callers already run.
 
 **Not done here.** `getNowAtTrip()` still reports the destination wall-clock date and minutes (concierge digest, weather, visit autocount). Its date and minutes have to agree with each other, so it does not hold. The flight chip's in-flight state already reads the journey's arrival day (#812).
+### D-675 · Amends D-546 and D-504 · (issue #775, 2026-10-03) · A join refuses ids that are not trips, and the front door never switches trips
+
+**Decision.** `parseTripToken` reads the shared trip's id, bare or `pack:`-prefixed and in any case, as the default pack, and refuses any other `pack:` id and the legacy account names (`SHARED_TRIP_USERNAMES`, case-folded). `joinTrip` still switches to a row the registry already holds under such an id, and parse/merge never drop one, because its `trip:{id}:*` data lives under that id. The sign-in wall no longer calls `joinTrip`: after redeeming any invite it reloads to `/?trip=<token>` and the join dialog asks first, as it does for a signed-in device.
+
+**Why.** A link could set a legacy account path or the shared trip's own id as a custom trip, and the wall switched trips without the confirm the dialog exists for.
+
+**Trade-off.** Other people's account ids are uuids, the same shape as trip ids, so the client cannot tell them apart and does not try. Only the rules can refuse those. Cancelling the confirm after the wall leaves the redeemed membership written with no registry row; opening the plain `?trip=<id>` link again joins it (the invite reads as already used).
 ### D-674 · (issue #753, 2026-10-03) · The sync badge counts queued journal days and prefs
 
 The badge read only the outbox, so it said Synced while a journal day or an account pref was still waiting to push, and those two only retried while their own view was mounted. `pending` now adds the active trip's dirty journal days and dirty pref fields, behind the outbox's gate plus an account code (the same gate their push uses), so a guest never sees a count nothing will clear.
