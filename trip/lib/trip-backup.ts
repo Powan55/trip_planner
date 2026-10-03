@@ -61,7 +61,7 @@ import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
 import { sanitizePlaces, type MyPlace } from '@/core/places/model';
-import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
+import { sanitizePhotos, repointExpenseOwner, type PhotoMeta } from '@/core/photos/model';
 import { loadPhotos, savePhotos, deletePhotoBlobs } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import { compressToBlob, decompressBlobOrText, supportsCompression, MAX_IMPORT_BYTES } from '@/core/vault/compression';
@@ -106,9 +106,10 @@ export type CommitMyPlaces = (places: MyPlace[]) => boolean | void;
  */
 export type CommitDocsChecklist = (items: DocItem[]) => boolean | void;
 
-/** How the expenses domain is committed on import — same shape and idea as `CommitMyPlaces`; the UI
- * injects `restoreExpenses` (tombstone-replace) under sync. Absent ⇒ generic bare write + merge. */
-export type CommitExpenses = (expenses: Expense[]) => boolean | void;
+/** How the expenses domain is committed on import — same idea as `CommitMyPlaces`; the UI injects
+ * `restoreExpenses` (tombstone-replace) under sync. Absent ⇒ generic bare write + merge. A returned
+ * Map names the fresh id each backup expense got, so restored receipt photos follow (D-671). */
+export type CommitExpenses = (expenses: Expense[]) => Map<string, string> | boolean | void;
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
@@ -138,7 +139,7 @@ const NOTHING_WRITTEN =
   'Nothing could be restored — your browser refused every write, likely because storage is full. No changes were made to your trip.';
 
 export type ImportBackupResult =
-  | { ok: true; restored: string[]; photosSkipped: number; refused: string[] }
+  | { ok: true; restored: string[]; photosSkipped: number; refused: string[]; dropped: string[] }
   | { ok: false; error: string };
 
 /** Sentinel telling an absent/corrupt slot from a legitimately-stored value on export (see below). */
@@ -522,7 +523,7 @@ export async function importTripBackup(
       };
     }
     if (commitItinerary(pr.plans) === false) return { ok: false, error: NOTHING_WRITTEN };
-    return { ok: true, restored: ['itinerary'], photosSkipped: 0, refused: [] };
+    return { ok: true, restored: ['itinerary'], photosSkipped: 0, refused: [], dropped: [] };
   }
 
   // A-5: refuse a cross-trip restore rather than silently overwriting the active trip. `env.tripId`
@@ -574,10 +575,13 @@ export async function importTripBackup(
 
   // ── Phase A — parse everything into memory, ZERO domain writes ──
   const domainWrites: Array<[string, unknown]> = [];
+  // Present in the file but malformed, so left as they are — named so the caller can say so.
+  const dropped: string[] = [];
   for (const [slot, spec] of Object.entries(DOMAINS)) {
     if (!(slot in env.domains)) continue;
     const cleaned = spec.validate(env.domains[slot]);
     if (cleaned !== null) domainWrites.push([slot, cleaned]); // else: malformed → drop (never-destroy)
+    else dropped.push(slot);
   }
 
   // Itinerary — validate the nested envelope through the SAME trust boundary (parseBackup); a
@@ -586,14 +590,18 @@ export async function importTripBackup(
   if ('itinerary' in env.domains) {
     const pr = parseBackup(JSON.stringify(env.domains.itinerary));
     if (pr.ok) itinPlans = pr.plans;
+    else dropped.push('itinerary');
   }
 
   // Photos — sanitize meta, decode each present blob. `hasMeta` is the shape gate the generic
   // domains get from `spec.validate` above: photos are the only domain with no remote copy, so a
   // malformed `meta` must DROP (leave the live index and its blobs alone), not commit an empty set.
+  // An EMPTY meta is treated as absent too (#751): replacing with nothing would delete every photo
+  // on this device, and they exist nowhere else.
   const rawMeta = env.photos?.meta;
-  const hasMeta = Array.isArray(rawMeta);
-  const metas = hasMeta ? sanitizePhotos(rawMeta) : [];
+  const metas = Array.isArray(rawMeta) ? sanitizePhotos(rawMeta) : [];
+  const hasMeta = metas.length > 0;
+  if (!hasMeta && rawMeta !== undefined && !(Array.isArray(rawMeta) && rawMeta.length === 0)) dropped.push('photos');
   const decoded: Array<[string, Blob]> = [];
   let photosSkipped = 0;
   for (const m of metas) {
@@ -607,10 +615,8 @@ export async function importTripBackup(
     }
   }
 
-  // Nothing survived validation — refuse before Phase B touches anything. `hasMeta` with
-  // `metas.length === 0` (a `photos.meta: []` envelope) would otherwise still reach `savePhotos`
-  // below and wipe every live photo blob, then report `restored: []` as if zero writes had
-  // happened. Checked here, before any write, so this can honestly promise none did.
+  // Nothing survived validation — refuse before Phase B touches anything, so this can honestly
+  // promise no write happened.
   if (domainWrites.length === 0 && itinPlans === null && metas.length === 0) {
     return {
       ok: false,
@@ -634,25 +640,8 @@ export async function importTripBackup(
   // Any meta whose blob was never provided at all is also a placeholder.
   photosSkipped += metas.filter((m) => env.photos?.blobs?.[m.id] === undefined).length;
 
-  if (hasMeta) {
-    // #344: the meta rollback is a tombstone-replace (restore wins), so any LIVE meta id absent
-    // from the restored set is being dropped here — without this, its blob orphans forever in the
-    // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).
-    const keptIds = new Set(metas.map((m) => m.id));
-    const live = loadPhotos();
-    if (savePhotos(metas)) {
-      const orphaned = live.filter((m) => !keptIds.has(m.id));
-      if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
-      if (metas.length > 0) restored.push('photos');
-    } else {
-      // Index write refused: the live index still names its blobs, so keep every one of them.
-      // Only the blobs put above that no live photo owns are strays — drop those.
-      refused.push('photos');
-      const liveIds = new Set(live.map((m) => m.id));
-      const strays = metas.filter((m) => putIds.has(m.id) && !liveIds.has(m.id));
-      if (strays.length > 0) await deletePhotoBlobs(strays, blobStore);
-    }
-  }
+  // Backup expense id → the fresh id it was restored under (sync mints new ones, D-671).
+  let expenseIds = new Map<string, string>();
 
   // `slot` here is a runtime string key (built from `Object.entries` above), not one of DOMAINS'
   // literal keys — the cast is safe because `slot` only ever came FROM `Object.entries(DOMAINS)`.
@@ -664,7 +653,9 @@ export async function importTripBackup(
     // ⇒ unchanged default behavior below.
     // Only an explicit `false` is a refusal, so a commit that returns nothing still counts as landed.
     if (slot === 'expenses' && commitExpenses) {
-      (commitExpenses(cleaned as Expense[]) === false ? refused : restored).push(slot);
+      const res = commitExpenses(cleaned as Expense[]);
+      if (res instanceof Map) expenseIds = res;
+      (res === false ? refused : restored).push(slot);
       continue;
     }
     if (slot === 'myPlaces' && commitMyPlaces) {
@@ -692,6 +683,32 @@ export async function importTripBackup(
     restored.push(slot);
   }
 
+  // Photos AFTER the domains, so receipt metas can follow their expense to its restored id.
+  const repoint = (list: PhotoMeta[]) =>
+    [...expenseIds].reduce((acc, [from, to]) => repointExpenseOwner(acc, from, to), list);
+  if (hasMeta) {
+    // #344: the meta rollback is a tombstone-replace (restore wins), so any LIVE meta id absent
+    // from the restored set is being dropped here — without this, its blob orphans forever in the
+    // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).
+    const keptIds = new Set(metas.map((m) => m.id));
+    const live = loadPhotos();
+    if (savePhotos(repoint(metas))) {
+      const orphaned = live.filter((m) => !keptIds.has(m.id));
+      if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
+      restored.push('photos');
+    } else {
+      // Index write refused: the live index still names its blobs, so keep every one of them.
+      // Only the blobs put above that no live photo owns are strays — drop those.
+      refused.push('photos');
+      const liveIds = new Set(live.map((m) => m.id));
+      const strays = metas.filter((m) => putIds.has(m.id) && !liveIds.has(m.id));
+      if (strays.length > 0) await deletePhotoBlobs(strays, blobStore);
+    }
+  } else if (expenseIds.size > 0) {
+    // Live photos are kept, so their receipts follow the restored expenses instead.
+    if (!savePhotos(repoint(loadPhotos()))) refused.push('photos');
+  }
+
   if (itinPlans !== null) {
     // dual path: restorePlans under sync, savePlans local
     (commitItinerary(itinPlans) === false ? refused : restored).push('itinerary');
@@ -700,5 +717,5 @@ export async function importTripBackup(
   // Content existed but every write was refused, so nothing changed on disk.
   if (restored.length === 0) return { ok: false, error: NOTHING_WRITTEN };
 
-  return { ok: true, restored, photosSkipped, refused };
+  return { ok: true, restored, photosSkipped, refused, dropped };
 }
