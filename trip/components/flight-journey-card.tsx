@@ -63,8 +63,8 @@ function Slot({ label, value }: { label: string; value?: string | null }) {
   const empty = !value;
   return (
     <div className={`min-w-0 px-1.5 py-1 rounded-r1 ${empty ? 'empty-frame' : 'border-hair border-[color:hsl(var(--border))]'}`}>
-      <span className="pr pr--lo block">{label}</span>
-      <span className={`block truncate font-machine text-t-sm ${empty ? 'text-ink-lo' : 'text-ink-hi'}`}>
+      <span className="pr pr--lo block break-words !tracking-normal">{label}</span>
+      <span className={`block break-words font-machine text-t-sm ${empty ? 'text-ink-lo' : 'text-ink-hi'}`}>
         {value ?? 'Not yet assigned'}
       </span>
     </div>
@@ -86,8 +86,8 @@ function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
         {/* Depart / Arrive / cabin — VERBATIM labels. The weekday+date is already IN
             the label ("Thu Dec 10"); we do NOT compute a +1d badge (that would be parsing). */}
         <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-machine text-t-sm">
-          <span className="text-ink-hi"><span className="text-ink-lo">Depart </span>{leg.departLabel}</span>
-          <span className="text-ink-hi"><span className="text-ink-lo">Arrive </span>{leg.arriveLabel}</span>
+          <span className="text-ink-hi whitespace-nowrap"><span className="text-ink-lo">Depart </span>{leg.departLabel}</span>
+          <span className="text-ink-hi whitespace-nowrap"><span className="text-ink-lo">Arrive </span>{leg.arriveLabel}</span>
           <span className="text-ink-mid">{leg.cabin}{leg.cabinCode ? ` · ${leg.cabinCode}` : ''}</span>
         </span>
 

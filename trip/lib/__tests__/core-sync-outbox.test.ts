@@ -269,7 +269,33 @@ describe('outbox mechanics (mocked pushChunk)', () => {
     expect(outboxDirty('itinerary')).toEqual([]); // acked at last
   });
 
-  it('concurrent same-domain flush is guarded (the second call is a no-op while one is in flight)', async () => {
+  it('#748: a flush landing while a failing one is in flight makes it run once more', async () => {
+    const h = makeHarness();
+    h.failing.add('d1');
+    const storage = makeStorage({ d1: 1 });
+    await withOutbox(h.cs)({}, { d1: 1 }); // dirty
+    h.attempts.length = 0;
+
+    let release!: () => void;
+    const barrier = new Promise<void>((r) => (release = r));
+    h.cs.pushChunk = async (chunk, current) => {
+      h.attempts.push({ chunk, version: current[chunk] });
+      if (h.attempts.length === 1) {
+        await barrier;
+        throw new Error('still offline');
+      }
+    };
+
+    const f1 = flushOutbox(h.cs, storage);
+    const f2 = flushOutbox(h.cs, storage); // the `online` flush: must not be dropped
+    release();
+    await Promise.all([f1, f2]);
+
+    expect(h.attempts).toHaveLength(2);
+    expect(outboxDirty('itinerary')).toEqual([]);
+  });
+
+  it('concurrent same-domain flush is guarded (the second call joins; no extra push once the first acks)', async () => {
     const h = makeHarness();
     h.failing.add('d1');
     const storage = makeStorage({ d1: 1 });

@@ -65,7 +65,7 @@ export default function FlightsSection() {
   return (
     <section id="flights" aria-labelledby="flights-heading" className="pb-20">
       {/* The running head. Solid --surface-1, no backdrop filter; it parks under the
-          fixed 64px navbar rather than at the viewport top. Below 440px the `f--drop` fields
+          fixed navbar (`--nav-h`) rather than at the viewport top. Below 440px the `f--drop` fields
           are dropped rather than clipped, because a half-cut field reads as a bug.
 
           tabIndex=0 + a named group: `.head` is an overflow-x scroller with its scrollbar
@@ -78,7 +78,7 @@ export default function FlightsSection() {
           The ring is INSET — this head is full-bleed, so the app-wide outward ring would
           draw past the gutter. */}
       <header
-        className="head top-16 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="head top-[var(--nav-h)] outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         tabIndex={0}
         role="group"
         aria-label="Flight summary"

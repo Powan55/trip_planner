@@ -116,6 +116,7 @@ export default function BackupRestore() {
   const [pendingImport, setPendingImport] = useState<{ file: File; name: string } | null>(null);
   // Guards the confirm button while the async restore runs (a restore reads/writes IndexedDB blobs).
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   // The FAB seam (see the note above). Radix does not set it.
   useDialogOpenFlag(!!pendingImport);
   // Radix keeps the panel mounted through its close animation, by which point `pendingImport` is
@@ -138,15 +139,25 @@ export default function BackupRestore() {
   }, []);
 
   const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
       // the WHOLE trip (itinerary + journal + photos + every local domain), gzip-packed via the
       // existing compression pipeline (falls back to plain JSON where CompressionStream is absent).
       // the download mechanics were lifted to `downloadTripBackup()` (a pure lift, same
       // behaviour/error surface) so the sign-out confirm dialog's backup offer can reuse them.
-      const filename = await downloadTripBackup();
-      setStatus({ kind: 'success', message: `Backed up your whole trip (including journal and photos) to ${filename}.` });
-    } catch {
-      setStatus({ kind: 'error', message: 'Could not back up your trip. Please try again.' });
+      const { filename, missing, omitted } = await downloadTripBackup();
+      const left = missing + omitted;
+      const note =
+        left > 0
+          ? ` ${left} photo${left === 1 ? ' was' : 's were'} left out${omitted > 0 ? ' (the file would be too large to restore)' : ' (not found on this device)'}.`
+          : '';
+      setStatus({ kind: 'success', message: `Backed up your trip to ${filename}.${note}` });
+    } catch (e) {
+      const tooLarge = e instanceof Error && e.message.startsWith('This trip is too large');
+      setStatus({ kind: 'error', message: tooLarge ? e.message : 'Could not back up your trip. Please try again.' });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -235,12 +246,15 @@ export default function BackupRestore() {
           <div className="flex flex-col gap-2 border-hair border-border bg-surface-low px-gut py-4">
             <h3 className="pr pr--l text-ink-hi">Export</h3>
             <p className="text-t-body text-ink-mid">
-              Download your entire trip — <strong className="font-semibold text-ink-hi">including your journal and
-              photos</strong> — as a single backup file.
+              Download your entire trip — <strong className="font-semibold text-ink-hi">journal and
+              photos</strong> too — as a single backup file. Photos beyond the size limit are left out, and
+              you will be told.
             </p>
             <button
               type="button"
               onClick={handleExport}
+              disabled={exporting}
+              aria-busy={exporting}
               data-testid="backup-export-button"
               className="btn mt-1 px-4"
             >
