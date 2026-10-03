@@ -25,6 +25,10 @@ import { TRIP_DATES } from '@/core/dates';
 /** Hard cap on stored inbox items; overflow drops the oldest. */
 export const SHARE_CAP = 100;
 
+const MAX_TITLE = 200;
+const MAX_TEXT = 2000;
+const MAX_URL = 2000;
+
 export interface ShareItem {
   id: string;
   title?: string;
@@ -78,9 +82,11 @@ export function sanitizeItem(value: unknown): ShareItem | null {
   const receivedAt = v.receivedAt.trim();
   if (id === '' || receivedAt === '') return null;
 
-  const title = cleanStr(v.title);
-  const text = cleanStr(v.text);
-  const url = cleanStr(v.url);
+  const title = cleanStr(v.title)?.slice(0, MAX_TITLE);
+  const text = cleanStr(v.text)?.slice(0, MAX_TEXT);
+  // A cut URL points somewhere else, so an over-long one is dropped, not truncated.
+  const rawUrl = cleanStr(v.url);
+  const url = rawUrl !== undefined && rawUrl.length <= MAX_URL ? rawUrl : undefined;
   if (title === undefined && text === undefined && url === undefined) return null;
 
   const item: ShareItem = { id, receivedAt };
@@ -113,7 +119,9 @@ export function sanitizeItems(value: unknown): ShareItem[] {
  */
 export function addShareItem(list: readonly ShareItem[], item: ShareItem): ShareItem[] {
   const base = Array.isArray(list) ? list : [];
-  return [item, ...base.filter((i) => i.id !== item.id)].slice(0, SHARE_CAP);
+  const clean = sanitizeItem(item);
+  if (clean === null) return [...base];
+  return [clean, ...base.filter((i) => i.id !== clean.id)].slice(0, SHARE_CAP);
 }
 
 /** Remove the item with `id`. Returns a NEW array; a non-matching id is a no-op. TOTAL. */

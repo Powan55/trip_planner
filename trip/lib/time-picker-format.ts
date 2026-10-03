@@ -9,6 +9,9 @@
  * No new parsing and no offset/timezone math lives here.
  */
 
+/** Longest duration the UI and concierge accept (two weeks). */
+export const MAX_DURATION_MINUTES = 14 * 24 * 60;
+
 /** The picker's default position when opened on a blank (untimed) item. */
 export const DEFAULT_TIME_MINUTES = 9 * 60; // 9:00 AM
 

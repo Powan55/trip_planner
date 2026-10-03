@@ -282,3 +282,19 @@ describe('constants — the canonical shape stays in sync', () => {
     expect(DEFAULT_BUDGET.categoryBudgets).toEqual({});
   });
 });
+
+import { parseAmountInput, MAX_AMOUNT } from '@/core/budget/model';
+
+describe('parseAmountInput (#785)', () => {
+  it('rounds to what formatMoney shows', () => {
+    expect(parseAmountInput('12.345', 'USD')).toBe(12.35);
+    expect(parseAmountInput('1200.6', 'NPR')).toBe(1201);
+  });
+  it('rejects junk, blank, <= 0, sub-unit and oversized', () => {
+    for (const raw of ['', 'abc', '0', '-5', '0.001', '1e20', String(MAX_AMOUNT + 1)]) {
+      expect(parseAmountInput(raw, 'USD')).toBeNull();
+    }
+    expect(parseAmountInput('0.4', 'JPY')).toBeNull();
+    expect(parseAmountInput(String(MAX_AMOUNT), 'USD')).toBe(MAX_AMOUNT);
+  });
+});
