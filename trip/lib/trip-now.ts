@@ -279,6 +279,15 @@ function heldForInProgress(today: TripToday, now: Date): TripToday {
 }
 
 /**
+ * #790: `getTodayInTrip()` for WRITE-DEFAULT seeds (new expense / quick-add dates and legs).
+ * `null` while the `?today=` demo override is active, so a demo can never stamp a fake date onto
+ * a row that then syncs; callers fall through to their non-clock default (selected day -> day 1).
+ */
+export function getTodayInTripForWrite(): TripToday | null {
+  return isClockOverridden() ? null : getTodayInTrip();
+}
+
+/**
  * Destination-local "now" as a calendar day + minutes-from-midnight, ALWAYS, in or out of the
  * trip window. Same clock, same `?today=` override and same leg-offset resolution as
  * `getTodayInTrip()`; the difference is only that this one still answers outside the window.
