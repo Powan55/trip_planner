@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 // when the trip has not started, so the clock is pinned rather than left to the real date.
 vi.mock('@/lib/trip-now', () => ({
   getNow: () => new Date('2026-08-21T12:00:00'),
-  getNowAtTrip: () => ({ date: '2026-08-21', minutes: 720 }),
+  getTripDayDate: () => '2026-08-21',
   getTodayInTrip: () => null,
 }));
 

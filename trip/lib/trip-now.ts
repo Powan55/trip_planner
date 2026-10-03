@@ -239,6 +239,17 @@ export function getTodayInTrip(): TripToday | null {
 }
 
 /**
+ * The calendar day every "which day is it" display reads: the trip day when `getTodayInTrip()`
+ * has one, else the device's own day. Same window gate as the hero, so the recap unlock, the
+ * journal's missed days and the stamp log flip at the moment the hero does (#789). Outside the
+ * window the destination day is not used: at 13:15 EST on Dec 8 it is already Dec 9 in Kathmandu.
+ */
+export function getTripDayDate(): string {
+  const now = getNow();
+  return getTodayInTrip()?.date ?? utcDayAtOffset(now, -now.getTimezoneOffset());
+}
+
+/**
  * Destination-local "now" as a calendar day + minutes-from-midnight, ALWAYS, in or out of the
  * trip window. Same clock, same `?today=` override and same leg-offset resolution as
  * `getTodayInTrip()`; the difference is only that this one still answers outside the window.

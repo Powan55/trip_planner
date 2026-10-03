@@ -12,7 +12,8 @@ import { useInView } from '@/hooks/use-in-view';
 import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta } from '@/core/photos/model';
 import { elapsedTripDates } from '@/core/recap/model';
-import { getNowAtTrip } from '@/lib/trip-now';
+import { getTripDayDate } from '@/lib/trip-now';
+import { useTravelTick } from '@/lib/travel-tick';
 
 /**
  * — the journal BROWSE view (`/journal`, `app/journal/page.tsx`). Lists every persisted
@@ -87,9 +88,11 @@ export default function JournalBrowse() {
   const { photosFor, hydrated: photosHydrated } = usePhotos();
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  // '' until mount (SSR-safe); the same trip clock the recap uses, so `?today=` overrides apply.
+  // '' until mount (SSR-safe); the hero's trip day, re-read on the shared tick so a tab left open
+  // past midnight moves on. This seeds the date a missed-day entry is saved under.
   const [nowDateStr, setNowDateStr] = useState('');
-  useEffect(() => setNowDateStr(getNowAtTrip().date), []);
+  const tick = useTravelTick();
+  useEffect(() => setNowDateStr(getTripDayDate()), [tick]);
   const pickerRef = useRef<HTMLSelectElement>(null);
   // A discarded draft, handed back by JournalCard's undo toast (#530 follow-up) — the card that
   // wrote it is already gone (browse unmounts it on close), so the parent re-mounts a fresh one
