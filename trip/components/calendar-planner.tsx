@@ -23,6 +23,7 @@ import { buildItineraryStops, stopMarkerFor } from '@/lib/itinerary-map';
 import { showUndoToast } from '@/lib/undo-toast';
 import { bulkMoveWithUndo } from '@/lib/bulk-move-undo';
 import { getTodayInTrip } from '@/lib/trip-now';
+import { useTravelTick } from '@/lib/travel-tick';
 import { setSelectedDay } from '@/lib/selected-day';
 import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
 import { SortableItem, DroppableDay } from '@/components/calendar-sortable-item';
@@ -1275,6 +1276,7 @@ export default function CalendarPlanner() {
       })),
     [getVisibleDayPlan],
   );
+  useTravelTick(); // re-render on the shared tick so the "today" strip rolls over past midnight (#791)
   const todayStripDate = getTodayInTrip()?.date ?? null;
 
   // ONE PlanDayMap instance, placed either in the desktop inline pane or the

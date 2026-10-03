@@ -193,6 +193,7 @@ export default function HeroSection() {
   // read), so a page loaded ALREADY mid-trip only seeds the baseline — it must not celebrate
   // on every Home visit for the whole trip window — and later 1s ticks never re-fire.
   const hadArrivedRef = useRef<boolean | null>(null);
+  const everInTripRef = useRef(false);
   const [celebrate, setCelebrate] = useState(false);
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -224,7 +225,11 @@ export default function HeroSection() {
   useEffect(() => {
     if (!mounted) return;
     const arrived = todayInTrip != null;
-    if (crossedIntoComplete(hadArrivedRef.current, arrived)) {
+    // A day already seen in-trip never celebrates again: crossing the dateline can drop the day to
+    // null for a tick and bring it back on landing (#791).
+    const seenBefore = everInTripRef.current;
+    if (arrived) everInTripRef.current = true;
+    if (!seenBefore && crossedIntoComplete(hadArrivedRef.current, arrived)) {
       setCelebrate(true);
       haptic();
       const t = setTimeout(() => setCelebrate(false), 650);

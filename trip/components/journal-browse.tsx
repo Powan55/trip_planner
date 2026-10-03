@@ -12,7 +12,7 @@ import { useInView } from '@/hooks/use-in-view';
 import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta } from '@/core/photos/model';
 import { elapsedTripDates } from '@/core/recap/model';
-import { getNowAtTrip } from '@/lib/trip-now';
+import { useTripDay } from '@/hooks/use-trip-day';
 
 /**
  * — the journal BROWSE view (`/journal`, `app/journal/page.tsx`). Lists every persisted
@@ -88,8 +88,7 @@ export default function JournalBrowse() {
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   // '' until mount (SSR-safe); the same trip clock the recap uses, so `?today=` overrides apply.
-  const [nowDateStr, setNowDateStr] = useState('');
-  useEffect(() => setNowDateStr(getNowAtTrip().date), []);
+  const nowDateStr = useTripDay();
   const pickerRef = useRef<HTMLSelectElement>(null);
   // A discarded draft, handed back by JournalCard's undo toast (#530 follow-up) — the card that
   // wrote it is already gone (browse unmounts it on close), so the parent re-mounts a fresh one
