@@ -6042,3 +6042,15 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Ship order.** Before publishing, the owner checks the Auth console lists all three users (`powan@`, `uttam@`, `sushil@accounts.trip-planner.invalid`). EMAIL_EXISTS is the only thing stopping a squatter, so create any that is missing first. Then publish the rules and probe them with real headers. The id is in the branch, so it is public on the first push; until the rules are live, anyone who reads it can reach the trip. Publish and probe before the branch merges, and push only when the window is acceptable.
 
 **Trade-off.** Denied reads still count against the free quota; App Check is the upgrade path. Adding a fourth person means editing the list and publishing.
+
+### D-672 · (issue #758, 2026-10-03) · The active worker refills a precache the browser emptied
+
+**Decision.** On every online page load with a controller, the registrar posts `REPAIR`. The worker calls `registration.update()`, stops if a worker is installing or waiting, then fetches only the `PRECACHE_URLS` missing from the current precache and puts each one on its own. A failed fetch skips that entry. It never deletes and never touches another cache. Every entry must pass `isExpectedPrecacheBody`, and route pages and RSC `.txt` payloads must also contain this build's `BUILD_ID`, which gen-sw reads from `.next/BUILD_ID` and fails without.
+
+**Why.** Install was the only thing that filled the precache, so clearing site data while the registration survived left the app with no offline shell until the next deploy.
+
+**Not atomic, on purpose.** Install stays atomic. Repair runs under a worker that is already serving, so a partial refill is strictly better than none, and a throw there would only lose the entries that did succeed.
+
+**Torn deploys.** The update check catches a deploy the worker can see. The guard for the rest is the `BUILD_ID` on HTML and RSC payloads, not chunk overlap: hashed chunks are shared between builds, so a newer page can load ours, but it carries its own build id. A captive portal carries none. Unhashed files (icons, hero images, the manifest) only get the content-type check, so a torn refill there keeps a neighbouring build's bytes until the next deploy.
+
+**Not covered.** An uncached route still falls back to the Home shell rather than the 404 page; that is the other half of #758. Preflight's map-shell row still reads a partly filled precache as present.

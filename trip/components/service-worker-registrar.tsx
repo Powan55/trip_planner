@@ -104,6 +104,12 @@ export function ServiceWorkerRegistrar() {
     navigator.serviceWorker
       .register(withBasePath('/sw.js'), { updateViaCache: 'none' })
       .then((registration) => {
+        // Install is the only thing that fills the precache, so ask the active worker
+        // to refill anything the browser cleared since (#758).
+        if (navigator.onLine && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'REPAIR' });
+        }
+
         // A worker already waiting at register time (e.g. user reopened the tab
         // after an update installed in the background) — prompt immediately,
         // but only if there's an active controller (first install => no prompt).

@@ -877,7 +877,7 @@ async function buildManifest() {
 // auditable. The precache URL list and the cache name (a sha256 over each precached
 // file's path AND bytes — see step 3 in main(), which records why hashing the URL list
 // alone shipped stale shells) are baked in at build time; everything else is static SW logic.
-function buildServiceWorker({ precacheUrls, precacheHash }) {
+function buildServiceWorker({ precacheUrls, precacheHash, buildId }) {
   const PRECACHE = `trip-precache-${precacheHash}`;
   const IMAGES_CACHE = 'trip-images-v1';
   const IMAGE_CACHE_LIMIT = 80;
@@ -895,6 +895,7 @@ const IMAGES_CACHE = ${JSON.stringify(IMAGES_CACHE)};
 const IMAGE_CACHE_LIMIT = ${IMAGE_CACHE_LIMIT};
 const NAV_FALLBACK = ${JSON.stringify(NAV_FALLBACK)};
 const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
+const BUILD_ID = ${JSON.stringify(buildId)};
 
 // --- install: precache the app shell -------------------------------------
 // NOTE: NO self.skipWaiting() here. An updated worker MUST stay
@@ -979,8 +980,45 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  } else if (event.data && event.data.type === 'REPAIR') {
+    const done = repairPrecache();
+    if (event.waitUntil) event.waitUntil(done);
   }
 });
+
+// --- repair: refill a precache emptied under a live registration (D-672) --
+// install is the only thing that fills PRECACHE, so a cleared Cache Storage with the
+// registration intact stayed empty until the next deploy. The registrar posts REPAIR
+// once per online page load. Unlike install this is NOT atomic and never throws: each
+// missing entry is fetched on its own, a failure just leaves that entry missing, and
+// nothing is ever deleted. Only the current PRECACHE is touched (the origin is shared).
+async function repairPrecache() {
+  try {
+    const reg = self.registration;
+    // A newer worker means the server may already be on the next build, and its bytes
+    // must not land in this build's cache. That worker's own install fills its cache.
+    await reg.update().catch(() => {});
+    if (reg.installing || reg.waiting) return;
+    const cache = await caches.open(PRECACHE);
+    const have = new Set((await cache.keys()).map((req) => new URL(req.url).pathname));
+    const missing = PRECACHE_URLS.filter((url) => !have.has(url));
+    if (missing.length === 0) return;
+    await Promise.all(
+      missing.map(async (url) => {
+        try {
+          const res = await fetch(url, { cache: 'no-cache' });
+          if (!res || !res.ok || !isExpectedPrecacheBody(url, res)) return;
+          // Pages and RSC payloads carry the build id. A portal page has none, and one
+          // from a newer deploy carries that deploy's (hashed chunks can be shared, ids not).
+          if (url.endsWith('/') || url.endsWith('.html') || url.endsWith('.txt')) {
+            if (!(await res.clone().text()).includes(BUILD_ID)) return;
+          }
+          await cache.put(url, res);
+        } catch (err) {}
+      })
+    );
+  } catch (err) {}
+}
 
 // --- helpers -------------------------------------------------------------
 // Normalize a same-origin URL to its trailingSlash form so /plan and /plan/
@@ -1350,7 +1388,13 @@ async function main() {
   const precacheHash = h.digest('hex').slice(0, 12);
 
   // 4) Emit the SW.
-  const sw = buildServiceWorker({ precacheUrls, precacheHash });
+  const buildId = (
+    await readFile(join(ROOT, '.next', 'BUILD_ID'), 'utf8').catch(() => {
+      throw new Error('gen-sw: .next/BUILD_ID is missing; the precache repair needs it.');
+    })
+  ).trim();
+  if (!buildId) throw new Error('gen-sw: .next/BUILD_ID is empty.');
+  const sw = buildServiceWorker({ precacheUrls, precacheHash, buildId });
   await writeFile(join(OUT_DIR, 'sw.js'), sw, 'utf8');
   console.log(
     `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries)`
