@@ -77,6 +77,12 @@ async function pushDirty(code: string): Promise<boolean> {
   }
 }
 
+/** Push every queued account pref now. Sign-out awaits this before the wipe (#816). Never rejects. */
+export async function flushPrefs(): Promise<void> {
+  const code = accountCode();
+  if (code) await pushDirty(code);
+}
+
 // JSON round-trip strips `undefined`, which Firestore rejects.
 function clean(value: unknown): unknown {
   return value === undefined ? null : JSON.parse(JSON.stringify(value));

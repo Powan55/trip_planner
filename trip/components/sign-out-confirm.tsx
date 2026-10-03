@@ -9,6 +9,8 @@ import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import { unsyncedEditCount } from '@/core/trips/registry';
 import { flushAllDomains } from '@/hooks/use-domain-sync';
+import { flushJournal } from '@/lib/journal-remote';
+import { flushPrefs } from '@/lib/account-prefs-remote';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -102,7 +104,7 @@ export default function SignOutConfirm({
       // 8s matches the remote write timeout, so a hung network can't trap the user here.
       setFlushing(true);
       let cap: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([flushAllDomains(), new Promise((r) => (cap = setTimeout(r, 8000)))]);
+      await Promise.race([Promise.all([flushAllDomains(), flushJournal(), flushPrefs()]), new Promise((r) => (cap = setTimeout(r, 8000)))]);
       clearTimeout(cap);
       setFlushing(false);
       if (forgetDevice) {
