@@ -65,10 +65,10 @@ export interface MyPlacesStore {
   /**
    * Restore the WHOLE places store from a validated backup (issue #239 — tombstone-replace,
    * mirroring the itinerary's `restorePlans` / expenses' `restoreExpenses`). DORMANT: a plain
-   * local overwrite (no sync to unwind). SYNC ON: tombstone every currently-live row THEN re-add
-   * every live backup row as a FRESH-ID copy — all in ONE commit, so the restore PROPAGATES +
-   * survives the next snapshot instead of being merged back with rows added after the backup, and
-   * a restored row can never lose to its own tombstone on an HLC tie.
+   * local overwrite (no sync to unwind). SYNC ON: tombstone every live row the backup lacks, and
+   * upsert every live backup row under its OWN id with a stamp strictly after any prior copy — all
+   * in ONE commit, so the restore PROPAGATES, survives the next snapshot, and plan items that link
+   * to a place by id still find it (D-671).
    */
   restoreMyPlaces(backup: MyPlace[]): boolean;
 }
@@ -172,19 +172,22 @@ export function useMyPlaces(): MyPlacesStore {
       }
       const name = actor();
       return commit((current) => {
-        // (a) Tombstone every currently-live row (the SAME stamp `remove` applies) — so a row added
-        // after the backup was taken does not survive as a live row (issue #239).
+        // Ids are KEPT (D-671): a plan item links to its place by `sourceId: 'myplace-'+id`, so a
+        // reminted id orphans every "added to plan" link. Same-id upsert stamped strictly after any
+        // prior row (live or tombstone) is the undo-of-delete path in `add` above.
+        const live = backup.filter((p) => p.deleted !== true);
+        const keep = new Set(live.map((p) => p.id));
+        // (a) Tombstone every current live row the backup doesn't have (issue #239).
         let next = current.map((p) => {
-          if (p.deleted === true) return p;
+          if (p.deleted === true || keep.has(p.id)) return p;
           return { ...p, deleted: true, ...nextSyncStamp(p, realClock.now().getTime(), name) };
         });
-        // (b) Add a fresh-id copy of every LIVE backup row (strip id/rev/hlc/deleted, mint a new id
-        // + fresh stamp) — can never lose to an existing tombstone on an HLC tie.
-        for (const p of backup) {
-          if (p.deleted === true) continue;
-          const { id: _id, rev: _rev, hlc: _hlc, deleted: _del, ...content } = p;
-          void _id; void _rev; void _hlc; void _del;
-          next = addPlace(next, { ...content, id: newId(), ...firstSyncStamp(realClock.now().getTime(), name) });
+        // (b) Upsert each live backup row under its own id.
+        for (const p of live) {
+          const { rev: _rev, hlc: _hlc, deleted: _del, ...content } = p;
+          void _rev; void _hlc; void _del;
+          const prior = next.find((c) => c.id === p.id) ?? p;
+          next = addPlace(next, { ...content, ...nextSyncStamp(prior, realClock.now().getTime(), name) });
         }
         return next;
       });

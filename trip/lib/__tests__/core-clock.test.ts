@@ -285,15 +285,66 @@ describe('trip-now — the trip window is the device calendar, the day number is
   });
 
   it('mid-trip the destination offset still names the day (D-224 is not regressed)', async () => {
-    // 03:00Z Dec 10 = 22:00 EST Dec 9: the device says Day 1, Kathmandu says Day 2, and inside
+    // 03:00Z Dec 11 = 22:00 EST Dec 10: the device says Day 2, Kathmandu says Day 3, and inside
     // the window the offset wins. This is the assertion that fails if the fix above is
-    // "simplified" to a plain device-local derivation.
-    expect(await todayInTripAt('2026-12-10T03:00:00Z')).toEqual({
-      date: '2026-12-10',
-      dayNumber: 2,
+    // "simplified" to a plain device-local derivation. (It used to sit at 03:00Z Dec 10, which
+    // is mid-way through the JFK to DEL long-haul and is now held on Day 1 by #754 below.)
+    expect(await todayInTripAt('2026-12-11T03:00:00Z')).toEqual({
+      date: '2026-12-11',
+      dayNumber: 3,
       city: 'Kathmandu',
       country: 'nepal',
     });
+  });
+
+  // #754 / D-679: a flight in the air at the destination's midnight keeps the day it left on.
+  it('the JFK to DEL long-haul holds Day 1 past Kathmandu midnight until it lands', async () => {
+    // Departs 11:55 EST Dec 9 (16:55Z) for 14h55m, so it lands at 07:50Z Dec 10.
+    expect((await todayInTripAt('2026-12-09T18:14:00Z'))?.dayNumber).toBe(1); // KTM 23:59
+    expect(await todayInTripAt('2026-12-09T18:15:00Z')).toEqual({
+      date: '2026-12-09',
+      dayNumber: 1,
+      city: 'New York',
+      country: 'nepal',
+    }); // KTM 00:00 Dec 10, still airborne
+    expect((await todayInTripAt('2026-12-10T03:00:00Z'))?.date).toBe('2026-12-09');
+    expect((await todayInTripAt('2026-12-10T07:49:00Z'))?.date).toBe('2026-12-09');
+    expect((await todayInTripAt('2026-12-10T07:50:00Z'))?.date).toBe('2026-12-10'); // landed
+  });
+
+  it('the 23:30 KTM departure holds Day 10 past Kathmandu midnight until 03:40 NPT', async () => {
+    // 23:30 NPT Dec 18 = 17:45Z, 4h10m, lands 21:55Z. Without the hold the day is Dec 19 (Tokyo).
+    expect((await todayInTripAt('2026-12-18T18:15:00Z'))?.dayNumber).toBe(10); // NPT 00:00 Dec 19
+    expect((await todayInTripAt('2026-12-18T21:54:00Z'))?.dayNumber).toBe(10);
+    expect(await todayInTripAt('2026-12-18T21:55:00Z')).toEqual({
+      date: '2026-12-19',
+      dayNumber: 11,
+      city: 'Osaka',
+      country: 'japan',
+    });
+  });
+
+  it('a done item, or one with no duration, does not hold the day', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-12-09T18:15:00Z'));
+    window.sessionStorage.clear();
+    vi.resetModules();
+    const { TRIP_ITINERARY } = await import('@/core/content/itinerary');
+    const { savePlans } = await import('@/lib/itinerary-storage');
+    const edited = (fn: (i: Record<string, unknown>) => Record<string, unknown>) =>
+      TRIP_ITINERARY.map((d) =>
+        d.date === '2026-12-09' ? { ...d, items: d.items.map((i) => (i.id === 'n1-3' ? fn({ ...i }) : i)) } : d,
+      );
+
+    savePlans(edited((i) => ({ ...i, done: true })) as typeof TRIP_ITINERARY);
+    let { getTodayInTrip } = await import('@/lib/trip-now');
+    expect(getTodayInTrip()?.date).toBe('2026-12-10');
+
+    vi.resetModules();
+    savePlans(edited((i) => ({ ...i, duration: undefined, durationMinutes: undefined })) as typeof TRIP_ITINERARY);
+    ({ getTodayInTrip } = await import('@/lib/trip-now'));
+    expect(getTodayInTrip()?.date).toBe('2026-12-10');
+    window.localStorage.clear();
   });
 });
 
