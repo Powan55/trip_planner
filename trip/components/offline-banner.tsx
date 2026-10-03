@@ -36,7 +36,7 @@ import { useOnline } from '@/hooks/use-online';
  * offline is informational (the PWA keeps working from its precache), not a
  * failure, so this stays a `role="status"` live region, never `role="alert"`.
  *
- * Position: fixed, top-center, below the navbar (`h-16`/64px, `z-50`). The
+ * Position: fixed, top-center, below the navbar (`--nav-h`, `z-50`). The
  * bottom corners are already claimed (presence bar bottom-left, Sonner toasts
  * bottom-right), so top-center is the one open slot. `z-40` sits under both
  * the navbar (`z-50`) and the token gate (`z-[70]`) — it never covers either.
@@ -59,7 +59,7 @@ export function OfflineBanner() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
           data-testid="offline-banner"
-          className="fixed top-20 left-1/2 z-40 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
+          className="fixed top-[calc(5rem+var(--safe-top))] left-1/2 z-40 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
         >
           {/* The running head's offline field, printed: solid stock, a 2px rule, mono
               caps. NOT glass and NOT red — being offline is a condition of the network,

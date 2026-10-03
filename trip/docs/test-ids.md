@@ -1103,8 +1103,8 @@ All external deep-links go out only (D-169); every time/date/duration label is v
 | testid | element | notes |
 |---|---|---|
 | `flight-card-<journeyId>` | the `<article>` journey card | one per `JOURNEYS` member (`outbound`, `return-to-japan`, `tokyo-to-osaka`, `flight-home`). |
-| `flight-phase-<journeyId>` | the phase strip pill | text `Upcoming` / `Departing today` / `Completed` (text + icon + color, never color alone, D-007). Live against the trip clock (honors `?today=`, D-075). |
-| `flight-countdown-<journeyId>` | the proximity-countdown row | `Departs in <mo w d / h m s>` while `upcoming`; `Departing today` on the day; `This journey is complete` after. Ticks 1s. |
+| `flight-phase-<journeyId>` | the phase strip pill | text `Upcoming` / `Departing today` / `Arriving today` (overnight arrival day) / `Completed` (text + icon + color, never color alone, D-007). Live against the trip clock (honors `?today=`, D-075). |
+| `flight-countdown-<journeyId>` | the proximity-countdown row | `Departs in <mo w d / h m s>` while `upcoming`; `Departing today` on the day (`Arriving today` on an overnight arrival day); `This journey is complete` after. Ticks 1s. |
 | `flights-tracker-<legId>` | the FlightRadar24 tracker `<a>` per flight leg | `target="_blank" rel="noopener noreferrer"`; `aria-label="Track <flightNumber> on FlightRadar24"`; absent when the airline isn't in the bounded IATA map (never a guessed link). |
 | `flights-rome2rio-<journeyId>` / `flights-gflights-<journeyId>` | the two route-level deep-links per journey card | Byte-exact hrefs built by `lib/flight-deep-links.ts` from the journey's verbatim `fromSummary`/`toSummary`; `target="_blank" rel="noopener noreferrer"` + descriptive `aria-label`. |
 

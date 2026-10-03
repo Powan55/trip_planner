@@ -154,7 +154,7 @@ test.describe('tap targets ≥44×44 outside /travel', () => {
     inside(await content.boundingBox(), frame!, 'popup');
     inside(await popup.getByTestId(`map-popup-favorite-${BOUDHA_ID}`).boundingBox(), frame!, 'heart');
     inside(await close.boundingBox(), frame!, 'close');
-    const add = popup.getByRole('button', { name: /add to plan/i }).first();
+    const add = popup.getByRole('button', { name: /to your trip plan|planned/i }).first();
     await add.scrollIntoViewIfNeeded();
     const cb = await content.boundingBox();
     inside(await add.boundingBox(), cb!, 'add-to-plan in popup');

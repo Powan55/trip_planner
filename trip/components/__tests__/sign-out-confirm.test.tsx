@@ -26,6 +26,8 @@ vi.mock('@/lib/firebase-remote', () => ({
   clearRemoteCache,
   isPasswordSession: async () => session.password,
 }));
+const flushAllDomains = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('@/hooks/use-domain-sync', () => ({ flushAllDomains }));
 vi.mock('@/lib/firebase-config', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/firebase-config')>()),
   isRemoteConfigured: () => remoteGate.on,
@@ -218,6 +220,37 @@ describe('SignOutConfirm — teardown', () => {
       expect(clearRemoteCache).not.toHaveBeenCalled();
     } finally {
       remoteGate.on = true;
+    }
+  });
+
+  // #748: queued edits get a chance to land before the wipe, but a hung network can't hold it.
+  it('waits for the outbox flush before clearing anything, and says so', async () => {
+    clearRemoteCache.mockClear();
+    let release!: () => void;
+    flushAllDomains.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    await mount();
+    await click('t-confirm');
+    expect(at('t-flushing')!.textContent).toContain('Syncing');
+    expect(clearRemoteCache).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    await act(async () => release());
+    expect(clearRemoteCache).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('gives up on a flush that never settles after 8s', async () => {
+    flushAllDomains.mockImplementationOnce(() => new Promise<void>(() => {}));
+    await mount();
+    vi.useFakeTimers();
+    try {
+      await click('t-confirm');
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8000);
+      });
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    } finally {
+      vi.useRealTimers();
     }
   });
 
