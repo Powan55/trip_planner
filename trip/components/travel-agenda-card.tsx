@@ -26,7 +26,7 @@ export default function TravelAgendaCard({ date }: { date?: string } = {}) {
   const { getDayPlan, updateItem, hydrated } = useItineraryContext();
 
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
-  const [nowUtcMs, setNowUtcMs] = useState<number>(0);
+  const [nowUtcMs, setNowUtcMs] = useState<number>(() => Date.now());
 
   // recompute on the shared `/travel` tick (base 20s) — and immediately on a `date` change —
   // instead of a private 1s interval. `getNowUtcMsForPlace` still reads the real clock each run.
