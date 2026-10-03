@@ -310,14 +310,24 @@ describe('navigation: offline, an in-app link resolves to its own route shell', 
     expect(res?.body).toBe('PLAN_SHELL');
   });
 
-  // Control: the Home fallback is still reachable, so the assertions above are
-  // proving a real route match rather than a handler that answers PLAN_SHELL always.
-  it('falls back to the Home shell for a route that was never precached', async () => {
+  // A path the build never shipped must not render Home under a 200 (#807).
+  it('serves the 404 page for a route that was never precached', async () => {
     const { caches } = makeCaches(shells);
     const handlers = instantiate(caches, offline);
     const res = await runFetch(
       handlers,
       makeRequest('/never-precached/index.txt', { mode: 'navigate', destination: 'document' })
+    );
+    expect(res?.body).toBe('NOT_FOUND');
+  });
+
+  // Control: a shipped route whose entry was evicted still gets the Home shell.
+  it('falls back to the Home shell for a shipped route whose entry was evicted', async () => {
+    const { caches } = makeCaches({ [PRECACHE]: { '/': 'HOME_SHELL', '/404.html': 'NOT_FOUND' } });
+    const handlers = instantiate(caches, offline);
+    const res = await runFetch(
+      handlers,
+      makeRequest('/travel/', { mode: 'navigate', destination: 'document' })
     );
     expect(res?.body).toBe('HOME_SHELL');
   });
