@@ -332,7 +332,7 @@ export default function Navbar() {
                   guest mode an unidentified visitor never reaches this render in practice
                   (TokenGate's wall covers it), so there is nothing to show when `traveler` is null.
                   Reactive via identity:changed so sign-in/out reflect live (no reload). */}
-              <div className="hidden md:flex items-center shrink-0">
+              <div className="hidden lg:flex items-center shrink-0">
                 {traveler && <TravelerChip name={traveler.name} accent={traveler.accent} />}
               </div>
 
@@ -341,7 +341,7 @@ export default function Navbar() {
                   (top row, z-50) — always above the sync-status pill, so
                   they never share space at any viewport. With no guest mode, only an
                   identified traveler ever reaches this button — the front-door wall covers everyone
-                  else. Label collapses to icon-only below `sm` (the aria-label carries the name),
+                  else. Label collapses to icon-only below `lg` (the aria-label carries the name),
                   staying a ≥44px target. */}
               {conciergeAllowed && <ConciergeChat />}
 
@@ -353,7 +353,7 @@ export default function Navbar() {
                 className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border border-[color:hsl(var(--accent))] px-2.5 font-sans text-t-label font-semibold text-[color:hsl(var(--accent))] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3.5"
               >
                 <Compass className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Travel Mode</span>
+                <span className="hidden lg:inline">Travel Mode</span>
               </button>
             </div>
           </div>
