@@ -4,6 +4,9 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 
+let mockPath = '/';
+vi.mock('next/navigation', () => ({ usePathname: () => mockPath }));
+
 const KEY = 'tripPlannerTodayOverride';
 
 async function mount(search: string) {
@@ -22,6 +25,7 @@ async function mount(search: string) {
 beforeEach(() => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   sessionStorage.clear();
+  mockPath = '/';
 });
 afterEach(() => {
   document.body.innerHTML = '';
@@ -44,6 +48,14 @@ describe('ClockOverrideBanner (#790)', () => {
     sessionStorage.setItem(KEY, '2026-12-12');
     const { container } = await mount('');
     expect(container.querySelector('[data-testid="clock-override-banner"]')).not.toBeNull();
+  });
+});
+
+describe('ClockOverrideBanner on Travel Mode (#790)', () => {
+  it.each(['/travel', '/travel/'])('renders nothing on %s even under ?today=', async (p) => {
+    mockPath = p;
+    const { container } = await mount('?today=2026-12-12');
+    expect(container.querySelector('[data-testid="clock-override-banner"]')).toBeNull();
   });
 });
 

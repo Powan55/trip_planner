@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { CalendarClock } from 'lucide-react';
 import { clockOverride } from '@/core/storage/gateway';
 import { getNow, isClockOverridden } from '@/lib/trip-now';
+import { isTravelRoute } from '@/lib/travel-route';
 
 /**
  * #790: persistent marker while the `?today=` demo clock is active. The override sticks for the
@@ -13,6 +15,7 @@ import { getNow, isClockOverridden } from '@/lib/trip-now';
  * ignore the override separately via `getTodayInTripForWrite`.
  */
 export function ClockOverrideBanner() {
+  const pathname = usePathname();
   const [simulated, setSimulated] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,7 +25,8 @@ export function ClockOverrideBanner() {
     setSimulated(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
   }, []);
 
-  if (!simulated) return null;
+  // Travel Mode is chrome-free (zero chrome leakage): no focusable control outside its root.
+  if (!simulated || isTravelRoute(pathname)) return null;
 
   const useRealClock = () => {
     clockOverride.clear();
