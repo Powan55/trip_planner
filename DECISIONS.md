@@ -6067,6 +6067,15 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 
 **Trade-off.** Up to 6 extra writes per stuck chunk per trigger, which the cap exists for (free-tier write budget). Sign-out can take up to 8s longer on a dead network. A push that acks after the sign-out wipe can write `{dirty:{}, lastAckAt}` into the wiped slot, which is harmless.
 
+### D-679 · Extends D-420 · (issue #754, 2026-10-03) · A day that is still running is not over at the destination's midnight
+
+**Decision.** `getTodayInTrip()` in `lib/trip-now.ts` keeps the previous trip day while one of that day's items is in progress at the current instant. An item counts only if it is not done and has a real duration (`core/dates/carry-over.ts`'s `hasItemInProgress`). It applies only on the real clock with known geography, looks back one day only, and runs after D-420's device-window gate, so it never puts a day outside the trip.
+
+**Why.** At 13:15 EST on Dec 9 the JFK to DEL long-haul is in the air and Kathmandu passes midnight. The hero switched to Day 2, the flight dropped out of it for about 13 hours, and expense and quick-add rows were dated Dec 10. The 23:30 KTM departure did the same from 00:00 to 03:40 NPT on Dec 19 and showed "Upcoming: Layover CAN". Now Day 1 holds until the flight lands at 07:50Z Dec 10, and Day 10 until 21:55Z Dec 18. In both cases the next day's first item starts at the moment the hold ends.
+
+**Trade-off.** Any cross-midnight item with a duration holds the day, a late night out as well as a flight. A night out still belongs to the evening it started, so that is the intended reading. The open-ended "until the next item, max 2h" block never holds a day. Each call reads the stored plan once, on the 20 to 60s ticks the callers already run.
+
+**Not done here.** `getNowAtTrip()` still reports the destination wall-clock date and minutes (concierge digest, weather, visit autocount). Its date and minutes have to agree with each other, so it does not hold. The flight chip's in-flight state already reads the journey's arrival day (#812).
 ### D-675 · Amends D-546 and D-504 · (issue #775, 2026-10-03) · A join refuses ids that are not trips, and the front door never switches trips
 
 **Decision.** `parseTripToken` reads the shared trip's id, bare or `pack:`-prefixed and in any case, as the default pack, and refuses any other `pack:` id and the legacy account names (`SHARED_TRIP_USERNAMES`, case-folded). `joinTrip` still switches to a row the registry already holds under such an id, and parse/merge never drop one, because its `trip:{id}:*` data lives under that id. The sign-in wall no longer calls `joinTrip`: after redeeming any invite it reloads to `/?trip=<token>` and the join dialog asks first, as it does for a signed-in device.

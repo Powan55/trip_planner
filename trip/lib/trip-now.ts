@@ -34,7 +34,19 @@
 // no-op on the server), so `getNow()` returns the real clock and no override is ever
 // resolved during SSR (first-paint parity, then the client re-reads on mount).
 
-import { dayInTripFor, utcDayAtOffset, placeWallClockToUtcMs, type TripToday } from '@/core/dates';
+import {
+  dayInTripFor,
+  utcDayAtOffset,
+  placeWallClockToUtcMs,
+  hasItemInProgress,
+  offsetForCountry,
+  getCityForDate,
+  getCountryForDate,
+  TRIP_DATES,
+  type TripToday,
+} from '@/core/dates';
+import { loadPlans } from '@/lib/itinerary-storage';
+import type { ItineraryItem } from '@/lib/trip-data';
 import type { ClockPort } from '@/core/ports';
 import { clockOverride } from '@/core/storage/gateway';
 import { getActiveTrip, legForDate } from '@/core/trips';
@@ -235,7 +247,35 @@ export function getTodayInTrip(): TripToday | null {
   const off = overrideMs === null ? tripOffsetMinFor(now) : null;
   const dev = dayInTripFor(now, null);
   if (dev === null) return null;
-  return dayInTripFor(now, off) ?? dev;
+  const atOffset = dayInTripFor(now, off);
+  if (atOffset === null) return dev;
+  return off === null ? atOffset : heldForInProgress(atOffset, now);
+}
+
+/**
+ * #754 / D-679: the destination's midnight does not end a day that is still running. While an
+ * item of the PREVIOUS trip day is in progress at `now` (by instant, with a real duration), that
+ * previous day stays "today": the JFK to DEL long-haul keeps Day 1 until it lands at 07:50Z on
+ * Dec 10, and the 23:30 KTM departure keeps Day 10 until 03:40 NPT on Dec 19. So the hero keeps
+ * the flight as "now", and a row added mid-flight is dated the day the flight left.
+ *
+ * Only the real clock with known geography gets here (`off !== null`): the `?today=` override
+ * declares the day directly, and a custom pack has no offsets to compare instants with. One day
+ * back only, and the D-420 window gate above has already run, so this never invents a day
+ * outside the trip.
+ */
+function heldForInProgress(today: TripToday, now: Date): TripToday {
+  const i = TRIP_DATES.indexOf(today.date);
+  if (i <= 0) return today;
+  const prior = TRIP_DATES[i - 1];
+  let items: ItineraryItem[];
+  try {
+    items = loadPlans().find((d) => d.date === prior)?.items ?? [];
+  } catch {
+    return today; // a storage failure must never take the day number down with it
+  }
+  if (!hasItemInProgress(items, prior, offsetForCountry(getCountryForDate(prior)), now.getTime())) return today;
+  return { date: prior, dayNumber: i, country: getCountryForDate(prior), city: getCityForDate(prior) };
 }
 
 /**
