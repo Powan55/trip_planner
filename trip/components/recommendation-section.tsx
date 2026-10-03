@@ -253,6 +253,16 @@ export default function RecommendationSection({
   const [activeCity, setActiveCity] = useState('All');
   const [query, setQuery] = useState('');
   const [showTop, setShowTop] = useState(false);
+  // Hide the fixed back-to-top button while the site footer is in view, so it never overlays
+  // footer content (it also photobombed the footer visual-regression screenshots).
+  const [footerInView, setFooterInView] = useState(false);
+  useEffect(() => {
+    const footer = document.querySelector('footer');
+    if (!footer || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([entry]) => setFooterInView(entry.isIntersecting));
+    io.observe(footer);
+    return () => io.disconnect();
+  }, []);
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 1200);
     onScroll();
@@ -638,7 +648,7 @@ export default function RecommendationSection({
         )}
       </div>
 
-      {showTop && (
+      {showTop && !footerInView && (
         <button
           type="button"
           onClick={() =>
