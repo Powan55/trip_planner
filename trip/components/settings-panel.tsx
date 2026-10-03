@@ -1513,7 +1513,7 @@ function ExpensesBackupRestore({
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,.gz,application/gzip"
           onChange={handleFileChange}
           data-testid="settings-import-expenses-input"
           aria-label="Choose an expenses backup file to restore"

@@ -132,6 +132,7 @@ export default function PackingChecklist() {
             id="packing-add-input"
             data-testid="packing-add-input"
             type="text"
+            maxLength={120}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Add an item…"
@@ -238,7 +239,7 @@ export default function PackingChecklist() {
                           {/* role=presentation keeps the row-title recipe without adding one
                               heading per checkbox to the page outline — the label already names
                               the input. */}
-                          <h3 role="presentation" className={item.checked ? 'line-through' : undefined}>
+                          <h3 role="presentation" className={item.checked ? 'line-through [overflow-wrap:anywhere]' : '[overflow-wrap:anywhere]'}>
                             {item.label}
                           </h3>
                         </span>

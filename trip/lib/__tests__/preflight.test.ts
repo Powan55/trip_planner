@@ -54,7 +54,9 @@ function fakeCacheStorage(
   } as unknown as CacheStorage;
 }
 
-const ENGINE = 'var maplibregl=(function(){/* 1MB of engine */})()';
+const ENGINE = `var maplibregl=(function(){/*${'x'.repeat(300_000)}*/})()`;
+/** Carries the marker (CSS class strings) but is nowhere near engine-sized, like the ~31 KB trip-map chunk. */
+const TRIP_MAP_CHUNK = '.maplibregl-ctrl{display:none}';
 const NOT_ENGINE = 'export const x=1;';
 
 // ── 1. Map shell ────────────────────────────────────────────────────────────────────────────
@@ -113,6 +115,16 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
     // because there IS something to do; what changed is that it says what.
     expect(check.detail).toMatch(/open the map with a connection/i);
     expect(check.detail).not.toMatch(/missing|isn't in that copy/i);
+  });
+
+  it('ATTENTION (#808): the small trip-map chunk carrying the marker is not the engine', async () => {
+    const check = await checkMapShell(
+      fakeCacheStorage({
+        'trip-precache-abc': { 'https://x/trip-map.js': { body: TRIP_MAP_CHUNK, size: 31000 } },
+      })
+    );
+    expect(check.state).toBe('attention');
+    expect(check.headline).toBe('Map engine not saved yet');
   });
 
   it('FAIL: no trip-precache-* cache at all reports "not saved yet"', async () => {

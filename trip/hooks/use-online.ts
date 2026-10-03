@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Connectivity signal behind the app-wide offline banner
@@ -95,6 +95,17 @@ function isCrossOrigin(input: RequestInfo | URL): boolean {
   }
 }
 
+// The basemap tilejson goes through this wrapped fetch too. Its failure is the map's own
+// banner to show, not evidence the whole app is offline.
+function isBasemapHost(input: RequestInfo | URL): boolean {
+  try {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    return new URL(url, location.href).hostname === 'tiles.openfreemap.org';
+  } catch {
+    return false;
+  }
+}
+
 let witnessInstalled = false;
 
 // One wrapper around `fetch`, installed once, so every network client corroborates
@@ -120,7 +131,14 @@ function installFetchWitness() {
       // name itself), against a cross-origin Worker, so reading it as an outage took the
       // concierge offline app-wide on one slow answer.
       const name = (err as { name?: unknown } | null)?.name;
-      if (crossOrigin && name !== 'AbortError' && name !== 'TimeoutError') setReachable(false);
+      if (
+        crossOrigin &&
+        !isBasemapHost(input) &&
+        name !== 'AbortError' &&
+        name !== 'TimeoutError'
+      ) {
+        setReachable(false);
+      }
       throw err;
     }
   };
@@ -157,4 +175,26 @@ export function useOnline(): boolean {
   }, []);
 
   return online;
+}
+
+/** True for 2.5s after a real offline spell ends; never on first paint. */
+export function useBackOnline(): boolean {
+  const online = useOnline();
+  const [back, setBack] = useState(false);
+  const wasOffline = useRef(false);
+
+  useEffect(() => {
+    if (!online) {
+      wasOffline.current = true;
+      setBack(false);
+      return;
+    }
+    if (!wasOffline.current) return;
+    wasOffline.current = false;
+    setBack(true);
+    const t = setTimeout(() => setBack(false), 2500);
+    return () => clearTimeout(t);
+  }, [online]);
+
+  return back;
 }

@@ -181,6 +181,17 @@ describe('useOnline — reachability corroborated from real traffic', () => {
     h.unmount();
   });
 
+  it('a failed basemap-host request does not read as offline; another cross-origin failure still does', async () => {
+    const h = renderOnline();
+    fetchOutcome = { kind: 'reject' };
+    await fetchOnce('https://tiles.openfreemap.org/planet');
+    expect(h.current).toBe(true);
+
+    await fetchOnce(CROSS_ORIGIN);
+    expect(h.current).toBe(false);
+    h.unmount();
+  });
+
   it('a later successful cross-origin request clears it again', async () => {
     const h = renderOnline();
     fetchOutcome = { kind: 'reject' };

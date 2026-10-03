@@ -183,6 +183,21 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
   });
 });
 
+describe('expense import amount check (#785)', () => {
+  const withAmount = (amount: unknown) => {
+    const env = JSON.parse(exportExpenses([E1]));
+    env.payload[0].amount = amount;
+    return parseExpenseBackup(JSON.stringify(env));
+  };
+  it.each([-50, 'abc', null])('rejects amount %s', (a) => {
+    expect(withAmount(a).ok).toBe(false);
+  });
+  it('still round-trips a very large amount', () => {
+    const r = withAmount(1e15);
+    expect(r.ok && r.expenses[0].amount).toBe(1e15);
+  });
+});
+
 describe('expense backup trip matching (#705)', () => {
   it('refuses a different local trip without writing to the active trip', () => {
     const json = exportExpenses([E1]);

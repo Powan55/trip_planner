@@ -5,7 +5,7 @@ import { Plus, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateLong, getCountryForDate } from '@/core/dates';
 import { useExpenses } from '@/hooks/use-expenses';
-import { BUDGET_CATEGORIES, legCurrency, currencySymbol, formatMoney, type Leg } from '@/core/budget/model';
+import { BUDGET_CATEGORIES, legCurrency, currencySymbol, formatMoney, parseAmountInput, type Leg } from '@/core/budget/model';
 
 /**
  * #260 — inline expense quick-add for Travel Mode (Lane T). Fills the same "log without leaving
@@ -47,12 +47,12 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
   const categoryLabelId = `${baseId}-category-label`;
   const noteFieldId = `${baseId}-note`;
 
-  const numericAmount = amount === '' ? NaN : Number(amount);
-  const amountValid = Number.isFinite(numericAmount) && numericAmount > 0;
+  const parsedAmount = parseAmountInput(amount, cur);
+  const amountValid = parsedAmount !== null;
 
   const handleSave = () => {
-    if (!amountValid) return; // guard (the button is also disabled)
-    const value = Number(amount);
+    if (parsedAmount === null) return; // guard (the button is also disabled)
+    const value = parsedAmount;
     const trimmedNote = note.trim();
     addExpense({ leg, category, amount: value, date, note: trimmedNote || undefined });
     toast.success(`Logged ${formatMoney(value, cur)} ${category}`);
