@@ -190,16 +190,18 @@ export default function BackupRestore() {
     if (result.ok) {
       const skipped =
         result.photosSkipped > 0
-          ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} could not be restored (storage limit).`
+          ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} came back without the image (missing or unreadable in the file, or storage is full).`
           : '';
+      const label = (slots: string[]) => joinNames(slots.map((slot) => DOMAIN_LABELS[slot] ?? slot));
       const names = result.restored.map((slot) => DOMAIN_LABELS[slot] ?? slot);
-      const notSaved =
-        result.refused.length > 0
-          ? ` Not restored (storage is full): ${joinNames(result.refused.map((slot) => DOMAIN_LABELS[slot] ?? slot))}.`
+      const notSaved = result.refused.length > 0 ? ` Not restored (storage is full): ${label(result.refused)}.` : '';
+      const damaged =
+        result.dropped.length > 0
+          ? ` Not restored (damaged in the file, kept as they were): ${label(result.dropped)}.`
           : '';
       setStatus({
         kind: 'success',
-        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped}${notSaved} Reloading…`,
+        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped}${notSaved}${damaged} Reloading…`,
       });
       // Reload so every store re-hydrates from the freshly-written localStorage/IndexedDB. A
       // short delay lets the aria-live status announce before the navigation.
@@ -349,24 +351,30 @@ export default function BackupRestore() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               Importing{' '}
-              <span className="font-machine text-t-sm text-ink-hi">{lastImportName.current}</span> will
-              replace your <strong className="font-semibold text-ink-hi">itinerary, journal and photos</strong> with
-              the contents of that file.{' '}
+              <span className="font-machine text-t-sm text-ink-hi">{lastImportName.current}</span>{' '}
               {synced ? (
                 <>
-                  Expenses are replaced too. Budget and the documents checklist are merged instead —
-                  anything you&apos;ve changed there since the backup was made is kept.
+                  will replace the <strong className="font-semibold text-ink-hi">plans, saved places and
+                  expenses for everyone on this trip</strong>, and your journal on your own devices, with the
+                  contents of that file. Your packing list and other lists kept on this device are
+                  replaced too. Budget and the documents checklist are merged instead — anything changed
+                  there since the backup was made is kept.
                 </>
               ) : (
-                <>Expenses, budget and checklists are replaced too.</>
+                <>
+                  will replace your <strong className="font-semibold text-ink-hi">itinerary, journal and
+                  photos</strong> with the contents of that file. Expenses, budget and checklists are
+                  replaced too.
+                </>
               )}
             </AlertDialogDescription>
             {/* A second <AlertDialogDescription> would duplicate Radix's aria-describedby id, so
                 this half is a plain paragraph — it is elaboration, and the described-by text
                 above already carries what the choice is. */}
             <p className="text-t-body text-[color:var(--text-mid)]">
-              This changes the trip <strong className="font-semibold text-ink-hi">on this device</strong> and cannot
-              be undone. The page will reload once it&apos;s restored.
+              If the file has photos, any photo{' '}
+              <strong className="font-semibold text-ink-hi">on this device</strong> that isn&apos;t in it is
+              removed. This cannot be undone. The page will reload once it&apos;s restored.
             </p>
           </AlertDialogHeader>
           <AlertDialogFooter>

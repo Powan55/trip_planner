@@ -242,6 +242,13 @@ A hotfix takes the same road: it lands on `dev` first and goes to `main` through
 pull request, because `main` requires the `Ready for main` check. There is no shortcut
 branch.
 
+The hotfix recipe is the smallest change that can ship: the fix, the patch bump in
+`trip/package.json`, and the `trip/docs/RELEASES.md` entry, nothing else. `Ready for main`
+wants the pull request's head to be `dev`, so the hotfix is not a side branch into `main`.
+It is a normal pull request into `dev`, then the usual `dev` into `main` release pull
+request. That carries everything on `dev`, so in the freeze keep `dev` patches-only, and
+put `hotfix` in the release pull request's title.
+
 When the deploy run goes red, in this order:
 
 1. Re-run the failed job. Most failures are a flaky runner or a transient API error.
@@ -251,7 +258,13 @@ When the deploy run goes red, in this order:
 
 After each deploy the `smoke` job polls the live site until `sw.js` matches the build, then
 checks the home page, the manifest and the Worker's CORS preflight. A red `smoke` does not
-undo the deploy. It means go and look.
+undo the deploy. It means go and look. The only alert is GitHub's failure email to whoever
+merged, so check the run yourself after every freeze-window release.
+
+Rehearse the break-glass order once before the freeze (re-run a failed job, then the admin
+merge path, then a forward fix), so nobody meets it for the first time on the road. Known
+gap: the `rules-check` job downloads the Firestore emulator jars at run time, so a
+network blip there blocks a release. Caching them is a `ci.yml` change and is not done yet.
 
 ### Before the trip
 
