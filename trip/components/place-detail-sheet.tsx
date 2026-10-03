@@ -177,7 +177,7 @@ export default function PlaceDetailSheet({
       disableEscape={customOpen}
       testId="place-detail-sheet"
       // Mobile: rises from the bottom (bottom sheet). Desktop (sm+): right side panel.
-      className={`${SHEET_PANEL} w-full sm:w-[440px] sm:max-w-full sm:h-full max-h-[88vh] sm:max-h-none`}
+      className={`${SHEET_PANEL} w-full sm:w-[440px] sm:max-w-full sm:h-full max-h-[88dvh] sm:max-h-none`}
     >
       {/* The sheet portals to <body>, so it cannot inherit the route's leg. `display:
           contents` declares it without adding a box: custom properties inherit through a
@@ -217,11 +217,11 @@ export default function PlaceDetailSheet({
               </div>
             </div>
 
-            {/* The plate. The image is capped at 38vh: on ultra-short viewports (e.g.
+            {/* The plate. The image is capped at 38dvh: on ultra-short viewports (e.g.
                 740×360 landscape) the natural 16/10 height (~275px at the 440px
                 panel width) would starve the flex column and push the pinned footer below
-                the fold. max-h-[38vh] + object-cover crops the image instead, keeping BOTH
-                footer actions on-screen. On tall viewports (390×844, 1280×900) 38vh always
+                the fold. max-h-[38dvh] + object-cover crops the image instead, keeping BOTH
+                footer actions on-screen. On tall viewports (390×844, 1280×900) 38dvh always
                 exceeds the natural height, so the cap never binds and the 16/10 framing is
                 unchanged. Nothing is set over it — the caption is the ruled line beneath.
                 The ratio is `--plate-ar` on the frame because that is what the recipe reads;
@@ -229,7 +229,7 @@ export default function PlaceDetailSheet({
                 aspect-ratio box transfers back through the ratio and shrinks the WIDTH. */}
             <div className="plate shrink-0 relative">
               {place.image ? (
-                <div className="frame [--plate-ar:16_/_10] max-h-[38vh] min-w-full">
+                <div className="frame [--plate-ar:16_/_10] max-h-[38dvh] min-w-full">
                   <div
                     className="fig vt-shared bg-surface-raised"
                     style={{ ['--vt-name']: `place-photo-${place.id}` } as CSSProperties}
@@ -246,7 +246,7 @@ export default function PlaceDetailSheet({
                 </div>
               ) : (
                 // No photograph for this place: the frame keeps its size and goes hollow.
-                <div className="empty-frame m-gut aspect-[16/10] max-h-[38vh] flex flex-col items-center justify-center gap-2">
+                <div className="empty-frame m-gut aspect-[16/10] max-h-[38dvh] flex flex-col items-center justify-center gap-2">
                   <MapPin className="w-10 h-10 text-ink-lo" aria-hidden="true" />
                   <span className="hollow-tag">No plate on file</span>
                 </div>
