@@ -118,11 +118,13 @@ afterEach(() => {
 });
 
 describe('TokenGate with an invite link (#641)', () => {
-  it('strips the invite on mount and redeems it before joining', async () => {
+  // #775: the wall redeems, then hands the link to the join dialog rather than switching itself.
+  it('strips the invite on mount, redeems it, and hands the link on without joining', async () => {
     h.redeem = 'joined';
     await logIn();
-    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`, 'join:trip-xyz']);
+    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`]);
     expect(replace).toHaveBeenCalledTimes(1);
+    expect(replace.mock.calls[0][0]).toMatch(/\/\?trip=trip-xyz$/);
     expect(q('trip-join-dialog')).toBeNull();
     expect(JSON.stringify({ ...window.localStorage })).not.toContain(TOKEN);
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(TOKEN);
@@ -139,11 +141,19 @@ describe('TokenGate with an invite link (#641)', () => {
     expect(q('trip-join-dialog')).toBeNull();
   });
 
-  it('already a member: the join goes ahead', async () => {
+  it('already a member: the link still goes to the join dialog', async () => {
     h.redeem = 'already';
     await logIn();
-    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`, 'join:trip-xyz']);
+    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`]);
     expect(replace).toHaveBeenCalledTimes(1);
+    expect(replace.mock.calls[0][0]).toMatch(/\/\?trip=trip-xyz$/);
+  });
+
+  it('an unusable token (a legacy account name) lands /trips/ and joins nothing', async () => {
+    window.history.replaceState(null, '', `/?trip=Sushil&invite=${TOKEN}`);
+    await logIn();
+    expect(h.calls).toEqual([]);
+    expect(replace.mock.calls[0][0]).toMatch(/\/trips\/$/);
   });
 
   it('redeem that never answers: Not reached, Try again focused, no join', async () => {

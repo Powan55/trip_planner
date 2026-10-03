@@ -136,6 +136,9 @@ async function gotoSettled(page: Page, path: string) {
     });
   // Settle any remaining entrance work: wait for the lead <h1> to be visible.
   await expect(page.locator('h1').first()).toBeVisible({ timeout: 15_000 });
+  // #790: the fixed "Demo clock" pill (shown under any ?today= override) overlays the
+  // captured regions; hide it so the baselines stay a pure page capture.
+  await page.addStyleTag({ content: '[data-testid="clock-override-banner"]{display:none!important}' });
   // Fonts affect text rasterization; wait for them so a screenshot isn't captured
   // mid-swap (still env-specific, but at least consistent within a run).
   await page.evaluate(() => (document as unknown as { fonts: FontFaceSet }).fonts.ready).catch(() => {});

@@ -71,4 +71,18 @@ describe('TripJoinHandshake with an invite (#641)', () => {
     expect(calls).toEqual([`redeem:trip-xyz:${TOKEN}`, 'join:trip-xyz']);
     expect(replace).toHaveBeenCalledTimes(1);
   });
+
+  // #775: a legacy name is refused as a new trip, but a row this device already holds still opens.
+  it.each([
+    ['refused when unknown', false, 'This link can’t be opened'],
+    ['offered when already a row', true, null],
+  ])('a legacy-name link is %s', async (_label, known, title) => {
+    if (known) window.localStorage.setItem('tripPlannerKnownTrips', JSON.stringify([{ id: 'Sushil', name: 'Old', joinedAt: 1 }]));
+    window.history.replaceState(null, '', '/?trip=Sushil');
+    await act(async () => root.render(<TripJoinHandshake />));
+    const dialog = document.querySelector('[data-testid="trip-join-dialog"]');
+    expect(dialog).not.toBeNull();
+    if (title) expect(dialog!.textContent).toContain(title);
+    else expect(document.querySelector('[data-testid="trip-join-confirm"]')).not.toBeNull();
+  });
 });

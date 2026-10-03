@@ -45,6 +45,7 @@ import {
   listRemovedTrips,
   mergeTripLists,
   importRemoteTrips,
+  isLegacyAccountKey,
   type TripConfigBlock,
   type TripMeta,
   type RemovedTrip,
@@ -527,7 +528,8 @@ export async function ensureMembership(tripId: string): Promise<void> {
 export async function ensureKnownTripMemberships(): Promise<void> {
   await Promise.all(
     listKnownTrips()
-      .filter((trip) => trip.id !== DEFAULT_TRIP_ID)
+      // A kept legacy-name row is an account path, not a trip: never enrol in it (#775).
+      .filter((trip) => trip.id !== DEFAULT_TRIP_ID && !isLegacyAccountKey(trip.id))
       .map((trip) => ensureMembership(trip.id)),
   );
 }

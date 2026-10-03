@@ -22,6 +22,7 @@ export {
 } from './trip-dates';
 export { TRIP_CITIES, getCityForDate, deriveTripCities } from './trip-cities';
 export { dayInTripFor, utcDayAtOffset, type TripToday } from './day-in-trip';
+export { hasItemInProgress } from './carry-over';
 export {
   NPT_OFFSET_MIN,
   JST_OFFSET_MIN,

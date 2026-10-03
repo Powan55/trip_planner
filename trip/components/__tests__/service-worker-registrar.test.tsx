@@ -51,7 +51,8 @@ function makeRegistration(waiting: ReturnType<typeof makeWorker> | null = null) 
 }
 
 function makeServiceWorkerContainer(controller: unknown, registration: ReturnType<typeof makeRegistration>) {
-  return { ...fakeEventTarget(), controller, register: vi.fn(() => Promise.resolve(registration)) };
+  const live = controller ? { postMessage: vi.fn(), ...(controller as object) } : controller;
+  return { ...fakeEventTarget(), controller: live, register: vi.fn(() => Promise.resolve(registration)) };
 }
 
 let container: HTMLDivElement;

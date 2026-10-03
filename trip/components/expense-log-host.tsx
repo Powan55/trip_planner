@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import ExpenseDialog from '@/components/expense-dialog';
 import { isTravelRoute } from '@/lib/travel-route';
-import { getTodayInTrip } from '@/lib/trip-now';
+import { getTodayInTripForWrite } from '@/lib/trip-now';
 import { getSelectedDay } from '@/lib/selected-day';
 import { getCountryForDate } from '@/core/dates';
 import { TRIP_DATES } from '@/lib/trip-data';
@@ -29,7 +29,7 @@ import type { Expense } from '@/core/budget/expenses';
  * focus-return is parent-owned, and it is owned here: we capture `document.activeElement` when the
  * event fires (the "Log expense" / "Edit" button) and refocus it once the exit animation completes.
  *
- * LEG PRESET (usually right with zero taps): `getTodayInTrip()?.country` when we're mid-trip, else
+ * LEG PRESET (usually right with zero taps): `getTodayInTripForWrite()?.country` when we're mid-trip, else
  * the leg of the calendar's selected day (`getCountryForDate(getSelectedDay())`), else the first
  * trip day's leg. `getCountryForDate` returns the ACTIVE trip's leg id, which is what `Leg` is, so
  * no mapping is needed and a single-leg custom trip presets to its own leg.
@@ -49,7 +49,7 @@ export const EXPENSE_OPEN_EVENT = 'expense:open';
 
 /** Resolve the add-mode leg preset from the trip clock → selected day → first trip day. */
 function resolveLeg(): Leg {
-  const today = getTodayInTrip();
+  const today = getTodayInTripForWrite();
   if (today) return today.country as Leg;
   const selected = getSelectedDay() ?? TRIP_DATES[0];
   return getCountryForDate(selected) as Leg;
@@ -57,7 +57,7 @@ function resolveLeg(): Leg {
 
 /** Resolve the add-mode date preset (today in-trip → selected day → first trip day). */
 function resolveDate(): string {
-  return getTodayInTrip()?.date ?? getSelectedDay() ?? TRIP_DATES[0];
+  return getTodayInTripForWrite()?.date ?? getSelectedDay() ?? TRIP_DATES[0];
 }
 
 export default function ExpenseLogHost() {
