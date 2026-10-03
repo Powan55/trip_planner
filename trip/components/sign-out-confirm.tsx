@@ -9,8 +9,6 @@ import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import { unsyncedEditCount } from '@/core/trips/registry';
 import { flushAllDomains } from '@/hooks/use-domain-sync';
-import { flushJournal } from '@/lib/journal-remote';
-import { flushPrefs } from '@/lib/account-prefs-remote';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -104,7 +102,21 @@ export default function SignOutConfirm({
       // 8s matches the remote write timeout, so a hung network can't trap the user here.
       setFlushing(true);
       let cap: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([Promise.all([flushAllDomains(), flushJournal(), flushPrefs()]), new Promise((r) => (cap = setTimeout(r, 8000)))]);
+      // The journal/prefs flushers live in *-remote modules: loaded dynamically behind the gate so
+      // no firebase-touching code lands in the first-load bundle; a failed chunk load never blocks.
+      const flushRemote = async () => {
+        if (!isRemoteConfigured()) return;
+        try {
+          const [{ flushJournal }, { flushPrefs }] = await Promise.all([
+            import('@/lib/journal-remote'),
+            import('@/lib/account-prefs-remote'),
+          ]);
+          await Promise.all([flushJournal(), flushPrefs()]);
+        } catch {
+          // best-effort: sign-out proceeds
+        }
+      };
+      await Promise.race([Promise.all([flushAllDomains(), flushRemote()]), new Promise((r) => (cap = setTimeout(r, 8000)))]);
       clearTimeout(cap);
       setFlushing(false);
       if (forgetDevice) {
