@@ -53,6 +53,24 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
+describe('concierge open focus', () => {
+  const stubPointer = (fine: boolean) =>
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: fine && query === '(pointer: fine)' }));
+
+  it('is aria-modal and focuses the message box on a fine pointer', async () => {
+    stubPointer(true);
+    await openPanel();
+    expect(q('concierge-panel')!.getAttribute('aria-modal')).toBe('true');
+    expect(document.activeElement).toBe(q('concierge-input'));
+  });
+
+  it('does not raise the keyboard on touch: focus lands on the panel', async () => {
+    stubPointer(false);
+    await openPanel();
+    expect(document.activeElement).toBe(q('concierge-panel'));
+  });
+});
+
 describe('concierge model picker', () => {
   it('is a labelled select that persists the pick, locks while a turn is in flight, and warns about Kimi waits', async () => {
     let release: (r: Response) => void = () => {};

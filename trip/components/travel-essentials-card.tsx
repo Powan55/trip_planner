@@ -32,6 +32,7 @@ import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '
 import { useWakeLock } from '@/lib/use-wake-lock';
 import { useTravelTick } from '@/lib/travel-tick';
 import { useOnline } from '@/hooks/use-online';
+import { useRefreshKey } from '@/hooks/use-refresh-key';
 import { useBudget } from '@/hooks/use-budget';
 import { cn } from '@/lib/utils';
 
@@ -110,6 +111,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [airQuality, setAirQuality] = useState<AirQualityResult | null>(null);
   const [rate, setRate] = useState<CurrencyRateResult | null>(null);
+  const refreshKey = useRefreshKey();
 
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +122,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
     return () => {
       cancelled = true;
     };
-  }, [city]);
+  }, [city, refreshKey]);
 
   // #251 — a separate fetch to a separate host (air-quality-api.open-meteo.com); it doesn't
   // ride along on the forecast response the way the 7-day outlook does.
@@ -132,7 +134,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
     return () => {
       cancelled = true;
     };
-  }, [city]);
+  }, [city, refreshKey]);
 
   useEffect(() => {
     // Leg currency === home currency: nothing to convert, so skip the fetch (and the row
@@ -145,7 +147,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
     return () => {
       cancelled = true;
     };
-  }, [currency, home]);
+  }, [currency, home, refreshKey]);
 
   // Wake lock: held the whole time this card (i.e. Travel Mode with a resolved day) is
   // on-screen; released automatically on unmount (navigation away) or tab hide.
@@ -247,6 +249,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
 }
 
 function WeatherRow({ city, weather }: { city: string; weather: WeatherResult | null }) {
+  const online = useOnline();
   if (weather === null) {
     return (
       <SysRow
@@ -303,7 +306,7 @@ function WeatherRow({ city, weather }: { city: string; weather: WeatherResult | 
           {d.stale && (
             <span data-testid="travel-essentials-weather-stale">
               {' '}
-              &middot; cached, as of {formatWeatherAsOf(d.fetchedAt)}
+              &middot; {online ? 'couldn’t refresh, as of' : 'cached, as of'} {formatWeatherAsOf(d.fetchedAt)}
             </span>
           )}
         </>

@@ -331,7 +331,7 @@ export function evaluateSync(
   status: { pending: number; blocked?: number; lastAckAt: string | null; signInRequired?: boolean },
   now: Date = new Date()
 ): PreflightCheck {
-  const base = { id: 'sync', label: 'Trip data' };
+  const base = { id: 'sync', label: 'Your changes' };
   // #267 — checked BEFORE `pending`, of which it is a subset. The pending row promises these
   // "will upload on their own next time you're online", and for a change the rules REFUSED that
   // sentence is false: no amount of connectivity lands it. This module's whole rule is that

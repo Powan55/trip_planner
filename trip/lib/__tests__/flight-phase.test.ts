@@ -33,6 +33,16 @@ describe('booking-data departDate is a TRIP_DATES-anchored authored field (D-233
     expect(TOKYO_TO_OSAKA_JOURNEY.departDate).toBe('2026-12-19');
     expect(FLIGHT_HOME_JOURNEY.departDate).toBe('2027-01-09');
   });
+
+  it('authored arriveDates are pinned, in TRIP_DATES, and never before departDate', () => {
+    expect(OUTBOUND_JOURNEY.arriveDate).toBe('2026-12-10');
+    expect(RETURN_TO_JAPAN_JOURNEY.arriveDate).toBe('2026-12-19');
+    for (const j of [OUTBOUND_JOURNEY, RETURN_TO_JAPAN_JOURNEY, TOKYO_TO_OSAKA_JOURNEY, FLIGHT_HOME_JOURNEY]) {
+      if (!j.arriveDate) continue;
+      expect(TRIP_DATES, `${j.id} arriveDate`).toContain(j.arriveDate);
+      expect(j.arriveDate >= j.departDate, `${j.id} arrives before departing`).toBe(true);
+    }
+  });
 });
 
 describe('getFlightTiming day-granularity phase (injected now — pure)', () => {
@@ -50,9 +60,17 @@ describe('getFlightTiming day-granularity phase (injected now — pure)', () => 
     expect(t.phase).toBe('departing');
   });
 
-  it('after the depart day → completed', () => {
-    const t = getFlightTiming(OUTBOUND_JOURNEY, at('2026-12-10T09:00:00'));
-    expect(t.phase).toBe('completed');
+  it('overnight: still departing on the arrival day, completed after it', () => {
+    expect(getFlightTiming(OUTBOUND_JOURNEY, at('2026-12-09T15:00:00')).inFlight).toBe(false);
+    expect(getFlightTiming(OUTBOUND_JOURNEY, at('2026-12-10T03:00:00')).inFlight).toBe(true);
+    expect(getFlightTiming(OUTBOUND_JOURNEY, at('2026-12-10T03:00:00')).phase).toBe('departing');
+    expect(getFlightTiming(OUTBOUND_JOURNEY, at('2026-12-10T23:59:00')).phase).toBe('departing');
+    expect(getFlightTiming(OUTBOUND_JOURNEY, at('2026-12-11T00:01:00')).phase).toBe('completed');
+  });
+
+  it('same-day flight (no arriveDate): completed the day after departure', () => {
+    expect(getFlightTiming(TOKYO_TO_OSAKA_JOURNEY, at('2026-12-19T20:00:00')).phase).toBe('departing');
+    expect(getFlightTiming(TOKYO_TO_OSAKA_JOURNEY, at('2026-12-20T09:00:00')).phase).toBe('completed');
   });
 
   it('shared clock: at 2026-12-09 the outbound is departing while the other three still count down', () => {

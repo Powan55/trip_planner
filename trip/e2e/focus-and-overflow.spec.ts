@@ -19,7 +19,7 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
 
 test.describe('#593 — scroll-padding clears the fixed header and tab bar', () => {
   test('/packing/ at 360: every Tab stop lands clear of the header and tab bar', async ({ browser }) => {
-    // reducedMotion: the navbar's mount entrance (`initial={{ y: -100 }}`) would otherwise
+    // reducedMotion: the navbar's mount entrance (`animate={{ y: 0 }}`) would otherwise
     // still be mid-transition while this races through Tab presses, reading a false negative.
     const context = await browser.newContext({
       viewport: { width: 360, height: 740 },

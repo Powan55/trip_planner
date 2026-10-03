@@ -1,8 +1,8 @@
 'use client';
 
-import { m } from 'framer-motion';
-import { WifiOff } from 'lucide-react';
-import { useOnline } from '@/hooks/use-online';
+import { AnimatePresence, m } from 'framer-motion';
+import { Wifi, WifiOff } from 'lucide-react';
+import { useBackOnline, useOnline } from '@/hooks/use-online';
 
 /**
  * App-wide offline indicator.
@@ -13,9 +13,11 @@ import { useOnline } from '@/hooks/use-online';
  * online/offline events); shows NOTHING while online, including on the
  * server and first client paint (the hook defaults to `true`) — no
  * SSR/hydration mismatch. No dismiss control: it is a live status, not a
- * notification, and clears itself the instant the browser reconnects.
+ * notification, and clears itself the instant the browser reconnects, handing over to a
+ * "Back online" pill for 2.5s after a real offline spell (`useBackOnline`).
  *
- * The `role="status"` wrapper is mounted ALWAYS and is empty while online — a
+ * The `role="status"` wrapper is mounted ALWAYS and is empty while online, except for that
+ * brief "Back online" cue, which is announced politely by design — a
  * live region announces a mutation of a region already in the accessibility
  * tree, so a region inserted in the same commit as its text is not reliably
  * announced by NVDA/JAWS/VoiceOver. Same always-mounted-wrapper idiom as
@@ -43,6 +45,7 @@ import { useOnline } from '@/hooks/use-online';
  */
 export function OfflineBanner() {
   const online = useOnline();
+  const backOnline = useBackOnline();
 
   return (
     <div
@@ -53,20 +56,25 @@ export function OfflineBanner() {
       aria-label={online ? undefined : 'You are offline'}
       data-testid="offline-banner-region"
     >
+      <AnimatePresence>
       {online ? null : (
         <m.div
+          key="offline"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
           data-testid="offline-banner"
-          className="fixed top-[calc(5rem+var(--safe-top))] left-1/2 z-40 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
+          // Centred with auto margins, not left-1/2 + translate: the y animation writes an
+          // inline transform that would overwrite a translate-x utility.
+          className="fixed inset-x-0 top-[calc(5rem+var(--safe-top))] z-40 mx-auto w-fit max-w-[calc(100vw-2rem)]"
         >
           {/* The running head's offline field, printed: solid stock, a 2px rule, mono
               caps. NOT glass and NOT red — being offline is a condition of the network,
               stated in words, and the app keeps working from its precache. */}
           <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1">
             <WifiOff className="h-3 w-3 shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
-            <span className="pr">Net · Offline · Cached</span>
+            <span className="pr whitespace-nowrap">Net · Offline · Cached</span>
             <span className="sr-only">
               Your device has lost its network connection. The app keeps working from cached
               data, and this message will disappear automatically once you&apos;re back online.
@@ -74,6 +82,23 @@ export function OfflineBanner() {
           </div>
         </m.div>
       )}
+      {online && backOnline ? (
+        <m.div
+          key="online"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          data-testid="online-restored"
+          className="fixed inset-x-0 top-[calc(5rem+var(--safe-top))] z-40 mx-auto w-fit max-w-[calc(100vw-2rem)]"
+        >
+          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1">
+            <Wifi className="h-3 w-3 shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
+            <span className="pr whitespace-nowrap">Back online</span>
+          </div>
+        </m.div>
+      ) : null}
+      </AnimatePresence>
     </div>
   );
 }
