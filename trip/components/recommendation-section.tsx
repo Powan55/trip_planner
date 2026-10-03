@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import Sheet from '@/components/ui/sheet-dark';
 import { SectionHeading } from '@/components/section-heading';
-import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart, Check } from 'lucide-react';
+import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart, Check, ArrowUp } from 'lucide-react';
 import { Recommendation } from '@/lib/nepal-data';
 import { cityOf } from '@/lib/leg-label';
 import OptimizedImage from '@/components/optimized-image';
@@ -111,12 +111,12 @@ function RecommendationCard({
           <div className="ramp" aria-hidden="true" />
         </div>
       ) : (
-        // No photograph: the frame renders at its FULL SIZE, hollow, rather than
-        // shrinking, and it is never captioned as absent.
-        <div className="empty-frame m-gut aspect-[16/10] flex items-center justify-center relative">
-          <MapPin className="w-8 h-8 text-ink-lo" aria-hidden="true" />
-          <span className="hollow-tag absolute bottom-2">No plate on file</span>
-          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+        // No photograph: collapse to a slim strip (~56px) instead of reserving a full
+        // 16:10 frame. Still hollow and never captioned as absent.
+        <div className="empty-frame m-gut min-h-14 px-3 py-2 flex items-center gap-2 flex-wrap">
+          <MapPin className="w-4 h-4 text-ink-lo shrink-0" aria-hidden="true" />
+          <span className="hollow-tag">No plate on file</span>
+          <div className="ml-auto flex items-center gap-1.5">
             {item.mustSee && (
               <span className="stamp border-[color:var(--now)] text-now">
                 <Star className="w-3 h-3 fill-current" aria-hidden="true" />
@@ -252,6 +252,13 @@ export default function RecommendationSection({
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeCity, setActiveCity] = useState('All');
   const [query, setQuery] = useState('');
+  const [showTop, setShowTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 1200);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const [sort, setSort] = useState<SortKey>('rating');
   const [savedOnly, setSavedOnly] = useState(false);
   const [plannedOnly, setPlannedOnly] = useState(false);
@@ -420,7 +427,7 @@ export default function RecommendationSection({
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or description…"
+              placeholder="Search places"
               aria-label={`Search ${title} guide`}
               data-testid="guide-search-input"
               className={`${CTRL} w-full min-h-tap pl-9 pr-9 py-2 placeholder:text-ink-lo`}
@@ -630,6 +637,20 @@ export default function RecommendationSection({
           </div>
         )}
       </div>
+
+      {showTop && (
+        <button
+          type="button"
+          onClick={() =>
+            window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+          }
+          aria-label="Back to top"
+          data-testid="guide-back-to-top"
+          className="fixed bottom-5 right-4 sm:right-6 z-40 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ArrowUp className="w-4 h-4" aria-hidden="true" />
+        </button>
+      )}
 
       <PlaceDetailSheet
         open={detailOpen}
