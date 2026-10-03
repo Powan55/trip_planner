@@ -843,7 +843,7 @@ export default function CalendarPlanner() {
 
   // drag-and-drop wiring (sensors, active-drag id, reorder / move-between-days
   // handlers) lives in a co-located hook now — same logic, lifted out to shrink this file.
-  const { sensors, activeItem, handleDragStart, handleDragOver, handleDragEnd } = useCalendarDnd({
+  const { sensors, announcements, activeItem, handleDragStart, handleDragOver, handleDragEnd } = useCalendarDnd({
     plans,
     getDayPlan,
     moveItem,
@@ -1745,6 +1745,7 @@ export default function CalendarPlanner() {
             {/* Items */}
             <DndContext
               sensors={sensors}
+              accessibility={{ announcements }}
               collisionDetection={closestCenter}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
