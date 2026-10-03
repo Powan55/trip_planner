@@ -238,7 +238,7 @@ export default function PageHero({
   // are /recap's scroll storytelling and the front-door hero, and neither is this.
   if (!photo) {
     return (
-      <header className={`px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10 ${className}`}>
+      <header className={`px-gutter pt-[calc(6rem+var(--safe-top))] pb-8 sm:pt-[calc(7rem+var(--safe-top))] sm:pb-10 ${className}`}>
         <div
           className={cn(
             'relative overflow-hidden mx-auto max-w-[1200px] border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-8 sm:px-10 sm:py-12',
@@ -257,7 +257,7 @@ export default function PageHero({
   }
 
   // ---- Tier 2: the photographic band ----
-  // The band starts at the top of the document and runs UNDER the fixed 64px navbar,
+  // The band starts at the top of the document and runs UNDER the fixed navbar,
   // which is the point of a full-bleed header. The body's 92px top padding is what
   // clears the navbar, and it is also what holds every text pixel below the local
   // scrim floor's 68px stop — one number doing both jobs, so neither can drift.

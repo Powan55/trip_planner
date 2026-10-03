@@ -268,7 +268,7 @@ export default function HomePage() {
           navbar mid-load. The hero is `flex-1 min-h-0` and fills whatever is left, so its
           vertically-centred content is centred in the space it actually occupies and its
           CTA clears the fold at every width down to 320. */}
-      <div className="flex min-h-[100svh] flex-col pt-16">
+      <div className="flex min-h-[100svh] flex-col pt-[var(--nav-h)]">
         {/* The strip's box is reserved HERE, on the always-present parent, not inside the
             island. The island passes through three states on a cold load — LazyVisible
             placeholder, chunk-gap loading slot, then the strip itself — and its very first
