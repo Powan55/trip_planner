@@ -27,6 +27,7 @@ import {
   STORAGE_KEYS,
 } from '@/core/storage/gateway';
 import { outboxDirty, type SyncDomain } from '@/core/sync/outbox';
+import { sanitizePhotos } from '@/core/photos/model';
 // Type only — `lib/city-coords.ts` is a leaf module (no imports of its own), so this does not
 // pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
 // the trip's own record, never written into that shared table.
@@ -547,10 +548,17 @@ export function replaceLocalPlanCopy(lead: string = REPLACE_LOCAL_PLAN_COPY): st
  * `wipeAllTripData()` clears the default pack's outbox AND every `trip:{id}:syncOutbox`, not just
  * the active one, so the warning shown before that wipe sums `listKnownTrips()` the same way. */
 export function unsyncedEditCount(): number {
-  return listKnownTrips().reduce(
-    (sum, t) => sum + SYNC_DOMAINS.reduce((s, d) => s + outboxDirty(d, t.id).length, 0) + journalDirty(t.id),
-    personPrefsDirty(),
-  );
+  return listKnownTrips().reduce((sum, t) => sum + unsyncedEditCountFor(t.id), personPrefsDirty());
+}
+
+/** One trip's unsynced edits (outbox + journal); forgetting it wipes both (#712). */
+export function unsyncedEditCountFor(id: string): number {
+  return SYNC_DOMAINS.reduce((s, d) => s + outboxDirty(d, id).length, 0) + journalDirty(id);
+}
+
+/** Photos stored on this device for a trip; forgetting it deletes their bytes (#712). */
+export function localPhotoCountFor(id: string): number {
+  return sanitizePhotos(readJson<unknown>('local', keyForTrip(id, 'photos'), null)).length;
 }
 
 /** Person prefs not yet on the account (#672); the wipe deletes key 48 with them. */

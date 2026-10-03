@@ -12,6 +12,8 @@ import {
   OWN_ACCOUNT_TOKEN_COPY,
   setTripConfig,
   getKnownTrip,
+  unsyncedEditCountFor,
+  localPhotoCountFor,
   TRIP_DAYS_MAX,
   type TripMeta,
   type TripConfigBlock,
@@ -148,6 +150,7 @@ export default function TripsHub() {
   /** D-546 — the one refusal this form can now make: a token that could never compose a path. */
   const [joinError, setJoinError] = useState<string | null>(null);
   const [forgetId, setForgetId] = useState<string | null>(null);
+  const [forgetLoss, setForgetLoss] = useState({ edits: 0, photos: 0 });
   // Read once after mount: on an untouched device getDefaultTripShareId() writes storage. A device
   // holding local edits with no id reads '' and stays local-only until account-share moves it.
   const [defaultSynced, setDefaultSynced] = useState(false);
@@ -558,7 +561,10 @@ export default function TripsHub() {
                       {canManage && t.id !== DEFAULT_TRIP_ID && (
                         <button
                           type="button"
-                          onClick={() => setForgetId(t.id)}
+                          onClick={() => {
+                            setForgetLoss({ edits: unsyncedEditCountFor(t.id), photos: localPhotoCountFor(t.id) });
+                            setForgetId(t.id);
+                          }}
                           data-testid={`trips-hub-forget-${i}`}
                           aria-label={`Forget ${t.name}`}
                           className="btn btn--2 btn--danger min-w-tap px-0"
@@ -804,8 +810,21 @@ export default function TripsHub() {
             <AlertDialogDescription className="text-ink-mid">
               This removes the trip from your list on this browser (and your other synced devices). It
               does <strong className="font-semibold text-ink-hi">not</strong> delete the trip&rsquo;s
-              cloud data &mdash; anyone holding its Trip Token can still open it, and you can add it
-              back any time by pasting that Trip Token.
+              cloud data &mdash; anyone holding its Trip Token can still open it, and pasting that
+              Trip Token adds it back. Its photos are deleted from every signed-in device, and
+              changes that haven&rsquo;t synced are lost. This device can&rsquo;t see unsynced
+              changes on your other devices.
+              {forgetLoss.edits > 0 && (
+                <span className="mt-2 block font-semibold text-ink-hi" data-testid="trips-hub-forget-unsynced">
+                  {forgetLoss.edits} {forgetLoss.edits === 1 ? 'change' : 'changes'} on this device{' '}
+                  {forgetLoss.edits === 1 ? "hasn't" : "haven't"} synced yet and will be lost.
+                </span>
+              )}
+              {forgetLoss.photos > 0 && (
+                <span className="mt-2 block font-semibold text-ink-hi" data-testid="trips-hub-forget-photos">
+                  {forgetLoss.photos} {forgetLoss.photos === 1 ? 'photo' : 'photos'} stored on this device will be deleted.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -46,10 +46,10 @@ function mergeIntoLocal(entries: PrefEntries, code: string | null): PrefEntries 
  * Push every dirty mirror field that is still newer than the account's copy, with its ORIGINAL
  * stamp (an automatic retry must not out-rank an edit made elsewhere since). Never rejects.
  */
-async function pushDirty(code: string): Promise<void> {
-  if ((getSyncCode()?.trim() ?? '') !== code) return; // the mirror now belongs to another account
+async function pushDirty(code: string): Promise<boolean> {
+  if ((getSyncCode()?.trim() ?? '') !== code) return false; // the mirror now belongs to another account
   const dirty = Object.entries(readLocal()).filter(([, e]) => e.dirty);
-  if (!dirty.length) return;
+  if (!dirty.length) return false;
   try {
     const { db, fs } = await getRemote();
     const ref = fs.doc(db, 'trips', code, 'profile', 'prefs');
@@ -70,8 +70,10 @@ async function pushDirty(code: string): Promise<void> {
       return out;
     });
     mergeIntoLocal(won, code);
+    return accountCode() === code;
   } catch (err) {
     console.warn('[account-prefs] retry failed, kept on this device:', err);
+    return false;
   }
 }
 
@@ -234,8 +236,17 @@ export function subscribePrefs(cb: (prefs: Record<string, unknown>) => void): ()
       console.warn('[account-prefs] subscribe unavailable:', err);
     }
   })();
+  const onOnline = () => {
+    void pushDirty(code)
+      .then((reconciled) => {
+        if (reconciled && !cancelled && accountCode() === code) cb(values(readLocal()));
+      })
+      .catch((err) => console.warn('[account-prefs] retry notification failed:', err));
+  };
+  window.addEventListener('online', onOnline);
   return () => {
     cancelled = true;
     unsub?.();
+    window.removeEventListener('online', onOnline);
   };
 }
