@@ -31,7 +31,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { type MapMarker, type MarkerCategory } from '@/lib/map-data';
-import { buildMapStyle, CATEGORY_COLOR, BRAND } from '@/lib/map-style';
+import { buildMapStyle, CATEGORY_COLOR, BRAND, OPENFREEMAP_TILEJSON } from '@/lib/map-style';
+import { useOnline } from '@/hooks/use-online';
 import { buildMapsDirectionsUrl } from '@/lib/maps-link';
 import { placeColor } from '@/lib/city-palette';
 import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
@@ -586,6 +587,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   // Issue #502 — set when the WebGL2 context can't be created; renders the
   // unavailable message in place of the canvas instead of leaving it blank.
   const [mapUnavailable, setMapUnavailable] = useState(false);
+  // Basemap source failed on a connection that is otherwise up; cleared when it loads.
+  const [basemapFailed, setBasemapFailed] = useState(false);
+  const online = useOnline();
   // The marker whose popup is currently open — drives the React portal content.
   const [popupMarker, setPopupMarker] = useState<MapMarker | null>(null);
   // The DOM node inside the open popup that we portal React content into.
@@ -593,6 +597,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MLMap | null>(null);
+  const basemapFailedRef = useRef(false);
+  const retryBasemapRef =useRef<() => void>(() => {});
+  const offRetryRef = useRef<() => void>(() => {});
   const popupRef = useRef<MLPopup | null>(null);
   const popupElRef = useRef<HTMLElement | null>(null);
   const popupOpenerRef = useRef<HTMLElement | null>(null);
@@ -629,6 +636,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
   // Open (or move) the in-canvas popup for a marker, and expose its content node
   // so React can portal the interactive content in.
+  const fitRef = useRef<() => void>(() => {});
   const openPopup = useCallback((maplibregl: MapLibreNS, marker: MapMarker) => {
     const map = mapRef.current;
     if (!map) return;
@@ -658,6 +666,18 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     popupOpenerRef.current = opener instanceof HTMLElement ? opener : null;
     const el = popup.getElement();
     popupElRef.current = el ?? null;
+    // popup sits above the marker, which easeTo seats POPUP_VIEW_OFFSET[1] below centre;
+    // 48 covers the tip + marker glyph + slack. Refit on resize (fullscreen changes height).
+    // KNOWN CEILING: map shorter than ~300px lets the popup overflow
+    const fit = () =>
+      el?.style.setProperty(
+        '--njp-popup-max',
+        `${Math.max(120, map.getContainer().clientHeight / 2 + POPUP_VIEW_OFFSET[1] - 48)}px`,
+      );
+    fit();
+    map.off('resize', fitRef.current);
+    fitRef.current = fit;
+    map.on('resize', fit);
     const p = popup;
     el?.addEventListener('keydown', (e) => onPopupKeyDown(e, () => p.remove()));
     setPopupNode(holder);
@@ -783,6 +803,30 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         );
       });
       geolocate.on('geolocate', () => onGeoNoteRef.current?.(null));
+
+      // Any 'error' listener silences MapLibre's default console output, so re-log the rest.
+      map.on('error', (e) => {
+        if ((e as { sourceId?: string }).sourceId === 'openfreemap') {
+          basemapFailedRef.current = true;
+          setBasemapFailed(true);
+        } else console.error(e.error);
+      });
+      map.on('sourcedata', (e) => {
+        if (e.sourceId === 'openfreemap' && e.isSourceLoaded) {
+          basemapFailedRef.current = false;
+          setBasemapFailed(false);
+        }
+      });
+      // setUrl, not setStyle: setStyle would wipe the pin/route layers added on load.
+      const m = map;
+      const retryBasemap = () =>
+        basemapFailedRef.current &&
+        (m.getSource('openfreemap') as { setUrl?: (u: string) => void } | undefined)?.setUrl?.(
+          OPENFREEMAP_TILEJSON,
+        );
+      retryBasemapRef.current = retryBasemap;
+      window.addEventListener('online', retryBasemap);
+      offRetryRef.current = () => window.removeEventListener('online', retryBasemap);
 
       map.on('load', () => {
         if (cancelled) return;
@@ -1045,6 +1089,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
     return () => {
       cancelled = true;
+      offRetryRef.current();
       popupRef.current?.remove();
       popupRef.current = null;
       mapRef.current?.remove();
@@ -1279,6 +1324,25 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         </div>
       )}
 
+      {/* Basemap failed while the connection is up: say so and offer a retry. A strip at the
+          bottom, not a cover, so pins stay tappable. Offline has its own hint in map-section. */}
+      {basemapFailed && online && !mapUnavailable && (
+        <div
+          data-testid="map-basemap-error"
+          role="status"
+          className="absolute inset-x-2 bottom-8 z-10 mx-auto flex max-w-md items-center justify-between gap-3 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-gut py-2 text-t-sm text-ink-mid"
+        >
+          <span>Map background didn&apos;t load. Pins and route still work.</span>
+          <button
+            type="button"
+            onClick={() => retryBasemapRef.current()}
+            className="min-h-[var(--tap)] shrink-0 rounded-r1 border-hair border-[color:hsl(var(--border))] px-3 text-ink-hi"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Loading skeleton until the GL canvas is ready. */}
       {!mapUnavailable && !mapReady && (
         // The word is a real text node, not a `content:` string — a static block is
@@ -1340,7 +1404,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
              content (the "Anchor to a day" block can make it tall). An unbounded tall
              popup re-anchors/jitters against the map edge under continuous repaint,
              which made a re-opened popup's controls fail Playwright's stability check. */
-          max-height: 70vh;
+          max-height: min(70vh, var(--njp-popup-max, 70vh));
+          padding-right: calc(var(--tap) + 0.25rem);
           overflow-y: auto;
           /* if anything DOES scroll a popup control into view (Playwright's
              scrollIntoViewIfNeeded, or a keyboard user tabbing to the heart), leave
@@ -1356,9 +1421,11 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         .njp-map-popup .maplibregl-popup-close-button {
           color: var(--text-lo);
           font-size: var(--t-lead);
-          padding: 2px 7px;
-          right: 2px;
-          top: 2px;
+          width: var(--tap);
+          height: var(--tap);
+          padding: 0;
+          right: 0;
+          top: 0;
         }
         .njp-map-popup .maplibregl-popup-close-button:hover {
           color: var(--text-hi);

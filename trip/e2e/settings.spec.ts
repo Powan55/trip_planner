@@ -570,6 +570,8 @@ test.describe('S174 (FU-37) — expenses JSON backup/restore (own schema, D-098)
     // S228: this real Chromium supports CompressionStream, so the export is gzip-compressed
     // (shared `core/vault/compression.ts` helper) — filename carries the `.gz` marker.
     expect(download.suggestedFilename()).toBe('nepal-japan-expenses.json.gz');
+    const acceptedTypes = (await page.getByTestId('settings-import-expenses-input').getAttribute('accept'))?.split(',');
+    expect(acceptedTypes).toEqual(expect.arrayContaining(['application/json', '.json', '.gz', 'application/gzip']));
 
     const path = await download.path();
     expect(path).toBeTruthy();

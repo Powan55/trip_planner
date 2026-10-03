@@ -39,9 +39,9 @@ export default function Footer() {
     // fade its own edge out at the margins.
     <footer className="relative px-gutter py-12 border-t-2 border-[hsl(var(--border))]">
       <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-3 text-center">
-        <div className="flex items-center gap-2">
+        <div className="flex max-w-full items-center gap-2">
           <MapPin className="h-4 w-4 shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
-          <span className="font-machine text-t-label font-semibold uppercase tracking-[0.13em] text-[color:var(--text-hi)]">
+          <span className="min-w-0 [overflow-wrap:anywhere] font-machine text-t-label font-semibold uppercase tracking-[0.13em] text-[color:var(--text-hi)]">
             <FooterWordmark legs={getActiveTrip().legs} />
           </span>
         </div>

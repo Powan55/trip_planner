@@ -681,6 +681,7 @@ export default function TripsHub() {
               <input
                 id="trips-hub-create-destinations"
                 data-testid="trips-hub-create-destinations"
+                maxLength={120}
                 value={createDestinations}
                 onChange={(e) => {
                   setCreateDestinations(e.target.value);

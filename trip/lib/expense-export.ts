@@ -132,8 +132,14 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
       error: 'That file has no expenses in it. No changes were made to your expenses.',
     };
   }
-  const expenses = sanitizeExpenses(payload);
-  if (expenses.length !== payload.length) {
+  // sanitizeExpenses clamps a negative or non-numeric amount to 0 and keeps the row, so a bad
+  // file would import as a clean-looking zero-cost expense. Check the raw rows first.
+  const badAmount = payload.some((row) => {
+    const a = typeof row === 'object' && row !== null ? (row as { amount?: unknown }).amount : 0;
+    return a !== 0 && (typeof a !== 'number' || !Number.isFinite(a) || a < 0);
+  });
+  const expenses = badAmount ? [] : sanitizeExpenses(payload);
+  if (badAmount || expenses.length !== payload.length) {
     quarantine(rawText);
     return {
       ok: false,

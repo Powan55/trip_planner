@@ -28,6 +28,10 @@ vi.mock('@/lib/firebase-remote', () => ({
 }));
 const flushAllDomains = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock('@/hooks/use-domain-sync', () => ({ flushAllDomains }));
+const flushJournal = vi.hoisted(() => vi.fn(async () => {}));
+const flushPrefs = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('@/lib/journal-remote', () => ({ flushJournal }));
+vi.mock('@/lib/account-prefs-remote', () => ({ flushPrefs }));
 vi.mock('@/lib/firebase-config', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/firebase-config')>()),
   isRemoteConfigured: () => remoteGate.on,
@@ -236,6 +240,20 @@ describe('SignOutConfirm — teardown', () => {
     await act(async () => release());
     expect(clearRemoteCache).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  // #816: journal days and account prefs queue outside the outbox; the wipe must wait for them too.
+  it('also waits for the journal and prefs flushers before clearing', async () => {
+    clearRemoteCache.mockClear();
+    let release!: () => void;
+    flushJournal.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    await mount();
+    await click('t-confirm');
+    expect(flushPrefs).toHaveBeenCalled();
+    expect(clearRemoteCache).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    await act(async () => release());
+    expect(clearRemoteCache).toHaveBeenCalledTimes(1);
   });
 
   it('gives up on a flush that never settles after 8s', async () => {

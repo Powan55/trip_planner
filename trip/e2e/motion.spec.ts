@@ -321,15 +321,15 @@ const vtWasSeen = (page: Page) =>
 /**
  * S179 (D-171) — View Transitions wrapper reconciled with the
  * template.tsx route fade. The centerpiece guarantees:
- *   - the ONE CSS handshake (`html[data-vt-active] .animate-route-fade { animation:none }`)
- *     deterministically suppresses the route fade for the bracketed window;
+ *   - the ONE CSS handshake (`html[data-vt-active] .animate-route-fade { animation-duration:0s }`)
+ *     pins the route fade at opacity 1 for the bracketed window without restarting it;
  *   - the supported path actually drives a VT and never leaves the attribute stuck;
  *   - the no-support fallback keeps today's plain-push + route-fade behavior (the
  *     Firefox/Safari path), setting no attribute;
  *   - reduced motion is NONE of either kind (no fade AND no VT) — D-007/D-056.
  */
 test.describe('S179 · view transitions — route-fade suppression handshake', () => {
-  test('html[data-vt-active] collapses .animate-route-fade to animation-name: none (and only then)', async ({
+  test('html[data-vt-active] keeps .animate-route-fade at opacity 1 and removal does not restart it', async ({
     page,
   }) => {
     // Default (non-reduced) context: the fade wrapper carries a REAL animation.
@@ -345,11 +345,16 @@ test.describe('S179 · view transitions — route-fade suppression handshake', (
     // (specificity html[attr] .class > .class) → the fade is neutralised, so the VT
     // cross-fade is the only motion and template.tsx's remount can't double-animate.
     await page.evaluate(() => document.documentElement.setAttribute('data-vt-active', ''));
-    expect(await wrapper.evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+    expect(await wrapper.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
 
-    // Removing it restores the fade — proving the rule is scoped to the bracketed window.
+    // Removing it must not restart the fade (no blank-then-fade): same name, still opaque.
     await page.evaluate(() => document.documentElement.removeAttribute('data-vt-active'));
-    expect(await wrapper.evaluate((el) => getComputedStyle(el).animationName)).toBe('route-fade');
+    expect(
+      await wrapper.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return `${cs.animationName}/${cs.opacity}`;
+      }),
+    ).toBe('route-fade/1');
   });
 
   test('supported browser: a navbar nav drives a VT and never leaves the attribute stuck', async ({
