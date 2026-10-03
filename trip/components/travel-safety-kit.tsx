@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
 import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core/content/safety';
 import { useWakeLock } from '@/lib/use-wake-lock';
+import { getTodayInTrip } from '@/lib/trip-now';
 
 /**
  * TravelSafetyKit — the offline travel-safety reference rendered on `/safety`:
@@ -26,6 +27,8 @@ export default function TravelSafetyKit() {
   // visibility-aware, releases on unmount, never throws (see lib/use-wake-lock.ts).
   useWakeLock(true);
 
+  // Country the trip clock is in goes first; no match (before/after trip, custom 'main' leg) → Nepal first.
+  const order: Array<'Nepal' | 'Japan'> = (getTodayInTrip()?.country.toLowerCase() === 'japan' ? ['Japan', 'Nepal'] : ['Nepal', 'Japan']);
   const contactsByCountry = groupBy(EMERGENCY_CONTACTS, (c) => c.country);
   const hazardsByCountry = groupBy(HAZARD_NOTES, (n) => n.country);
   const phrasesByCategory = groupBy(SAFETY_PHRASES, (p) => p.category);
@@ -45,7 +48,7 @@ export default function TravelSafetyKit() {
         </p>
 
         <div>
-          {(['Nepal', 'Japan'] as const).map((country) => (
+          {order.map((country) => (
             <div key={country}>
               <div className="head static flex-wrap">
                 <span className="f">
@@ -78,7 +81,7 @@ export default function TravelSafetyKit() {
         </p>
 
         <div>
-          {(['Japan', 'Nepal'] as const).map((country) => (
+          {order.map((country) => (
             <div key={country}>
               <div className="head static flex-wrap">
                 <span className="f">
