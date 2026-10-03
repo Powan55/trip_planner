@@ -183,7 +183,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
       <div className="r" aria-current={isNow ? 'true' : undefined}>
         <span className="tm">{timeInfo ? timeInfo.label : NO_TIME}</span>
         <div className="min-w-0">
-          <h3 data-testid="travel-hero-headline" className="truncate">
+          <h3 data-testid="travel-hero-headline" className="break-words">
             {headline.title}
           </h3>
           <span className="mt">
@@ -200,7 +200,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
         <div className="r" data-mark="hollow">
           <span className="tm">{thenTime ? thenTime.label : NO_TIME}</span>
           <div className="min-w-0">
-            <h3 data-testid="travel-hero-then" className="truncate">
+            <h3 data-testid="travel-hero-then" className="break-words">
               {state.next.title}
             </h3>
             <span className="mt">then</span>

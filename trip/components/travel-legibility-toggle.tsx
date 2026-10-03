@@ -58,7 +58,6 @@ export default function TravelLegibilityToggle() {
       type="button"
       onClick={toggle}
       aria-pressed={high}
-      aria-label="High legibility"
       data-testid="travel-legibility-toggle"
       className={`pr inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-r1 border-hair px-2 outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         high
@@ -67,7 +66,7 @@ export default function TravelLegibilityToggle() {
       }`}
     >
       <Sun className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className="hidden sm:inline">{high ? 'Outdoor on' : 'Outdoor'}</span>
+      <span>{high ? 'Outdoor on' : 'Outdoor'}</span>
     </button>
   );
 }

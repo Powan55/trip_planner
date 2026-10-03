@@ -164,7 +164,7 @@ function AgendaRow({
         <span className="min-w-0">
           <span
             data-testid={`${prefix}-agenda-item`}
-            className={`block truncate text-t-body leading-[1.28] ${
+            className={`block break-words text-t-body leading-[1.28] ${
               done
                 ? 'font-medium text-ink-lo line-through'
                 : recedes
@@ -174,7 +174,7 @@ function AgendaRow({
           >
             {item.title}
           </span>
-          {meta && <span className="mt truncate">{meta}</span>}
+          {meta && <span className="mt break-words">{meta}</span>}
           <CompletedFooter item={item} />
         </span>
         <span
