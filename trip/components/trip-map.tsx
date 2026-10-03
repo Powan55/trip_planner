@@ -629,6 +629,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
   // Open (or move) the in-canvas popup for a marker, and expose its content node
   // so React can portal the interactive content in.
+  const fitRef = useRef<() => void>(() => {});
   const openPopup = useCallback((maplibregl: MapLibreNS, marker: MapMarker) => {
     const map = mapRef.current;
     if (!map) return;
@@ -658,6 +659,18 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     popupOpenerRef.current = opener instanceof HTMLElement ? opener : null;
     const el = popup.getElement();
     popupElRef.current = el ?? null;
+    // popup sits above the marker, which easeTo seats POPUP_VIEW_OFFSET[1] below centre;
+    // 48 covers the tip + marker glyph + slack. Refit on resize (fullscreen changes height).
+    // KNOWN CEILING: map shorter than ~300px lets the popup overflow
+    const fit = () =>
+      el?.style.setProperty(
+        '--njp-popup-max',
+        `${Math.max(120, map.getContainer().clientHeight / 2 + POPUP_VIEW_OFFSET[1] - 48)}px`,
+      );
+    fit();
+    map.off('resize', fitRef.current);
+    fitRef.current = fit;
+    map.on('resize', fit);
     const p = popup;
     el?.addEventListener('keydown', (e) => onPopupKeyDown(e, () => p.remove()));
     setPopupNode(holder);
@@ -1340,7 +1353,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
              content (the "Anchor to a day" block can make it tall). An unbounded tall
              popup re-anchors/jitters against the map edge under continuous repaint,
              which made a re-opened popup's controls fail Playwright's stability check. */
-          max-height: 70vh;
+          max-height: min(70vh, var(--njp-popup-max, 70vh));
+          padding-right: calc(var(--tap) + 0.25rem);
           overflow-y: auto;
           /* if anything DOES scroll a popup control into view (Playwright's
              scrollIntoViewIfNeeded, or a keyboard user tabbing to the heart), leave
@@ -1356,9 +1370,11 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         .njp-map-popup .maplibregl-popup-close-button {
           color: var(--text-lo);
           font-size: var(--t-lead);
-          padding: 2px 7px;
-          right: 2px;
-          top: 2px;
+          width: var(--tap);
+          height: var(--tap);
+          padding: 0;
+          right: 0;
+          top: 0;
         }
         .njp-map-popup .maplibregl-popup-close-button:hover {
           color: var(--text-hi);

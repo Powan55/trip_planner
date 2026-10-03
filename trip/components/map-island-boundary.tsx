@@ -66,6 +66,10 @@ type Props = {
   children: ReactNode;
   /** What could not load, in plain words — e.g. "The interactive map". */
   label?: string;
+  /** Replaces the map-engine heading for non-map islands. */
+  title?: string;
+  /** Replaces the map-engine body copy for non-map islands. */
+  detail?: string;
 };
 
 type State = { failed: boolean };
@@ -98,12 +102,16 @@ export default class MapIslandBoundary extends Component<Props, State> {
         role="note"
         className="empty-frame mx-auto w-full max-w-md p-gut py-6 text-center"
       >
-        <p className="pr pr--l err mb-2">Map engine not on this device</p>
+        <p className="pr pr--l err mb-2">{this.props.title ?? 'Map engine not on this device'}</p>
         <p className="empty">
-          {label} needs its map engine, which isn&apos;t stored on this device — it is
-          large, and it would show a blank canvas without cached tiles anyway.
-          Reconnect, then try again. Everything else on this page works offline, and your
-          saved places and itinerary are safe on this device.
+          {this.props.detail ?? (
+            <>
+              {label} needs its map engine, which isn&apos;t stored on this device — it is
+              large, and it would show a blank canvas without cached tiles anyway.
+              Reconnect, then try again. Everything else on this page works offline, and your
+              saved places and itinerary are safe on this device.
+            </>
+          )}
         </p>
         {/* A full reload, not `setState({ failed: false })`: re-rendering the island only
             re-imports the chunk if webpack has evicted the rejected module, so clearing

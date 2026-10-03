@@ -59,6 +59,9 @@ export interface Journey {
   // the date-line-crossing time/duration/total labels protects. The card's trip-clock
   // (getNow + computeCountdown, core/dates) targets THIS, never a booking time label.
   departDate: string;         // 'YYYY-MM-DD'
+  // AUTHORED last leg's arrival day (destination-local), read off its `arriveLabel`. Omit when
+  // it equals departDate. Keeps an overnight journey 'current' until that day ends.
+  arriveDate?: string;        // 'YYYY-MM-DD'
   legs: FlightLeg[];          // ordered
   layovers: Layover[];        // ordered, length === legs.length - 1; positionally between legs[i] and legs[i+1]
 }
@@ -82,6 +85,7 @@ export const OUTBOUND_JOURNEY: Journey = {
   fromSummary: 'Syracuse (SYR)', toSummary: 'Kathmandu (KTM)',
   totalDuration: '1d 15m',            // verbatim from the booking source — render as-is, do NOT recompute
   departDate: '2026-12-09',           // authored from leg out-1 '5:30am Wed Dec 9' (= TRIP_DATES[0])
+  arriveDate: '2026-12-10',           // authored from leg out-3 '4:30pm Thu Dec 10'
   legs: [
     { id: 'out-1', flightNumber: 'Meridian Air 4471',
       fromCode: 'SYR', fromName: 'Syracuse Hancock Intl',
@@ -113,6 +117,7 @@ export const RETURN_TO_JAPAN_JOURNEY: Journey = {
   fromSummary: 'Kathmandu (KTM)', toSummary: 'Tokyo (HND)',
   totalDuration: '10h 50m',
   departDate: '2026-12-18',           // authored from leg ret-1 '11:30pm Fri Dec 18'
+  arriveDate: '2026-12-19',           // authored from leg ret-2 '1:35pm Sat Dec 19'
   legs: [
     { id: 'ret-1', flightNumber: 'Pacific Crown Air 8823',
       fromCode: 'KTM', fromName: 'Kathmandu Tribhuvan Intl', fromTerminal: 'Terminal I',

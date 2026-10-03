@@ -8,7 +8,7 @@
  *
  * 🔴 WHY IT IS ITS OWN FILE, AND WHY MOVING IT BACK BREAKS THE APP OFFLINE.
  * `StoragePersistence` is mounted in `app/layout.tsx`, so anything it imports lands in the ROOT
- * LAYOUT's chunk graph. Importing this number from `lib/preflight.ts` pulled that whole module in
+ * LAYOUT's chunk graph. Until #757, importing this number from `lib/preflight.ts` pulled that whole module in
  * — including the string `maplibregl`, which preflight carries as the marker it SEARCHES cached
  * chunks for. Two independent consumers read "chunk body contains that string" as "this chunk IS
  * the map engine": `scripts/gen-sw.mjs`'s isMaplibreChunk(), and `e2e/pwa.spec.ts`'s eviction
