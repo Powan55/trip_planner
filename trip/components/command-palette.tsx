@@ -252,7 +252,7 @@ function formatConvertedAmount(n: number, currency: string): string {
     maximumFractionDigits = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,
-    }).resolvedOptions().maximumFractionDigits;
+    }).resolvedOptions().maximumFractionDigits ?? 2;
   } catch {
     // unrecognized currency code — fall back to 2
   }
