@@ -130,19 +130,19 @@ export default function TravelSafetyKit() {
                 aria-label={`${category} phrases`}
                 className="overflow-x-auto border-b-hair border-border outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
-                {/* #223 — `print:min-w-0` releases the 480px floor on paper. The floor exists so
+                {/* #223 — `print:min-w-0` releases the sm+ 480px floor on paper (below sm the columns just fit). The floor exists so
                     the three columns stay side by side on a phone and the wrapper above scrolls;
                     a sheet has no scroll to offer, so on anything narrower than A4 the table
                     would simply run off the right edge and lose the Japanese column. The print
                     block's `overflow: visible` unclips the wrapper; this is what lets the table
                     reflow into the width it is actually given. */}
-                <table className="w-full min-w-[480px] border-collapse text-left text-t-body print:min-w-0">
+                <table className="w-full border-collapse sm:min-w-[480px] text-left text-t-body print:min-w-0">
                   <caption className="sr-only">{category} phrases — English, Nepali in Devanagari with romanization, Japanese in kana/kanji with romanization</caption>
                   <thead>
                     <tr className="border-b-hair border-border">
-                      <th scope="col" className="pr px-gut py-2">English</th>
-                      <th scope="col" className="pr px-gut py-2">Nepali</th>
-                      <th scope="col" className="pr px-gut py-2">Japanese</th>
+                      <th scope="col" className="pr px-2 py-2 sm:px-gut">English</th>
+                      <th scope="col" className="pr px-2 py-2 sm:px-gut">Nepali</th>
+                      <th scope="col" className="pr px-2 py-2 sm:px-gut">Japanese</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -249,7 +249,7 @@ function HazardRow({ note }: { note: HazardNote }) {
 function PhraseRow({ phrase }: { phrase: Phrase }) {
   return (
     <tr data-testid={`safety-phrase-${phrase.id}`} className="border-b-hair border-border last:border-0">
-      <td className="px-gut py-2 align-top text-t-body text-ink-hi">{phrase.english}</td>
+      <td className="px-2 py-2 align-top text-t-body text-ink-hi sm:px-gut">{phrase.english}</td>
       <ScriptCell lang="ne" script={phrase.nepaliScript} roman={phrase.nepali} />
       <ScriptCell lang="ja" script={phrase.japaneseScript} roman={phrase.japanese} />
     </tr>
@@ -265,14 +265,13 @@ function PhraseRow({ phrase }: { phrase: Phrase }) {
  * against that language's OS fallback face. The app ships no webfont covering either script and
  * deliberately never will — see the OFFLINE FONTS note in `core/content/safety.ts`.
  *
- * Two lines in one cell rather than five columns: the table already scrolls horizontally at
- * `min-w-[480px]` (D-022), and two more columns would make that scroll permanent on a phone.
+ * Two lines in one cell rather than five columns: five would not fit a phone without scrolling.
  * Both lines sit on the solid text tiers on the dark field, so both clear AA at rest
  * (issue #27 replaced the old `white/70` alpha; --text-mid is 8.85:1 at its worst step).
  */
 function ScriptCell({ lang, script, roman }: { lang: 'ne' | 'ja'; script: string; roman: string }) {
   return (
-    <td className="px-gut py-2 align-top">
+    <td className="px-2 py-2 align-top sm:px-gut">
       <span lang={lang} className="block text-t-lead leading-snug text-ink-hi">
         {script}
       </span>
