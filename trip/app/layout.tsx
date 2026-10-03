@@ -8,6 +8,7 @@ import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
+import { ClockOverrideBanner } from '@/components/clock-override-banner'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
 import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
@@ -226,6 +227,8 @@ export default function RootLayout({
           {/* app-wide offline-push outbox status pill. Renders nothing on a dormant/guest
               build or before anything has ever synced; top-right, below the navbar. */}
           <SyncStatusBadge />
+          {/* #790: persistent marker while the `?today=` demo clock is active. */}
+          <ClockOverrideBanner />
         </ThemeProvider>
       </body>
     </html>

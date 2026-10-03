@@ -42,8 +42,8 @@ export interface JournalStore {
   saveEntry(date: string, patch: JournalPatch): void;
   removeEntry(date: string): void;
   /** Clear ALL journal entries on THIS device. Pushes nothing, so the account copy and the
-   * author's other devices keep theirs. */
-  clearAll(): void;
+   * author's other devices keep theirs. False when the write was refused. */
+  clearAll(): boolean;
 }
 
 // The shared hydrate/listen/commit skeleton, instantiated once for the journal domain.
@@ -113,9 +113,7 @@ export function useJournal(): JournalStore {
   );
 
   // Local only. The key-50 stamps stay, so the account copy doesn't refill what was cleared.
-  const clearAll = useCallback(() => {
-    commit(() => []);
-  }, [commit]);
+  const clearAll = useCallback(() => commit(() => []), [commit]);
 
   return { entries, hydrated, getEntry, saveEntry, removeEntry, clearAll };
 }

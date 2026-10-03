@@ -760,12 +760,12 @@ export default function MapSection() {
     <section
       id="map"
       aria-labelledby="map-heading"
-      className="py-20 px-4 sm:px-6"
+      className="py-20 px-4 sm:px-6 max-sm:pt-3 max-sm:pb-10"
     >
       <div className="max-w-[1200px] mx-auto">
         <SectionHeading
           id="map-heading"
-          className="mb-8"
+          className="mb-8 max-sm:sr-only"
           title="Interactive Map"
           subtitle={
             curated.length > 0
@@ -780,7 +780,7 @@ export default function MapSection() {
             is safe under the same guard — `savedCount` is derived from `curated`, so it is
             already 0 whenever this is. */}
         {curated.length > 0 && (
-        <div className="flex flex-wrap justify-center gap-2 mb-4">
+        <div className="flex flex-wrap justify-center gap-2 mb-4 max-sm:mb-2 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:-mx-4 max-sm:px-4 max-sm:pb-1 max-sm:[&>*]:shrink-0">
           {filters.map((value) => {
             const isActive = filter === value;
             const style =
@@ -829,7 +829,7 @@ export default function MapSection() {
         )}
 
         {/* Overlay + search + fullscreen controls. */}
-        <div className="flex flex-wrap justify-center items-center gap-2 mb-5">
+        <div className="flex flex-wrap justify-center items-center gap-2 mb-5 max-sm:mb-3">
           {/* search-within-map: an icon toggle that reveals a small
               client-side search over MAP_MARKERS (name/area/country). */}
           <div className="relative">

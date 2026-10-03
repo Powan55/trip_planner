@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { TRIP_DATES } from '@/lib/trip-data';
-import { getTodayInTrip } from '@/lib/trip-now';
+import { getTodayInTripForWrite } from '@/lib/trip-now';
 import { getSelectedDay } from '@/lib/selected-day';
 import { isTravelRoute } from '@/lib/travel-route';
 
@@ -46,6 +46,10 @@ const NON_ADD_ROUTES = [
   '/recap',
   '/profile',
   '/flights',
+  '/settings',
+  '/passport',
+  '/journal',
+  '/map',
 ] as const;
 
 function isNonAddRoute(pathname: string | null | undefined): boolean {
@@ -66,7 +70,7 @@ function isNonAddRoute(pathname: string | null | undefined): boolean {
  * - SEAM 1 — emit: on click we `window.dispatchEvent(new CustomEvent('quickadd:open', { detail:
  * { date } }))`. ships the listener (`quick-add-host.tsx`) that opens the dialog on that
  * date. Until merged there is no listener → the click is a harmless no-op (we do NOT build a
- * fallback dialog). The preset `date` is `getTodayInTrip()?.date ?? getSelectedDay() ??
+ * fallback dialog). The preset `date` is `getTodayInTripForWrite()?.date ?? getSelectedDay() ??
  * TRIP_DATES[0]` — i.e. today if we're mid-trip, else the day the calendar has focused, else
  * the first trip day.
  * - SEAM 2 — hide on dialog:'s dialog sets `document.body.dataset.dialogOpen = '1'` while
@@ -109,7 +113,7 @@ export default function QuickAddFab() {
   // Seam 1: resolve the preset date and emit the open event. listens; no-op until then.
   const handleClick = () => {
     if (typeof window === 'undefined') return;
-    const date = getTodayInTrip()?.date ?? getSelectedDay() ?? TRIP_DATES[0];
+    const date = getTodayInTripForWrite()?.date ?? getSelectedDay() ?? TRIP_DATES[0];
     window.dispatchEvent(new CustomEvent('quickadd:open', { detail: { date } }));
   };
 
