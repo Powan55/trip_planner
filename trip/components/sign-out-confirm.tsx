@@ -65,6 +65,7 @@ export default function SignOutConfirm({
   children: React.ReactNode;
 }) {
   const [backup, setBackup] = useState<'idle' | 'done' | 'error'>('idle');
+  const [backupMsg, setBackupMsg] = useState('');
   const [step, setStep] = useState<'confirm' | 'key'>('confirm');
   // Read post-open, never at mount: client-only storage and session reads.
   const [code, setCode] = useState<string | null>(null);
@@ -80,9 +81,12 @@ export default function SignOutConfirm({
 
   const handleBackup = async () => {
     try {
-      await downloadTripBackup();
+      const { missing = 0, omitted = 0 } = (await downloadTripBackup()) ?? {};
+      const left = missing + omitted;
+      setBackupMsg(left > 0 ? `${left} photo${left === 1 ? ' was' : 's were'} left out of the backup.` : '');
       setBackup('done');
-    } catch {
+    } catch (e) {
+      setBackupMsg(e instanceof Error && e.message.startsWith('This trip is too large') ? e.message : '');
       setBackup('error');
     }
   };
@@ -194,10 +198,11 @@ export default function SignOutConfirm({
               {backup === 'done' ? 'Backup downloaded' : 'Back up this trip first'}
             </button>
             <div aria-live="polite" className="min-h-[1.25rem] text-xs">
+              {backup === 'done' && backupMsg && <p className="text-[color:var(--text-mid)]">{backupMsg}</p>}
               {backup === 'error' && (
                 <p className="flex items-center gap-1.5 text-red-300">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  Could not back up your trip. Please try again.
+                  {backupMsg || 'Could not back up your trip. Please try again.'}
                 </p>
               )}
             </div>

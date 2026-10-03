@@ -2,6 +2,7 @@
 
 import { Fragment, useId, useState } from 'react';
 import { Check, Copy, Download, ShieldAlert } from 'lucide-react';
+import { downloadBlob } from '@/lib/download-blob';
 
 /**
  * "This is your key." — the show-once screen.
@@ -84,12 +85,7 @@ export default function UserTokenShowOnce({
   const download = () => {
     try {
       const body = `${token}\n\nThis is your key — the only way back into your account. Keep it safe; never share it.\n`;
-      const url = URL.createObjectURL(new Blob([body], { type: 'text/plain' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'nepal-japan-your-key.txt';
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(new Blob([body], { type: 'text/plain' }), 'nepal-japan-your-key.txt');
       setNotice({ tone: 'ok', text: 'Saved as nepal-japan-your-key.txt.' });
     } catch {
       setNotice({
