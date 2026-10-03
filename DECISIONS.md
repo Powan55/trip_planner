@@ -6050,3 +6050,12 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Why.** A failed push stayed dirty until the next foreground or edit, so a traveller who stayed on one screen never synced, and sign-out wiped those edits without trying once more.
 
 **Trade-off.** Up to 6 extra writes per stuck chunk per trigger, which the cap exists for (free-tier write budget). Sign-out can take up to 8s longer on a dead network. A push that acks after the sign-out wipe can write `{dirty:{}, lastAckAt}` into the wiped slot, which is harmless.
+### D-674 · (issue #753, 2026-10-03) · The sync badge counts queued journal days and prefs
+
+The badge read only the outbox, so it said Synced while a journal day or an account pref was still waiting to push, and those two only retried while their own view was mounted. `pending` now adds the active trip's dirty journal days and dirty pref fields, behind the outbox's gate plus an account code (the same gate their push uses), so a guest never sees a count nothing will clear.
+
+**A refusal is blocked, not pending (#267 parity).** A journal day or prefs push the rules refuse stays dirty, is recorded for this page load only, is skipped by every later flush until reload, and counts in both `blocked` and `pending`, so `blocked` stays a subset and the badge and pre-flight show the refused row instead of Pending forever. Concurrent flushes of the same queue share one run.
+
+Both mirrors dispatch the outbox's change event on every write, so an ack clears the badge without waiting for the minute tick. The badge, which is mounted app-wide, runs a one-shot push of both queues on mount, on `online`, and when the tab becomes visible.
+
+**Not a listener.** Mounting the journal's snapshot stream app-wide would cost a read on every change for the life of the page. The one-shot push costs nothing when nothing is dirty, and one transaction read per dirty day or per prefs flush otherwise.

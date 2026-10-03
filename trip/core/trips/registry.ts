@@ -562,17 +562,23 @@ export function localPhotoCountFor(id: string): number {
 }
 
 /** Person prefs not yet on the account (#672); the wipe deletes key 48 with them. */
-function personPrefsDirty(): number {
+export function personPrefsDirty(): number {
   const prefs = readJson<unknown>('local', STORAGE_KEYS.personPrefs, null);
   if (typeof prefs !== 'object' || prefs === null) return 0;
   return Object.values(prefs).filter((e) => (e as { dirty?: unknown } | null)?.dirty === true).length;
 }
 
 /** Journal days waiting to push (#631). They queue in key 50, not the outbox, and the wipe drops them too. */
-function journalDirty(id: string): number {
+export function journalDirty(id: string): number {
+  return journalDirtyDates(id).length;
+}
+
+export function journalDirtyDates(id: string): string[] {
   const meta = readJson<unknown>('local', keyForTrip(id, 'journalSync'), null);
-  if (typeof meta !== 'object' || meta === null) return 0;
-  return Object.values(meta).filter((m) => (m as { dirty?: unknown } | null)?.dirty === true).length;
+  if (typeof meta !== 'object' || meta === null) return [];
+  return Object.entries(meta)
+    .filter(([, m]) => (m as { dirty?: unknown } | null)?.dirty === true)
+    .map(([d]) => d);
 }
 
 /**
