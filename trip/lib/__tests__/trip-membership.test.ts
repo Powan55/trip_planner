@@ -337,6 +337,16 @@ describe('Google identity adoption repairs every known remote trip (#450)', () =
     expect(fake.serverReadPaths.sort()).toEqual(['trips/trip-one', 'trips/trip-two']);
   });
 
+  it('skips a kept legacy-name row: that path is an account, not a trip (#775)', async () => {
+    gate.tripId = '';
+    upsertKnownTrip('Sushil', 'Old');
+    upsertKnownTrip('trip-one', 'One');
+
+    await ensureKnownTripMemberships();
+
+    expect(fake.serverReadPaths).toEqual(['trips/trip-one']);
+  });
+
   it('does no reads when Firebase is dormant', async () => {
     upsertKnownTrip('trip-one', 'One');
     gate.on = false;

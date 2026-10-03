@@ -55,7 +55,12 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
   describe('parseTripToken — which namespace does this token name?', () => {
     it('a pack:-prefixed token is the default pack share id, with the prefix stripped', async () => {
       const { parseTripToken } = await load();
-      expect(parseTripToken(`pack:${SHARE_ID}`)).toEqual({ kind: 'default', id: SHARE_ID });
+      expect(parseTripToken(`pack:${SHARED_TRIP_ID}`)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
+    });
+
+    it('a pack: id other than the shared trip is an old per-account link and is refused', async () => {
+      const { parseTripToken } = await load();
+      expect(parseTripToken(`pack:${SHARE_ID}`)).toBeNull();
     });
 
     it('a bare token is still a custom trip — that reading is correct for every other trip', async () => {
@@ -65,7 +70,7 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
 
     it('surrounding whitespace is trimmed on both sides of the prefix', async () => {
       const { parseTripToken } = await load();
-      expect(parseTripToken(`  pack: ${SHARE_ID}\n`)).toEqual({ kind: 'default', id: SHARE_ID });
+      expect(parseTripToken(`  pack: ${SHARED_TRIP_ID}\n`)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
     });
 
     it.each([
@@ -87,9 +92,9 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
 
     it('formatShareToken round-trips through parseTripToken for both namespaces', async () => {
       const { formatShareToken, parseTripToken, DEFAULT_TRIP_ID } = await load();
-      const forDefault = formatShareToken(DEFAULT_TRIP_ID, SHARE_ID);
-      expect(forDefault).toBe(`pack:${SHARE_ID}`);
-      expect(parseTripToken(forDefault)).toEqual({ kind: 'default', id: SHARE_ID });
+      const forDefault = formatShareToken(DEFAULT_TRIP_ID, SHARED_TRIP_ID);
+      expect(forDefault).toBe(`pack:${SHARED_TRIP_ID}`);
+      expect(parseTripToken(forDefault)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
 
       const forCustom = formatShareToken('hokkaido-2027', 'hokkaido-2027');
       expect(forCustom).toBe('hokkaido-2027');
@@ -102,12 +107,12 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
 
     it('survives the URL round trip Settings builds — the colon is percent-encoded', async () => {
       const { formatShareToken, parseTripToken, DEFAULT_TRIP_ID } = await load();
-      const token = formatShareToken(DEFAULT_TRIP_ID, SHARE_ID);
+      const token = formatShareToken(DEFAULT_TRIP_ID, SHARED_TRIP_ID);
       const url = new URL(`https://example.test/trip_planner/?trip=${encodeURIComponent(token)}`);
       expect(url.search).toContain('pack%3A');
       expect(parseTripToken(url.searchParams.get('trip') ?? '')).toEqual({
         kind: 'default',
-        id: SHARE_ID,
+        id: SHARED_TRIP_ID,
       });
     });
   });
