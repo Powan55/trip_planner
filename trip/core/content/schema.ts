@@ -237,12 +237,16 @@ export const journeySchema = z
     // the authored ISO departure day the flight-phase clock targets. Authored, never
     // parsed out of the verbatim labels — that is the whole point of.
     departDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    arriveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })
   .strict()
   // The documented positional contract (booking-data.ts): layovers sit BETWEEN legs, so there
   // is always exactly one fewer layover than legs. This is a STRUCTURAL invariant (counts),
   // not time arithmetic —-safe.
   .superRefine((j, ctx) => {
+    if (j.arriveDate && j.departDate && j.arriveDate < j.departDate) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['arriveDate'], message: 'arriveDate is before departDate' });
+    }
     if (j.layovers.length !== j.legs.length - 1) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
