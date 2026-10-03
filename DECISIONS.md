@@ -6050,6 +6050,27 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Why.** `deploy-pages` succeeding only means Pages accepted the artifact. With no rollback (see `rule.md`), a stale or broken live site should show up in the run, not on a traveller's phone.
 
 **Trade-off.** A red smoke does not stop or undo anything, since the deploy already happened. The only alert is GitHub's default failure email to whoever merged. Recovery stays forward-only. The hash is passed as a job output rather than downloading the Pages artifact, which avoids another action.
+
+### D-672 · (issue #758, 2026-10-03) · The active worker refills a precache the browser emptied
+
+**Decision.** On every online page load with a controller, the registrar posts `REPAIR`. The worker calls `registration.update()`, stops if a worker is installing or waiting, then fetches only the `PRECACHE_URLS` missing from the current precache and puts each one on its own. A failed fetch skips that entry. It never deletes and never touches another cache. Every entry must pass `isExpectedPrecacheBody`, and route pages and RSC `.txt` payloads must also contain this build's `BUILD_ID`, which gen-sw reads from `.next/BUILD_ID` and fails without.
+
+**Why.** Install was the only thing that filled the precache, so clearing site data while the registration survived left the app with no offline shell until the next deploy.
+
+**Not atomic, on purpose.** Install stays atomic. Repair runs under a worker that is already serving, so a partial refill is strictly better than none, and a throw there would only lose the entries that did succeed.
+
+**Torn deploys.** The update check catches a deploy the worker can see. The guard for the rest is the `BUILD_ID` on HTML and RSC payloads, not chunk overlap: hashed chunks are shared between builds, so a newer page can load ours, but it carries its own build id. A captive portal carries none. Unhashed files (icons, hero images, the manifest) only get the content-type check, so a torn refill there keeps a neighbouring build's bytes until the next deploy.
+
+**Not covered.** An uncached route still falls back to the Home shell rather than the 404 page; that is the other half of #758. Preflight's map-shell row still reads a partly filled precache as present.
+
+### D-671 · Amends D-156 and #239 · (issues #750, #751, 2026-10-03) · Restore under sync keeps place ids and re-points receipts to reminted expense ids
+
+**Decision.** A synced restore picks the id policy per domain. Saved places keep their ids: each live backup row is upserted under its own id, stamped with `nextSyncStamp` off the current row for that id (live or tombstone) or the backup row, and only current rows missing from the backup are tombstoned. Expenses still get fresh ids. `restoreExpenses` returns a backup-id to new-id map (or `false`), and `importTripBackup` commits the domains before the photo index so restored receipt metas, or the live ones when the file brings no photos, follow that map. The expenses-only settings restore re-points live photos the same way. A file with an empty photo list leaves this device's photos alone. The import result lists domains that were present but malformed (`dropped`), and clearing expenses removes receipt photos from this device.
+
+**Why.** Plan items link to a place by `sourceId: 'myplace-'+id`, and receipts link to an expense by id. Reminting both on restore orphaned every plan link and receipt. Same-id is safe for places because they live in one doc and a strictly-later stamp beats the tombstone (the undo path already relies on it). Expenses can change leg, which moves them across chunks, and a same-id re-add there hits the cross-chunk tombstone tie (#532).
+
+**Trade-off.** Receipts that were already orphaned stay that way. There is no clean-up of photos whose expense is gone, because the stores may not be hydrated when it would run and it would delete real receipts.
+
 ### D-670 · Extends D-150 · (issue #748, 2026-10-03) · A failed push retries on a timer, and sign-out flushes first
 
 **Decision.** `useDomainSync` keeps one retry timer per domain, armed by `SYNC_OUTBOX_CHANGED_EVENT` while that domain has a dirty chunk the rules have not refused (`outboxRetryable`). Backoff starts at 10s, above the 8s remote write timeout so a timed flush never joins a slow commit push, and doubles to a 5 min cap, for at most 6 attempts. Mount, `online` and tab-visible reset the count; an edit pushes itself once. A clean outbox, unmount, an identity change, the sync gate closing, or `navigator.onLine === false` stops it. Refused chunks (#267) never arm it. `flushOutbox`'s in-flight guard is now a map of promises with a rerun flag: a flush landing mid-run makes the running one take one more pass instead of returning, so an `online` flush is not lost behind a failing offline one. `flushAllDomains()` flushes every mounted domain; the sign-out dialog awaits it, bounded at 8s (the remote write timeout), before clearing blobs, the remote cache, or local data, and shows "Syncing your last changes…" in a status region meanwhile.
@@ -6057,6 +6078,23 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 **Why.** A failed push stayed dirty until the next foreground or edit, so a traveller who stayed on one screen never synced, and sign-out wiped those edits without trying once more.
 
 **Trade-off.** Up to 6 extra writes per stuck chunk per trigger, which the cap exists for (free-tier write budget). Sign-out can take up to 8s longer on a dead network. A push that acks after the sign-out wipe can write `{dirty:{}, lastAckAt}` into the wiped slot, which is harmless.
+
+### D-679 · Extends D-420 · (issue #754, 2026-10-03) · A day that is still running is not over at the destination's midnight
+
+**Decision.** `getTodayInTrip()` in `lib/trip-now.ts` keeps the previous trip day while one of that day's items is in progress at the current instant. An item counts only if it is not done and has a real duration (`core/dates/carry-over.ts`'s `hasItemInProgress`). It applies only on the real clock with known geography, looks back one day only, and runs after D-420's device-window gate, so it never puts a day outside the trip.
+
+**Why.** At 13:15 EST on Dec 9 the JFK to DEL long-haul is in the air and Kathmandu passes midnight. The hero switched to Day 2, the flight dropped out of it for about 13 hours, and expense and quick-add rows were dated Dec 10. The 23:30 KTM departure did the same from 00:00 to 03:40 NPT on Dec 19 and showed "Upcoming: Layover CAN". Now Day 1 holds until the flight lands at 07:50Z Dec 10, and Day 10 until 21:55Z Dec 18. In both cases the next day's first item starts at the moment the hold ends.
+
+**Trade-off.** Any cross-midnight item with a duration holds the day, a late night out as well as a flight. A night out still belongs to the evening it started, so that is the intended reading. The open-ended "until the next item, max 2h" block never holds a day. Each call reads the stored plan once, on the 20 to 60s ticks the callers already run.
+
+**Not done here.** `getNowAtTrip()` still reports the destination wall-clock date and minutes (concierge digest, weather, visit autocount). Its date and minutes have to agree with each other, so it does not hold. The flight chip's in-flight state already reads the journey's arrival day (#812).
+### D-675 · Amends D-546 and D-504 · (issue #775, 2026-10-03) · A join refuses ids that are not trips, and the front door never switches trips
+
+**Decision.** `parseTripToken` reads the shared trip's id, bare or `pack:`-prefixed and in any case, as the default pack, and refuses any other `pack:` id and the legacy account names (`SHARED_TRIP_USERNAMES`, case-folded). `joinTrip` still switches to a row the registry already holds under such an id, and parse/merge never drop one, because its `trip:{id}:*` data lives under that id. The sign-in wall no longer calls `joinTrip`: after redeeming any invite it reloads to `/?trip=<token>` and the join dialog asks first, as it does for a signed-in device.
+
+**Why.** A link could set a legacy account path or the shared trip's own id as a custom trip, and the wall switched trips without the confirm the dialog exists for.
+
+**Trade-off.** Other people's account ids are uuids, the same shape as trip ids, so the client cannot tell them apart and does not try. Only the rules can refuse those. Cancelling the confirm after the wall leaves the redeemed membership written with no registry row; opening the plain `?trip=<id>` link again joins it (the invite reads as already used).
 ### D-674 · (issue #753, 2026-10-03) · The sync badge counts queued journal days and prefs
 
 The badge read only the outbox, so it said Synced while a journal day or an account pref was still waiting to push, and those two only retried while their own view was mounted. `pending` now adds the active trip's dirty journal days and dirty pref fields, behind the outbox's gate plus an account code (the same gate their push uses), so a guest never sees a count nothing will clear.

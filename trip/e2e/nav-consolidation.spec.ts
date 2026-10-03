@@ -26,6 +26,59 @@ import AxeBuilder from '@axe-core/playwright';
 const PHONE = { width: 390, height: 844 } as const;
 const DESKTOP = { width: 1280, height: 900 } as const;
 
+test('navbar actions fit at phone, tablet, and desktop widths', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  await goto(page, '/');
+  await page.evaluate(() => document.fonts.ready);
+  for (const width of [360, 390, 639, 640, 767, 768, 800, 852, 932, 949, 1023, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const id of ['navbar-travel-mode', 'concierge-trigger']) {
+      const action = page.getByTestId(id);
+      await expect(action).toBeVisible();
+      const box = await action.boundingBox();
+      expect(box, `${id} at ${width}px`).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width, `${id} at ${width}px`).toBeLessThanOrEqual(width);
+      expect(Math.round(box!.width)).toBeGreaterThanOrEqual(44);
+      expect(Math.round(box!.height)).toBeGreaterThanOrEqual(44);
+    }
+    const row = await page.getByTestId('navbar').locator('> div > div').evaluate((el) => ({
+      client: el.clientWidth, scroll: el.scrollWidth,
+    }));
+    expect(row.scroll, `navbar row at ${width}px`).toBeLessThanOrEqual(row.client);
+    console.log(`navbar ${width}px: client=${row.client}, scroll=${row.scroll}`);
+    if (width < 768) {
+      await expect(page.getByTestId('tab-bar')).toBeVisible();
+      await expect(page.getByTestId('navbar-more-toggle')).toBeHidden();
+    } else {
+      await expect(page.getByTestId('tab-bar')).toBeHidden();
+      const more = page.getByTestId('navbar-more-toggle');
+      await more.focus();
+      await more.press('Enter');
+      await expect(page.getByTestId('navbar-more-menu')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(more).toBeFocused();
+    }
+  }
+  await page.setViewportSize(PHONE);
+  await page.getByTestId('tab-bar-today').focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('tab-bar-plan')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/plan\/?$/);
+  await goto(page, '/');
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.getByTestId('concierge-trigger').focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('navbar-travel-mode')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/travel\/?$/);
+  await expect(page.getByTestId('navbar')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 // Mirrors interaction.spec.ts's `goto`: ride through the one-off first-load SW reload.
 async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: 'load' });

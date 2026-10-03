@@ -24,7 +24,10 @@ const PRECACHE = 'trip-precache-testhash';
 const IMAGES_CACHE = 'trip-images-v1';
 const FRANKFURTER_CACHE = 'trip-frankfurter-v1';
 const NAV_FALLBACK = '/';
-const PRECACHE_URLS = ['/', '/404.html', '/plan/', '/travel/', '/images/hero/hero.avif'];
+const OWN_CHUNK = '/_next/static/chunks/app-1234abcd.js';
+const PAYLOAD = '/plan/index.txt';
+const PRECACHE_URLS = ['/', '/404.html', '/plan/', '/travel/', '/images/hero/hero.avif', OWN_CHUNK, PAYLOAD];
+const BUILD_ID = 'BUILD_OWN';
 
 const genSwSrc = readFileSync(resolve(__dirname, '../../scripts/gen-sw.mjs'), 'utf8');
 
@@ -50,8 +53,9 @@ function extractWorkerSource(): string {
     'NAV_FALLBACK',
     'precacheUrls',
     'withBase',
+    'buildId',
     'return `' + template + '`'
-  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p);
+  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p, BUILD_ID);
 }
 
 const WORKER_SOURCE = extractWorkerSource();
@@ -84,6 +88,10 @@ class FakeResponse {
     return this;
   }
 
+  async text(): Promise<string> {
+    return this.body;
+  }
+
   static error(): FakeResponse {
     return new FakeResponse('', { ok: false, status: 0, type: 'error' });
   }
@@ -102,7 +110,7 @@ interface FakeCacheStorage {
   open(name: string): Promise<{
     put(k: Keyish, v: FakeResponse): Promise<void>;
     match(k: Keyish): Promise<FakeResponse | undefined>;
-    keys(): Promise<string[]>;
+    keys(): Promise<{ url: string }[]>;
     delete(k: Keyish): Promise<boolean>;
   }>;
   keys(): Promise<string[]>;
@@ -136,7 +144,8 @@ function makeCaches(
           return store.get(keyOf(k));
         },
         async keys() {
-          return [...store.keys()];
+          // Cache.keys() yields Requests with absolute URLs.
+          return [...store.keys()].map((k) => ({ url: ORIGIN + k }));
         },
         async delete(k) {
           return store.delete(keyOf(k));
@@ -173,7 +182,8 @@ interface Handlers {
 
 function instantiate(
   caches: FakeCacheStorage,
-  fetchImpl: (req: Keyish) => Promise<FakeResponse>
+  fetchImpl: (req: Keyish) => Promise<FakeResponse>,
+  registration: { waiting?: unknown; installing?: unknown } = {}
 ): Handlers {
   const handlers: Handlers = {};
   const self = {
@@ -183,6 +193,7 @@ function instantiate(
     location: { origin: ORIGIN },
     clients: { claim: async () => {} },
     skipWaiting: () => {},
+    registration: { installing: null, waiting: null, update: async () => {}, ...registration },
   };
   new Function('self', 'caches', 'fetch', 'Response', 'location', WORKER_SOURCE)(
     self,
@@ -310,14 +321,24 @@ describe('navigation: offline, an in-app link resolves to its own route shell', 
     expect(res?.body).toBe('PLAN_SHELL');
   });
 
-  // Control: the Home fallback is still reachable, so the assertions above are
-  // proving a real route match rather than a handler that answers PLAN_SHELL always.
-  it('falls back to the Home shell for a route that was never precached', async () => {
+  // A path the build never shipped must not render Home under a 200 (#807).
+  it('serves the 404 page for a route that was never precached', async () => {
     const { caches } = makeCaches(shells);
     const handlers = instantiate(caches, offline);
     const res = await runFetch(
       handlers,
       makeRequest('/never-precached/index.txt', { mode: 'navigate', destination: 'document' })
+    );
+    expect(res?.body).toBe('NOT_FOUND');
+  });
+
+  // Control: a shipped route whose entry was evicted still gets the Home shell.
+  it('falls back to the Home shell for a shipped route whose entry was evicted', async () => {
+    const { caches } = makeCaches({ [PRECACHE]: { '/': 'HOME_SHELL', '/404.html': 'NOT_FOUND' } });
+    const handlers = instantiate(caches, offline);
+    const res = await runFetch(
+      handlers,
+      makeRequest('/travel/', { mode: 'navigate', destination: 'document' })
     );
     expect(res?.body).toBe('HOME_SHELL');
   });
@@ -455,4 +476,74 @@ describe('a rejecting Cache Storage degrades, it does not take the response down
     const res = await runFetch(handlers, makeRequest('/images/x.avif', { destination: 'image' }));
     expect(res?.body).toBe('NETWORK_IMG');
   });
+});
+
+describe('repair: a precache emptied under a live registration refills itself (#758)', () => {
+  const runRepair = (handlers: Handlers) =>
+    new Promise<void>((res, rej) => {
+      handlers.message!({
+        data: { type: 'REPAIR' },
+        waitUntil: (p: Promise<unknown>) => Promise.resolve(p).then(() => res(), rej),
+      });
+    });
+  const ownPage = `<script src="/base${OWN_CHUNK}"></script>"buildId":"${BUILD_ID}"`;
+  const ownPayload = `0:{"b":"${BUILD_ID}"}`;
+  const network = (html: string, txt = ownPayload) => async (req: Keyish) => {
+    const k = keyOf(req);
+    if (k.endsWith('.js')) return new FakeResponse('CHUNK', { contentType: 'text/javascript' });
+    if (k.endsWith('.avif')) return new FakeResponse('HERO', { contentType: 'image/avif' });
+    if (k.endsWith('.txt')) return new FakeResponse(txt, { contentType: 'text/x-component' });
+    return new FakeResponse(html);
+  };
+  const putKeys = (put: Array<{ key: string }>) => put.map((p) => p.key).sort();
+
+  it('refetches only the missing entries and leaves the rest alone', async () => {
+    const { caches, put, stores } = makeCaches({
+      [PRECACHE]: { '/': 'HOME', '/404.html': 'NF', '/travel/': 'TRAVEL', '/images/hero/hero.avif': 'H' },
+    });
+    await runRepair(instantiate(caches, network(ownPage)));
+    expect(putKeys(put)).toEqual([OWN_CHUNK, '/plan/', PAYLOAD]);
+    expect(stores.get(PRECACHE)!.get('/plan/')!.body).toBe(ownPage);
+    expect(stores.get(PRECACHE)!.get('/')!.body).toBe('HOME');
+  });
+
+  it('refuses a captive-portal page', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {} });
+    await runRepair(instantiate(caches, network('<html>Sign in to Wi-Fi</html>')));
+    expect(putKeys(put)).toEqual([OWN_CHUNK, '/images/hero/hero.avif', PAYLOAD]);
+  });
+
+  // Hashed chunks survive across builds, so loading one of ours proves nothing.
+  it('refuses a page from a newer build even when it loads one of our chunks', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {} });
+    await runRepair(
+      instantiate(caches, network(`<script src="${OWN_CHUNK}"></script>"buildId":"BUILD_NEWER"`))
+    );
+    expect(putKeys(put)).toEqual([OWN_CHUNK, '/images/hero/hero.avif', PAYLOAD]);
+  });
+
+  it('refuses an RSC payload from a newer build', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {} });
+    await runRepair(instantiate(caches, network(ownPage, '0:{"b":"BUILD_NEWER"}')));
+    expect(putKeys(put)).not.toContain(PAYLOAD);
+    expect(putKeys(put)).toContain('/plan/');
+  });
+
+  for (const pending of ['waiting', 'installing'] as const) {
+    it(`does nothing while a newer worker is ${pending}`, async () => {
+      const { caches, put } = makeCaches({ [PRECACHE]: {} });
+      let fetches = 0;
+      const handlers = instantiate(
+        caches,
+        async (req) => {
+          fetches++;
+          return network(ownPage)(req);
+        },
+        { [pending]: {} }
+      );
+      await runRepair(handlers);
+      expect(put).toEqual([]);
+      expect(fetches).toBe(0);
+    });
+  }
 });

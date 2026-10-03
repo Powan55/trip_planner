@@ -231,6 +231,7 @@ describe('BackupRestore — the outcome reports what was actually restored', () 
       restored: ['itinerary', 'journal', 'photos'],
       photosSkipped: 0,
       refused: [],
+      dropped: [],
     });
     await openConfirm();
     await confirmAndSettle();
@@ -240,23 +241,25 @@ describe('BackupRestore — the outcome reports what was actually restored', () 
     );
   });
 
-  it('a partial restore says so, and the photo-skip count still rides along', async () => {
-    // Nine of eleven domains failed `spec.validate` and were dropped. That used to read exactly
-    // like a clean restore.
+  it('a partial restore names what was dropped, and the photo-skip count still rides along', async () => {
+    // Domains that failed `spec.validate` were dropped. That used to read exactly like a clean
+    // restore (#751).
     vi.mocked(importTripBackup).mockResolvedValueOnce({
       ok: true,
       restored: ['expenses', 'docsChecklist'],
       photosSkipped: 2,
       refused: [],
+      dropped: ['journal', 'budget'],
     });
     await openConfirm();
     await confirmAndSettle();
 
     const text = must('backup-status').textContent ?? '';
     expect(text).toContain('Trip restored — expenses and documents checklist are back.');
-    expect(text).toContain('2 photos could not be restored');
-    expect(text).not.toContain('itinerary');
-    expect(text).not.toContain('Not restored');
+    expect(text).toContain('2 photos came back without the image');
+    expect(text).not.toContain('storage limit');
+    expect(text).toContain('Not restored (damaged in the file, kept as they were): journal and budget.');
+    expect(text).not.toContain('Not restored (storage is full)');
   });
 
   it('names the domains whose write was refused', async () => {
@@ -265,6 +268,7 @@ describe('BackupRestore — the outcome reports what was actually restored', () 
       restored: ['itinerary'],
       photosSkipped: 0,
       refused: ['photos', 'expenses'],
+      dropped: [],
     });
     await openConfirm();
     await confirmAndSettle();

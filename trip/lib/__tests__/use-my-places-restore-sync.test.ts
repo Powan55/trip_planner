@@ -8,8 +8,8 @@
 // Proven on a real run (SYNC ON):
 //   - the headline case: a row ADDED AFTER the backup was taken does not survive `restoreMyPlaces` —
 //     it is tombstoned, not silently merged back in by the next snapshot.
-//   - tombstone-replace: after restore, the backup's rows are LIVE (fresh ids) and every prior live
-//     row is a tombstone.
+//   - after restore, the backup's rows are LIVE under their own ids (D-671), stamped after any
+//     tombstone for that id; every other prior live row is a tombstone.
 //   - a peer that still holds an old row LIVE does not resurrect it (the restore's tombstone wins).
 // DORMANT: restoreMyPlaces is a plain local overwrite (byte-identical, no sync fields stamped).
 
@@ -130,32 +130,29 @@ describe('SYNC ON — restoreMyPlaces is a tombstone-replace merge (issue #239)'
     expect(merged.find((p) => p.name === 'Added after backup')?.deleted).toBe(true);
   });
 
-  it('backup WINS: its rows become live under FRESH ids, prior live rows tombstoned', async () => {
+  it('backup WINS under its OWN ids (D-671): a place deleted after the backup comes back, and beats the peer tombstone', async () => {
     const h = renderMyPlaces();
     await h.run((s) => s.addPlace({ name: 'A', legId: 'nepal' }));
     await h.run((s) => s.addPlace({ name: 'B', legId: 'japan' }));
 
-    // A REAL backup: taken off disk, so its ids ARE the ids step (a) of the restore is about to
-    // tombstone. Hand-written ids that could never collide only rule out what the fixture already
-    // ruled out — the contract is that a restored row gets a fresh id even when the id it came in
-    // under is now a tombstone (hooks/use-my-places.ts, restoreMyPlaces step (b)).
+    // A REAL backup taken off disk, then B is deleted after it — so B's id is a tombstone when the
+    // restore lands, the case a same-id re-add has to win.
     const backup: MyPlace[] = JSON.parse(JSON.stringify(rawOnDisk()));
-    const backupIds = backup.map((p) => p.id);
-    expect(backupIds).toHaveLength(2);
+    const backupIds = backup.map((p) => p.id).sort();
+    const idB = backup.find((p) => p.name === 'B')!.id;
+    await h.run((s) => s.removePlace(idB));
+    const peerTombstone = rawOnDisk().find((p) => p.id === idB)!;
+    expect(peerTombstone.deleted).toBe(true);
 
     await h.run((s) => s.restoreMyPlaces(backup));
 
+    // Same ids, so a plan item's `sourceId: 'myplace-'+id` still resolves.
+    expect(h.current.places.map((p) => p.id).sort()).toEqual(backupIds);
     expect(h.current.places.map((p) => p.name).sort()).toEqual(['A', 'B']);
-    expect(h.current.places.every((p) => !backupIds.includes(p.id))).toBe(true);
-    expect(h.current.places.every((p) => p.rev === 1 && typeof p.hlc === 'string')).toBe(true);
 
-    // The tombstones SURVIVE the re-add. Re-adding under the same id would replace each tombstone
-    // in place (`addPlace` de-dupes on id), so the delete would never propagate and a peer still
-    // holding the old row live could resurrect it.
-    const raw = rawOnDisk();
-    for (const id of backupIds) {
-      expect(raw.find((p) => p.id === id)?.deleted).toBe(true);
-    }
+    // Strictly-later stamps: a peer holding the tombstone, or the pre-restore copy, loses the merge.
+    const merged = mergeItems(rawOnDisk(), [peerTombstone, ...backup]);
+    expect(merged.filter((p) => p.deleted !== true).map((p) => p.id).sort()).toEqual(backupIds);
     h.unmount();
   });
 

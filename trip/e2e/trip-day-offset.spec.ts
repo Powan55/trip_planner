@@ -77,20 +77,36 @@ async function seedCustomTrip(page: Page) {
 test.describe('S274 (D-224) — home-time-phone regression guard', () => {
   test.use({ timezoneId: 'America/New_York' });
 
-  test('2026-12-10T03:00:00Z on a NY-time phone -> Day 2 / Kathmandu (device-local would say Day 1)', async ({
+  test('2026-12-11T03:00:00Z on a NY-time phone -> Day 3 / Kathmandu (device-local would say Day 2)', async ({
     page,
   }) => {
-    // 03:00Z Dec 10 = 22:00 EST Dec 9 device-local -> the OLD device-local code would read
-    // Day 1. The destination (NPT +345) reads 08:45 Dec 10 -> Day 2. This is the load-bearing
-    // regression guard for the whole slice.
+    // 03:00Z Dec 11 = 22:00 EST Dec 10 device-local -> the OLD device-local code would read
+    // Day 2. The destination (NPT +345) reads 08:45 Dec 11 -> Day 3. This is the load-bearing
+    // regression guard for the whole slice. (It used to sit at 03:00Z Dec 10, which is mid-way
+    // through the JFK to DEL long-haul and is now held on Day 1 by #754, below.)
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await seedDefaultIdentity(page);
-    await page.clock.install({ time: new Date('2026-12-10T03:00:00Z') });
+    await page.clock.install({ time: new Date('2026-12-11T03:00:00Z') });
     await page.goto('/', { waitUntil: 'load' });
 
     await expect(page.getByTestId('hero-travel-mode')).toBeVisible();
-    await expect(page.getByTestId('hero-day-number')).toHaveText('2');
+    await expect(page.getByTestId('hero-day-number')).toHaveText('3');
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Kathmandu');
+  });
+
+  test('#754: 18:15Z Dec 9 (Kathmandu midnight, JFK to DEL airborne) -> still Day 1 / New York', async ({
+    page,
+  }) => {
+    // The long-haul left at 11:55 EST and lands at 07:50Z Dec 10. The destination has passed
+    // midnight, but the day the traveller is living is still the one the flight left on.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await seedDefaultIdentity(page);
+    await page.clock.install({ time: new Date('2026-12-09T18:15:00Z') });
+    await page.goto('/', { waitUntil: 'load' });
+
+    await expect(page.getByTestId('hero-travel-mode')).toBeVisible();
+    await expect(page.getByTestId('hero-day-number')).toHaveText('1');
+    await expect(page.getByTestId('hero-travel-mode')).toContainText('New York');
   });
 });
 
@@ -108,10 +124,11 @@ test.describe('S274 (D-224) — Dec-18->19 rollover uses the earliest-leg seed',
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Kathmandu');
   });
 
-  test('19:00Z Dec 18 (04:00Z Dec 19 JST) -> Day 11 / Osaka', async ({ page }) => {
+  test('22:00Z Dec 18 (07:00 JST Dec 19, KTM departure landed) -> Day 11 / Osaka', async ({ page }) => {
+    // Was 19:00Z, which is now mid-way through the 23:30 KTM departure and held on Day 10 (#754).
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await seedDefaultIdentity(page);
-    await page.clock.install({ time: new Date('2026-12-18T19:00:00Z') });
+    await page.clock.install({ time: new Date('2026-12-18T22:00:00Z') });
     await page.goto('/', { waitUntil: 'load' });
 
     await expect(page.getByTestId('hero-travel-mode')).toBeVisible();
@@ -123,7 +140,9 @@ test.describe('S274 (D-224) — Dec-18->19 rollover uses the earliest-leg seed',
 test.describe('S274 (D-224) — boundary sharpness at Kathmandu midnight (18:15 UTC)', () => {
   test.use({ timezoneId: 'America/New_York' });
 
-  test('18:14Z -> Day 10, 18:15Z -> Day 11 (KTM 23:59 vs 00:00)', async ({ page }) => {
+  // #754: the 23:30 KTM departure (4h10m) is in the air across Kathmandu midnight, so the day it
+  // left on holds until it lands at 21:55Z. The rollover is sharp at the landing instead.
+  test('18:14Z and 18:15Z -> Day 10 (KTM departure airborne), 21:55Z -> Day 11', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await seedDefaultIdentity(page);
 
@@ -133,6 +152,11 @@ test.describe('S274 (D-224) — boundary sharpness at Kathmandu midnight (18:15 
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Kathmandu');
 
     await page.clock.setFixedTime(new Date('2026-12-18T18:15:00Z'));
+    await page.reload({ waitUntil: 'load' });
+    await expect(page.getByTestId('hero-day-number')).toHaveText('10');
+    await expect(page.getByTestId('hero-travel-mode')).toContainText('Kathmandu');
+
+    await page.clock.setFixedTime(new Date('2026-12-18T21:55:00Z'));
     await page.reload({ waitUntil: 'load' });
     await expect(page.getByTestId('hero-day-number')).toHaveText('11');
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Osaka');
