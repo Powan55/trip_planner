@@ -46,6 +46,10 @@ const NON_ADD_ROUTES = [
   '/recap',
   '/profile',
   '/flights',
+  '/settings',
+  '/passport',
+  '/journal',
+  '/map',
 ] as const;
 
 function isNonAddRoute(pathname: string | null | undefined): boolean {
