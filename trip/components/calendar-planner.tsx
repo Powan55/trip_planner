@@ -1361,10 +1361,10 @@ export default function CalendarPlanner() {
             pane — a box exactly as tall as the strip, so `sticky` was a no-op there. As a
             direct child of the planner container it now stays pinned under the navbar for
             the whole scroll, which is the point: the day you are editing is always visible.
-            `top-[var(--nav-h)]` is the fixed navbar's height; `h-[76px]` is declared, not
+            `top-[var(--nav-h)]` is the fixed navbar's height; `h-[104px]` is declared, not
             incidental, because the composer below parks at exactly navbar+strip (see its
-            `top-[calc(var(--nav-h)+76px)]`). Desktop keeps the month grid as its picker and never renders this. */}
-        <div className="sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex h-[76px] items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden">
+            `top-[calc(var(--nav-h)+104px)]`). Desktop keeps the month grid as its picker and never renders this. */}
+        <div className="sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex h-[104px] items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden">
           <div className="min-w-0 flex-1">
             <DayStrip
               dates={TRIP_DATES}
@@ -1613,9 +1613,9 @@ export default function CalendarPlanner() {
                 the pair the editor writes. "Details" opens the FULL editor for anything one
                 line can't say — it is the same trigger the dashed "Add Activity" button was,
                 relocated, not removed (it is the ONLY path to a blank editor). */}
-            {/* parks at navbar (`--nav-h`) + sticky day strip (76px) below `lg`, where both
+            {/* parks at navbar (`--nav-h`) + sticky day strip (104px) below `lg`, where both
                 bands are pinned; at `lg+` there is no strip so it returns to the navbar. */}
-            <div className="sticky top-[calc(var(--nav-h)+76px)] lg:top-[var(--nav-h)] z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
+            <div className="sticky top-[calc(var(--nav-h)+104px)] lg:top-[var(--nav-h)] z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
               <div className="flex items-center gap-2">
                 <QuickAddInput
                   className="min-w-0 flex-1"
