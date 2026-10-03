@@ -18,7 +18,10 @@ import { keyFor } from '@/core/storage/gateway';
  * returns null on its own). The well-formed case at the bottom is what catches that.
  */
 function seedForecast(city: string, value: unknown): void {
-  localStorage.setItem(keyFor('weatherCache'), JSON.stringify({ [`${city}:forecast`]: value }));
+  localStorage.setItem(
+    keyFor('weatherCache'),
+    JSON.stringify({ [city]: { fetchedAt: new Date().toISOString() }, [`${city}:forecast`]: value }),
+  );
 }
 
 beforeEach(() => localStorage.clear());

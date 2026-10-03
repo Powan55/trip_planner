@@ -56,7 +56,7 @@ export function showUndoToast(message: string, onUndo: () => void, onSettled?: (
   const settle = () => {
     if (!undone) onSettled?.();
   };
-  toast.success(message, {
+  toast.success(<span className="line-clamp-2 break-words">{message}</span>, {
     icon: <UndoRing />,
     action: {
       label: 'Undo',

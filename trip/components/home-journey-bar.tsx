@@ -87,7 +87,7 @@ export default function HomeJourneyBar() {
                 {/* `break-words`: a custom pack's label is `destinations.join(' × ')` and can
                     be arbitrarily long, and a single unbroken token is the one thing that
                     could push the row past the viewport at 360. */}
-                <span className="nm break-words">{leg.label}</span>
+                <span className="nm [overflow-wrap:anywhere]">{leg.label}</span>
                 <span className="mt">
                   {formatDate(leg.start)} &ndash; {formatDate(leg.end)}
                 </span>
@@ -96,7 +96,7 @@ export default function HomeJourneyBar() {
                   className="mt-1.5 flex flex-wrap gap-1"
                 >
                   {leg.cities.map((city) => (
-                    <li key={city} className="chip">
+                    <li key={city} className="chip max-w-full whitespace-normal [overflow-wrap:anywhere]">
                       {city}
                     </li>
                   ))}
