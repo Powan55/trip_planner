@@ -1299,9 +1299,18 @@ function DataGroup() {
   // otherwise the blobs stay on the device with nothing left in the UI pointing at them (#119).
   const handleClearJournal = () => {
     const dayPhotos = photos.filter((p) => p.owner.kind === 'journal');
-    clearJournal();
+    if (clearJournal() === false) return;
     void (async () => {
       for (const photo of dayPhotos) await removePhoto(photo.id);
+    })();
+  };
+
+  // Same for receipts: their expenses are gone, so the photos would be unreachable.
+  const handleClearExpenses = () => {
+    const receipts = photos.filter((p) => p.owner.kind === 'expense');
+    if (clearExpenses() === false) return;
+    void (async () => {
+      for (const photo of receipts) await removePhoto(photo.id);
     })();
   };
 
@@ -1392,9 +1401,9 @@ function DataGroup() {
             label="Expenses"
             description="Every logged expense and split."
             title="Clear all expenses?"
-            body="This removes every logged expense. On a shared trip it clears expenses for everyone. This cannot be undone."
+            body="This removes every logged expense. On a shared trip it clears expenses for everyone. It also removes receipt photos from this device. This cannot be undone."
             confirmLabel="Clear expenses"
-            onConfirm={clearExpenses}
+            onConfirm={handleClearExpenses}
           />
           <ClearRow
             testId="settings-clear-budget"
@@ -1410,7 +1419,7 @@ function DataGroup() {
             label="Journal"
             description="Every private journal entry, on this device."
             title="Clear the journal?"
-            body="This removes every journal entry from this browser. Your other signed-in devices keep their copy, and other travellers never see it. This cannot be undone."
+            body="This removes every journal entry from this browser, and its day photos from this device. Your other signed-in devices keep their copy, and other travellers never see it. This cannot be undone."
             confirmLabel="Clear journal"
             onConfirm={handleClearJournal}
           />
@@ -1435,6 +1444,7 @@ function ExpensesBackupRestore({
   expenses: ReturnType<typeof useExpenses>['expenses'];
   restoreExpenses: ReturnType<typeof useExpenses>['restoreExpenses'];
 }) {
+  const { repointExpense } = usePhotos();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{ text: string; name: string } | null>(null);
   const [status, setStatus] = useState<
@@ -1471,10 +1481,12 @@ function ExpensesBackupRestore({
     const parsed = parseExpenseBackup(pendingImport.text);
     setPendingImport(null);
     if (parsed.ok) {
-      if (!restoreExpenses(parsed.expenses)) {
+      const ids = restoreExpenses(parsed.expenses);
+      if (!ids) {
         setStatus({ kind: 'error', message: 'Could not save the imported expenses. No changes were made to your expenses.' });
         return;
       }
+      for (const [from, to] of ids) repointExpense(from, to);
       setStatus({
         kind: 'success',
         message: 'Expenses imported. Your logged expenses have been replaced with the backup.',

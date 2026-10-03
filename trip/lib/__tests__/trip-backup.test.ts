@@ -68,7 +68,7 @@ import { myPlacesStore } from '@/core/storage/my-places-store';
 import { loadMyPlaces, saveMyPlaces } from '@/core/places/storage';
 import { savePlans, loadPlans } from '@/lib/itinerary-storage';
 import { exportItinerary } from '@/core/vault/export-import';
-import { savePhotos } from '@/core/photos/storage';
+import { savePhotos, loadPhotos } from '@/core/photos/storage';
 import { sanitizeEntries } from '@/core/journal/model';
 import { sanitizeExpenses } from '@/core/budget/expenses';
 import { normalizeModel } from '@/core/budget/model';
@@ -271,6 +271,7 @@ describe('S273 — case 4: never-destroy, one malformed domain', () => {
     if (!res.ok) return;
     expect(res.restored).toContain('expenses');
     expect(res.restored).not.toContain('journal');
+    expect(res.dropped).toEqual(['journal']); // #751: named, not silently skipped
     // Journal was left byte-untouched (dropped, not wiped to []).
     expect(localStorage.getItem(STORAGE_KEYS.journal)).toBe(beforeJournal);
     // Expenses replaced with the imported list.
@@ -417,12 +418,34 @@ describe('never-destroy applies to photos too: a malformed photos.meta is droppe
     expect(await store.get('ph-seed-1')).not.toBeNull();
   });
 
+  it.each([
+    ['not an array', 'x'],
+    ['all rows invalid', [{ id: '' }, { id: 'ph-x', owner: { kind: 'nope' } }]],
+  ])('#751: a photos.meta that is %s is reported in `dropped`, and live photos are kept', async (_, meta) => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store, 1); // ph-seed-0
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: { favorites: ['a'] },
+      photos: { meta, blobs: {} },
+    };
+    const res = await importTripBackup(new Blob([JSON.stringify(env)]), store);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.dropped).toEqual(['photos']);
+    expect(loadPhotos().map((m) => m.id)).toEqual(['ph-seed-0']);
+    expect(await store.get('ph-seed-0')).not.toBeNull();
+  });
+
   // Corrected (see D-517's addendum): this used to assert that an explicit `meta: []` with
   // nothing else in the backup still tombstone-replaces to `ok:true`. That is the exact shape of
   // the data-loss bug it claims to guard against — `savePhotos([])` ran and wiped the live index
-  // and every blob, while the caller reported `restored: []`, i.e. "nothing happened". An empty
-  // array alongside OTHER real domain data is still a legitimate wipe-this-domain instruction
-  // (see the container-version describe block's "journal" case); alone, it is refused pre-write.
+  // and every blob, while the caller reported `restored: []`, i.e. "nothing happened". Since #751
+  // an empty photo array is treated as absent even alongside other data; alone, it is refused.
   it('an empty ARRAY with nothing else in the backup is refused, not committed', async () => {
     const store = makeInMemoryBlobStore();
     await seedAll(store, 1); // ph-seed-0
