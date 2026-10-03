@@ -131,7 +131,7 @@ const LOADING_ROWS: Array<{ id: string; label: string }> = [
   { id: 'map-shell', label: 'Map shell' },
   { id: 'storage', label: 'Storage room' },
   { id: 'clock', label: 'Clock & time zone' },
-  { id: 'sync', label: 'Trip data' },
+  { id: 'sync', label: 'Your changes' },
 ];
 
 export default function PreflightChecks() {

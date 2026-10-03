@@ -25,6 +25,9 @@ import {
 import { loadJournal, saveJournal } from '@/core/journal/storage';
 import { JOURNAL_TEXT_MAX, getEntry, sanitizeEntry, type JournalEntry } from '@/core/journal/model';
 import { compareHlc, hlcSendOrLocal, parse, serialize } from '@/core/sync/hlc';
+import { SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
+import { isPermissionDenied } from '@/core/sync/denied';
+import { isJournalDenied, markJournalDenied } from '@/core/sync/read-denied';
 import { isRemoteConfigured } from './firebase-config';
 import { getRemote } from './firebase-remote';
 import { realClock } from './trip-now';
@@ -63,7 +66,11 @@ function stampedMap<T extends { hlc: string }>(raw: unknown): Record<string, T> 
 }
 
 const readMeta = () => stampedMap<Meta>(readJson<unknown>('local', keyFor('journalSync'), {}));
-const writeMeta = (meta: Record<string, Meta>) => writeJson('local', keyFor('journalSync'), meta);
+// The badge counts dirty days (#753), so every stamp change re-renders it like an outbox write.
+const writeMeta = (meta: Record<string, Meta>) => {
+  writeJson('local', keyFor('journalSync'), meta);
+  window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
+};
 const readRows = (data: unknown) => stampedMap<Row>((data as { entries?: unknown } | undefined)?.entries);
 
 function rowFor(date: string, hlc: string): Row {
@@ -167,12 +174,26 @@ async function push(t: Target, date: string, explicit: boolean): Promise<void> {
       writeMeta(meta);
     } else adopt([[date, res.row]], meta);
   } catch (err) {
-    console.warn('[journal-sync] push failed, will retry:', err);
+    if (isPermissionDenied(err)) markJournalDenied(t.code, t.tripId, date);
+    else console.warn('[journal-sync] push failed, will retry:', err);
   }
 }
 
-async function flush(t: Target): Promise<void> {
-  for (const [date, m] of Object.entries(readMeta())) if (m.dirty) await push(t, date, false);
+let flushing: { key: string; run: Promise<void> } | null = null;
+
+/** Retry every dirty day not refused this page load. Concurrent calls for one target share a run. */
+function flush(t: Target): Promise<void> {
+  const key = `${t.code}\n${t.tripId}`;
+  if (flushing?.key === key) return flushing.run;
+  const run = (async () => {
+    for (const [date, m] of Object.entries(readMeta())) {
+      if (m.dirty && !isJournalDenied(t.code, t.tripId, date)) await push(t, date, false);
+    }
+  })().finally(() => {
+    if (flushing?.run === run) flushing = null;
+  });
+  flushing = { key, run };
+  return run;
 }
 
 /**
@@ -190,6 +211,12 @@ export function pushJournalEntry(date: string): Promise<void> {
     : { hlc: stamp(meta[date]?.hlc), dirty: true };
   writeMeta(meta);
   return push(t, date, true);
+}
+
+/** Push any dirty days with no journal view mounted (#753). Opens no listener. Never rejects. */
+export function flushPendingJournal(): Promise<void> {
+  const t = target();
+  return t ? flush(t) : Promise.resolve();
 }
 
 function subscribe(): () => void {
