@@ -292,8 +292,8 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
       'scripts/gen-sw.mjs), so it is not offline-navigable and asserting on it would fail.',
   },
   '/checklist/': {
-    anchor: '[data-testid="docs-checklist"]',
-    what: 'the DocsChecklist island (app/checklist/sections.tsx -> @/components/docs-checklist)',
+    anchor: 'body:has([data-testid="docs-checklist"]) [data-testid="preflight-checks"]',
+    what: 'the DocsChecklist and PreflightChecks islands (app/checklist/sections.tsx -> @/components/docs-checklist, @/components/preflight-checks); the preflight chunk must be precached, not boundary-degraded',
   },
   '/flights/': {
     anchor: '#flights',
