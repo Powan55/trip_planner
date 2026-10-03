@@ -166,7 +166,7 @@ export default function Navbar() {
         aria-label="Primary"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 pt-[var(--safe-top)] transition-all duration-300 ${
           // SOLID, NOT GLASS, and that is a free win rather than a taste. A blurred
           // sticky bar is a per-scroll-frame repaint on the one surface that is always
           // composited, and a printed running head does not need one. What replaces it is

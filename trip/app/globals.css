@@ -4,6 +4,10 @@
 
 @layer base {
   :root {
+    /* Installed iOS app (black-translucent + viewport-fit=cover): the status bar / island
+       sits over the page. 0px everywhere else. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --nav-h: calc(4rem + var(--safe-top));
     /* ---- Core surfaces ----
        D-291/D-292/D-293, amended by D-334. The near-neutral CHARCOAL ramp (single hue
        220, saturation pulled right down) is RETIRED for an AUBERGINE one. The reasoning
@@ -907,10 +911,10 @@ html {
      while stamped; iOS input-zoom fix pins inputs at 16px, unaffected.) */
   font-size: 106.25%;
   scroll-behavior: smooth;
-  /* Keyboard-focused elements must clear the fixed navbar (h-16 = 4rem + its scrolled
-     border-b-2, navbar.tsx:180) and, below md, the bottom tab bar (--tab-bar-h, published
+  /* Keyboard-focused elements must clear the fixed navbar (--nav-h = 4rem + safe-area inset, + its scrolled
+     border-b-2, navbar.tsx) and, below md, the bottom tab bar (--tab-bar-h, published
      by bottom-tab-bar.tsx, itself md:hidden). WCAG 2.4.11. */
-  scroll-padding-top: calc(4rem + 2px);
+  scroll-padding-top: calc(var(--nav-h) + 2px);
   scroll-padding-bottom: env(safe-area-inset-bottom);
   /*/A6 · behavior 4 (tap-highlight): iOS/Android paint a grey flash rect on any
      tappable element on `touchstart`. Suppressed app-wide — the app already has its
@@ -1142,8 +1146,8 @@ html {
     linear-gradient(
       180deg,
       rgb(var(--scrim-ink-rgb) / 0.62) 0,
-      rgb(var(--scrim-ink-rgb) / 0.62) 68px,
-      rgb(var(--scrim-ink-rgb) / 0) 150px
+      rgb(var(--scrim-ink-rgb) / 0.62) calc(68px + var(--safe-top)),
+      rgb(var(--scrim-ink-rgb) / 0) calc(150px + var(--safe-top))
     ),
     linear-gradient(
       180deg,
@@ -1161,21 +1165,26 @@ html {
    moves the worst case the harness measures. */
 .photo-header__body {
   position: relative;
-  padding-top: 92px;
+  padding-top: calc(92px + var(--safe-top));
   padding-bottom: 34px;
   background: linear-gradient(
     180deg,
     rgb(var(--scrim-ink-rgb) / 0) 0,
-    rgb(var(--scrim-ink-rgb) / 0.62) 68px,
+    rgb(var(--scrim-ink-rgb) / 0.62) calc(68px + var(--safe-top)),
     rgb(var(--scrim-ink-rgb) / 0.78) 100%
   );
 }
 
 @media (min-width: 900px) {
   .photo-header__body {
-    padding-top: 108px;
+    padding-top: calc(108px + var(--safe-top));
     padding-bottom: 52px;
   }
+}
+
+/* The front door renders inside a dialog panel, not under the navbar: no status-bar shift. */
+[role='dialog'] .photo-header {
+  --safe-top: 0px;
 }
 
 /* ---- The front door's cover, and its one loop (issue #25) -------------------
@@ -2081,13 +2090,13 @@ body:has(form:focus-within) .door-kb {
    a few short class names cost far fewer JS bytes than the equivalent Tailwind
    soup repeated in the page's own chunk. `position:sticky` reserves its own
    space in normal flow (never overlaps content); `top` matches the fixed
-   navbar's 64px (`h-16`) so the strip docks directly under it once sticky;
+   navbar's height (`--nav-h`) so the strip docks directly under it once sticky;
    `z-index:20` stays below the navbar (`z-50`) and its mobile-menu scrim
    (`z-30`, `components/navbar.tsx`). No animation authored here — reduced
    motion has nothing to neutralize. */
 .home-nav {
   position: sticky;
-  top: 4rem;
+  top: var(--nav-h);
   z-index: 20;
   border-bottom: 1px solid rgb(255 255 255 / 0.06);
   background: rgb(var(--navy-900) / 0.9); /* navy-900 @ 90% */
@@ -2098,7 +2107,7 @@ body:has(form:focus-within) .door-kb {
    selector the @media print block hides this strip by. */
 
 /* Anchor-jump landing offset: a bare hash jump aligns the target's TOP edge flush with
-   the viewport top, which would land it UNDER the fixed navbar (h-16 = 4rem) and — for every
+   the viewport top, which would land it UNDER the fixed navbar (--nav-h) and — for every
    section below the hero — also under this sticky nav once it's docked (~3.5rem: 44px min-height
    link + 2×6px vertical padding). `scroll-margin-top` fixes the landing position for BOTH the
    native browser hash-jump this nav's anchors rely on AND any other in-page anchor targeting the
@@ -2107,13 +2116,13 @@ body:has(form:focus-within) .door-kb {
    issue #92's two new bands; they take the same 7.5rem as every other below-hero target,
    and leaving them out is what would land them under the docked strip. */
 #hero {
-  scroll-margin-top: 4rem;
+  scroll-margin-top: var(--nav-h);
 }
 #journey,
 #dashboard,
 #chapters,
 #inspiration {
-  scroll-margin-top: 7.5rem;
+  scroll-margin-top: calc(7.5rem + var(--safe-top));
 }
 
 /* ── Travel Mode root — chrome-free `/travel` shell ──────────────

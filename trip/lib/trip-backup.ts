@@ -64,7 +64,8 @@ import { sanitizePlaces, type MyPlace } from '@/core/places/model';
 import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
 import { loadPhotos, savePhotos, deletePhotoBlobs } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
-import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
+import { compressToBlob, decompressBlobOrText, supportsCompression, MAX_IMPORT_BYTES } from '@/core/vault/compression';
+import { downloadBlob } from '@/lib/download-blob';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
 import { savePlans } from '@/core/vault/storage';
 import type { DayPlan } from '@/lib/trip-data';
@@ -348,12 +349,28 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 // ── Export ──────────────────────────────────────────────────────────────────
+/** Headroom under the import cap for gzip header / envelope slack. */
+const EXPORT_HEADROOM_BYTES = 1024 * 1024;
+
+export type TripBackupExport = {
+  blob: Blob;
+  /** Photos whose metadata exists but whose bytes were not in the blob store. */
+  missing: number;
+  /** Photos left out (metadata kept) so the file stays under the import cap. */
+  omitted: number;
+};
+
 /**
  * Serialize the ACTIVE trip's every in-scope local domain into one gzip blob (the existing
  * `compressToBlob` pipeline — no new dep, plain-JSON fallback where CompressionStream is absent).
- * `blobStore` is injectable for tests; production uses the native IndexedDB store.
+ * Photos are inlined until a running byte budget (`maxBytes` minus headroom minus everything else) is
+ * spent; the rest keep metadata only, which restore already treats as a placeholder, so the file
+ * stays within what `importTripBackup` will open. `blobStore`/`maxBytes` are injectable for tests.
  */
-export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobStore): Promise<Blob> {
+export async function buildTripBackup(
+  blobStore: BlobStorePort = defaultBlobStore,
+  maxBytes: number = MAX_IMPORT_BYTES,
+): Promise<TripBackupExport> {
   const domains: Record<string, unknown> = {};
 
   // Itinerary — nest its OWN existing versioned Vault envelope.
@@ -369,11 +386,6 @@ export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobSto
   // trips' blobs), inlining each present blob as a base64 data URL.
   const meta = loadPhotos();
   const blobs: Record<string, string> = {};
-  for (const m of meta) {
-    const blob = await blobStore.get(m.id);
-    if (blob) blobs[m.id] = await blobToDataUrl(blob);
-  }
-
   const envelope: TripBackup = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -383,34 +395,53 @@ export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobSto
     domains,
     photos: { meta, blobs },
   };
-  return compressToBlob(JSON.stringify(envelope));
+  // KNOWN CEILING: budget uses uncompressed JSON size, so a few photos that would fit gzipped are omitted
+  // (it bounds the gzip output, and equals it in the plain-JSON fallback).
+  let budget = maxBytes - EXPORT_HEADROOM_BYTES - new Blob([JSON.stringify(envelope)]).size;
+  let missing = 0;
+  let omitted = 0;
+  for (const m of meta) {
+    const blob = await blobStore.get(m.id);
+    if (!blob) {
+      missing++;
+      continue;
+    }
+    // base64 length + data-URL header + JSON key/quotes, checked before the read allocates it.
+    const cost = Math.ceil(blob.size / 3) * 4 + m.id.length + 64;
+    if (cost > budget) {
+      omitted++;
+      continue;
+    }
+    blobs[m.id] = await blobToDataUrl(blob);
+    budget -= cost;
+  }
+
+  const out = await compressToBlob(JSON.stringify(envelope));
+  if (out.size > maxBytes) {
+    throw new Error('This trip is too large to back up in one file (over ' + Math.round(maxBytes / (1024 * 1024)) + ' MB).');
+  }
+  return { blob: out, missing, omitted };
+}
+
+export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobStore): Promise<Blob> {
+  return (await buildTripBackup(blobStore)).blob;
 }
 
 /**
- * Download the active trip's whole-trip backup as a file ( Ruling 2 — a PURE LIFT of
- * `backup-restore.tsx`'s prior `handleExport`, verbatim: same `exportTripBackup()` call, same
- * `supportsCompression() ?.gz:.json` filename choice, same `createObjectURL` → `<a download>` →
- * `click()` → `revokeObjectURL` dance). Exists so a second caller (the sign-out confirm dialog's
- * backup offer) can reuse it without duplicating those lines.
+ * Download the active trip's whole-trip backup as a file; shared by `backup-restore.tsx` and the
+ * sign-out confirm dialog's backup offer.
  *
- * Can THROW (e.g. a `FileReader` failure reading a stored photo, or an unguarded
- * `CompressionStream` failure in `core/vault/compression.ts`) — the CALLER owns try/catch and any
- * user-facing error copy, exactly as `backup-restore.tsx` did before this was lifted out. Returns
- * the filename used, so a caller can build its own success message without recomputing
- * `supportsCompression()` itself.
+ * Can THROW (a `FileReader` failure, a `CompressionStream` failure, or a trip too large for one
+ * file) — the CALLER owns try/catch and the user-facing error copy. Returns the filename plus how
+ * many photos were absent from storage (`missing`) or left out for size (`omitted`).
  */
-export async function downloadTripBackup(blobStore: BlobStorePort = defaultBlobStore): Promise<string> {
-  const blob = await exportTripBackup(blobStore);
+export async function downloadTripBackup(
+  blobStore: BlobStorePort = defaultBlobStore,
+): Promise<{ filename: string; missing: number; omitted: number }> {
+  const { blob, missing, omitted } = await buildTripBackup(blobStore);
   const filename = supportsCompression() ? EXPORT_FILENAME_GZ : EXPORT_FILENAME;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  return filename;
+  downloadBlob(blob, filename);
+  return { filename, missing, omitted };
 }
 
 // ── Import ──────────────────────────────────────────────────────────────────
@@ -450,8 +481,14 @@ export async function importTripBackup(
   let text: string;
   try {
     text = await decompressBlobOrText(file);
-  } catch {
-    return { ok: false, error: 'Could not read that backup file. No changes were made to your trip.' };
+  } catch (e) {
+    const tooLarge = e instanceof Error && e.message.startsWith('That file is too large');
+    return {
+      ok: false,
+      error: tooLarge
+        ? `${e.message} No changes were made to your trip.`
+        : 'Could not read that backup file. No changes were made to your trip.',
+    };
   }
 
   let parsed: unknown;
