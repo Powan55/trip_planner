@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useOnline } from '@/hooks/use-online';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { conciergeChatStore, conciergeProviderStore } from '@/core/storage/concierge-store';
 import { getActiveTrip, isDefaultTrip } from '@/core/trips';
@@ -348,9 +347,6 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const historyRef = useRef<ChatTurn[]>([]);
-  // connectivity signal, reused — the same `navigator.onLine` reading behind the
-  // app-wide offline banner, not a second one.
-  const online = useOnline();
   // The last message the user tried to send, so `retry()` can re-send exactly that turn. A ref,
   // not state: nothing renders from it, and it must be readable from inside `send`'s closure.
   const lastMessageRef = useRef('');
@@ -396,7 +392,11 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       // NORMAL case, not an edge one. Nothing leaves the device on this path — no request is made,
       // no in-flight bubble is pushed (so there is no blank turn to clean up), and `retry()`
       // re-sends this exact message once there is a signal again.
-      if (!online) {
+      // Link-layer flag only, read live at send time (#773). `useOnline()` also folds in a 30s
+      // suspicion from any failed THIRD-PARTY fetch (weather, Nominatim, Frankfurter), which says
+      // nothing about the Worker; gating on it locked the concierge out after an unrelated failure.
+      // `navigator.onLine === false` is reliable; for everything else the fetch decides.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         setStatus('error');
         setError('You’re offline, so nothing was sent. Reconnect and try again.');
         return;
@@ -599,7 +599,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         sendingRef.current = false;
       }
     },
-    [fetchImpl, online, provider, tripId],
+    [fetchImpl, provider, tripId],
   );
 
   // ONE retry control: re-send the last turn the user tried. Deliberately not a backoff

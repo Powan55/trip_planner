@@ -33,6 +33,11 @@ export default function TravelArrivalToast() {
   useEffect(() => {
     // Re-evaluate on mount and on route change; the persistence checks keep it exactly-once.
     if (isTravelRoute(pathname)) return;
+    // Home only (#777): elsewhere it covers content and duplicates the hero's Travel Mode button.
+    if (pathname !== '/' && pathname !== '') {
+      setShow(false);
+      return;
+    }
     if (travelModeGate.hasSeen()) return;
     if (getTodayInTrip() === null) return; // off-trip → never suggest
     setShow(true);
