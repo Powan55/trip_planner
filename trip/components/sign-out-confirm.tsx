@@ -8,6 +8,7 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import { unsyncedEditCount } from '@/core/trips/registry';
+import { flushAllDomains } from '@/hooks/use-domain-sync';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -65,6 +66,7 @@ export default function SignOutConfirm({
   children: React.ReactNode;
 }) {
   const [backup, setBackup] = useState<'idle' | 'done' | 'error'>('idle');
+  const [backupMsg, setBackupMsg] = useState('');
   const [step, setStep] = useState<'confirm' | 'key'>('confirm');
   // Read post-open, never at mount: client-only storage and session reads.
   const [code, setCode] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function SignOutConfirm({
   const [passwordSession, setPasswordSession] = useState(false);
   const [unsynced, setUnsynced] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [flushing, setFlushing] = useState(false);
   const busyRef = useRef(false);
 
   // D-660: on a device still on its anonymous session, key 28 is the only way to carry the account
@@ -80,9 +83,12 @@ export default function SignOutConfirm({
 
   const handleBackup = async () => {
     try {
-      await downloadTripBackup();
+      const { missing = 0, omitted = 0 } = (await downloadTripBackup()) ?? {};
+      const left = missing + omitted;
+      setBackupMsg(left > 0 ? `${left} photo${left === 1 ? ' was' : 's were'} left out of the backup.` : '');
       setBackup('done');
-    } catch {
+    } catch (e) {
+      setBackupMsg(e instanceof Error && e.message.startsWith('This trip is too large') ? e.message : '');
       setBackup('error');
     }
   };
@@ -92,6 +98,27 @@ export default function SignOutConfirm({
     busyRef.current = true;
     setBusy(true);
     void (async () => {
+      // #748: give queued edits one bounded chance to land before the wipe below discards them.
+      // 8s matches the remote write timeout, so a hung network can't trap the user here.
+      setFlushing(true);
+      let cap: ReturnType<typeof setTimeout> | undefined;
+      // The journal/prefs flushers live in *-remote modules: loaded dynamically behind the gate so
+      // no firebase-touching code lands in the first-load bundle; a failed chunk load never blocks.
+      const flushRemote = async () => {
+        if (!isRemoteConfigured()) return;
+        try {
+          const [{ flushJournal }, { flushPrefs }] = await Promise.all([
+            import('@/lib/journal-remote'),
+            import('@/lib/account-prefs-remote'),
+          ]);
+          await Promise.all([flushJournal(), flushPrefs()]);
+        } catch {
+          // best-effort: sign-out proceeds
+        }
+      };
+      await Promise.race([Promise.all([flushAllDomains(), flushRemote()]), new Promise((r) => (cap = setTimeout(r, 8000)))]);
+      clearTimeout(cap);
+      setFlushing(false);
       if (forgetDevice) {
         await defaultBlobStore.clear();
         // D-503: the lifetime keys stay out of `wipeAllTripData()` on purpose (D-314/D-320);
@@ -163,6 +190,13 @@ export default function SignOutConfirm({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <p
+          role="status"
+          data-testid={`${testId}-flushing`}
+          className={flushing ? 'text-sm text-[color:var(--text-mid)]' : 'sr-only'}
+        >
+          {flushing ? 'Syncing your last changes…' : ''}
+        </p>
 
         {step === 'key' && code ? (
           <>
@@ -194,10 +228,11 @@ export default function SignOutConfirm({
               {backup === 'done' ? 'Backup downloaded' : 'Back up this trip first'}
             </button>
             <div aria-live="polite" className="min-h-[1.25rem] text-xs">
+              {backup === 'done' && backupMsg && <p className="text-[color:var(--text-mid)]">{backupMsg}</p>}
               {backup === 'error' && (
                 <p className="flex items-center gap-1.5 text-red-300">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  Could not back up your trip. Please try again.
+                  {backupMsg || 'Could not back up your trip. Please try again.'}
                 </p>
               )}
             </div>

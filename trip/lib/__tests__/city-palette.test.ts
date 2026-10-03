@@ -119,7 +119,7 @@ describe('cellPaint', () => {
   it('transit is a split with white text and the neutral seam; planned is tinted; unplanned is dim', () => {
     const t = cellPaint(d(19));
     expect(t.color).toBe('var(--text-hi)');
-    expect(t.background).toContain(TRANSIT_COLOR);
+    expect(t.background).toContain(`${TRANSIT_COLOR} 40%`);
     expect(cellPaint(d(10), { planned: true }).color).toBe(d(10).color);
     expect(cellPaint(d(10), { planned: false }).color).toBeUndefined();
   });

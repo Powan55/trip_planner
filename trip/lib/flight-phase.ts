@@ -18,6 +18,8 @@ export type FlightPhase = 'upcoming' | 'departing' | 'completed';
 
 export interface FlightTiming {
   phase: FlightPhase;
+  /** `departing` past the depart day, i.e. the arrival day of an overnight journey. */
+  inFlight: boolean;
   countdown: Countdown;
 }
 
@@ -29,14 +31,17 @@ const pad = (n: number) => String(n).padStart(2, '0');
  * Phase compares the clock's calendar day (local parts of `now` — device-local, or the
  * `?today=` override day; same rule as `dayInTripFor`'s null-offset path,) against the
  * authored `departDate`, LEXICOGRAPHICALLY on the 'YYYY-MM-DD' strings (TZ-independent):
- * before → `upcoming`, same day → `departing`, after → `completed`.
+ * before → `upcoming`, depart day through the authored `arriveDate` (else departDate) →
+ * `departing`, after → `completed`.
  * The countdown zeroes at LOCAL MIDNIGHT of `departDate` ( accepted residual: coarser
  * than gate time, consistent with the hero). `now` is injectable for pure unit tests.
  */
 export function getFlightTiming(journey: Journey, now: Date = getNow()): FlightTiming {
   const target = new Date(journey.departDate + 'T00:00:00');
   const nowDay = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  // `departing` spans depart day through the authored arrival day (overnight legs).
+  const lastDay = journey.arriveDate ?? journey.departDate;
   const phase: FlightPhase =
-    nowDay < journey.departDate ? 'upcoming' : nowDay === journey.departDate ? 'departing' : 'completed';
-  return { phase, countdown: computeCountdown(target, now) };
+    nowDay < journey.departDate ? 'upcoming' : nowDay <= lastDay ? 'departing' : 'completed';
+  return { phase, inFlight: phase === 'departing' && nowDay > journey.departDate, countdown: computeCountdown(target, now) };
 }

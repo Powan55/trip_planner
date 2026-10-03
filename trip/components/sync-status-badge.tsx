@@ -1,11 +1,13 @@
 'use client';
 
+import { useEffect } from 'react';
 import { m } from 'framer-motion';
 import { AlertTriangle, Check, CloudOff, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { usePresence } from '@/hooks/use-presence';
-import { useOnline } from '@/hooks/use-online';
+import { useBackOnline, useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 
 /**
  * App-wide sync-status affordance — a passive, live "pending N / synced Xm ago" pill over
@@ -77,6 +79,25 @@ export function SyncStatusBadge() {
   // overlaps this right-anchored one — which is exactly when both are showing (offline with
   // unsynced edits). Drop a row while it is up (#129).
   const online = useOnline();
+  const backOnline = useBackOnline();
+
+  // #753: journal and prefs otherwise only retry while their own view is mounted. One-shot pushes,
+  // no listener, so this spends no reads when nothing is dirty.
+  useEffect(() => {
+    const flush = () => {
+      if (!isRemoteConfigured() || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      void Promise.all([import('@/lib/journal-remote'), import('@/lib/account-prefs-remote')])
+        .then(([j, p]) => Promise.all([j.flushPendingJournal(), p.flushPendingPrefs()]))
+        .catch((err) => console.warn('[sync-status] flush unavailable:', err));
+    };
+    flush();
+    window.addEventListener('online', flush);
+    document.addEventListener('visibilitychange', flush);
+    return () => {
+      window.removeEventListener('online', flush);
+      document.removeEventListener('visibilitychange', flush);
+    };
+  }, []);
 
   // #267/#271: a REFUSED change (write) or a REFUSED read reads as pending forever, which is the
   // one thing this pill must never say. `blocked` is a subset of `pending` (a refused chunk is
@@ -158,7 +179,7 @@ export function SyncStatusBadge() {
                       ? 'synced'
                       : 'synced-alone'
             }
-            className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
+            className={`fixed ${online && !backOnline ? 'top-[calc(5rem+var(--safe-top))]' : 'top-[calc(8rem+var(--safe-top))]'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
           >
             {/* Printed stock, not glass. The FILL grammar carries the state: a struck
                 (solid) rule when synced, a hollow dashed one when the sync has not

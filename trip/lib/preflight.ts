@@ -43,8 +43,8 @@ export interface PreflightCheck {
  * for the readers that already import it from this module.
  *
  * It moved out because `components/storage-persistence.tsx` needs it and is mounted in
- * `app/layout.tsx` — importing it from here put this module's `maplibregl` marker into the root
- * layout's chunk, which cost the whole app offline. See the marker comment below and the header
+ * `app/layout.tsx` — until #757 importing it from here put this module's `maplibregl` marker into
+ * the root layout's chunk, which cost the whole app offline. See the marker comment below and the header
  * of `lib/storage-quota.ts`. One value, still; a cheaper place to reach it.
  */
 export { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
@@ -58,31 +58,32 @@ const PRECACHE_PREFIX = 'trip-precache-';
  * It has to be content, not filename: the built chunks are content-hashed and carry no name
  * (D-286), so there is nothing to pattern-match a URL against.
  */
-// COUPLED to `scripts/gen-sw.mjs:255`, which uses the identical marker to decide what gets
+// COUPLED to `scripts/gen-sw.mjs:253`, which uses the identical marker to decide what gets
 // precached. Built chunk filenames are content-hashed and carry no name (D-286), so content match
 // is the only handle either side has. If gen-sw's marker changes and this one does not, this row
 // reports "Map engine not saved yet" to EVERY user while the engine is in fact present — a false
 // ALARM rather than a false pass, so it fails safe, but it fails loudly and for everyone. The two
 // strings must move together.
 //
-// 🔴 THIS MODULE IS CONTAGIOUS. KEEP IT OFF THE ROOT LAYOUT'S IMPORT PATH.
-// The literal below lands in whatever chunk this module is bundled into, and two independent
-// consumers read "chunk body contains that string" as "this chunk IS the map engine":
-// `gen-sw.mjs`'s isMaplibreChunk(), which decides what gets precached and which call sites need
-// the island boundary, and `e2e/pwa.spec.ts`'s eviction test, which deletes every matching chunk
-// to prove the boundary degrades. Neither can tell "carries maplibre" from "looks for maplibre".
+// History: `components/storage-persistence.tsx` used to import `QUOTA_WARN_THRESHOLD` from here,
+// and it is mounted in `app/layout.tsx`, so the root layout's chunk carried the marker literal,
+// got classed as the map engine and deleted by the eviction test, and `app/global-error.tsx`
+// replaced every route. The constant now lives in `lib/storage-quota.ts`.
 //
-// `components/storage-persistence.tsx` used to import `QUOTA_WARN_THRESHOLD` from here for one
-// number, and it is mounted in `app/layout.tsx` — so the ROOT LAYOUT's chunk carried this marker,
-// the eviction deleted it, and `app/global-error.tsx` replaced every route. Not just a test
-// artefact: a real storage-pressure eviction of the engine would have taken the whole app offline
-// with it. The constant now lives in `lib/storage-quota.ts`; read that file's header before
-// re-pointing any import at this one.
-//
-// Hiding the string does not work and was tried: `['maplibre','gl'].join('')` is constant-folded
-// straight back by the minifier, and the built chunk still contained it. Controlling WHERE this
-// module is reachable from is the mechanism; obscuring the spelling is not.
-const MAPLIBRE_MARKER = 'maplibregl';
+// A `.join('')` spelling is constant-folded back by the minifier, so the marker is decoded at
+// runtime: the decoded marker must never become a literal. A literal gets this chunk withheld
+// from the precache (/checklist then shows "Map engine not on this device" offline, #757), and a
+// precached copy of it would match its own cache scan and report a false "saved".
+const MAPLIBRE_MARKER = atob('bWFwbGlicmVnbA==');
+
+/**
+ * #808: the marker alone is not proof of the engine. The ~31 KB `trip-map` chunk also carries it
+ * (CSS class strings), so with the ~591 KB engine evicted and trip-map left cached the row would
+ * pass. A chunk only counts as the engine if it is also engine-sized. Measured on the decoded
+ * text (never the `content-length` hint, which can be absent): far above trip-map, far below the
+ * engine.
+ */
+const MAPLIBRE_ENGINE_MIN_CHARS = 200_000;
 
 /**
  * The ceiling, stated in the UI rather than hidden in a comment: absolute clock correctness is
@@ -166,7 +167,8 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
     }
     entries.sort((a, b) => b.size - a.size);
     for (const { res } of entries) {
-      if ((await res.text()).includes(MAPLIBRE_MARKER)) {
+      const text = await res.text();
+      if (text.length >= MAPLIBRE_ENGINE_MIN_CHARS && text.includes(MAPLIBRE_MARKER)) {
         return {
           ...base,
           state: 'ok',
@@ -339,7 +341,7 @@ export function evaluateSync(
   status: { pending: number; blocked?: number; lastAckAt: string | null; signInRequired?: boolean },
   now: Date = new Date()
 ): PreflightCheck {
-  const base = { id: 'sync', label: 'Trip data' };
+  const base = { id: 'sync', label: 'Your changes' };
   // #267 — checked BEFORE `pending`, of which it is a subset. The pending row promises these
   // "will upload on their own next time you're online", and for a change the rules REFUSED that
   // sentence is false: no amount of connectivity lands it. This module's whole rule is that

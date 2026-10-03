@@ -59,7 +59,7 @@ export default function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
+    <header className="px-gutter pt-[calc(6rem+var(--safe-top))] pb-8 sm:pt-[calc(7rem+var(--safe-top))] sm:pb-10">
       {/* Printed stock, not glass, and no entrance — content is present when you arrive.
           `reveal` is kept in the props because eight route files pass it and this bundle
           does not change a public signature; it now selects nothing, which is the honest

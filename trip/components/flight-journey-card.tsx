@@ -63,8 +63,8 @@ function Slot({ label, value }: { label: string; value?: string | null }) {
   const empty = !value;
   return (
     <div className={`min-w-0 px-1.5 py-1 rounded-r1 ${empty ? 'empty-frame' : 'border-hair border-[color:hsl(var(--border))]'}`}>
-      <span className="pr pr--lo block">{label}</span>
-      <span className={`block truncate font-machine text-t-sm ${empty ? 'text-ink-lo' : 'text-ink-hi'}`}>
+      <span className="pr pr--lo block break-words !tracking-normal">{label}</span>
+      <span className={`block break-words font-machine text-t-sm ${empty ? 'text-ink-lo' : 'text-ink-hi'}`}>
         {value ?? 'Not yet assigned'}
       </span>
     </div>
@@ -86,8 +86,8 @@ function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
         {/* Depart / Arrive / cabin — VERBATIM labels. The weekday+date is already IN
             the label ("Thu Dec 10"); we do NOT compute a +1d badge (that would be parsing). */}
         <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-machine text-t-sm">
-          <span className="text-ink-hi"><span className="text-ink-lo">Depart </span>{leg.departLabel}</span>
-          <span className="text-ink-hi"><span className="text-ink-lo">Arrive </span>{leg.arriveLabel}</span>
+          <span className="text-ink-hi whitespace-nowrap"><span className="text-ink-lo">Depart </span>{leg.departLabel}</span>
+          <span className="text-ink-hi whitespace-nowrap"><span className="text-ink-lo">Arrive </span>{leg.arriveLabel}</span>
           <span className="text-ink-mid">{leg.cabin}{leg.cabinCode ? ` · ${leg.cabinCode}` : ''}</span>
         </span>
 
@@ -236,7 +236,7 @@ export function FlightJourneyCard({ journey }: { journey: Journey }) {
         {/* Phase mark — text label + icon + material (never colour-only). */}
         <span className={phaseMeta.mark} data-testid={`flight-phase-${journey.id}`}>
           <phaseMeta.Icon className="w-3 h-3" aria-hidden="true" />
-          {phaseMeta.label}
+          {timing?.inFlight ? 'Arriving today' : phaseMeta.label}
         </span>
       </header>
 
@@ -262,7 +262,7 @@ export function FlightJourneyCard({ journey }: { journey: Journey }) {
         </p>
 
         {/* Proximity countdown — from the trip-clock, honest & live vs departDate. Zeroes for
-            completed; on the day itself the phase mark already says "Departing today". */}
+            completed; on the day itself the phase mark already says "Departing today" (or "Arriving today" on an overnight arrival day). */}
         <p
           className="mt-2 flex items-center gap-2 font-machine text-t-sm text-ink-mid"
           data-testid={`flight-countdown-${journey.id}`}
@@ -274,7 +274,7 @@ export function FlightJourneyCard({ journey }: { journey: Journey }) {
               <span className="num text-ink-hi">{proximityText(timing.countdown)}</span>
             </span>
           ) : phase === 'departing' ? (
-            <span className="text-ink-hi">Departing today</span>
+            <span className="text-ink-hi">{timing?.inFlight ? 'Arriving today' : 'Departing today'}</span>
           ) : phase === 'completed' ? (
             <span>This journey is complete</span>
           ) : (

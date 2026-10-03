@@ -116,7 +116,7 @@ export default function ExpenseLog({
                   </p>
                   {e.note && (
                     <p
-                      className="text-t-sm text-ink-hi sm:truncate"
+                      className="text-t-sm text-ink-hi [overflow-wrap:anywhere] sm:truncate"
                       data-testid={`expense-item-${e.id}-note`}
                     >
                       {e.note}
@@ -125,7 +125,7 @@ export default function ExpenseLog({
                   {/* "Logged by {name}" attribution — present only on a synced
                       expense stamped by an active traveler; dormant rows carry no createdBy. */}
                   {e.createdBy && (
-                    <p className="mt sm:truncate" data-testid={`expense-item-${e.id}-author`}>
+                    <p className="mt [overflow-wrap:anywhere] sm:truncate" data-testid={`expense-item-${e.id}-author`}>
                       logged by {e.createdBy}
                     </p>
                   )}

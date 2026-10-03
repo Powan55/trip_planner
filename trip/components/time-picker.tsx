@@ -8,6 +8,7 @@ import { formatTimeAmPm } from '@/core/dates';
 import { overlayPanelMotion } from '@/lib/motion';
 import {
   DEFAULT_TIME_MINUTES,
+  MAX_DURATION_MINUTES,
   combineMinutes,
   splitMinutes,
   type Period,
@@ -353,8 +354,9 @@ export function DurationField({
           return;
         }
         const n = Math.round(Number(raw));
-        onChange(Number.isFinite(n) && n > 0 ? n : undefined);
+        onChange(Number.isFinite(n) && n > 0 && n <= MAX_DURATION_MINUTES ? n : undefined);
       }}
+      title={`Whole minutes, up to ${MAX_DURATION_MINUTES}`}
       data-testid={testId ?? 'duration-field-input'}
       className="num w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       placeholder="e.g., 120"

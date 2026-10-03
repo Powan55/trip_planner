@@ -164,9 +164,9 @@ export default function Navbar() {
       <m.nav
         data-testid="navbar"
         aria-label="Primary"
-        initial={{ y: -100 }}
+        initial={false}
         animate={{ y: 0 }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 pt-[var(--safe-top)] transition-all duration-300 ${
           // SOLID, NOT GLASS, and that is a free win rather than a taste. A blurred
           // sticky bar is a per-scroll-frame repaint on the one surface that is always
           // composited, and a printed running head does not need one. What replaces it is
@@ -210,7 +210,7 @@ export default function Navbar() {
                     data-testid={`navbar-link-${item.label.toLowerCase()}`}
                     aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
-                    className={`relative flex min-h-tap items-center gap-1.5 rounded-r1 px-3 py-2 font-sans text-t-sm font-semibold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    className={`relative flex min-h-tap items-center gap-1.5 rounded-r1 px-3 py-2 font-sans text-t-sm font-semibold transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive
                         ? 'text-[color:var(--text-hi)]'
                         : 'text-[color:var(--text-lo)] hover:text-[color:var(--text-hi)] hover:bg-white/5'
@@ -247,7 +247,7 @@ export default function Navbar() {
                     onClick={() => setMoreOpen((v) => !v)}
                     aria-expanded={moreOpen}
                     aria-controls="navbar-more-menu"
-                    className="flex min-h-tap items-center gap-1 rounded-r1 px-3 py-2 font-sans text-t-sm font-semibold text-[color:var(--text-lo)] transition-all duration-200 outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="flex min-h-tap items-center gap-1 rounded-r1 px-3 py-2 font-sans text-t-sm font-semibold text-[color:var(--text-lo)] transition-colors duration-200 outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     More
                     <ChevronDown
@@ -284,7 +284,7 @@ export default function Navbar() {
                               }}
                               data-testid={`navbar-more-link-${item.label.toLowerCase()}`}
                               aria-current={isActive ? 'page' : undefined}
-                              className={`flex w-full min-h-tap items-center gap-2.5 px-3 py-2 text-t-body transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                              className={`flex w-full min-h-tap items-center gap-2.5 px-3 py-2 text-t-body transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                                 isActive
                                   ? 'bg-[rgb(62_216_255_/_0.10)] text-[color:var(--text-hi)] shadow-[inset_3px_0_0_hsl(var(--accent))]'
                                   : 'text-[color:var(--text-mid)] hover:bg-white/5 hover:text-[color:var(--text-hi)]'
@@ -305,7 +305,7 @@ export default function Navbar() {
                             closeMore();
                             openPalette();
                           }}
-                          className="flex w-full min-h-tap items-center justify-between gap-2.5 px-3 py-2 text-t-body text-[color:var(--text-mid)] transition-all outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          className="flex w-full min-h-tap items-center justify-between gap-2.5 px-3 py-2 text-t-body text-[color:var(--text-mid)] transition-colors outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
                           <span className="flex items-center gap-2.5">
                             <Search className="w-4 h-4 text-muted-foreground" aria-hidden="true" />

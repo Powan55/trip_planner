@@ -10,6 +10,7 @@ import {
 } from '@/lib/weather';
 import { formatRelativeDayLabel } from '@/core/dates';
 import { getNowAtTrip } from '@/lib/trip-now';
+import { useOnline } from '@/hooks/use-online';
 
 /**
  * — 2: the weather + golden-hour card for the CURRENT trip city.
@@ -207,6 +208,7 @@ function UnavailableState() {
 }
 
 function WeatherBody({ data }: { data: WeatherNow }) {
+  const online = useOnline();
   return (
     <section
       data-testid="weather-card"
@@ -282,15 +284,27 @@ function WeatherBody({ data }: { data: WeatherNow }) {
         <ForecastOutlook days={data.forecast} stale={data.stale} />
       )}
 
-      {/* Offline / cached indicator — only when we're showing stale data. */}
-      {data.stale && (
+      {/* Cached indicator — only when we're showing stale data. "Offline" only when the device
+          really is; a 429/5xx while online is a failed refresh, not a lost connection. */}
+      {data.stale ? (
         <p
           data-testid="weather-cached-indicator"
           className="pr mt-3 flex items-center gap-1.5"
           aria-live="polite"
         >
-          <WifiOff className="h-3 w-3" aria-hidden="true" />
-          Offline — last updated {formatWeatherAsOf(data.fetchedAt)}
+          {online ? (
+            <>Couldn&rsquo;t refresh, last updated {formatWeatherAsOf(data.fetchedAt)}</>
+          ) : (
+            <>
+              <WifiOff className="h-3 w-3" aria-hidden="true" />
+              Offline — last updated {formatWeatherAsOf(data.fetchedAt)}
+            </>
+          )}
+        </p>
+      ) : (
+        // Not aria-live: it changes on every refresh and is not news.
+        <p data-testid="weather-updated" className="pr mt-3">
+          Updated {formatWeatherAsOf(data.fetchedAt)}
         </p>
       )}
 

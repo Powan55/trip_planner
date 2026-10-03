@@ -57,6 +57,7 @@ import { expensesToCsvBlob } from '@/lib/expense-csv';
 import { itineraryToIcsBlob } from '@/lib/itinerary-ics';
 import { exportExpenses, parseExpenseBackup } from '@/lib/expense-export';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
+import { downloadBlob } from '@/lib/download-blob';
 import {
   currencySymbol,
   CURRENCIES,
@@ -1309,14 +1310,7 @@ function DataGroup() {
   const handleExportCsv = () => {
     // BOM-prefixed (see `expensesToCsvBlob`) — without it Excel on Windows decodes the download
     // with the system codepage and a non-ASCII note or name arrives as mojibake.
-    const url = URL.createObjectURL(expensesToCsvBlob(expenses));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'nepal-japan-expenses.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(expensesToCsvBlob(expenses), 'nepal-japan-expenses.csv');
   };
 
   const hasItineraryItems = plans.some((day) => day.items.some((item) => !item.deleted));
@@ -1324,14 +1318,7 @@ function DataGroup() {
   // #259 — calendar export (.ics) so itinerary items can reach a phone's lock screen / alarms.
   // Same Blob/URL.createObjectURL/<a download> idiom as the CSV/JSON exports above.
   const handleExportIcs = () => {
-    const url = URL.createObjectURL(itineraryToIcsBlob(plans));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'nepal-japan-itinerary.ics';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(itineraryToIcsBlob(plans), 'nepal-japan-itinerary.ics');
   };
 
   return (
@@ -1460,14 +1447,7 @@ function ExpensesBackupRestore({
     // than re-implemented — feature-detects and falls back to plain bytes automatically.
     const blob = await compressToBlob(json);
     const filename = supportsCompression() ? 'nepal-japan-expenses.json.gz' : 'nepal-japan-expenses.json';
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, filename);
     setStatus({ kind: 'success', message: `Exported your expenses to ${filename}.` });
   };
 
@@ -1533,7 +1513,7 @@ function ExpensesBackupRestore({
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,.gz,application/gzip"
           onChange={handleFileChange}
           data-testid="settings-import-expenses-input"
           aria-label="Choose an expenses backup file to restore"

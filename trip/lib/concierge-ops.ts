@@ -27,7 +27,7 @@ import {
 import { firstClashWith, timeFootprintChanged } from '@/lib/sort-items-by-time';
 import type { ItineraryStore } from '@/hooks/use-itinerary';
 import { generateItemId } from '@/lib/item-id';
-import { formatDurationText } from '@/lib/time-picker-format';
+import { formatDurationText, MAX_DURATION_MINUTES } from '@/lib/time-picker-format';
 
 export type OpType = 'addItem' | 'updateItem' | 'removeItem' | 'moveItem';
 
@@ -144,7 +144,7 @@ export function dropReason(raw: unknown, plans: DayPlan[]): DropCode | undefined
     }
   }
   if (o.durationMinutes != null) {
-    if (!Number.isInteger(o.durationMinutes) || (o.durationMinutes as number) <= 0) return 'bad-duration';
+    if (!Number.isInteger(o.durationMinutes) || (o.durationMinutes as number) <= 0 || (o.durationMinutes as number) > MAX_DURATION_MINUTES) return 'bad-duration';
   }
 
   switch (type) {
