@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu } from 'lucide-react';
@@ -61,6 +61,10 @@ const MORE_TAB: NavItem = { label: 'More', href: '/more/', icon: Menu };
 
 export default function BottomTabBar() {
   const pathname = usePathname();
+  // Tab pressed but route not yet changed: lights data-active only (aria-current stays real).
+  const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
+  const pendingHref = pending && pending.from === pathname ? pending.href : null;
+  useEffect(() => setPending(null), [pathname]);
 
   // BottomTabBar is `dynamic(ssr:false)` (see
   // app/chrome-islands.tsx) — it never renders server-side, so there is no hydration
@@ -112,15 +116,22 @@ export default function BottomTabBar() {
       >
         {items.map((item) => {
           const isActive = isRouteActive(pathname, item.href);
+          const showActive = pendingHref ? item.href === pendingHref : isActive;
           const Icon = item.icon;
           return (
             <li key={item.label} className="flex min-w-0">
               <Link
                 href={item.href}
                 onClick={vtClick(item.href)}
+                // Pointer only: keyboard Enter/Space get no early highlight (acceptable).
+                onPointerDown={(e) => {
+                  if (e.button === 0) setPending({ href: item.href, from: pathname });
+                }}
+                onPointerCancel={() => setPending(null)}
+                onPointerLeave={() => setPending(null)}
                 data-testid={`tab-bar-${item.label.toLowerCase()}`}
                 aria-current={isActive ? 'page' : undefined}
-                data-active={isActive ? 'true' : undefined}
+                data-active={showActive ? 'true' : undefined}
                 // `.nav a` carries the whole recipe: the trapezoid clip-path, the
                 // --surface-1 stock, the 7px raise on the active tab, min-height var(--tap)
                 // and the tab-raise transition. Only the flex-fill is left to say here.
@@ -128,7 +139,7 @@ export default function BottomTabBar() {
               >
                 {/* The active top rule. A RULE, not a fill — it does not spend the
                     screen's one --accent fill. Decorative: aria-current carries the fact. */}
-                {isActive && (
+                {showActive && (
                   <span
                     aria-hidden="true"
                     className="absolute left-0 right-0 top-0 h-[2px]"

@@ -33,6 +33,7 @@ export function ServiceWorkerRegistrar() {
     }
 
     let refreshing = false;
+    let cleanupUpdateChecks: (() => void) | undefined;
 
     // Whether this page was ALREADY controlled by a worker when we registered.
     // On a FIRST-EVER visit the page starts uncontrolled and the activate handler's
@@ -110,6 +111,46 @@ export function ServiceWorkerRegistrar() {
           navigator.serviceWorker.controller.postMessage({ type: 'REPAIR' });
         }
 
+        // #787 — the browser only re-checks sw.js on navigation (or a functional event
+        // older than 24h), so a long-lived installed PWA never sees a new build. Poll on
+        // foreground + hourly, and when a lazy chunk 404s while online (stale shell after a
+        // deploy). A found update flows through `updatefound` below -> the update toast.
+        const checkForUpdate = () => {
+          registration.update().catch(() => {
+            // Offline / transient failure — the next trigger retries.
+          });
+        };
+        const onVisibility = () => {
+          if (document.visibilityState === 'visible') checkForUpdate();
+        };
+        const isChunkFailure = (reason: unknown) => {
+          const r = reason as { name?: string; message?: string } | null | undefined;
+          return (
+            r?.name === 'ChunkLoadError' ||
+            /Loading chunk [^\s]+ failed|Failed to fetch dynamically imported module/i.test(
+              r?.message ?? ''
+            )
+          );
+        };
+        const onChunkError = (e: ErrorEvent) => {
+          if (navigator.onLine && isChunkFailure(e.error ?? { message: e.message })) {
+            checkForUpdate();
+          }
+        };
+        const onRejection = (e: PromiseRejectionEvent) => {
+          if (navigator.onLine && isChunkFailure(e.reason)) checkForUpdate();
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('error', onChunkError);
+        window.addEventListener('unhandledrejection', onRejection);
+        const interval = window.setInterval(checkForUpdate, 60 * 60 * 1000);
+        cleanupUpdateChecks = () => {
+          document.removeEventListener('visibilitychange', onVisibility);
+          window.removeEventListener('error', onChunkError);
+          window.removeEventListener('unhandledrejection', onRejection);
+          window.clearInterval(interval);
+        };
+
         // A worker already waiting at register time (e.g. user reopened the tab
         // after an update installed in the background) — prompt immediately,
         // but only if there's an active controller (first install => no prompt).
@@ -139,6 +180,7 @@ export function ServiceWorkerRegistrar() {
       });
 
     return () => {
+      cleanupUpdateChecks?.();
       navigator.serviceWorker.removeEventListener(
         'controllerchange',
         onControllerChange

@@ -117,6 +117,13 @@ test.describe('S326 · /flights Flighty-anatomy card', () => {
     await expect(card.getByText('Relaxed', { exact: true })).toBeVisible(); // JFK 4h53m
   });
 
+  test('?today=2026-12-10: outbound is still current, labelled Arriving today', async ({ page }) => {
+    await goto(page, '/flights/?today=2026-12-10');
+    await expect(page.getByTestId('flight-card-outbound')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('flight-phase-outbound')).toContainText('Arriving today');
+    await expect(page.getByTestId('flight-countdown-outbound')).toContainText('Arriving today');
+  });
+
   test('?today=2026-12-09: outbound flips to Departing today while the other three still count down', async ({ page }) => {
     await goto(page, '/flights/?today=2026-12-09');
     await expect(page.getByTestId('flight-card-outbound')).toBeVisible({ timeout: 15_000 });

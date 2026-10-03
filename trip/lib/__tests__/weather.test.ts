@@ -764,7 +764,20 @@ describe('getCachedForecastForDate (gateway read-only, S216)', () => {
     },
   ];
 
+  const stamp = (ageH: number) =>
+    weatherCache.set('Kathmandu', { fetchedAt: new Date(Date.now() - ageH * 3_600_000).toISOString() });
+
+  it('forecast older than 24h (or with no known age) → null; 23h old is still served (#759)', () => {
+    weatherCache.set<ForecastDay[]>('Kathmandu:forecast', week());
+    expect(getCachedForecastForDate('Kathmandu', '2026-12-12')).toBeNull(); // no age
+    stamp(25);
+    expect(getCachedForecastForDate('Kathmandu', '2026-12-12')).toBeNull();
+    stamp(23);
+    expect(getCachedForecastForDate('Kathmandu', '2026-12-12')).not.toBeNull();
+  });
+
   it('cache hit: returns the matching row for city+date', () => {
+    stamp(1);
     weatherCache.set<ForecastDay[]>('Kathmandu:forecast', week());
     const day = getCachedForecastForDate('Kathmandu', '2026-12-13');
     expect(day).not.toBeNull();
@@ -786,9 +799,10 @@ describe('getCachedForecastForDate (gateway read-only, S216)', () => {
   });
 
   it('reads through the weatherCache gateway, never raw localStorage (D-078/D-097)', () => {
+    stamp(1);
     weatherCache.set<ForecastDay[]>('Kathmandu:forecast', week());
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.weatherCache) as string);
-    expect(Object.keys(raw)).toEqual(['Kathmandu:forecast']);
+    expect(Object.keys(raw).sort()).toEqual(['Kathmandu', 'Kathmandu:forecast']);
     expect(getCachedForecastForDate('Kathmandu', '2026-12-12')!.condition).toBe('Partly cloudy');
   });
 });

@@ -1275,8 +1275,13 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         } catch (err) {
-          const shell = await cacheMatch(NAV_FALLBACK);
-          if (shell) return shell;
+          // A route this build ships but whose entry was evicted still gets the Home
+          // shell (a plain 404 would be wrong for it). A path the build never shipped
+          // gets the 404 page instead of Home (#807).
+          if (PRECACHE_URLS.includes(normalized)) {
+            const shell = await cacheMatch(NAV_FALLBACK);
+            if (shell) return shell;
+          }
           const fallback = await cacheMatch(${JSON.stringify(withBase('/404.html'))});
           return fallback || Response.error();
         }

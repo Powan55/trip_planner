@@ -236,7 +236,7 @@ export function FlightJourneyCard({ journey }: { journey: Journey }) {
         {/* Phase mark — text label + icon + material (never colour-only). */}
         <span className={phaseMeta.mark} data-testid={`flight-phase-${journey.id}`}>
           <phaseMeta.Icon className="w-3 h-3" aria-hidden="true" />
-          {phaseMeta.label}
+          {timing?.inFlight ? 'Arriving today' : phaseMeta.label}
         </span>
       </header>
 
@@ -262,7 +262,7 @@ export function FlightJourneyCard({ journey }: { journey: Journey }) {
         </p>
 
         {/* Proximity countdown — from the trip-clock, honest & live vs departDate. Zeroes for
-            completed; on the day itself the phase mark already says "Departing today". */}
+            completed; on the day itself the phase mark already says "Departing today" (or "Arriving today" on an overnight arrival day). */}
         <p
           className="mt-2 flex items-center gap-2 font-machine text-t-sm text-ink-mid"
           data-testid={`flight-countdown-${journey.id}`}
@@ -274,7 +274,7 @@ export function FlightJourneyCard({ journey }: { journey: Journey }) {
               <span className="num text-ink-hi">{proximityText(timing.countdown)}</span>
             </span>
           ) : phase === 'departing' ? (
-            <span className="text-ink-hi">Departing today</span>
+            <span className="text-ink-hi">{timing?.inFlight ? 'Arriving today' : 'Departing today'}</span>
           ) : phase === 'completed' ? (
             <span>This journey is complete</span>
           ) : (

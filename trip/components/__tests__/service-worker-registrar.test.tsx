@@ -47,7 +47,7 @@ function makeWorker() {
 }
 
 function makeRegistration(waiting: ReturnType<typeof makeWorker> | null = null) {
-  return { ...fakeEventTarget(), waiting, installing: null as ReturnType<typeof makeWorker> | null };
+  return { ...fakeEventTarget(), waiting, installing: null as ReturnType<typeof makeWorker> | null, update: vi.fn(() => Promise.resolve()) };
 }
 
 function makeServiceWorkerContainer(controller: unknown, registration: ReturnType<typeof makeRegistration>) {
@@ -249,5 +249,37 @@ describe('ServiceWorkerRegistrar — update-prompt wiring', () => {
     installing.fire('statechange');
 
     expect(toast).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceWorkerRegistrar — #787 proactive update checks', () => {
+  it('calls registration.update() on visible, hourly, and online chunk failure; cleans up', async () => {
+    vi.useFakeTimers();
+    try {
+      const registration = makeRegistration();
+      const sw = makeServiceWorkerContainer({}, registration);
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
+      await mount();
+      expect(registration.update).not.toHaveBeenCalled();
+
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(registration.update).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(60 * 60 * 1000);
+      expect(registration.update).toHaveBeenCalledTimes(2);
+
+      const rej = new Event('unhandledrejection') as Event & { reason: unknown };
+      rej.reason = { name: 'ChunkLoadError', message: 'Loading chunk 12 failed.' };
+      window.dispatchEvent(rej);
+      expect(registration.update).toHaveBeenCalledTimes(3);
+
+      act(() => root.unmount());
+      document.dispatchEvent(new Event('visibilitychange'));
+      vi.advanceTimersByTime(60 * 60 * 1000);
+      expect(registration.update).toHaveBeenCalledTimes(3);
+      root = createRoot(document.createElement('div'));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

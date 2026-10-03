@@ -150,3 +150,22 @@ describe('day-assign bounds (isTripDay / assignDay)', () => {
     expect(assignDay([base], 'zzz', TRIP_DATES[0])).toEqual([base]);
   });
 });
+
+describe('share field bounds (#774)', () => {
+  const long = { id: 'x', receivedAt: 't', title: 't'.repeat(500), text: 'x'.repeat(5000) };
+  it('clamps title/text, drops an over-long url', () => {
+    const s = sanitizeItem({ ...long, url: 'https://e.com/' + 'a'.repeat(2000) });
+    expect(s?.title).toHaveLength(200);
+    expect(s?.text).toHaveLength(2000);
+    expect(s).not.toHaveProperty('url');
+  });
+  it('keeps a url at the limit', () => {
+    const url = 'https://e.com/' + 'a'.repeat(1986);
+    expect(sanitizeItem({ ...long, url })?.url).toBe(url);
+  });
+  it('addShareItem sanitizes the in-memory item too', () => {
+    const next = addShareItem([], { ...long, url: 'u'.repeat(3000) });
+    expect(next[0].title).toHaveLength(200);
+    expect(next[0].url).toBeUndefined();
+  });
+});

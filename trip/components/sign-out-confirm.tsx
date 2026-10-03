@@ -102,7 +102,21 @@ export default function SignOutConfirm({
       // 8s matches the remote write timeout, so a hung network can't trap the user here.
       setFlushing(true);
       let cap: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([flushAllDomains(), new Promise((r) => (cap = setTimeout(r, 8000)))]);
+      // The journal/prefs flushers live in *-remote modules: loaded dynamically behind the gate so
+      // no firebase-touching code lands in the first-load bundle; a failed chunk load never blocks.
+      const flushRemote = async () => {
+        if (!isRemoteConfigured()) return;
+        try {
+          const [{ flushJournal }, { flushPrefs }] = await Promise.all([
+            import('@/lib/journal-remote'),
+            import('@/lib/account-prefs-remote'),
+          ]);
+          await Promise.all([flushJournal(), flushPrefs()]);
+        } catch {
+          // best-effort: sign-out proceeds
+        }
+      };
+      await Promise.race([Promise.all([flushAllDomains(), flushRemote()]), new Promise((r) => (cap = setTimeout(r, 8000)))]);
       clearTimeout(cap);
       setFlushing(false);
       if (forgetDevice) {

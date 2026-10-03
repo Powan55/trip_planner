@@ -126,4 +126,38 @@ test.describe('tap targets ≥44×44 outside /travel', () => {
       `map-popup-favorite-${BOUDHA_ID}`,
     );
   });
+
+  test('/map popup controls sit inside the map frame on a phone', async ({ page }) => {
+    await goto(page, '/map/', { width: 393, height: 852 });
+    await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 20_000 });
+    const popup = page.locator('.njp-map-popup');
+    await expect(async () => {
+      const toggle = page.getByTestId('map-search-toggle');
+      if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+      await page.getByTestId('map-search-input').fill('Boudhanath');
+      await page.getByTestId(`map-search-result-${BOUDHA_ID}`).click();
+      await expect(popup).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 20_000 });
+    await page.waitForTimeout(500);
+
+    const frame = await page.getByTestId('map-shell').boundingBox();
+    expect(frame, 'map frame has a box').not.toBeNull();
+    const close = popup.locator('.maplibregl-popup-close-button');
+    await expectTapFloor(close, 'popup close');
+    type Box = { y: number; height: number };
+    const inside = (b: Box | null, o: Box, l: string) => {
+      expect(b, `${l} has a box`).not.toBeNull();
+      expect(b!.y, `${l} top`).toBeGreaterThanOrEqual(o.y - 1);
+      expect(b!.y + b!.height, `${l} bottom`).toBeLessThanOrEqual(o.y + o.height + 1);
+    };
+    const content = popup.locator('.maplibregl-popup-content');
+    inside(await content.boundingBox(), frame!, 'popup');
+    inside(await popup.getByTestId(`map-popup-favorite-${BOUDHA_ID}`).boundingBox(), frame!, 'heart');
+    inside(await close.boundingBox(), frame!, 'close');
+    const add = popup.getByRole('button', { name: /to your trip plan|planned/i }).first();
+    await add.scrollIntoViewIfNeeded();
+    const cb = await content.boundingBox();
+    inside(await add.boundingBox(), cb!, 'add-to-plan in popup');
+    inside(cb, frame!, 'popup after scroll');
+  });
 });

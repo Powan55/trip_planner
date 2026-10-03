@@ -35,7 +35,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
             'group toast group-[.toaster]:bg-[rgb(var(--surface-raised))] group-[.toaster]:text-foreground group-[.toaster]:border-2 group-[.toaster]:border-border group-[.toaster]:rounded-r2',
           description: 'group-[.toast]:text-t-body group-[.toast]:text-[color:var(--text-mid)]',
           actionButton:
-            'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
+            'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground min-h-[var(--tap)]',
           cancelButton:
             'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
         },

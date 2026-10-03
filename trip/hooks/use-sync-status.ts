@@ -6,10 +6,15 @@ import {
   getActiveTripId,
   getDefaultTripShareId,
   DEFAULT_TRIP_ID,
+  STORAGE_KEYS,
+  getSyncCode,
+  isSafeTripSegment,
 } from '@/core/storage/gateway';
 import { outboxBlocked, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
-import { isReadDenied, isSignInRequired } from '@/core/sync/read-denied';
+import { isJournalDenied, isPrefsDenied, isReadDenied, isSignInRequired } from '@/core/sync/read-denied';
 import { isRemoteConfigured } from '@/lib/firebase-config';
+import { getActiveTraveler } from '@/lib/token-auth';
+import { journalDirtyDates, personPrefsDirty } from '@/core/trips/registry';
 
 /**
  * Reactive read over the offline-push outbox — the data behind
@@ -75,13 +80,23 @@ const SSR_DEFAULT: SyncStatus = {
 
 function readStatus(): SyncStatus {
   const { dirty, lastAckAt } = outboxSnapshot();
-  const pending = Object.values(dirty).flat().length;
+  // #753: journal days and account prefs queue outside the outbox. Counted only when they can
+  // flush (same gate as the outbox plus an account code), so a guest never sees a stuck count.
+  // A refused one adds to both `pending` and `blocked`, keeping blocked a subset.
+  const code = getSyncCode()?.trim() ?? '';
+  const tripId = getActiveTripId();
+  const queuedOn = isRemoteConfigured() && getActiveTraveler() !== null && isSafeTripSegment(code);
+  const days = queuedOn ? journalDirtyDates(tripId) : [];
+  const prefs = queuedOn ? personPrefsDirty() : 0;
+  const queuedBlocked =
+    days.filter((d) => isJournalDenied(code, tripId, d)).length + (isPrefsDenied(code) ? prefs : 0);
+  const pending = Object.values(dirty).flat().length + days.length + prefs;
   // Read off the same `SYNC_OUTBOX_CHANGED_EVENT` tick as everything else — `markDenied` (and
   // #271's `setReadDenied`) dispatch it, so a refusal re-renders the badge without a reload,
   // exactly like an enqueue or an ack.
   return {
     pending,
-    blocked: outboxBlocked(),
+    blocked: outboxBlocked() + queuedBlocked,
     readBlocked: isReadDenied(),
     lastAckAt,
     localOnly:
@@ -105,7 +120,13 @@ export function useSyncStatus(): SyncStatus {
       setStatus(readStatus());
     };
     const onStorage = (e: StorageEvent) => {
-      if (e.key === keyFor('syncOutbox') || e.key === null) reread();
+      if (
+        e.key === null ||
+        e.key === keyFor('syncOutbox') ||
+        e.key === keyFor('journalSync') ||
+        e.key === STORAGE_KEYS.personPrefs
+      )
+        reread();
     };
     window.addEventListener(SYNC_OUTBOX_CHANGED_EVENT, reread);
     window.addEventListener('storage', onStorage);
