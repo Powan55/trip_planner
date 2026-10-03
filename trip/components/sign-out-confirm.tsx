@@ -8,6 +8,7 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import { unsyncedEditCount } from '@/core/trips/registry';
+import { flushAllDomains } from '@/hooks/use-domain-sync';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -73,6 +74,7 @@ export default function SignOutConfirm({
   const [passwordSession, setPasswordSession] = useState(false);
   const [unsynced, setUnsynced] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [flushing, setFlushing] = useState(false);
   const busyRef = useRef(false);
 
   // D-660: on a device still on its anonymous session, key 28 is the only way to carry the account
@@ -96,6 +98,13 @@ export default function SignOutConfirm({
     busyRef.current = true;
     setBusy(true);
     void (async () => {
+      // #748: give queued edits one bounded chance to land before the wipe below discards them.
+      // 8s matches the remote write timeout, so a hung network can't trap the user here.
+      setFlushing(true);
+      let cap: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([flushAllDomains(), new Promise((r) => (cap = setTimeout(r, 8000)))]);
+      clearTimeout(cap);
+      setFlushing(false);
       if (forgetDevice) {
         await defaultBlobStore.clear();
         // D-503: the lifetime keys stay out of `wipeAllTripData()` on purpose (D-314/D-320);
@@ -167,6 +176,13 @@ export default function SignOutConfirm({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <p
+          role="status"
+          data-testid={`${testId}-flushing`}
+          className={flushing ? 'text-sm text-[color:var(--text-mid)]' : 'sr-only'}
+        >
+          {flushing ? 'Syncing your last changes…' : ''}
+        </p>
 
         {step === 'key' && code ? (
           <>
