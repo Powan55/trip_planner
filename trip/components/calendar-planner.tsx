@@ -483,7 +483,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         animate={isDesktop ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
         exit={isDesktop ? { scale: 0.9, opacity: 0 } : { y: 40, opacity: 0 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 sm:p-6 max-h-[90vh] overflow-y-auto overscroll-contain scrollbar-hide"
+        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 sm:p-6 max-h-[90dvh] overflow-y-auto overscroll-contain scrollbar-hide"
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id={titleId} className="pr pr--l text-ink-hi">{item ? 'Edit item' : 'Add item'}</h3>
@@ -1882,7 +1882,7 @@ export default function CalendarPlanner() {
           page scrolls behind, expandable to near-full height. Rendered only when the map is
           on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl).
           Tab-bar clearance is PADDING, not a `bottom` offset: the box stays flush to
-          `bottom-0`, so both height states keep the top edge they had and the expanded 85vh
+          `bottom-0`, so both height states keep the top edge they had and the expanded 85dvh
           can't be pushed off the top of a short viewport. Only the canvas shrinks, which is
           what has to move — maplibre docks the tile attribution bottom-right of it, and
           that's a licence condition. `md:pb-0` because the tab bar is `md:hidden` while this
@@ -1891,7 +1891,7 @@ export default function CalendarPlanner() {
         <div
           data-testid="plan-map-sheet"
           data-expanded={mapExpanded ? 'true' : 'false'}
-          className={`lg:hidden fixed inset-x-0 bottom-0 z-40 flex flex-col bg-[rgb(var(--surface-low))] border-t-2 border-[color:hsl(var(--border))] pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] transition-[height] duration-300 motion-reduce:transition-none md:pb-0 ${mapExpanded ? 'h-[85vh]' : 'h-[42vh]'}`}
+          className={`lg:hidden fixed inset-x-0 bottom-0 z-40 flex flex-col bg-[rgb(var(--surface-low))] border-t-2 border-[color:hsl(var(--border))] pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] transition-[height] duration-300 motion-reduce:transition-none md:pb-0 ${mapExpanded ? 'h-[85dvh]' : 'h-[42dvh]'}`}
         >
           <div className="flex items-center justify-between px-4 py-2 border-b-hair border-[color:hsl(var(--border))] shrink-0">
             <span className="pr flex items-center gap-1.5 text-ink-hi">
