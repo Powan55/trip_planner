@@ -105,6 +105,12 @@ export function ServiceWorkerRegistrar() {
     navigator.serviceWorker
       .register(withBasePath('/sw.js'), { updateViaCache: 'none' })
       .then((registration) => {
+        // Install is the only thing that fills the precache, so ask the active worker
+        // to refill anything the browser cleared since (#758).
+        if (navigator.onLine && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'REPAIR' });
+        }
+
         // #787 — the browser only re-checks sw.js on navigation (or a functional event
         // older than 24h), so a long-lived installed PWA never sees a new build. Poll on
         // foreground + hourly, and when a lazy chunk 404s while online (stale shell after a

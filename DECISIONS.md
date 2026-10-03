@@ -6051,6 +6051,18 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 
 **Trade-off.** A red smoke does not stop or undo anything, since the deploy already happened. The only alert is GitHub's default failure email to whoever merged. Recovery stays forward-only. The hash is passed as a job output rather than downloading the Pages artifact, which avoids another action.
 
+### D-672 · (issue #758, 2026-10-03) · The active worker refills a precache the browser emptied
+
+**Decision.** On every online page load with a controller, the registrar posts `REPAIR`. The worker calls `registration.update()`, stops if a worker is installing or waiting, then fetches only the `PRECACHE_URLS` missing from the current precache and puts each one on its own. A failed fetch skips that entry. It never deletes and never touches another cache. Every entry must pass `isExpectedPrecacheBody`, and route pages and RSC `.txt` payloads must also contain this build's `BUILD_ID`, which gen-sw reads from `.next/BUILD_ID` and fails without.
+
+**Why.** Install was the only thing that filled the precache, so clearing site data while the registration survived left the app with no offline shell until the next deploy.
+
+**Not atomic, on purpose.** Install stays atomic. Repair runs under a worker that is already serving, so a partial refill is strictly better than none, and a throw there would only lose the entries that did succeed.
+
+**Torn deploys.** The update check catches a deploy the worker can see. The guard for the rest is the `BUILD_ID` on HTML and RSC payloads, not chunk overlap: hashed chunks are shared between builds, so a newer page can load ours, but it carries its own build id. A captive portal carries none. Unhashed files (icons, hero images, the manifest) only get the content-type check, so a torn refill there keeps a neighbouring build's bytes until the next deploy.
+
+**Not covered.** An uncached route still falls back to the Home shell rather than the 404 page; that is the other half of #758. Preflight's map-shell row still reads a partly filled precache as present.
+
 ### D-671 · Amends D-156 and #239 · (issues #750, #751, 2026-10-03) · Restore under sync keeps place ids and re-points receipts to reminted expense ids
 
 **Decision.** A synced restore picks the id policy per domain. Saved places keep their ids: each live backup row is upserted under its own id, stamped with `nextSyncStamp` off the current row for that id (live or tombstone) or the backup row, and only current rows missing from the backup are tombstoned. Expenses still get fresh ids. `restoreExpenses` returns a backup-id to new-id map (or `false`), and `importTripBackup` commits the domains before the photo index so restored receipt metas, or the live ones when the file brings no photos, follow that map. The expenses-only settings restore re-points live photos the same way. A file with an empty photo list leaves this device's photos alone. The import result lists domains that were present but malformed (`dropped`), and clearing expenses removes receipt photos from this device.
