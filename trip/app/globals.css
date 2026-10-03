@@ -205,7 +205,7 @@
        ================================================================ */
 
     /* ---- Text — THREE TIERS, AND NO FOURTH ----
-       hi and mid did not move under D-334. --text-lo was LIFTED by #781 (D-675),
+       hi and mid did not move under D-334. --text-lo was LIFTED by #781 (D-676),
        #A79BC0 -> #BEB4D6, for outdoor reading in the base app: same hue family, lighter
        only, so the ~728 sites swept onto it under issue #27 keep their role and just
        read brighter. Measured on the ramp (bg/s1/s2/s3): hi 19.80/18.23/16.38/14.21,
@@ -499,7 +499,7 @@
        legal anywhere; a literal px size opts out of that bump by definition.
 
        --t-micro is THE FLOOR and it is one spelling of the micro-label role. Issue #781
-       (D-675) raised it 11.69px -> 12.75px, so it now equals --t-label: the old floor
+       (D-676) raised it 11.69px -> 12.75px, so it now equals --t-label: the old floor
        was the size every meta row and chip read at outdoors. The two names stay
        because they are two roles (mono caps key vs sentence-case meta), and a later
        split should move the label, never drop the floor back under 12.75px. Uppercase
@@ -1456,7 +1456,7 @@ html {
   border-radius: 9999px;
   background: var(--stamp-ink);
   color: var(--paper);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1597,7 +1597,7 @@ html {
    5.91:1, and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.96:1
    and 5.49:1. --text-lo was 3.73:1 there before #781 lifted it; it is 4.93:1 now,
    but the rule stands: it MAY NOT BE USED AS TEXT OVER THE PHOTOGRAPH until someone
-   re-tiers hero copy on purpose (D-675). In the hero it appears only on the opaque
+   re-tiers hero copy on purpose (D-676). In the hero it appears only on the opaque
    countdown cells (8.34:1 on surface-2).
 
    The last stop is the opaque page field, so the section blends into the
@@ -1662,7 +1662,7 @@ html {
    IT DOES NOT UNLOCK THE FLOOR TIER BY ITSELF. --text-lo measured 4.30 (NP) / 4.40 (JP)
    here before #781; the lifted tier measures 5.68 / 5.81, so the harness guard became
    a "not used" pairing. The hero's "no floor-tier copy over the photograph" rule still
-   stands as written (D-675). Do not re-tier hero copy off the back of a token lift.
+   stands as written (D-676). Do not re-tier hero copy off the back of a token lift.
 
    Deliberately NOT the full `.photo-header` duotone recipe: that opens with
    `filter: grayscale(1)` plus a `lighten` shadow floor, and greyscaling Home would

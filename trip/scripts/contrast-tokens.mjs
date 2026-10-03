@@ -713,14 +713,14 @@ const guards = [
   // against the raw color-mix. This is what it measures once the grain lands: 4.48, under the
   // floor. 18% is legal ONLY on a surface proven to carry nothing composited over it — prove
   // it, never assume it. If this guard starts passing, the grain or --text-lo moved.
-  // RETIRED AS A GUARD by #781 (D-675): the lifted --text-lo passes here. Now a pairing in
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
   // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // Issue #26. The hero's rule is "no floor-tier TEXT over the photograph", and this is
   // what makes it load-bearing instead of a comment: --text-lo is 3.55:1 at the scrim
   // floor, fine for a decorative mark and NOT fine for a word. If this guard ever starts
   // passing, the scrim got darker and hero copy can be re-tiered — which is a decision
   // somebody should make on purpose, having seen this line flip.
-  // RETIRED AS A GUARD by #781 (D-675): the lifted --text-lo passes here. Now a pairing in
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
   // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // Issue #89. THE CAP DOES NOT UNLOCK THE FLOOR TIER, and this is the line that proves it
   // rather than asserting it. The `.hero-cap` darken layer lifts the floor tier from 3.55
@@ -735,7 +735,7 @@ const guards = [
   // (or the page field it composites over). That is precisely the direction in which a
   // floor-tier re-tier would become defensible, so it should be a decision somebody makes
   // having watched this line flip, not a side effect of a palette tweak.
-  // RETIRED AS A GUARD by #781 (D-675): the lifted --text-lo passes here. Now a pairing in
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
   // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // Issue #25. The front door reuses the header ramp, so the floor tier DOES clear AA over the
   // cover — but the ghost CTA's edge is the pair that would bind first if that ramp is ever
@@ -757,7 +757,7 @@ const guards = [
   // panel scrim: fine for a decorative mark, not fine for a word. It is the same rule the
   // hero's guard above carries, on the other photographic surface, and nothing renders in
   // that tier over either of them today — this is what keeps it that way.
-  // RETIRED AS A GUARD by #781 (D-675): the lifted --text-lo passes here. Now a pairing in
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
   // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // (2) The auth panel is separated from the picture by DEPTH, not by contrast: an opaque
   // surface-2 fill measures 1.74:1 against the graded worst-case pixel behind it, and its

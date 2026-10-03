@@ -6067,7 +6067,7 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 
 **Not a listener.** Mounting the journal's snapshot stream app-wide would cost a read on every change for the life of the page. The one-shot push costs nothing when nothing is dirty, and one transaction read per dirty day or per prefs flush otherwise.
 
-### D-675 · Amends D-334's text-tier clause · (issue #781, 2026-10-03) · The base app gets an outdoor floor: --text-lo #BEB4D6, 12.75px micro, .9 stamp scrim
+### D-676 · Amends D-334's text-tier clause · (issue #781, 2026-10-03) · The base app gets an outdoor floor: --text-lo #BEB4D6, 12.75px micro, .9 stamp scrim
 
 **Decision.** Three moves for reading the base app in sunlight, not only in Travel Mode (D-165). (1) `--text-lo` goes `#A79BC0 -> #BEB4D6` (and `--muted-foreground` with it): lighter, same hue family, 7.24:1 on `--surface-3` where it was 5.48. hi and mid do not move. (2) `--t-micro`, the size floor, goes 11.69px -> 12.75px, so it now equals `--t-label`. The hero countdown labels move off their 10px literal onto `text-t-label`. (3) The Must-See stamp scrim on guide photos goes .72 -> .9 (6.84 np-a / 7.64 jp-a on a pure white pixel).
 

@@ -61,7 +61,7 @@ export default function GlobalError({
             style={{
               margin: '0 0 0.9rem',
               fontFamily: 'ui-monospace, "Cascadia Mono", Consolas, monospace',
-              fontSize: '0.6875rem',
+              fontSize: '0.75rem',
               fontWeight: 600,
               letterSpacing: '0.13em',
               textTransform: 'uppercase',
