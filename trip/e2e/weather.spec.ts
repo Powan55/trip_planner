@@ -217,6 +217,28 @@ test.describe('S99 — weather + golden hour (stubbed Open-Meteo)', () => {
     await expect(cachedIndicator).toContainText('Offline');
     await expect(cachedIndicator).toContainText('last updated');
   });
+
+  test('online + Open-Meteo answers 429: cached weather says "Couldn\'t refresh", not "Offline" (#759)', async ({
+    page,
+  }) => {
+    await stubOpenMeteo(page);
+    await gotoHomeWithClock(page, IN_TRIP_DAY);
+    await seedTodayFixture(page);
+    await reloadSettled(page);
+    await settleTodayPanel(page);
+    await settleWeatherCard(page);
+    await expect(page.getByTestId('weather-card')).toHaveAttribute('data-state', 'live');
+
+    await page.unroute('**/api.open-meteo.com/**');
+    await page.route('**/api.open-meteo.com/**', (route) => route.fulfill({ status: 429, body: '' }));
+    await reloadSettled(page);
+    await settleTodayPanel(page);
+    await settleWeatherCard(page);
+
+    const cachedIndicator = page.getByTestId('weather-cached-indicator');
+    await expect(cachedIndicator).toContainText("Couldn't refresh");
+    await expect(cachedIndicator).not.toContainText('Offline');
+  });
 });
 
 test.describe('S150 — 7-day outlook (stubbed Open-Meteo, same response, zero extra fetch)', () => {
