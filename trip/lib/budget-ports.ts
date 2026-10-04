@@ -54,7 +54,7 @@ export const budgetSyncPort: SyncPort<BudgetModel> = {
     import('./budget-remote')
       .then(({ subscribeRemoteBudget }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemoteBudget();
+        realUnsub = subscribeRemoteBudget(onDead);
       })
       .catch((err) => {
         console.warn('[budget] remote subscribe unavailable:', err);

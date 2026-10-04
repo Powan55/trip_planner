@@ -66,7 +66,7 @@ export const expensesSyncPort: SyncPort<Expense[]> = {
     import('./expenses-remote')
       .then(({ subscribeRemoteExpenses }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemoteExpenses();
+        realUnsub = subscribeRemoteExpenses(onDead);
       })
       .catch((err) => {
         console.warn('[expenses] remote subscribe unavailable:', err);

@@ -343,7 +343,7 @@ export async function pushDayChunk(current: DayPlan[], date: string, tripId: str
  *
  * @returns an unsubscribe function (always safe to call, even on the dormant path).
  */
-export function subscribeRemote(): () => void {
+export function subscribeRemote(onDead?: () => void): () => void {
   // Dormant gate: with no config — or on the local-only default pack (#10) — never touch firebase.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -391,6 +391,8 @@ export function subscribeRemote(): () => void {
     };
     window.addEventListener('online', onlineHandler);
   };
+  // The caller's reopen timer (#845) replaces the `online` wait; both would double-listen.
+  const retry = () => (onDead ? onDead() : armOnlineRetry());
 
   // Persist + dispatch a resolved plan set to the local store (the shared write tail).
   // Writes through the EXISTING persistence and dispatches the EXISTING
@@ -577,7 +579,7 @@ export function subscribeRemote(): () => void {
             setReadDenied('itinerary', true);
             return;
           }
-          if (!cancelled) armOnlineRetry();
+          if (!cancelled) retry();
         },
       );
 
@@ -598,7 +600,7 @@ export function subscribeRemote(): () => void {
       // network). getRemote() clears its cached promise on failure, so a retry gets a
       // fresh attempt; arm the `online` listener to fire that retry on reconnect.
       console.warn('[itinerary-remote] remote sync unavailable, staying local-only:', err);
-      if (!cancelled) armOnlineRetry();
+      if (!cancelled) retry();
     } finally {
       settingUp = false;
     }
