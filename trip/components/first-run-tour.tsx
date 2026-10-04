@@ -225,6 +225,7 @@ function TourPanel({
 
   const panelRef = useRef<HTMLDivElement>(null);
   const skipRef = useRef<HTMLButtonElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
 
   // Focus the Skip control on open (the dialog's first real focusable control, mirroring
   // TokenGate's autofocus-on-open contract).
@@ -362,7 +363,10 @@ function TourPanel({
         <div className="mt-6 flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => {
+              if (step === 1) nextRef.current?.focus();
+              onBack();
+            }}
             disabled={step === 0}
             data-testid="tour-back"
             className="btn btn--2 gap-1.5 px-3 focus-visible:outline-none"
@@ -374,6 +378,7 @@ function TourPanel({
           <button
             type="button"
             onClick={onNext}
+            ref={nextRef}
             data-testid="tour-next"
             className="btn px-5 focus-visible:outline-none"
           >

@@ -49,6 +49,33 @@ async function flush() {
 }
 
 describe('registered overlays leave the sheet beneath open (#865)', () => {
+  it('keeps tour focus trapped when Back becomes disabled (#866)', async () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => root.render(createElement(FirstRunTour)));
+    await flush();
+    const next = document.querySelector<HTMLButtonElement>('[data-testid="tour-next"]')!;
+    const back = document.querySelector<HTMLButtonElement>('[data-testid="tour-back"]')!;
+    const skip = document.querySelector<HTMLButtonElement>('[data-testid="tour-skip"]')!;
+    act(() => next.click());
+    back.focus();
+    act(() => back.click());
+    expect(back.disabled).toBe(true);
+    expect(document.activeElement).toBe(next);
+    expect(document.body.dataset.dialogOpen).toBe('1');
+    // jsdom has no layout; expose the visible controls to the real Tab trap.
+    for (const button of [next, skip]) {
+      Object.defineProperty(button, 'offsetParent', { configurable: true, value: container });
+    }
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    act(() => next.dispatchEvent(tab));
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(skip);
+    act(() => skip.click());
+    expect(document.body.dataset.dialogOpen).toBeUndefined();
+  });
+
   it.each(['palette', 'tour', 'picker'] as const)('%s owns the first Escape only', async (kind) => {
     const onClose = vi.fn();
     container = document.createElement('div');
