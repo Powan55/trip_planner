@@ -6167,3 +6167,9 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+
+### D-699 · (issue #851, 2026-10-04) · The first-snapshot seed needs a confirmed server read
+
+**Decision.** In `reconcileFirstSnapshot`, if `getDocFromServer` fails and the cache fallback also lacks the trip doc, the reconcile applies a non-empty remote (never an empty one) and returns. It no longer runs the seed, whose non-merge marker `setDoc` could overwrite an existing `members` map on the owner device. A cache hit still counts as the doc existing.
+
+**Not done.** The stale-backup warning is deferred. The dead `pushPlans` is not removed.
