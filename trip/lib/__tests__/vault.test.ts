@@ -307,6 +307,15 @@ describe('Trip Vault — load/save four-state resolution (D-018 via envelope)', 
     expect(localStorage.getItem(QUARANTINE_KEY)).toBeNull(); // NOT quarantined
   });
 
+  it('FUTURE VERSION — saveItinerary refuses to overwrite it (returns false, bytes untouched)', () => {
+    const raw = JSON.stringify({ schemaVersion: 99, updatedAt: 'x', payload: [] });
+    localStorage.setItem(STORAGE_KEY, raw);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(saveItinerary(REAL_V2, cfg)).toBe(false);
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(raw);
+    expect(warn).toHaveBeenCalled();
+  });
+
   it('STATE D — corrupt (parse error): quarantines the raw string, then falls back to sample', () => {
     const raw = '{not valid json';
     localStorage.setItem(STORAGE_KEY, raw);
