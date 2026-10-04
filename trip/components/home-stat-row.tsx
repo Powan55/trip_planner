@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown } from '@/lib/countdown';
-import { getNow, getNowAtTrip, getTodayInTrip } from '@/lib/trip-now';
+import { getNow, getTodayInTrip, getTripDayDate } from '@/lib/trip-now';
 import { tripShape, daysToGo } from '@/lib/home-stats';
 import { deriveWrapped } from '@/core/recap/wrapped';
 import { visitedTally } from '@/lib/visited-footprint';
@@ -49,10 +49,9 @@ import HomeMilestone from '@/components/home-milestone';
  * places. The band is now the trip's SHAPE on the first row and what has actually HAPPENED on
  * the second.
  *
- * The clock the two live cells use is `getNowAtTrip().date` — destination-local and
- * `?today=`-aware — rather than a hand-rolled device-local `YYYY-MM-DD`. That is the same
- * trip-clock day `lib/visit-autocount.ts` credits visits against, so the two new cells can
- * never disagree about which day it is.
+ * The clock the two live cells use is `getTripDayDate()`, `?today=`-aware and gated on the
+ * device day the same way the hero is (#789), rather than a hand-rolled device-local
+ * `YYYY-MM-DD`.
  *
  * The milestone line below the grid is `components/home-milestone.tsx`, imported STATICALLY so
  * it rides this island's chunk rather than adding one to Home's First Load. Its box is a fixed
@@ -105,7 +104,7 @@ export default function HomeStatRow() {
   // Seeded from a lazy initializer for the same reason as `live`: a first frame showing 0 and
   // then correcting itself is a number the user watches change.
   const [visited, setVisited] = useState(visitedTally);
-  const [tripDay, setTripDay] = useState(() => getNowAtTrip().date);
+  const [tripDay, setTripDay] = useState(getTripDayDate);
 
   useEffect(() => {
     const tick = () => {
@@ -114,7 +113,7 @@ export default function HomeStatRow() {
       // autocount island, so a 60s poll on the tick this component already runs is enough and
       // costs one small JSON parse a minute.
       setVisited(visitedTally());
-      setTripDay(getNowAtTrip().date);
+      setTripDay(getTripDayDate());
     };
     tick();
     const timer = setInterval(tick, 60_000);

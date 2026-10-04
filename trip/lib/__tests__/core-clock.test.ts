@@ -267,6 +267,24 @@ describe('trip-now — the trip window is the device calendar, the day number is
     });
   });
 
+  // #789: the readers that used the destination-only day now share the hero's gate.
+  async function tripDayDateAt(instant: string) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(instant));
+    window.sessionStorage.clear();
+    vi.resetModules();
+    const { getTripDayDate } = await import('@/lib/trip-now');
+    return getTripDayDate();
+  }
+
+  it('getTripDayDate follows the device day outside the window and the trip day inside it', async () => {
+    expect(await tripDayDateAt('2026-12-08T18:15:00Z')).toBe('2026-12-08'); // Kathmandu: Dec 9
+    expect(await tripDayDateAt('2027-01-09T15:00:00Z')).toBe('2027-01-09'); // Tokyo: Jan 10
+    expect(await tripDayDateAt('2026-12-10T03:00:00Z')).toBe('2026-12-09'); // flight still in the air, day 1 held (#754)
+    expect(await tripDayDateAt('2026-12-10T07:50:00Z')).toBe('2026-12-10'); // landed, Day 2 in Kathmandu
+    expect(await tripDayDateAt('2026-08-21T03:00:00Z')).toBe('2026-08-20'); // off-trip: device day
+  });
+
   it('mid-trip the destination offset still names the day (D-224 is not regressed)', async () => {
     // 03:00Z Dec 11 = 22:00 EST Dec 10: the device says Day 2, Kathmandu says Day 3, and inside
     // the window the offset wins. This is the assertion that fails if the fix above is

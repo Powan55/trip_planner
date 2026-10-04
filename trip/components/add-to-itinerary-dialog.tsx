@@ -458,7 +458,7 @@ export default function AddToItineraryDialog({
         // entrance as every other modal, from `components/ui/sheet-dark.tsx`.
         {...overlayPanelMotion()}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full max-w-md bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 max-h-[90vh] flex flex-col overflow-hidden"
+        className="w-full max-w-md bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 max-h-[90dvh] flex flex-col overflow-hidden"
       >
         {/* Non-scrolling header — stays pinned at the top of the panel. */}
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">

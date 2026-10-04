@@ -5,7 +5,8 @@ import { m } from 'framer-motion';
 import { BookOpen, Camera, ImageOff, Sparkles, Wallet } from 'lucide-react';
 import { formatDateLong } from '@/lib/trip-data';
 import { getCityForDate, getCountryForDate, TRIP_DATES } from '@/core/dates';
-import { getNowAtTrip } from '@/lib/trip-now';
+import { getTripDayDate } from '@/lib/trip-now';
+import { useTravelTick } from '@/lib/travel-tick';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
@@ -62,14 +63,14 @@ export default function TripStoryRecap() {
   const { expenses, hydrated: expensesHydrated } = useExpenses();
   const { photosFor, hydrated: photosHydrated } = usePhotos();
 
-  // '' until mount (SSR-safe default) — a single mount read is enough (post-trip status doesn't
-  // change second-to-second; no interval needed, by design). The trip day comes from
-  // `getNowAtTrip().date`, the DESTINATION-offset day every other trip-day surface reads; the
-  // device's own calendar day diverges from it for most of the day on a device left on home time.
+  // '' until mount (SSR-safe default). `getTripDayDate()` gates on the device day like the hero,
+  // so the story does not unlock on Jan 9 at home while the hero still says Day 32 (#789). Re-read
+  // on the shared tick so a tab left open over the last midnight unlocks without a reload.
   const [nowDateStr, setNowDateStr] = useState<string>('');
+  const tick = useTravelTick();
   useEffect(() => {
-    setNowDateStr(getNowAtTrip().date);
-  }, []);
+    setNowDateStr(getTripDayDate());
+  }, [tick]);
 
   const hydrated =
     itineraryHydrated && journalHydrated && expensesHydrated && photosHydrated && nowDateStr !== '';

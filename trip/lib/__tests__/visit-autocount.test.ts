@@ -136,6 +136,20 @@ describe('day-arrival counting — the itinerary credits a city once its day has
     expect(tripPlacesThrough('2026-12-09')).toEqual([{ city: 'New York', country: 'USA' }]);
   });
 
+  it('#822: the evening before departure (EST) credits nothing — the hero is still counting down', async () => {
+    const { runVisitAutocount, getVisited } = await load({ today: '2026-12-08' });
+    vi.setSystemTime(new Date('2026-12-09T01:00:00Z')); // Dec 8 20:00 EST, already Dec 9 in Kathmandu
+    runVisitAutocount();
+    expect(getVisited().cities).toEqual([]);
+  });
+
+  it('#822: from the hero day-one flip it credits day one', async () => {
+    const { runVisitAutocount, getVisited } = await load({ today: '2026-12-09' });
+    vi.setSystemTime(new Date('2026-12-09T12:00:00Z')); // Dec 9 07:00 EST
+    runVisitAutocount();
+    expect(getVisited().cities).toEqual(['New York']);
+  });
+
   it('is a PREFIX of the trip, in first-appearance order, deduped', async () => {
     const { tripPlacesThrough } = await load({ today: '2026-12-16' });
     expect(tripPlacesThrough('2026-12-16')).toEqual([
