@@ -6174,3 +6174,21 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The 64 MB cap measured the compressed file only. A small crafted archive inflated without limit through `Response(stream).text()` and froze the tab.
 
 **Not changed.** The cap is the existing constant, so a real backup is bounded the same whether it arrives plain or gzipped.
+
+### D-700 · Amends D-356 · (issue #853, 2026-10-04) · Forgetting a trip deletes its exact slot keys, not a prefix
+
+**Why.** Trip ids may contain `:`, so the `trip:a:` sweep in `wipeTripData` also deleted the data of a hand-made trip `a:b`.
+
+**Decision.** `wipeTripData` removes `keyForTrip(id, slot)` for each `TRIP_SCOPED_SLOTS` member. Only `keyForTrip` writes `trip:` keys, so nothing is orphaned. `wipeAllTripData` keeps its prefix sweep because it wants everything.
+### D-699 · (issue #851, 2026-10-04) · The first-snapshot seed needs a confirmed server read
+
+**Decision.** In `reconcileFirstSnapshot`, if `getDocFromServer` fails and the cache fallback also lacks the trip doc, the reconcile applies a non-empty remote (never an empty one) and returns. It no longer runs the seed, whose non-merge marker `setDoc` could overwrite an existing `members` map on the owner device. A cache hit still counts as the doc existing.
+
+**Not done.** The stale-backup warning is deferred. The dead `pushPlans` is not removed.
+### D-698 · (issue #850, 2026-10-04) · A synced reorder keeps live rows missing from its id list
+
+**Decision.** Under sync, `reorderItems` appends every row of the day absent from `orderedIds` (live and tombstones), not just tombstones.
+
+**Why.** The id list comes from the drag render. A peer row that arrives before the commit was dropped by the core reorder, and a drop that had already been pushed is not healed from remote.
+
+**Not changed.** The core drop of unlisted rows and the cross-day branch in `use-calendar-dnd.ts` (unreachable today).
