@@ -349,13 +349,10 @@ describe('getTripConfig — prototype-pollution-shaped ids never leak a function
       // still be ON DISK — from before that change, or from any other write of the pointer — and
       // `getTripConfig` is what has to stay total against it either way, so the state is set up
       // directly here rather than the case being dropped.
-      if (poison === '__proto__') {
-        expect(joinTrip(poison)).toBe(false);
-        upsertKnownTrip(poison);
-        setActiveTripId(poison);
-      } else {
-        expect(joinTrip(poison)).toBe(true);
-      }
+      // D-696: ids under 20 chars are refused at join too, so every poison id is set up on disk.
+      expect(joinTrip(poison)).toBe(false);
+      upsertKnownTrip(poison);
+      setActiveTripId(poison);
       const cfg = getTripConfig(poison);
       // was TRIP_PACKS[poison] === the Object constructor (typeof 'function') pre-fix.
       expect(typeof cfg).not.toBe('function');
@@ -390,8 +387,8 @@ describe('A-2 — a config-less joiner writes ~0 day docs, not the whole Nepal×
   });
 
   it('config-less join: the itinerary Vault fallback is 1 shell (was 32 Nepal/Japan shells pre-fix)', () => {
-    joinTrip('joined-no-config');
-    const cfg = getTripConfig('joined-no-config');
+    joinTrip('joined-no-config-0123456789');
+    const cfg = getTripConfig('joined-no-config-0123456789');
     expect(cfg).not.toBe(NEPAL_JAPAN_2026); // the actual pre-fix defect
     const shells = buildDayShells(cfg);
     expect(shells).toHaveLength(1); // reconcileFirstSnapshot's seed branch pushes exactly this

@@ -116,7 +116,7 @@ describe('trip registry (S238)', () => {
   it('no self-heal write when the active trip is the default or already known', () => {
     listKnownTrips();
     expect(window.localStorage.getItem(KEY)).toBeNull(); // default active ⇒ no write
-    joinTrip('known-1', 'Known');
+    joinTrip('known-0123456789abcdefg', 'Known');
     const before = window.localStorage.getItem(KEY);
     listKnownTrips();
     expect(window.localStorage.getItem(KEY)).toBe(before); // already known ⇒ no rewrite
@@ -155,29 +155,29 @@ describe('trip registry (S238)', () => {
 
   // ── joinTrip ───────────────────────────────────────────────────────────────
   it('joinTrip registers the trip AND writes the active-trip pointer (no reload here — D-172)', () => {
-    joinTrip('abc-123', 'New trip');
-    expect(getActiveTripId()).toBe('abc-123');
-    expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBe('abc-123');
-    expect(listKnownTrips().find((t) => t.id === 'abc-123')?.name).toBe('New trip');
+    joinTrip('abc-123-0123456789abcdef', 'New trip');
+    expect(getActiveTripId()).toBe('abc-123-0123456789abcdef');
+    expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBe('abc-123-0123456789abcdef');
+    expect(listKnownTrips().find((t) => t.id === 'abc-123-0123456789abcdef')?.name).toBe('New trip');
   });
 
   it('joinTrip(DEFAULT_TRIP_ID) switches back without inventing a bogus name', () => {
-    joinTrip('abc-123', 'New trip');
+    joinTrip('abc-123-0123456789abcdef', 'New trip');
     joinTrip(DEFAULT_TRIP_ID);
     expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID);
     expect(listKnownTrips()[0].name).toBe('Nepal × Japan');
   });
 
   it('joining the DEFAULT pack by pasted key never renames it to Shared trip', () => {
-    joinTrip('other', 'Shared trip');
+    joinTrip('other-0123456789abcdefg', 'Shared trip');
     joinTrip(DEFAULT_TRIP_ID, 'Shared trip'); // e.g. the default key pasted into Join-by-key
     expect(listKnownTrips()[0]).toMatchObject({ id: DEFAULT_TRIP_ID, name: 'Nepal × Japan' });
   });
 
   it('joinTrip on an already-known trip keeps its name (idempotent re-join)', () => {
-    joinTrip('abc-123', 'Named once');
-    joinTrip('abc-123', 'Shared trip'); // e.g. re-opening the same share link
-    expect(listKnownTrips().find((t) => t.id === 'abc-123')?.name).toBe('Named once');
+    joinTrip('abc-123-0123456789abcdef', 'Named once');
+    joinTrip('abc-123-0123456789abcdef', 'Shared trip'); // e.g. re-opening the same share link
+    expect(listKnownTrips().find((t) => t.id === 'abc-123-0123456789abcdef')?.name).toBe('Named once');
   });
 
   // ── joinTrip is the trust boundary for the Firestore path segment (#476) ───
@@ -205,6 +205,20 @@ describe('trip registry (S238)', () => {
     it('a minted uuid — what the share flow actually produces — still joins', () => {
       expect(joinTrip(UUID, 'Shared trip')).toBe(true);
       expect(getActiveTripId()).toBe(UUID);
+    });
+
+    // #852 — a short token is guessable, so it never joins fresh; a row already held still does.
+    it('refuses a token under 20 chars, accepts 20, and keeps a known short row switchable', () => {
+      expect(parseTripToken('abc')).toBeNull();
+      expect(parseTripToken('a'.repeat(19))).toBeNull();
+      expect(parseTripToken('a'.repeat(20))).toEqual({ kind: 'custom', id: 'a'.repeat(20) });
+      expect(parseTripToken(UUID)).toEqual({ kind: 'custom', id: UUID });
+      expect(joinTrip('abc', 'Short')).toBe(false);
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+
+      upsertKnownTrip('abc', 'Short');
+      expect(joinTrip('abc')).toBe(true);
+      expect(getActiveTripId()).toBe('abc');
     });
 
     // #393 / D-504 — the account key is a credential, not a trip capability.
@@ -376,7 +390,7 @@ describe('trip registry (S238)', () => {
     });
 
     it('does NOT wipe an id the tombstone drops but the same merge re-adds (re-join beats a stale tombstone)', () => {
-      joinTrip('t1', 'One');
+      upsertKnownTrip('t1', 'One');
       joinTrip(DEFAULT_TRIP_ID);
       window.localStorage.setItem('trip:t1:budget', 'still-here');
       const removedAt = Date.now() - 1000; // stale: older than the entry's own recency below
@@ -396,20 +410,20 @@ describe('trip registry (S238)', () => {
   // ── removeKnownTrip tombstone cap (S352) ───────────────────────────────────
   describe('removeKnownTrip — the tombstone list caps at 200, newest-first (S352)', () => {
     it('a single forget records exactly one tombstone, newest (only) first', () => {
-      joinTrip('t1', 'One');
+      upsertKnownTrip('t1', 'One');
       removeKnownTrip('t1');
       expect(listRemovedTrips().map((r) => r.id)).toEqual(['t1']);
     });
 
     it('caps at 200 entries — the 201st push drops the OLDEST, not a FIFO shift (mirrors PLACES_CAP)', () => {
       for (let i = 0; i < 200; i++) {
-        joinTrip(`t${i}`, `Trip ${i}`);
+        upsertKnownTrip(`t${i}`, `Trip ${i}`);
         removeKnownTrip(`t${i}`);
       }
       expect(listRemovedTrips()).toHaveLength(200);
       expect(listRemovedTrips()[0].id).toBe('t199'); // newest-first
 
-      joinTrip('t200', 'Trip 200');
+      upsertKnownTrip('t200', 'Trip 200');
       removeKnownTrip('t200');
 
       const removed = listRemovedTrips();

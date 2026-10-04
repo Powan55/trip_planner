@@ -66,7 +66,10 @@ import { subscribeTripList } from '@/lib/trips-remote';
 import { createSyncCodeTripListSync } from '@/components/itinerary-provider';
 
 const CODE = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
-const DOC_PATH = `trips/${CODE}/profile/tripList`;
+// joinTrip refuses ids under 20 chars (D-696).
+const T1 = 'trip-one-0123456789abcd';
+const KEEP = 'trip-keep-0123456789abcd';
+const DOC_PATH =`trips/${CODE}/profile/tripList`;
 
 /** Fire a SERVER snapshot carrying `data` at the listener registered for the trip-list doc. */
 function fireSnapshot(data: DocData) {
@@ -117,13 +120,13 @@ afterEach(() => {
 
 describe('subscribeTripList — activeTripChanged reports a pointer move, and only a pointer move', () => {
   it('a remote forget of the ACTIVE trip reports activeTripChanged: true', async () => {
-    joinTrip('t1', 'One'); // writes the entry AND the active pointer
-    expect(getActiveTripId()).toBe('t1');
+    joinTrip(T1, 'One'); // writes the entry AND the active pointer
+    expect(getActiveTripId()).toBe(T1);
 
     const onMerge = vi.fn();
     const unsub = subscribeTripList(CODE, onMerge);
     await flush();
-    fireSnapshot(tombstoneFor('t1'));
+    fireSnapshot(tombstoneFor(T1));
 
     expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID); // the merge moved it
     expect(onMerge).toHaveBeenCalledWith(true);
@@ -131,28 +134,28 @@ describe('subscribeTripList — activeTripChanged reports a pointer move, and on
   });
 
   it('an ordinary merge that leaves the pointer alone reports false', async () => {
-    joinTrip('keep', 'Keep');
+    joinTrip(KEEP, 'Keep');
 
     const onMerge = vi.fn();
     const unsub = subscribeTripList(CODE, onMerge);
     await flush();
     fireSnapshot({ version: 1, trips: [{ id: 'theirs', name: 'Phone trip', joinedAt: 1 }] });
 
-    expect(getActiveTripId()).toBe('keep');
+    expect(getActiveTripId()).toBe(KEEP);
     expect(onMerge).toHaveBeenCalledWith(false);
     unsub();
   });
 
   it('a remote forget of a NON-active trip reports false', async () => {
-    joinTrip('t1', 'One');
-    joinTrip('keep', 'Keep'); // active = keep, so t1's tombstone must not move the pointer
+    joinTrip(T1, 'One');
+    joinTrip(KEEP, 'Keep'); // active = keep, so t1's tombstone must not move the pointer
 
     const onMerge = vi.fn();
     const unsub = subscribeTripList(CODE, onMerge);
     await flush();
-    fireSnapshot(tombstoneFor('t1'));
+    fireSnapshot(tombstoneFor(T1));
 
-    expect(getActiveTripId()).toBe('keep');
+    expect(getActiveTripId()).toBe(KEEP);
     expect(onMerge).toHaveBeenCalledWith(false);
     unsub();
   });
@@ -162,13 +165,13 @@ describe('createSyncCodeTripListSync — reloads on a pointer move, never on a p
   it('reloads when the merge moves the active-trip pointer', async () => {
     setSyncCode(CODE);
     signIn('Kenji'); // the subscription gate needs code + active traveler
-    joinTrip('t1', 'One');
+    joinTrip(T1, 'One');
     const loc = stubLocation();
 
     const sync = createSyncCodeTripListSync();
     sync.activate();
     await flush();
-    fireSnapshot(tombstoneFor('t1'));
+    fireSnapshot(tombstoneFor(T1));
 
     expect(loc.reload).toHaveBeenCalledTimes(1);
     sync.teardown();
@@ -177,7 +180,7 @@ describe('createSyncCodeTripListSync — reloads on a pointer move, never on a p
   it('does NOT reload on a merge that leaves the pointer where it was', async () => {
     setSyncCode(CODE);
     signIn('Kenji');
-    joinTrip('keep', 'Keep');
+    joinTrip(KEEP, 'Keep');
     const loc = stubLocation();
 
     const sync = createSyncCodeTripListSync();
