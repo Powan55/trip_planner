@@ -760,7 +760,10 @@ export function importRemoteTrips(
   // re-added in the same merge (a race-losing re-join) is never wiped.
   const mergedIds = new Set(merged.map((t) => t.id));
   for (const t of stored) {
-    if (t.id !== DEFAULT_TRIP_ID && !mergedIds.has(t.id)) wipeForgottenTripData(t.id);
+    if (t.id === DEFAULT_TRIP_ID || mergedIds.has(t.id)) continue;
+    // Unsynced edits and device-only photos survive another device's forget (#843).
+    if (unsyncedEditCountFor(t.id) > 0 || localPhotoCountFor(t.id) > 0) continue;
+    wipeForgottenTripData(t.id);
   }
   return { localHadExtras };
 }

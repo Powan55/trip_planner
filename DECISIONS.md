@@ -6126,3 +6126,11 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 **Data.** The journal picker now offers a day only once the hero has reached it, so Dec 9 is no longer offered on Dec 8 evening at home. Entry keys are still the day the user picks, and existing entries are untouched.
 
 **Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
+
+### D-690 · Extends #518 · (issue #843, 2026-10-04) · A remote forget keeps this device's pending work
+
+**Decision.** `importRemoteTrips` skips `wipeForgottenTripData` for an id with unsynced edits (`unsyncedEditCountFor`) or device-only photos (`localPhotoCountFor`). The entry still leaves the list and the tombstone is still recorded; nothing is stamped or stripped, so the forget does not bounce back to the device that made it. A local forget (`removeKnownTrip`) still wipes everything.
+
+**Why.** Device A forgetting a trip made device B's next trip-list snapshot delete B's offline edits and its photos, which exist nowhere else.
+
+**Known ceiling.** The kept `trip:{id}:*` data sits on disk with no list entry. Re-joining the trip or forgetting it locally clears it. No prompt, no UI.
