@@ -943,8 +943,8 @@ export function wipeAllTripData(): void {
 
 /**
  * Full local teardown for ONE forgotten trip (A-10 / #100). Mirrors `wipeAllTripData()`'s
- * collect-then-delete `trip:` prefix sweep above, scoped to `trip:{id}:*` for a SINGLE non-default
- * id instead of every pack — every `TRIP_SCOPED_SLOTS` member under that id (itinerary, expenses,
+ * sweep above, but for a SINGLE non-default id, deleting its exact slot keys rather than a prefix
+ * — every `TRIP_SCOPED_SLOTS` member under that id (itinerary, expenses,
  * budget, journal, photos meta, docs, packing, share-inbox, favorites, day-anchors, weather cache,
  * my-places, sync outbox, both quarantine slots) goes with it. `core/trips/registry.ts`'s
  * `removeKnownTrip` calls this alongside its existing list/tombstone writes, so forgetting a trip no
@@ -954,24 +954,12 @@ export function wipeAllTripData(): void {
  *
  * No-op on an empty id or `DEFAULT_TRIP_ID` (mirrors `removeKnownTrip`'s own guard — the default
  * pack is never removable, so it is never swept by id here; use `wipeAllTripData()` for that case).
- * SSR-safe, never throws. Collect-then-delete for the same reason as `wipeAllTripData()`: removing
- * while iterating re-indexes `s.key(i)` and silently skips half the keys.
+ * SSR-safe, never throws.
  */
 export function wipeTripData(id: string): void {
   if (!id || id === DEFAULT_TRIP_ID) return;
-  const s = backing('local');
-  if (s === null) return;
-  try {
-    const prefix = `trip:${id}:`;
-    const doomed: string[] = [];
-    for (let i = 0; i < s.length; i++) {
-      const k = s.key(i);
-      if (k !== null && k.startsWith(prefix)) doomed.push(k);
-    }
-    for (const k of doomed) s.removeItem(k);
-  } catch {
-    /* disabled storage / privacy mode — never throw out of the gateway */
-  }
+  // Exact keys, not a `trip:{id}:` prefix: ids may contain ':' so `trip:a:` also matches trip `a:b`.
+  for (const slot of TRIP_SCOPED_SLOTS) removeKey('local', keyForTrip(id, slot));
 }
 
 // ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────

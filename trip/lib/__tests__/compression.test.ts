@@ -106,3 +106,10 @@ describe('S228 unsupported-browser fallback (CompressionStream/DecompressionStre
     }
   });
 });
+
+describe('#854 unpacked output cap', () => {
+  it('rejects a gzip bomb that inflates past the cap', async () => {
+    const bomb = await compressToBlob('a'.repeat(65 * 1024 * 1024));
+    await expect(decompressBlobOrText(bomb)).rejects.toThrow(/too large/);
+  }, 30_000);
+});

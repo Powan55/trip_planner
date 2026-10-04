@@ -40,7 +40,7 @@ rules_version = '2';
 // session first.
 //
 // ROLES. `owner` = the creator: may remove members, change roles (short of leaving no
-// owner), and delete the trip.
+// owner). Nobody deletes the trip doc through rules (#856).
 // `member` = full content read+write, and may ADD other members (add-only; a member can
 // never remove or re-role an existing entry). `viewer` (read, no write) is the named
 // upgrade path and is deliberately NOT built: it needs a second predicate on every write
@@ -298,7 +298,8 @@ service cloud.firestore {
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else
         || redeemsInvite()                   // invitee: may add itself as 'member' (D-662)
       );
-      allow delete: if (isOpen() && request.auth != null) || isOwner();
+      // No owner delete (#856): the subtree would outlive the doc, and a doc-less id reads open.
+      allow delete: if isOpen() && request.auth != null;
 
       // ── CARVE-OUT: the account path + the login door ──────────────────────────
       // `trips/{userToken}/profile/{identity,tripList,prefs,journal_*}` is not trip content: the

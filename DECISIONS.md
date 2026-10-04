@@ -6173,3 +6173,44 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 Restore replaces the whole local journal but pushed only the dates in the file, so the account journal doc kept the days the backup lacked and other devices still showed them. The journal `write` in `trip-backup.ts` now reads the pre-restore local dates before the write and pushes the union with the backup's dates. `pushJournalEntry` already tombstones a date that is absent locally with a sync record, and no-ops when it has none, so no new primitive and no new reads: one transaction per date on the single journal doc, as before.
 
 The `ok` gate stays: a refused local write pushes nothing.
+### D-703 · Extends D-540 · (issue #856, 2026-10-04) · The rules no longer let an owner delete the trip doc
+
+**Decision.** `allow delete` on `trips/{tripId}` drops `|| isOwner()` and keeps only the open-trip branch (`isOpen() && request.auth != null`). A trip with a roster cannot be deleted from a client, owner or not.
+
+**Why.** Subcollections outlive a deleted doc, and a trip id with no doc reads as open (D-540), so the orphaned tree became readable and writable by any signed-in holder of the id, who could also re-create the doc as owner. No client path deletes a trip doc today; this closes it before one exists.
+
+**Not changed.** The repair for a malformed or empty roster still deletes (those read open). The console and admin SDK bypass rules. These rules are not published by this change; publishing stays an owner step.
+### D-702 · Extends D-650 · (issue #855, 2026-10-04) · `saveItinerary` refuses to overwrite a newer envelope
+
+**Decision.** `saveItinerary` reads the stored value first and, if its `schemaVersion` is above `CURRENT_ITINERARY_VERSION`, warns and returns `false`, the same refused-save result as D-650, so `commit()` skips the push and snaps back. A missing, unparseable or older value writes as before, and older versions still upgrade on write.
+
+**Why.** A stale bundle (service-worker skew) reads a future envelope leniently, and its next save rewrote it as the current version, silently downgrading data a newer build had written.
+
+**Not changed.** Import still writes through `writeString` and bypasses the check. No toast or UI.
+
+**Trade-off.** Switching to an older branch on the same localhost origin locks saves until site data is cleared. The warning says so.
+### D-701 · Amends D-199 · (issue #854, 2026-10-04) · Restore stops reading a gzip file once it unpacks past 64 MB
+
+**Decision.** `decompressBlobOrText` reads the decompression stream chunk by chunk and, once the output passes `MAX_IMPORT_BYTES`, cancels the stream and throws "That file is too large to open (over 64 MB once unpacked)." The prefix is the one `trip-backup.ts` already keys on, so Restore shows its usual "No changes were made" line.
+
+**Why.** The 64 MB cap measured the compressed file only. A small crafted archive inflated without limit through `Response(stream).text()` and froze the tab.
+
+**Not changed.** The cap is the existing constant, so a real backup is bounded the same whether it arrives plain or gzipped.
+
+### D-700 · Amends D-356 · (issue #853, 2026-10-04) · Forgetting a trip deletes its exact slot keys, not a prefix
+
+**Why.** Trip ids may contain `:`, so the `trip:a:` sweep in `wipeTripData` also deleted the data of a hand-made trip `a:b`.
+
+**Decision.** `wipeTripData` removes `keyForTrip(id, slot)` for each `TRIP_SCOPED_SLOTS` member. Only `keyForTrip` writes `trip:` keys, so nothing is orphaned. `wipeAllTripData` keeps its prefix sweep because it wants everything.
+### D-699 · (issue #851, 2026-10-04) · The first-snapshot seed needs a confirmed server read
+
+**Decision.** In `reconcileFirstSnapshot`, if `getDocFromServer` fails and the cache fallback also lacks the trip doc, the reconcile applies a non-empty remote (never an empty one) and returns. It no longer runs the seed, whose non-merge marker `setDoc` could overwrite an existing `members` map on the owner device. A cache hit still counts as the doc existing.
+
+**Not done.** The stale-backup warning is deferred. The dead `pushPlans` is not removed.
+### D-698 · (issue #850, 2026-10-04) · A synced reorder keeps live rows missing from its id list
+
+**Decision.** Under sync, `reorderItems` appends every row of the day absent from `orderedIds` (live and tombstones), not just tombstones.
+
+**Why.** The id list comes from the drag render. A peer row that arrives before the commit was dropped by the core reorder, and a drop that had already been pushed is not healed from remote.
+
+**Not changed.** The core drop of unlisted rows and the cross-day branch in `use-calendar-dnd.ts` (unreachable today).
