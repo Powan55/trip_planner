@@ -57,7 +57,7 @@ export default function TodayPanel() {
   // Feeds the pure `nextUp` helper for the "Up next" rail; re-resolved on the SAME 1s cadence
   // as `todayInTrip` so the rail advances live and self-corrects at day boundaries. `0` until
   // mount (SSR-safe; only read once `todayInTrip` is non-null, so the 0 is never observed).
-  const [nowUtcMs, setNowUtcMs] = useState<number>(0);
+  const [nowUtcMs, setNowUtcMs] = useState<number>(() => Date.now());
 
   useEffect(() => {
     const tick = () => {

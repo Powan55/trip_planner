@@ -8,7 +8,7 @@ import OptimizedImage from '@/components/optimized-image';
 import { claimStamps, type StampBoard } from '@/core/places/passport';
 import { TRIP_DATES, getCityForDate, getCountryForDate, formatDate } from '@/core/dates';
 import { elapsedTripDates } from '@/core/recap/model';
-import { getNowAtTrip } from '@/lib/trip-now';
+import { useTripDay } from '@/hooks/use-trip-day';
 import { journeyLegs } from '@/lib/journey-legs';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { INSPIRATION_HIGHLIGHTS } from '@/lib/inspiration-data';
@@ -109,8 +109,7 @@ export default function PassportStamps() {
 
   // '' until mount, then the destination-local trip day — the SAME clock `/recap` and the home
   // recap read, so the log and those surfaces can never disagree about which day it is.
-  const [today, setToday] = useState('');
-  useEffect(() => setToday(getNowAtTrip().date), []);
+  const today = useTripDay();
 
   const legs = useMemo(journeyLegs, []);
 

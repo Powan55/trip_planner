@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
+import { useTripDay, isAfterTrip } from '@/hooks/use-trip-day';
 import { offsetForCountry, getCountryForDate, getCityForDate, TRIP_DATES } from '@/core/dates';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { describeItemTime } from '@/lib/item-time-display';
@@ -39,10 +40,11 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
   const { getDayPlan, hydrated } = useItineraryContext();
 
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
-  const [nowUtcMs, setNowUtcMs] = useState<number>(0);
+  const [nowUtcMs, setNowUtcMs] = useState<number>(() => Date.now());
 
   // recompute on the shared `/travel` tick (base 20s) — and immediately on a `date` change.
   const tickN = useTravelTick();
+  const postTrip = isAfterTrip(useTripDay(), TRIP_DATES[TRIP_DATES.length - 1]);
   useEffect(() => {
     const t = getTodayInTrip();
     setTodayInTrip(t);
@@ -74,11 +76,13 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
           <h2 id="travel-hero-title">
             <span className="l">Day</span>{' '}
             <span className="v !text-n-lg !text-ink-lo">&mdash;</span>{' '}
-            <span className="f">Not on the road yet</span>
+            <span className="f">{postTrip ? 'Trip complete' : 'Not on the road yet'}</span>
           </h2>
         </div>
         <p className="empty px-gut py-3" data-testid="travel-hero-offtrip">
-          Travel Mode lights up during your trip (Dec 9 &ndash; Jan 9).
+          {postTrip
+            ? 'Travel Mode is done for this trip. Your plan and journal are still in the planner.'
+            : 'Travel Mode lights up during your trip (Dec 9 \u2013 Jan 9).'}
         </p>
       </section>
     );
