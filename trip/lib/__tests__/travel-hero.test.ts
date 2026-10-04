@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { deriveTravelHero, deriveRowPhases, DEFAULT_NOW_BLOCK_MIN } from '@/lib/travel-hero';
 import { NPT_OFFSET_MIN, placeWallClockToUtcMs } from '@/core/dates';
 import type { ItineraryItem, ItineraryCategory } from '@/lib/trip-data';
+import { TRIP_ITINERARY } from '@/core/content/itinerary';
 
 function item(
   startMin: number | undefined,
@@ -242,5 +243,20 @@ describe('S391: the current-activity decision is made entirely on the instant', 
     expect(deriveTravelHero([tokyo, detroit], jan9At(9, 0)).current?.id).toBe('tokyo');
     // …and at 09:10 UTC tokyo has been ended by detroit's start, so detroit is the current one.
     expect(deriveTravelHero([tokyo, detroit], jan9At(9, 10)).current?.id).toBe('detroit');
+  });
+});
+
+// #754: once trip-now holds the day the 23:30 KTM departure left on, the hero reading that day's
+// items keeps the flight as "now" past Kathmandu midnight, rather than 'Upcoming: Layover CAN'.
+describe('deriveTravelHero — the overnight KTM departure past midnight', () => {
+  it('is the current item at 00:00 NPT on Dec 19 when the held day is Dec 18', () => {
+    const dec18 = TRIP_ITINERARY.find((d) => d.date === '2026-12-18')!.items;
+    const state = deriveTravelHero(dec18, {
+      dayDate: '2026-12-18',
+      placeOffsetMin: NPT_OFFSET_MIN,
+      nowUtcMs: Date.UTC(2026, 11, 18, 18, 15), // 00:00 NPT Dec 19
+    });
+    expect(state.phase).toBe('now');
+    expect(state.current?.id).toBe('n10-6');
   });
 });

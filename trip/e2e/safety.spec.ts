@@ -155,6 +155,21 @@ test.describe('S152 axe — /safety (run twice for determinism)', () => {
   }
 });
 
+test.describe('safety kit — country order follows the trip clock (#756)', () => {
+  const firstCountry = (page: Page) =>
+    page.getByRole('region', { name: 'Emergency & Embassy Contacts' }).getByRole('heading', { level: 3 }).first();
+
+  test('Japan first when the trip clock is in Japan', async ({ page }) => {
+    await gotoAsTraveler(page, '/safety/?today=2026-12-20');
+    await expect(firstCountry(page)).toHaveText('Japan');
+  });
+
+  test('Nepal first with no override', async ({ page }) => {
+    await gotoAsTraveler(page, '/safety/');
+    await expect(firstCountry(page)).toHaveText('Nepal');
+  });
+});
+
 test.describe('S152 safety kit — reduced motion', () => {
   test('renders the same content under prefers-reduced-motion: reduce', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });

@@ -66,8 +66,10 @@ export interface ReactiveStoreCore<T> {
   hydrated: boolean;
   /** THE single write choke-point:
    * gate on hydrated → prev = storage.load() → next = compute(prev) → storage.save(next)
-   * → setState(next) → dispatch(eventName) → void sync?.push(prev, next) [fire-and-forget]. */
-  commit(compute: (current: T) => T): void;
+   * → setState(next) → dispatch(eventName) → void sync?.push(prev, next) [fire-and-forget].
+   * Returns false when the write did not land (not hydrated, or `save` reported a refusal such as
+   * a full quota); true otherwise. A `save` that returns nothing counts as landed. */
+  commit(compute: (current: T) => T): boolean;
 }
 
 /** Called ONCE at module scope per domain; returns the domain's core hook. */
@@ -117,7 +119,7 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
     // AFTER the local save + dispatch, fire-and-forget (the SyncPort swallows its own failures
     // and never throws), and only for a synced domain.
     const commit = useCallback((compute: (current: T) => T) => {
-      if (!hydratedRef.current) return;
+      if (!hydratedRef.current) return false;
       const prev = storage.load();
       const next = compute(prev);
       const ok = storage.save(next);
@@ -125,6 +127,7 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
       window.dispatchEvent(new CustomEvent(eventName));
       // A refused local save snaps back on re-read; pushing it would sync a change this device lost.
       if (sync && ok !== false) void sync.push(prev, next);
+      return ok !== false;
     }, []);
 
     return { value, hydrated, commit };

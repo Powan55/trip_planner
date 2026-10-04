@@ -73,7 +73,7 @@ const writeLog: string[] = [];
 const pathOf = (segs: string[]) => segs.join('/');
 
 vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
+  getAuth: () => ({ currentUser: { email: 'fake@accounts.trip-planner.invalid', uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
   onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
     queueMicrotask(() => next(null));
     return () => {};

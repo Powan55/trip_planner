@@ -168,7 +168,7 @@ const config: Config = {
         // role and the same step serves several roles, so the recipe classes carry it and a
         // one-off site takes a `tracking-*` utility. Baking a single value in would make the
         // step lie on every site that is not caps.
-        't-micro': ['var(--t-micro)', { lineHeight: '1.25' }],   /* 11.69px — the floor */
+        't-micro': ['var(--t-micro)', { lineHeight: '1.25' }],   /* 12.75px — the floor (#781) */
         't-label': ['var(--t-label)', { lineHeight: '1.25' }],   /* 12.75px */
         't-sm': ['var(--t-sm)', { lineHeight: '1.35' }],         /* 13.81px */
         't-body': ['var(--t-body)', { lineHeight: '1.45' }],     /* 15.94px */

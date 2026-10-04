@@ -10,7 +10,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
 import { daysToGo } from '@/lib/home-stats';
-import { getNow, getTodayInTrip, getNowAtTrip, type TripToday } from '@/lib/trip-now';
+import { getNow, getTodayInTrip, getTripDayDate, type TripToday } from '@/lib/trip-now';
 import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
 import { isPostTrip } from '@/core/recap/model';
@@ -193,6 +193,7 @@ export default function HeroSection() {
   // read), so a page loaded ALREADY mid-trip only seeds the baseline — it must not celebrate
   // on every Home visit for the whole trip window — and later 1s ticks never re-fire.
   const hadArrivedRef = useRef<boolean | null>(null);
+  const everInTripRef = useRef(false);
   const [celebrate, setCelebrate] = useState(false);
 
   const sectionRef = useRef<HTMLElement>(null);
@@ -224,7 +225,11 @@ export default function HeroSection() {
   useEffect(() => {
     if (!mounted) return;
     const arrived = todayInTrip != null;
-    if (crossedIntoComplete(hadArrivedRef.current, arrived)) {
+    // A day already seen in-trip never celebrates again: crossing the dateline can drop the day to
+    // null for a tick and bring it back on landing (#791).
+    const seenBefore = everInTripRef.current;
+    if (arrived) everInTripRef.current = true;
+    if (!seenBefore && crossedIntoComplete(hadArrivedRef.current, arrived)) {
       setCelebrate(true);
       haptic();
       const t = setTimeout(() => setCelebrate(false), 650);
@@ -263,10 +268,12 @@ export default function HeroSection() {
   // null, so without this the countdown-grid branch below ran for both and post-trip showed
   // a permanently zeroed clock ("00:00:00", 0 total days) under "Countdown to day one" —
   // wrong once the trip is over. Mount-gated for the same hydration reason as `custom` above.
-  // Reuses `getNowAtTrip().date` (the SAME destination-local trip-day source A-22's
+  // Reads `getTripDayDate()` (#822), the SAME trip-day clock the recap unlock and passport read, so
+  // the countdown can never zero out while the recap is unlocked (a device east of Tokyo on Jan 10).
+  // It replaced `getNowAtTrip().date`, A-22's
   // `trip-recap.tsx` fix and `trip-story-recap.tsx`/`core/recap/wrapped.ts` already read) —
   // no new device-local date helper.
-  const postTrip = mounted && !todayInTrip && isPostTrip(getNowAtTrip().date);
+  const postTrip = mounted && !todayInTrip && isPostTrip(getTripDayDate());
 
   // — custom (non-default-pack) trips get a versatile vibe hero: no Nepal×Japan art/copy.
   // Mount-gated (SSR always renders the default pack's prerendered content,/SSG hydration
@@ -567,7 +574,7 @@ export default function HeroSection() {
             hero copy over the photo may drop to the floor tier. */}
         <m.p
           variants={reveal}
-          className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3"
+          className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3 [overflow-wrap:anywhere]"
         >
           {custom
             ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')
@@ -699,10 +706,11 @@ export default function HeroSection() {
                   >
                     <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
                   </div>
-                  {/* 0.588rem == 9.996px at the 17px root, i.e. the shipped 10px, expressed
-                      in rem so it is not a `text-[Npx]` that opts out of the outdoor root
-                      bump. --t-micro is 0.6875rem and would GROW the frozen cell by 17%. */}
-                  <div className="text-[0.588rem] sm:text-xs text-ink-lo uppercase tracking-wider mt-1 font-bold">{label}</div>
+                  {/* --t-label (12.75px), the same size sm:text-xs already gave wider screens.
+                      Issue #781 lifted this off the shipped 10px: it was the smallest text in
+                      the app and the first thing lost in sunlight. Mobile drops the tracking
+                      so MINUTES still fits the 320px grid-cols-3 cell. */}
+                  <div className="text-t-label text-ink-lo uppercase tracking-normal sm:tracking-wider mt-1 font-bold">{label}</div>
                 </div>
                 );
               })}

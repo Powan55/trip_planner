@@ -50,6 +50,21 @@ function render() {
   };
 }
 
+describe('TravelSafetyKit — contact call labels (#710)', () => {
+  it('spoken label says ", unverified" exactly when the visible tag renders', () => {
+    const r = render();
+    const rows = r.container.querySelectorAll('[data-testid^="safety-contact-"] a');
+    const tagged = Array.from(rows).filter((a) => a.querySelector('.hollow-tag'));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(tagged.length).toBeGreaterThan(0);
+    rows.forEach((a) => {
+      const hasTag = !!a.querySelector('.hollow-tag');
+      expect(a.getAttribute('aria-label')!.endsWith(', unverified')).toBe(hasTag);
+    });
+    r.unmount();
+  });
+});
+
 describe('TravelSafetyKit — screen wake lock (#247)', () => {
   let fake: ReturnType<typeof makeFakeWakeLock>;
 

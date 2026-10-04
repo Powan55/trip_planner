@@ -90,7 +90,7 @@ const fake = vi.hoisted(() => ({
 vi.mock('@/lib/firebase-remote', async () => {
   const { isPermissionDenied } = await import('@/core/sync/denied');
   return {
-    getRemote: async () => {
+    getSharedRemote: async () => {
       await fake.ready;
       return { db: { type: 'db' }, fs: fake.fs };
     },

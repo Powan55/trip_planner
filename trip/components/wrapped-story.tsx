@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { Share2, MapPin, CheckCircle2, Wallet, BookOpen, Camera, Backpack, FileCheck2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { getNowAtTrip } from '@/lib/trip-now';
+import { useTripDay } from '@/hooks/use-trip-day';
 import { deriveWrapped, type WrappedStats } from '@/core/recap/wrapped';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useExpenses } from '@/hooks/use-expenses';
@@ -128,10 +128,7 @@ export default function WrappedStory() {
   // The DESTINATION-offset trip day (`getNowAtTrip().date`), the same one `trip-recap.tsx` and
   // every other trip-day surface reads — not the device's own calendar day, which diverges from it
   // for most of the day on a device left on home time.
-  const [nowDateStr, setNowDateStr] = useState('');
-  useEffect(() => {
-    setNowDateStr(getNowAtTrip().date);
-  }, []);
+  const nowDateStr = useTripDay();
 
   const hydrated =
     itineraryHydrated &&

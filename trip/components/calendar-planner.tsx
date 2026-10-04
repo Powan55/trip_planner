@@ -23,6 +23,7 @@ import { buildItineraryStops, stopMarkerFor } from '@/lib/itinerary-map';
 import { showUndoToast } from '@/lib/undo-toast';
 import { bulkMoveWithUndo } from '@/lib/bulk-move-undo';
 import { getTodayInTrip } from '@/lib/trip-now';
+import { useTravelTick } from '@/lib/travel-tick';
 import { setSelectedDay } from '@/lib/selected-day';
 import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
 import { SortableItem, DroppableDay } from '@/components/calendar-sortable-item';
@@ -36,6 +37,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
 import QuickAddInput from '@/components/quick-add-input';
 import MapIslandBoundary from '@/components/map-island-boundary';
+import { prefersReducedMotion } from '@/lib/motion';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -423,7 +425,17 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         // so it must be part of the trap's first/last computation or Tab could escape past it.
         'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
       ),
-    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    ).filter((el) => {
+      // A closed <details> hides everything except its summary from the tab order.
+      // offsetParent does not reliably reflect that native disclosure state.
+      const closedDetails = el.closest('details:not([open])');
+      if (closedDetails && !closedDetails.querySelector(':scope > summary')?.contains(el)) {
+        return false;
+      }
+      return el.checkVisibility
+        ? el.checkVisibility({ checkVisibilityCSS: true })
+        : el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+    });
 
     if (focusable.length === 0) return;
     const first = focusable[0];
@@ -473,7 +485,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         animate={isDesktop ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
         exit={isDesktop ? { scale: 0.9, opacity: 0 } : { y: 40, opacity: 0 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 sm:p-6 max-h-[90vh] overflow-y-auto overscroll-contain scrollbar-hide"
+        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 sm:p-6 max-h-[90dvh] overflow-y-auto overscroll-contain scrollbar-hide"
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id={titleId} className="pr pr--l text-ink-hi">{item ? 'Edit item' : 'Add item'}</h3>
@@ -680,6 +692,18 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
 }
 
 export default function CalendarPlanner() {
+  // Compact day strip once scrolled (#776). Hysteresis (64 in / 8 out) because the strip's own
+  // height change shifts content and would otherwise re-cross a single threshold.
+  const [stripCompact, setStripCompact] = useState(false);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setStripCompact((c) => (c ? y > 8 : y > 64));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   // search-within-plan: cross-route focus channel. `?focus=<itemId>` (pushed by
   // the command palette's "In your plan" results, which live OUTSIDE the provider and
   // so cannot share `highlightId` state directly) is read reactively via
@@ -833,7 +857,7 @@ export default function CalendarPlanner() {
 
   // drag-and-drop wiring (sensors, active-drag id, reorder / move-between-days
   // handlers) lives in a co-located hook now — same logic, lifted out to shrink this file.
-  const { sensors, activeItem, handleDragStart, handleDragOver, handleDragEnd } = useCalendarDnd({
+  const { sensors, announcements, activeItem, handleDragStart, handleDragOver, handleDragEnd } = useCalendarDnd({
     plans,
     getDayPlan,
     moveItem,
@@ -1265,6 +1289,7 @@ export default function CalendarPlanner() {
       })),
     [getVisibleDayPlan],
   );
+  useTravelTick(); // re-render on the shared tick so the "today" strip rolls over past midnight (#791)
   const todayStripDate = getTodayInTrip()?.date ?? null;
 
   // ONE PlanDayMap instance, placed either in the desktop inline pane or the
@@ -1351,10 +1376,11 @@ export default function CalendarPlanner() {
             pane — a box exactly as tall as the strip, so `sticky` was a no-op there. As a
             direct child of the planner container it now stays pinned under the navbar for
             the whole scroll, which is the point: the day you are editing is always visible.
-            `top-16` is the fixed navbar's height (h-16); `h-[76px]` is declared, not
-            incidental, because the composer below parks at exactly navbar+strip (see its
-            `top-[140px]`). Desktop keeps the month grid as its picker and never renders this. */}
-        <div className="sticky top-16 z-20 -mx-4 mb-4 flex h-[76px] items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden">
+            `top-[var(--nav-h)]` is the fixed navbar's height; `h-[104px]` is declared, not
+            incidental: it is the strip's resting height and `h-[72px]` its compact height once the page
+            scrolls (#776; hysteresis below stops flicker at the threshold). Nothing else parks on it
+            now that the composer scrolls. Desktop keeps the month grid as its picker and never renders this. */}
+        <div className={`sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex ${stripCompact ? 'h-[72px]' : 'h-[104px]'} items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden`}>
           <div className="min-w-0 flex-1">
             <DayStrip
               dates={TRIP_DATES}
@@ -1522,7 +1548,7 @@ export default function CalendarPlanner() {
             <div className="flex items-center justify-between gap-1 mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 hover:bg-white/5 text-ink-mid disabled:text-ink-lo disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
-                <h3 className="num text-n-sm uppercase text-ink-hi sm:text-n-md">{formatDateLong(selectedDate)}</h3>
+                <h3 className="font-sans text-n-sm font-semibold text-ink-hi sm:text-n-md">{formatDateLong(selectedDate)}</h3>
                 <p className="pr pr--lo mt-0.5">
                   <span
                     aria-hidden="true"
@@ -1592,7 +1618,7 @@ export default function CalendarPlanner() {
 
             {/* — the composer. Moved out from under the list to directly under the day
                 header and made STICKY, so on a long day the primary add path never scrolls away.
-                `top-16` is the fixed navbar's exact height (h-16), so it parks just below it;
+                `top-[var(--nav-h)]` is the fixed navbar's exact height, so it parks just below it;
                 `z-10` keeps it inside this card's stacking context, far under the editor portal
                 (z-50) and the map sheet (z-40). Full-bleed via -mx to cover the card's padding
                 gutters while rows scroll behind it.
@@ -1603,9 +1629,9 @@ export default function CalendarPlanner() {
                 the pair the editor writes. "Details" opens the FULL editor for anything one
                 line can't say — it is the same trigger the dashed "Add Activity" button was,
                 relocated, not removed (it is the ONLY path to a blank editor). */}
-            {/* parks at navbar (64px) + sticky day strip (76px) below `lg`, where both
-                bands are pinned; at `lg+` there is no strip so it returns to the navbar. */}
-            <div className="sticky top-[140px] lg:top-16 z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
+            {/* scrolls with the content (#776): only the navbar + day strip stay pinned, so the add row
+                no longer costs another ~89px of the viewport. */}
+            <div className="z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
               <div className="flex items-center gap-2">
                 <QuickAddInput
                   className="min-w-0 flex-1"
@@ -1735,6 +1761,7 @@ export default function CalendarPlanner() {
             {/* Items */}
             <DndContext
               sensors={sensors}
+              accessibility={{ announcements }}
               collisionDetection={closestCenter}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
@@ -1836,7 +1863,8 @@ export default function CalendarPlanner() {
                 </SortableContext>
               </DroppableDay>
 
-              <DragOverlay>
+              {/* dnd-kit's drop animation is WAAPI, which the CSS reduce block cannot reach (#782). */}
+              <DragOverlay dropAnimation={prefersReducedMotion() ? null : undefined}>
                 {activeItem ? (
                   <div className="drag-overlay border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-overlay))] p-3">
                     <div className="flex items-center gap-2">
@@ -1857,7 +1885,7 @@ export default function CalendarPlanner() {
           {showMap && isDesktop && (
             <aside
               aria-label={`Map of stops for ${formatDateLong(selectedDate)}`}
-              className="hidden lg:block sticky top-24 h-[480px] xl:h-[560px] overflow-hidden border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]"
+              className="hidden lg:block sticky top-[calc(6rem+var(--safe-top))] h-[480px] xl:h-[560px] overflow-hidden border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]"
             >
               {mapEl}
             </aside>
@@ -1871,7 +1899,7 @@ export default function CalendarPlanner() {
           page scrolls behind, expandable to near-full height. Rendered only when the map is
           on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl).
           Tab-bar clearance is PADDING, not a `bottom` offset: the box stays flush to
-          `bottom-0`, so both height states keep the top edge they had and the expanded 85vh
+          `bottom-0`, so both height states keep the top edge they had and the expanded 85dvh
           can't be pushed off the top of a short viewport. Only the canvas shrinks, which is
           what has to move — maplibre docks the tile attribution bottom-right of it, and
           that's a licence condition. `md:pb-0` because the tab bar is `md:hidden` while this
@@ -1880,7 +1908,7 @@ export default function CalendarPlanner() {
         <div
           data-testid="plan-map-sheet"
           data-expanded={mapExpanded ? 'true' : 'false'}
-          className={`lg:hidden fixed inset-x-0 bottom-0 z-40 flex flex-col bg-[rgb(var(--surface-low))] border-t-2 border-[color:hsl(var(--border))] pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] transition-[height] duration-300 motion-reduce:transition-none md:pb-0 ${mapExpanded ? 'h-[85vh]' : 'h-[42vh]'}`}
+          className={`lg:hidden fixed inset-x-0 bottom-0 z-40 flex flex-col bg-[rgb(var(--surface-low))] border-t-2 border-[color:hsl(var(--border))] pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] transition-[height] duration-300 motion-reduce:transition-none md:pb-0 ${mapExpanded ? 'h-[85dvh]' : 'h-[42dvh]'}`}
         >
           <div className="flex items-center justify-between px-4 py-2 border-b-hair border-[color:hsl(var(--border))] shrink-0">
             <span className="pr flex items-center gap-1.5 text-ink-hi">

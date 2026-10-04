@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 /**
  * D-546 — a `?trip=` share link for the DEFAULT pack must land the joiner on the default pack.
@@ -54,7 +55,12 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
   describe('parseTripToken — which namespace does this token name?', () => {
     it('a pack:-prefixed token is the default pack share id, with the prefix stripped', async () => {
       const { parseTripToken } = await load();
-      expect(parseTripToken(`pack:${SHARE_ID}`)).toEqual({ kind: 'default', id: SHARE_ID });
+      expect(parseTripToken(`pack:${SHARED_TRIP_ID}`)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
+    });
+
+    it('a pack: id other than the shared trip is an old per-account link and is refused', async () => {
+      const { parseTripToken } = await load();
+      expect(parseTripToken(`pack:${SHARE_ID}`)).toBeNull();
     });
 
     it('a bare token is still a custom trip — that reading is correct for every other trip', async () => {
@@ -64,7 +70,7 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
 
     it('surrounding whitespace is trimmed on both sides of the prefix', async () => {
       const { parseTripToken } = await load();
-      expect(parseTripToken(`  pack: ${SHARE_ID}\n`)).toEqual({ kind: 'default', id: SHARE_ID });
+      expect(parseTripToken(`  pack: ${SHARED_TRIP_ID}\n`)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
     });
 
     it.each([
@@ -86,9 +92,9 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
 
     it('formatShareToken round-trips through parseTripToken for both namespaces', async () => {
       const { formatShareToken, parseTripToken, DEFAULT_TRIP_ID } = await load();
-      const forDefault = formatShareToken(DEFAULT_TRIP_ID, SHARE_ID);
-      expect(forDefault).toBe(`pack:${SHARE_ID}`);
-      expect(parseTripToken(forDefault)).toEqual({ kind: 'default', id: SHARE_ID });
+      const forDefault = formatShareToken(DEFAULT_TRIP_ID, SHARED_TRIP_ID);
+      expect(forDefault).toBe(`pack:${SHARED_TRIP_ID}`);
+      expect(parseTripToken(forDefault)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
 
       const forCustom = formatShareToken('hokkaido-2027', 'hokkaido-2027');
       expect(forCustom).toBe('hokkaido-2027');
@@ -101,12 +107,12 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
 
     it('survives the URL round trip Settings builds — the colon is percent-encoded', async () => {
       const { formatShareToken, parseTripToken, DEFAULT_TRIP_ID } = await load();
-      const token = formatShareToken(DEFAULT_TRIP_ID, SHARE_ID);
+      const token = formatShareToken(DEFAULT_TRIP_ID, SHARED_TRIP_ID);
       const url = new URL(`https://example.test/trip_planner/?trip=${encodeURIComponent(token)}`);
       expect(url.search).toContain('pack%3A');
       expect(parseTripToken(url.searchParams.get('trip') ?? '')).toEqual({
         kind: 'default',
-        id: SHARE_ID,
+        id: SHARED_TRIP_ID,
       });
     });
   });
@@ -116,19 +122,19 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
       const { joinTrip, getActiveTripId, getDefaultTripShareId, getTripId, isTripRemoteConfigured } =
         await load();
 
-      expect(joinTrip(`pack:${SHARE_ID}`, 'Shared trip')).toBe(true);
+      expect(joinTrip(`pack:${SHARED_TRIP_ID}`, 'Shared trip')).toBe(true);
 
       expect(getActiveTripId()).toBe(PACK_ID);
-      expect(getDefaultTripShareId()).toBe(SHARE_ID);
-      // …and the pack now points at the SHARER's remote trip, which is the whole point.
-      expect(getTripId()).toBe(SHARE_ID);
+      expect(getDefaultTripShareId()).toBe(SHARED_TRIP_ID);
+      // …and the pack now points at the shared remote trip, which is the whole point.
+      expect(getTripId()).toBe(SHARED_TRIP_ID);
       expect(isTripRemoteConfigured()).toBe(true);
     });
 
     it('both legs keep their offsets: Nepal +345, Japan +540', async () => {
       const { joinTrip, tripOffsetMinFor, getActiveTrip } = await load();
 
-      joinTrip(`pack:${SHARE_ID}`, 'Shared trip');
+      joinTrip(`pack:${SHARED_TRIP_ID}`, 'Shared trip');
 
       expect(tripOffsetMinFor(IN_NEPAL)).toBe(345);
       expect(tripOffsetMinFor(IN_JAPAN)).toBe(540);
@@ -138,7 +144,7 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
     it('the Nepal/Japan content bindings survive — contentRef is never "empty"', async () => {
       const { joinTrip, getActiveTrip } = await load();
 
-      joinTrip(`pack:${SHARE_ID}`, 'Shared trip');
+      joinTrip(`pack:${SHARED_TRIP_ID}`, 'Shared trip');
 
       const trip = getActiveTrip();
       expect(trip.id).toBe(PACK_ID);
@@ -149,9 +155,9 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
     it('the share id is never registered as a trip of its own', async () => {
       const { joinTrip, listKnownTrips } = await load();
 
-      joinTrip(`pack:${SHARE_ID}`, 'Shared trip');
+      joinTrip(`pack:${SHARED_TRIP_ID}`, 'Shared trip');
 
-      expect(listKnownTrips().some((t) => t.id === SHARE_ID)).toBe(false);
+      expect(listKnownTrips().some((t) => t.id === SHARED_TRIP_ID)).toBe(false);
       expect(localStorage.getItem(KNOWN_KEY)).toBeNull();
     });
 
@@ -162,7 +168,7 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
       expect(getActiveTripId()).toBe('hokkaido-2027');
       expect(tripOffsetMinFor(IN_NEPAL)).toBeNull(); // custom: no geography
 
-      expect(joinTrip(`pack:${SHARE_ID}`, 'Shared trip')).toBe(true);
+      expect(joinTrip(`pack:${SHARED_TRIP_ID}`, 'Shared trip')).toBe(true);
 
       expect(getActiveTripId()).toBe(PACK_ID);
       expect(tripOffsetMinFor(IN_NEPAL)).toBe(345);
@@ -187,17 +193,27 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
     it.each([['pack:'], ['pack:../escape'], ['trips/x/days'], ['  '], ['__name__']])(
       'joinTrip(%j) returns false and leaves every pointer untouched',
       async (raw) => {
-        const { joinTrip, getActiveTripId, getDefaultTripShareId } = await load();
+        const { joinTrip, getActiveTripId, getStoredDefaultTripShareId } = await load();
 
         expect(joinTrip(raw, 'Shared trip')).toBe(false);
 
         expect(getActiveTripId()).toBe(PACK_ID); // unset pointer ⇒ the default pack
-        expect(getDefaultTripShareId()).toBe('');
+        expect(getStoredDefaultTripShareId()).toBe('');
         expect(localStorage.getItem(ACTIVE_KEY)).toBeNull();
         expect(localStorage.getItem(SHARE_KEY)).toBeNull();
         expect(localStorage.getItem(KNOWN_KEY)).toBeNull();
       },
     );
+
+    it('a default-pack id other than the shared trip is refused and writes nothing', async () => {
+      const { joinTrip, getStoredDefaultTripShareId } = await load();
+
+      expect(joinTrip(`pack:${SHARE_ID}`, 'Shared trip')).toBe(false);
+
+      expect(getStoredDefaultTripShareId()).toBe('');
+      expect(localStorage.getItem(ACTIVE_KEY)).toBeNull();
+      expect(localStorage.getItem(SHARE_KEY)).toBeNull();
+    });
 
     it('a refused join does not disturb a share id already set on this device', async () => {
       const { joinTrip, getDefaultTripShareId, setDefaultTripShareId } = await load();
@@ -228,21 +244,6 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
       try {
         expect(joinTrip('hokkaido-2027', 'Shared trip')).toBe(false);
         expect(getActiveTripId()).toBe(PACK_ID);
-      } finally {
-        setItem.mockRestore();
-      }
-    });
-
-    it('…including on the default-pack path, where the share id is the thing that must stick', async () => {
-      const { joinTrip, getDefaultTripShareId } = await load();
-      const setItem = vi
-        .spyOn(Storage.prototype, 'setItem')
-        .mockImplementation(() => {
-          throw new DOMException('QuotaExceededError');
-        });
-      try {
-        expect(joinTrip(`pack:${SHARE_ID}`, 'Shared trip')).toBe(false);
-        expect(getDefaultTripShareId()).toBe('');
       } finally {
         setItem.mockRestore();
       }

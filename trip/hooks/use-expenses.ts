@@ -69,8 +69,9 @@ export interface ExpenseStore {
    */
   restoreExpense(expense: Expense): string;
   /** Clear ALL expenses. DORMANT: a plain local wipe. SYNC: tombstone every
-   * live row in one commit so the clear propagates + wins (mirror of removeExpense's sync path). */
-  clearAll(): void;
+   * live row in one commit so the clear propagates + wins (mirror of removeExpense's sync path).
+   * False when the write was refused. */
+  clearAll(): boolean;
   /**
    * Restore the WHOLE expense store from a validated backup ( tombstone-replace,
    * mirroring the itinerary's `restorePlans`). DORMANT: a plain local overwrite (no sync to
@@ -78,8 +79,11 @@ export interface ExpenseStore {
    * re-add every live backup row as a FRESH-ID copy (the `addExpense` sync-stamp path) — all in
    * ONE commit, so the restore PROPAGATES + survives the next snapshot instead of being unwound,
    * and a restored row can never lose to its own tombstone on an HLC tie.
+   *
+   * RETURNS `false` when the write was refused, else the backup-id → restored-id map (empty when
+   * dormant, where ids are kept) so callers can re-point receipt photos (D-671).
    */
-  restoreExpenses(backup: Expense[]): void;
+  restoreExpenses(backup: Expense[]): Map<string, string> | false;
   /**
    * — reclaim the ATTRIBUTION stamps left under a name the traveler used to go by. The
    * expense-store half of the itinerary's owner-initiated `claimAuthorship`: rewrites
@@ -210,11 +214,8 @@ export function useExpenses(): ExpenseStore {
     // EVERY live expense in ONE commit (the SAME tombstone removeExpense's sync path writes, folded
     // over all rows) so each delete PROPAGATES + wins over a peer's live copy — not a blind wipe the
     // next snapshot would unwind. One commit ⇒ one push.
-    if (!syncEnabled()) {
-      commit(() => []);
-      return;
-    }
-    commit((current) =>
+    if (!syncEnabled()) return commit(() => []);
+    return commit((current) =>
       current.reduce((acc, e) => {
         if (e.deleted === true) return acc;
         return updateExpenseCore(acc, e.id, {}, (x) => {
@@ -226,15 +227,16 @@ export function useExpenses(): ExpenseStore {
     );
   }, [commit]);
 
-  const restoreExpenses = useCallback((backup: Expense[]) => {
+  const restoreExpenses = useCallback((backup: Expense[]): Map<string, string> | false => {
     // DORMANT: a plain local overwrite — there is no sync to unwind, byte-identical to
     // a savePlans-style replace. SYNC ON: tombstone-replace in ONE commit (mirrors restorePlans).
     if (!syncEnabled()) {
-      commit(() => backup);
-      return;
+      return commit(() => backup) ? new Map() : false;
     }
     const name = actor();
-    commit((current) => {
+    const ids = new Map<string, string>();
+    const ok = commit((current) => {
+      ids.clear();
       // (a) Tombstone every currently-live row (the SAME stamp clearAll applies).
       let next = current.reduce((acc, e) => {
         if (e.deleted === true) return acc;
@@ -249,14 +251,17 @@ export function useExpenses(): ExpenseStore {
         if (e.deleted === true) continue;
         const { id: _id, rev: _rev, hlc: _hlc, deleted: _del, createdBy: _cb, updatedBy: _ub, createdAt: _ca, ...content } =
           e;
-        void _id; void _rev; void _hlc; void _del; void _cb; void _ub; void _ca;
-        next = addExpenseCore(next, content, generateExpenseId(), new Date().toISOString(), (x) => {
+        void _rev; void _hlc; void _del; void _cb; void _ub; void _ca;
+        const newId = generateExpenseId();
+        ids.set(_id, newId);
+        next = addExpenseCore(next, content, newId, new Date().toISOString(), (x) => {
           const attributed: Expense = name ? { ...x, createdBy: name, updatedBy: name } : x;
           return { ...attributed, ...firstSyncStamp(realClock.now().getTime(), name) };
         });
       }
       return next;
     });
+    return ok ? ids : false;
   }, [commit]);
 
   // — see the `claimAuthorship` doc on ExpenseStore for WHY paidBy/split are absent here.

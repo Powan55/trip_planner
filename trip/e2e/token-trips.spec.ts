@@ -10,7 +10,7 @@ import AxeBuilder from '@axe-core/playwright';
  *   1. FRONT DOOR (D-660) — the wall asks for a username + password and lands `/trips/`; on this
  *      dormant build it admits locally, keeping or minting the account id on key 28. The display
  *      name is reused-from-device / defaults to "Traveler" at login; "Create an account" also
- *      collects a name. A `?trip=` invitation is HELD through login and joined before the reload.
+ *      collects a name. A `?trip=` invitation is HELD through login, then confirmed in the join dialog.
  *   2. Settings → Trip: a custom trip shows its Trip Token; the default pack shows the sample
  *      note instead (#10); Add-by-Trip-Token switches the active pack (pointer + reload).
  *   3. `?trip=` handshake for an IDENTIFIED user: Add switches + strips the param; Cancel strips the
@@ -141,7 +141,7 @@ test.describe('D-660 — front door: username + password', () => {
     expect(await readActiveTrip(page)).toBeNull();
   });
 
-  test('a ?trip= invitation is HELD through login and joined before the reload (lands Home)', async ({
+  test('a ?trip= invitation is HELD through login, then confirmed in the join dialog (lands Home)', async ({
     page,
   }) => {
     await gotoFresh(page, `/?trip=${A_UUID}`);
@@ -151,9 +151,13 @@ test.describe('D-660 — front door: username + password', () => {
     await expect(page.getByTestId('token-gate-invite')).toBeVisible();
 
     await logIn(page);
+    // #775: the wall hands the link to the join dialog; nothing switches until it is confirmed.
+    await expect(page.getByTestId('trip-join-dialog')).toBeVisible({ timeout: 15_000 });
+    expect(await readActiveTrip(page)).toBeNull();
+    await page.getByTestId('trip-join-confirm').click();
     await expect.poll(async () => await readActiveTrip(page), { timeout: 15_000 }).toBe(A_UUID);
 
-    // The join IS the selection, so the landing is Home (not /trips/), param-free.
+    // Confirming lands Home (not /trips/), param-free.
     await expect(page).toHaveURL(/^https?:\/\/[^/]+\/$/);
     expect(await readKnownTrips(page)).toContainEqual(expect.objectContaining({ id: A_UUID }));
   });
@@ -172,14 +176,14 @@ test.describe('D-660 — front door: username + password', () => {
 });
 
 test.describe('S233 — Settings Trip group', () => {
-  test('the DEFAULT pack shows the local-only sample note, not a Trip Token (#10)', async ({ page }) => {
+  test('the DEFAULT pack shows a note, not a Trip Token', async ({ page }) => {
     await gotoSignedIn(page);
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('settings-group-trip-toggle').click();
-    // #10: the default pack has NO remote path (getTripId() === '') — rendering an empty "secret"
-    // with live copy buttons would hand the user a broken share link, so the card says what it is.
-    await expect(page.getByTestId('settings-trip-key-sample')).toBeVisible();
-    await expect(page.getByTestId('settings-trip-key-sample')).toContainText('sample trip');
+    // The default pack's id is the shared trip's (or the sample, on this sync-less build), so
+    // there is no token to copy; the card says what it is. This build has no sync configured.
+    await expect(page.getByTestId('settings-trip-key-default')).toBeVisible();
+    await expect(page.getByTestId('settings-trip-key-default')).toContainText('sample trip');
     await expect(page.getByTestId('settings-trip-key')).toHaveCount(0);
     await expect(page.getByTestId('settings-trip-key-copy')).toHaveCount(0);
     await expect(page.getByTestId('settings-trip-link-copy')).toHaveCount(0);
@@ -298,8 +302,8 @@ test.describe('S233 — axe', () => {
     await gotoSignedIn(page);
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('settings-group-trip-toggle').click();
-    // #10: on the default pack the token card renders the sample note, not the token itself.
-    await expect(page.getByTestId('settings-trip-key-sample')).toBeVisible();
+    // On the default pack the token card renders the note, not the token itself.
+    await expect(page.getByTestId('settings-trip-key-default')).toBeVisible();
     const results = await new AxeBuilder({ page }).include('[data-testid="settings-group-trip"]').analyze();
     const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
     expect(blocking, blocking.map((v) => `${v.id} [${v.impact}]`).join('; ')).toEqual([]);

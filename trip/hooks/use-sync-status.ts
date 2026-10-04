@@ -7,11 +7,14 @@ import {
   getDefaultTripShareId,
   DEFAULT_TRIP_ID,
   STORAGE_KEYS,
-  syncPausedPrefs,
+  getSyncCode,
+  isSafeTripSegment,
 } from '@/core/storage/gateway';
 import { outboxBlocked, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
-import { isReadDenied } from '@/core/sync/read-denied';
+import { isJournalDenied, isPrefsDenied, isReadDenied, isSignInRequired } from '@/core/sync/read-denied';
 import { isRemoteConfigured } from '@/lib/firebase-config';
+import { getActiveTraveler } from '@/lib/token-auth';
+import { journalDirtyDates, personPrefsDirty } from '@/core/trips/registry';
 
 /**
  * Reactive read over the offline-push outbox — the data behind
@@ -51,7 +54,7 @@ export interface SyncStatus {
   lastAckAt: string | null;
   /**
    * D-542 — this device is on the DEFAULT pack, the build CAN sync (firebase web config present),
-   * and no share id has been minted, so every edit is device-only and nothing will ever upload.
+   * and the local plan has not been moved onto the shared trip yet, so edits are device-only.
    *
    * This is the state that previously rendered as complete silence: the outbox is gated off, so
    * it reads the neutral `{pending:0, blocked:0, lastAckAt:null}` shape — indistinguishable from
@@ -62,8 +65,8 @@ export interface SyncStatus {
    * env) sharing is not merely off, it is impossible, so offering it would be a dead end.
    */
   localOnly: boolean;
-  /** #600: "Sync this device" is off. Edits still queue in `pending`; nothing is sent or received. */
-  paused: boolean;
+  /** An anonymous session on the default pack: edits queue in `pending`; nothing is sent until sign-in. */
+  signInRequired: boolean;
 }
 
 const SSR_DEFAULT: SyncStatus = {
@@ -72,25 +75,35 @@ const SSR_DEFAULT: SyncStatus = {
   readBlocked: false,
   lastAckAt: null,
   localOnly: false,
-  paused: false,
+  signInRequired: false,
 };
 
 function readStatus(): SyncStatus {
   const { dirty, lastAckAt } = outboxSnapshot();
-  const pending = Object.values(dirty).flat().length;
+  // #753: journal days and account prefs queue outside the outbox. Counted only when they can
+  // flush (same gate as the outbox plus an account code), so a guest never sees a stuck count.
+  // A refused one adds to both `pending` and `blocked`, keeping blocked a subset.
+  const code = getSyncCode()?.trim() ?? '';
+  const tripId = getActiveTripId();
+  const queuedOn = isRemoteConfigured() && getActiveTraveler() !== null && isSafeTripSegment(code);
+  const days = queuedOn ? journalDirtyDates(tripId) : [];
+  const prefs = queuedOn ? personPrefsDirty() : 0;
+  const queuedBlocked =
+    days.filter((d) => isJournalDenied(code, tripId, d)).length + (isPrefsDenied(code) ? prefs : 0);
+  const pending = Object.values(dirty).flat().length + days.length + prefs;
   // Read off the same `SYNC_OUTBOX_CHANGED_EVENT` tick as everything else — `markDenied` (and
   // #271's `setReadDenied`) dispatch it, so a refusal re-renders the badge without a reload,
   // exactly like an enqueue or an ack.
   return {
     pending,
-    blocked: outboxBlocked(),
+    blocked: outboxBlocked() + queuedBlocked,
     readBlocked: isReadDenied(),
     lastAckAt,
     localOnly:
       isRemoteConfigured() &&
       getActiveTripId() === DEFAULT_TRIP_ID &&
       getDefaultTripShareId() === '',
-    paused: isRemoteConfigured() && syncPausedPrefs.get(),
+    signInRequired: isRemoteConfigured() && isSignInRequired(),
   };
 }
 
@@ -107,12 +120,13 @@ export function useSyncStatus(): SyncStatus {
       setStatus(readStatus());
     };
     const onStorage = (e: StorageEvent) => {
-      // Another tab flipped sync on or off: this tab's listeners were armed under the old state.
-      if (e.key === STORAGE_KEYS.syncPaused) {
-        window.location.reload();
-        return;
-      }
-      if (e.key === keyFor('syncOutbox') || e.key === null) reread();
+      if (
+        e.key === null ||
+        e.key === keyFor('syncOutbox') ||
+        e.key === keyFor('journalSync') ||
+        e.key === STORAGE_KEYS.personPrefs
+      )
+        reread();
     };
     window.addEventListener(SYNC_OUTBOX_CHANGED_EVENT, reread);
     window.addEventListener('storage', onStorage);

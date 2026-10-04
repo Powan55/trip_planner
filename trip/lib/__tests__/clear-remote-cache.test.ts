@@ -42,6 +42,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 vi.mock('firebase/auth', () => ({
   getAuth: () => ({
+    currentUser: { uid: 'u1', email: 'fake@accounts.trip-planner.invalid' },
     signOut: async () => {
       ctl.calls.push('authSignOut');
     },

@@ -206,6 +206,28 @@ describe('removePhoto → meta + blob both gone', () => {
   });
 });
 
+describe('removePhoto under a refused index write', () => {
+  it('keeps both meta and blob, and reports not-ok', async () => {
+    const t = render();
+    let id = '';
+    await t.run(async (c) => {
+      const r = await c.photos.addPhoto(DAY, file(), 'keep me');
+      if (r.ok) id = r.id;
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
+      if (key === STORAGE_KEYS.photos) throw new DOMException('quota', 'QuotaExceededError');
+    });
+    let result: unknown;
+    await t.run(async (c) => {
+      result = await c.photos.removePhoto(id);
+    });
+    expect(result).toBe(false);
+    expect(rawMeta().map((m) => m.id)).toEqual([id]);
+    expect(await h.store.get(id)).not.toBeNull();
+    t.unmount();
+  });
+});
+
 describe('quota — a full device keeps the host entry/expense saved', () => {
   it('addPhoto returns {ok:false,quota}, writes no meta; the expense it was for is untouched', async () => {
     const t = render();
@@ -221,6 +243,23 @@ describe('quota — a full device keeps the host entry/expense saved', () => {
     expect(result).toEqual({ ok: false, reason: 'quota' });
     expect(rawMeta()).toEqual([]); // no meta written
     expect(t.current.expenses.expenses).toHaveLength(1); // the expense survived
+    t.unmount();
+  });
+});
+
+describe('#704 — a refused index write does not report an added photo', () => {
+  it('deletes the just-put blob and returns {ok:false,quota}; no meta lands', async () => {
+    const t = render();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
+      if (key === STORAGE_KEYS.photos) throw new DOMException('quota', 'QuotaExceededError');
+    });
+    let result: unknown;
+    await t.run(async (c) => {
+      result = await c.photos.addPhoto(DAY, file(), 'no room');
+    });
+    expect(result).toEqual({ ok: false, reason: 'quota' });
+    expect(rawMeta()).toEqual([]);
+    expect(await h.store.list()).toEqual([]); // blob not left orphaned
     t.unmount();
   });
 });

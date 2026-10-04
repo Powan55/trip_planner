@@ -35,7 +35,7 @@ vi.mock('firebase/app', () => ({
   getApp: () => ({ name: 'fake' }),
 }));
 vi.mock('firebase/auth', () => ({
-  getAuth: () => ({ currentUser: { uid: 'device-uid-fake', getIdToken: async () => 'tok' } }),
+  getAuth: () => ({ currentUser: { email: 'fake@accounts.trip-planner.invalid', uid: 'device-uid-fake', getIdToken: async () => 'tok' } }),
   onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
     queueMicrotask(() => next({ uid: 'device-uid-fake' }));
     return () => {};
@@ -115,6 +115,7 @@ import { startPresence, stopPresence, HEARTBEAT_MS } from '@/lib/presence';
 import { signIn } from '@/lib/token-auth';
 import { deviceStore, markTripCreatedHere } from '@/core/storage/gateway';
 import { upsertKnownTrip } from '@/core/trips/registry';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 const TRIP = 'trip-abc';
 const TRIP_PATH = `trips/${TRIP}`;
@@ -256,6 +257,18 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     await ensureMembership('');
     expect(fake.serverReads).toBe(0);
   });
+
+  it('never enrols in the shared trip: no read, no write, no access-pending', async () => {
+    const seen: Event[] = [];
+    const onPending = (e: Event) => seen.push(e);
+    window.addEventListener(TRIP_ACCESS_PENDING_EVENT, onPending);
+    fake.denied.add(`trips/${SHARED_TRIP_ID}`);
+    await ensureMembership(SHARED_TRIP_ID);
+    window.removeEventListener(TRIP_ACCESS_PENDING_EVENT, onPending);
+    expect(fake.serverReads).toBe(0);
+    expect(fake.writes).toHaveLength(0);
+    expect(seen).toHaveLength(0);
+  });
 });
 
 // #477 — the settings surface hides "Add device" on `'open'`, so "this trip has no roster" and "I
@@ -322,6 +335,16 @@ describe('Google identity adoption repairs every known remote trip (#450)', () =
     await ensureKnownTripMemberships();
 
     expect(fake.serverReadPaths.sort()).toEqual(['trips/trip-one', 'trips/trip-two']);
+  });
+
+  it('skips a kept legacy-name row: that path is an account, not a trip (#775)', async () => {
+    gate.tripId = '';
+    upsertKnownTrip('Sushil', 'Old');
+    upsertKnownTrip('trip-one', 'One');
+
+    await ensureKnownTripMemberships();
+
+    expect(fake.serverReadPaths).toEqual(['trips/trip-one']);
   });
 
   it('does no reads when Firebase is dormant', async () => {

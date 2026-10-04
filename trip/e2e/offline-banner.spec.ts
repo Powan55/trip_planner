@@ -64,6 +64,74 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     expect(await region.getAttribute('aria-label')).toBeNull();
   });
 
+  test('pill is centred on one line at 393 wide, then shows a Back online cue', async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await goto(page, '/');
+    await context.setOffline(true);
+    const banner = page.getByTestId('offline-banner');
+    await expect(banner).toBeVisible();
+    // let the 0.3s reveal settle before measuring
+    await expect
+      .poll(async () => {
+        const b = await banner.boundingBox();
+        return b ? Math.abs(b.x + b.width / 2 - 393 / 2) : 999;
+      })
+      .toBeLessThan(2);
+    const box = (await banner.boundingBox())!;
+    expect(box.height, 'single line').toBeLessThan(40);
+
+    await context.setOffline(false);
+    await expect(page.getByTestId('online-restored')).toBeVisible();
+    await expect(page.getByTestId('online-restored')).toHaveCount(0, { timeout: 6000 });
+  });
+
+  // The sync badge is dormant in this build (no firebase env), so its box can't be measured.
+  // It sits at top 8rem + safe-top while offline / just back online; assert both pills end
+  // above that line at the narrowest widths.
+  for (const width of [360, 393]) {
+    test(`offline and back-online pills stay above the sync badge row at ${width}`, async ({
+      page,
+      context,
+    }) => {
+      await page.setViewportSize({ width, height: 852 });
+      await goto(page, '/');
+      const badgeTop = await page.evaluate(
+        () => 8 * parseFloat(getComputedStyle(document.documentElement).fontSize),
+      );
+      await context.setOffline(true);
+      const off = page.getByTestId('offline-banner');
+      await expect(off).toBeVisible();
+      await page.waitForTimeout(400);
+      const o = (await off.boundingBox())!;
+      expect(o.y + o.height).toBeLessThanOrEqual(badgeTop);
+
+      await context.setOffline(false);
+      const on = page.getByTestId('online-restored');
+      await expect(on).toBeVisible();
+      await page.waitForTimeout(400);
+      const b = (await on.boundingBox())!;
+      expect(b.y + b.height).toBeLessThanOrEqual(badgeTop);
+    });
+  }
+
+  test('offline, online, offline again leaves no stale Back online pill', async ({
+    page,
+    context,
+  }) => {
+    await goto(page, '/');
+    await context.setOffline(true);
+    await expect(page.getByTestId('offline-banner')).toBeVisible();
+    await context.setOffline(false);
+    await expect(page.getByTestId('online-restored')).toBeVisible();
+    await context.setOffline(true);
+    await expect(page.getByTestId('offline-banner')).toBeVisible();
+    await expect(page.getByTestId('online-restored')).toHaveCount(0);
+    await context.setOffline(false);
+  });
+
   test('renders on a second route too (mounted once at the root layout)', async ({
     page,
     context,

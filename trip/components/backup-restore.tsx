@@ -42,7 +42,7 @@ import {
  * A11y / contrast: ruled instrument blocks; the quietest caption is `text-ink-mid`, whose token
  * clears AA on every surface step by construction (#27); status/error use their
  * own AA-clearing tints; buttons expose visible focus rings and the file input is a real,
- * keyboard-reachable, labelled `<input type="file">`. No text animates through low opacity.
+ * labelled `<input type="file">` (tabIndex -1: the button opens it). No text animates through low opacity.
  *
  * Overlay mounting: the confirm dialog is a `fixed` overlay. Inline `fixed` route content is
  * trapped by `app/template.tsx`'s `.animate-route-fade` stacking context, so the app `<footer>`
@@ -116,6 +116,7 @@ export default function BackupRestore() {
   const [pendingImport, setPendingImport] = useState<{ file: File; name: string } | null>(null);
   // Guards the confirm button while the async restore runs (a restore reads/writes IndexedDB blobs).
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   // The FAB seam (see the note above). Radix does not set it.
   useDialogOpenFlag(!!pendingImport);
   // Radix keeps the panel mounted through its close animation, by which point `pendingImport` is
@@ -138,15 +139,25 @@ export default function BackupRestore() {
   }, []);
 
   const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
       // the WHOLE trip (itinerary + journal + photos + every local domain), gzip-packed via the
       // existing compression pipeline (falls back to plain JSON where CompressionStream is absent).
       // the download mechanics were lifted to `downloadTripBackup()` (a pure lift, same
       // behaviour/error surface) so the sign-out confirm dialog's backup offer can reuse them.
-      const filename = await downloadTripBackup();
-      setStatus({ kind: 'success', message: `Backed up your whole trip (including journal and photos) to ${filename}.` });
-    } catch {
-      setStatus({ kind: 'error', message: 'Could not back up your trip. Please try again.' });
+      const { filename, missing, omitted } = await downloadTripBackup();
+      const left = missing + omitted;
+      const note =
+        left > 0
+          ? ` ${left} photo${left === 1 ? ' was' : 's were'} left out${omitted > 0 ? ' (the file would be too large to restore)' : ' (not found on this device)'}.`
+          : '';
+      setStatus({ kind: 'success', message: `Backed up your trip to ${filename}.${note}` });
+    } catch (e) {
+      const tooLarge = e instanceof Error && e.message.startsWith('This trip is too large');
+      setStatus({ kind: 'error', message: tooLarge ? e.message : 'Could not back up your trip. Please try again.' });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -179,12 +190,18 @@ export default function BackupRestore() {
     if (result.ok) {
       const skipped =
         result.photosSkipped > 0
-          ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} could not be restored (storage limit).`
+          ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} came back without the image (missing or unreadable in the file, or storage is full).`
           : '';
+      const label = (slots: string[]) => joinNames(slots.map((slot) => DOMAIN_LABELS[slot] ?? slot));
       const names = result.restored.map((slot) => DOMAIN_LABELS[slot] ?? slot);
+      const notSaved = result.refused.length > 0 ? ` Not restored (storage is full): ${label(result.refused)}.` : '';
+      const damaged =
+        result.dropped.length > 0
+          ? ` Not restored (damaged in the file, kept as they were): ${label(result.dropped)}.`
+          : '';
       setStatus({
         kind: 'success',
-        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped} Reloading…`,
+        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped}${notSaved}${damaged} Reloading…`,
       });
       // Reload so every store re-hydrates from the freshly-written localStorage/IndexedDB. A
       // short delay lets the aria-live status announce before the navigation.
@@ -231,12 +248,15 @@ export default function BackupRestore() {
           <div className="flex flex-col gap-2 border-hair border-border bg-surface-low px-gut py-4">
             <h3 className="pr pr--l text-ink-hi">Export</h3>
             <p className="text-t-body text-ink-mid">
-              Download your entire trip — <strong className="font-semibold text-ink-hi">including your journal and
-              photos</strong> — as a single backup file.
+              Download your entire trip — <strong className="font-semibold text-ink-hi">journal and
+              photos</strong> too — as a single backup file. Photos beyond the size limit are left out, and
+              you will be told.
             </p>
             <button
               type="button"
               onClick={handleExport}
+              disabled={exporting}
+              aria-busy={exporting}
               data-testid="backup-export-button"
               className="btn mt-1 px-4"
             >
@@ -262,9 +282,8 @@ export default function BackupRestore() {
               <Upload className="h-4 w-4" aria-hidden="true" />
               Choose backup file
             </button>
-            {/* Real, keyboard-reachable file input. Visually hidden (not display:none, so
-                it stays focusable/labelled); the button above opens it, and E2E drives it
-                directly via setInputFiles. */}
+            {/* Real labelled file input, visually hidden (not display:none) and out of the tab
+                order: the button above opens it, and E2E drives it via setInputFiles. */}
             <input
               ref={fileInputRef}
               type="file"
@@ -272,6 +291,7 @@ export default function BackupRestore() {
               onChange={handleFileChange}
               data-testid="backup-import-input"
               aria-label="Choose a trip backup file to import"
+              tabIndex={-1}
               className="sr-only"
             />
           </div>
@@ -331,24 +351,30 @@ export default function BackupRestore() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               Importing{' '}
-              <span className="font-machine text-t-sm text-ink-hi">{lastImportName.current}</span> will
-              replace your <strong className="font-semibold text-ink-hi">itinerary, journal and photos</strong> with
-              the contents of that file.{' '}
+              <span className="font-machine text-t-sm text-ink-hi">{lastImportName.current}</span>{' '}
               {synced ? (
                 <>
-                  Expenses are replaced too. Budget and the documents checklist are merged instead —
-                  anything you&apos;ve changed there since the backup was made is kept.
+                  will replace the <strong className="font-semibold text-ink-hi">plans, saved places and
+                  expenses for everyone on this trip</strong>, and your journal on your own devices, with the
+                  contents of that file. Your packing list and other lists kept on this device are
+                  replaced too. Budget and the documents checklist are merged instead — anything changed
+                  there since the backup was made is kept.
                 </>
               ) : (
-                <>Expenses, budget and checklists are replaced too.</>
+                <>
+                  will replace your <strong className="font-semibold text-ink-hi">itinerary, journal and
+                  photos</strong> with the contents of that file. Expenses, budget and checklists are
+                  replaced too.
+                </>
               )}
             </AlertDialogDescription>
             {/* A second <AlertDialogDescription> would duplicate Radix's aria-describedby id, so
                 this half is a plain paragraph — it is elaboration, and the described-by text
                 above already carries what the choice is. */}
             <p className="text-t-body text-[color:var(--text-mid)]">
-              This changes the trip <strong className="font-semibold text-ink-hi">on this device</strong> and cannot
-              be undone. The page will reload once it&apos;s restored.
+              If the file has photos, any photo{' '}
+              <strong className="font-semibold text-ink-hi">on this device</strong> that isn&apos;t in it is
+              removed. This cannot be undone. The page will reload once it&apos;s restored.
             </p>
           </AlertDialogHeader>
           <AlertDialogFooter>

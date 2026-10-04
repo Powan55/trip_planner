@@ -54,6 +54,11 @@ rules_version = '2';
 // invite expires 7 days after createdAt, and deleting it revokes it. Open trips have no
 // owner to mint one and keep capability semantics.
 //
+// THE SHARED TRIP (D-663). One trip id, in isShared(), skips both modes above: its trip doc,
+// content, invites and profile/meta carve-outs answer to isAllowlisted() (the email on the
+// token) and to nothing stored, so a missing doc or a stray members map changes nothing.
+// Deleting and recreating one of those three accounts would let a squatter take the email.
+//
 // MEMBER ADDS ARE 'member' ONLY (D-642, #667). Rules cannot iterate the ADDED keys of a
 // members map, but addsMembersOnly() already proves no key was removed or changed, so if the
 // count of non-'member' values is also unchanged, every added value is 'member'. A member
@@ -188,6 +193,21 @@ service cloud.firestore {
         return /databases/$(database)/documents/trips/$(tripId);
       }
 
+      // The shared trip (D-663): reachable only by the three allowlisted accounts, decided from
+      // the token's email alone. No roster, no get(), so it holds whether or not the trip doc
+      // exists. The one id literal in this file.
+      function isShared() {
+        return tripId == 'b2826dc5-d103-4a8c-a053-30531b4fd4b0';
+      }
+
+      function isAllowlisted() {
+        return request.auth != null
+          && request.auth.token.get('email', '') in [
+            'powan@accounts.trip-planner.invalid',
+            'uttam@accounts.trip-planner.invalid',
+            'sushil@accounts.trip-planner.invalid'];
+      }
+
       // The stored roster. Read only behind isOpen()'s `is map` test, or once isOpen() is false.
       function roster() {
         return get(tripPath()).data.members;
@@ -199,10 +219,10 @@ service cloud.firestore {
       // A roster that is not a map, or names no 'owner', reads as open too (#453): gating on
       // it would deny everyone forever, delete included. rosterIsWellFormed() refuses writing one.
       function isOpen() {
-        return !exists(tripPath())
+        return !isShared() && (!exists(tripPath())
           || !('members' in get(tripPath()).data)
           || !(roster() is map)
-          || !roster().values().hasAny(['owner']);
+          || !roster().values().hasAny(['owner']));
       }
 
       // '' for a signed-in non-member. Only ever called after isOpen() is known false, so
@@ -212,11 +232,13 @@ service cloud.firestore {
       }
 
       function isMember() {
-        return request.auth != null && (isOpen() || role() in ['owner', 'member']);
+        return request.auth != null && (
+          (isShared() && isAllowlisted())
+          || (!isShared() && (isOpen() || role() in ['owner', 'member'])));
       }
 
       function isOwner() {
-        return request.auth != null && !isOpen() && role() == 'owner';
+        return !isShared() && request.auth != null && !isOpen() && role() == 'owner';
       }
 
       // A create may not hand the creator anything less than 'owner'. A create with NO
@@ -251,7 +273,7 @@ service cloud.firestore {
       // D-662: a non-member adds exactly itself as 'member', naming in joinInvite an unexpired
       // invite that this same batch marks redeemed by it (invites/{token} update checks back).
       function redeemsInvite() {
-        return request.auth != null && !isOpen() && role() == ''
+        return !isShared() && request.auth != null && !isOpen() && role() == ''
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'joinInvite'])
           && request.resource.data.members.diff(resource.data.members).addedKeys() == [request.auth.uid].toSet()
           && request.resource.data.members.diff(resource.data.members).removedKeys().size() == 0
@@ -267,9 +289,11 @@ service cloud.firestore {
       // ── the trip doc ──────────────────────────────────────────────────────────
       // `list` is granted by NOTHING, here or anywhere below (D-219).
       allow get: if isMember();
-      allow create: if request.auth != null && boundedWrite() && claimsSelfAsOwner();
+      allow create: if request.auth != null && boundedWrite() && claimsSelfAsOwner()
+        && (!isShared() || isAllowlisted());
       allow update: if boundedWrite() && rosterIsWellFormed() && (
-        (isOpen() && request.auth != null)   // grandfathered capability trip
+        (isShared() && isAllowlisted())      // shared trip: the allowlist and nothing else (D-663)
+        || (isOpen() && request.auth != null)   // grandfathered capability trip
         || isOwner()                         // owner: anything, incl. removing members
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else
         || redeemsInvite()                   // invitee: may add itself as 'member' (D-662)
@@ -298,8 +322,8 @@ service cloud.firestore {
       // alternative is circular: the door would have to know a membership before it is
       // allowed to check whether the account exists at all.
       match /profile/{docId} {
-        allow get: if request.auth != null && isAccountDoc(docId);
-        allow create, update: if request.auth != null && boundedWrite() && isAccountDoc(docId);
+        allow get: if request.auth != null && isAccountDoc(docId) && !isShared();
+        allow create, update: if request.auth != null && boundedWrite() && isAccountDoc(docId) && !isShared();
       }
 
       // The subtree block below refuses `delete` for the whole profile prefix. These two give
@@ -318,7 +342,7 @@ service cloud.firestore {
       // invited to, before anyone has added them to members. `get` only — no list, no
       // write. Also additive.
       match /meta/{document=**} {
-        allow get: if request.auth != null;
+        allow get: if request.auth != null && !isShared();
       }
 
       // ── everything under a known trip ─────────────────────────────────────────
@@ -351,7 +375,7 @@ service cloud.firestore {
       // link may get one to check it. Redeem is the only update: the invitee stamps itself,
       // once, before expiry, in the same batch that adds it to the roster (redeemsInvite).
       match /invites/{token} {
-        allow get: if request.auth != null;
+        allow get: if request.auth != null && !isShared();
         allow list, delete: if isOwner();
         allow create: if isOwner() && isUuid(token)
           && request.resource.data.keys().hasOnly(['createdBy', 'createdAt'])
@@ -360,7 +384,7 @@ service cloud.firestore {
         allow update: if stampsOwnRedeem();
 
         function stampsOwnRedeem() {
-          return request.auth != null
+          return !isShared() && request.auth != null
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['redeemedBy', 'redeemedAt'])
             && !('redeemedBy' in resource.data)
             && request.resource.data.redeemedBy == request.auth.uid

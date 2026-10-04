@@ -20,7 +20,8 @@
  */
 import { makeEnvelope } from '@/core/vault/envelope';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
-import { keyFor, readString, writeString } from '@/core/storage/gateway';
+import { getActiveTripId, isSafeTripSegment, keyFor, readString, writeString } from '@/core/storage/gateway';
+import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
 
 export const EXPENSE_EXPORT_VERSION = 1;
 /**
@@ -36,7 +37,7 @@ export type ExpenseParseResult = { ok: true; expenses: Expense[] } | { ok: false
 /** Serialize the given expenses as a pretty-printed, versioned envelope JSON string. */
 export function exportExpenses(expenses: readonly Expense[]): string {
   const envelope = makeEnvelope(EXPENSE_EXPORT_VERSION, expenses, new Date().toISOString());
-  return JSON.stringify(envelope, null, 2);
+  return JSON.stringify({ ...envelope, tripId: getActiveTripId(), remoteId: getTripId() }, null, 2);
 }
 
 /** Quarantine a rejected import blob verbatim so its raw bytes are recoverable. */
@@ -91,7 +92,36 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
     };
   }
 
-  const payload = (parsed as { payload: unknown[] }).payload;
+  const { tripId, remoteId, payload } = parsed as {
+    tripId?: unknown;
+    remoteId?: unknown;
+    payload: unknown[];
+  };
+  if (
+    (tripId !== undefined && (typeof tripId !== 'string' || (tripId !== '' && !isSafeTripSegment(tripId)))) ||
+    (remoteId !== undefined && (typeof remoteId !== 'string' || (remoteId !== '' && !isSafeTripSegment(remoteId))))
+  ) {
+    return { ok: false, error: 'That expenses file has invalid trip information. No changes were made to your expenses.' };
+  }
+  if (isTripRemoteConfigured()) {
+    if (!tripId || !remoteId) {
+      return {
+        ok: false,
+        error: "This expenses backup isn't tied to this shared trip. Restore it on an unshared copy instead. No changes were made to your expenses.",
+      };
+    }
+    if (remoteId !== getTripId()) {
+      return {
+        ok: false,
+        error: 'This expenses backup is from a different shared trip. Switch to that trip, then restore it there. No changes were made to your expenses.',
+      };
+    }
+  } else if (tripId !== undefined && tripId !== getActiveTripId()) {
+    return {
+      ok: false,
+      error: 'This expenses backup is from a different trip. Switch to that trip, then restore it there. No changes were made to your expenses.',
+    };
+  }
   // An empty payload is the one file the all-or-nothing guard below cannot see: `0 !== 0` is
   // false, so it passed, and the caller's tombstone-replace then deleted every logged expense on
   // every device and reported success. Restoring nothing has no outcome except that deletion.
@@ -102,8 +132,14 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
       error: 'That file has no expenses in it. No changes were made to your expenses.',
     };
   }
-  const expenses = sanitizeExpenses(payload);
-  if (expenses.length !== payload.length) {
+  // sanitizeExpenses clamps a negative or non-numeric amount to 0 and keeps the row, so a bad
+  // file would import as a clean-looking zero-cost expense. Check the raw rows first.
+  const badAmount = payload.some((row) => {
+    const a = typeof row === 'object' && row !== null ? (row as { amount?: unknown }).amount : 0;
+    return a !== 0 && (typeof a !== 'number' || !Number.isFinite(a) || a < 0);
+  });
+  const expenses = badAmount ? [] : sanitizeExpenses(payload);
+  if (badAmount || expenses.length !== payload.length) {
     quarantine(rawText);
     return {
       ok: false,

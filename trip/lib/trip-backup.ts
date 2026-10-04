@@ -61,10 +61,11 @@ import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
 import { sanitizePlaces, type MyPlace } from '@/core/places/model';
-import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
+import { sanitizePhotos, repointExpenseOwner, type PhotoMeta } from '@/core/photos/model';
 import { loadPhotos, savePhotos, deletePhotoBlobs } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
-import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
+import { compressToBlob, decompressBlobOrText, supportsCompression, MAX_IMPORT_BYTES } from '@/core/vault/compression';
+import { downloadBlob } from '@/lib/download-blob';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
 import { savePlans } from '@/core/vault/storage';
 import type { DayPlan } from '@/lib/trip-data';
@@ -82,7 +83,7 @@ const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
  * synced traveler is signed in, so a restore PROPAGATES to the shared trip and survives the next server
  * snapshot instead of being unwound. Same `(plans) => void` shape either way.
  */
-export type CommitItinerary = (plans: DayPlan[]) => void;
+export type CommitItinerary = (plans: DayPlan[]) => boolean | void;
 
 /**
  * How the myPlaces domain is committed on import — the SAME dual-path idea as `CommitItinerary`,
@@ -91,7 +92,7 @@ export type CommitItinerary = (plans: DayPlan[]) => void;
  * `restorePlans`/`restoreExpenses`) when a synced traveler is signed in, so a row added to myPlaces
  * after the backup was taken is tombstoned by the restore instead of surviving the next merge.
  */
-export type CommitMyPlaces = (places: MyPlace[]) => void;
+export type CommitMyPlaces = (places: MyPlace[]) => boolean | void;
 
 /**
  * How the docsChecklist domain is committed on import — issue #295, the deliberately-deferred
@@ -103,11 +104,12 @@ export type CommitMyPlaces = (places: MyPlace[]) => void;
  * remotely) when a synced traveler is signed in, so a row edited after the backup was taken keeps
  * its win instead of being blindly clobbered by the restore's bare write.
  */
-export type CommitDocsChecklist = (items: DocItem[]) => void;
+export type CommitDocsChecklist = (items: DocItem[]) => boolean | void;
 
-/** How the expenses domain is committed on import — same shape and idea as `CommitMyPlaces`; the UI
- * injects `restoreExpenses` (tombstone-replace) under sync. Absent ⇒ generic bare write + merge. */
-export type CommitExpenses = (expenses: Expense[]) => void;
+/** How the expenses domain is committed on import — same idea as `CommitMyPlaces`; the UI injects
+ * `restoreExpenses` (tombstone-replace) under sync. Absent ⇒ generic bare write + merge. A returned
+ * Map names the fresh id each backup expense got, so restored receipt photos follow (D-671). */
+export type CommitExpenses = (expenses: Expense[]) => Map<string, string> | boolean | void;
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
@@ -133,8 +135,11 @@ export interface TripBackup {
   photos: { meta: PhotoMeta[]; blobs: Record<string, string> };
 }
 
+const NOTHING_WRITTEN =
+  'Nothing could be restored — your browser refused every write, likely because storage is full. No changes were made to your trip.';
+
 export type ImportBackupResult =
-  | { ok: true; restored: string[]; photosSkipped: number }
+  | { ok: true; restored: string[]; photosSkipped: number; refused: string[]; dropped: string[] }
   | { ok: false; error: string };
 
 /** Sentinel telling an absent/corrupt slot from a legitimately-stored value on export (see below). */
@@ -345,12 +350,28 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 // ── Export ──────────────────────────────────────────────────────────────────
+/** Headroom under the import cap for gzip header / envelope slack. */
+const EXPORT_HEADROOM_BYTES = 1024 * 1024;
+
+export type TripBackupExport = {
+  blob: Blob;
+  /** Photos whose metadata exists but whose bytes were not in the blob store. */
+  missing: number;
+  /** Photos left out (metadata kept) so the file stays under the import cap. */
+  omitted: number;
+};
+
 /**
  * Serialize the ACTIVE trip's every in-scope local domain into one gzip blob (the existing
  * `compressToBlob` pipeline — no new dep, plain-JSON fallback where CompressionStream is absent).
- * `blobStore` is injectable for tests; production uses the native IndexedDB store.
+ * Photos are inlined until a running byte budget (`maxBytes` minus headroom minus everything else) is
+ * spent; the rest keep metadata only, which restore already treats as a placeholder, so the file
+ * stays within what `importTripBackup` will open. `blobStore`/`maxBytes` are injectable for tests.
  */
-export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobStore): Promise<Blob> {
+export async function buildTripBackup(
+  blobStore: BlobStorePort = defaultBlobStore,
+  maxBytes: number = MAX_IMPORT_BYTES,
+): Promise<TripBackupExport> {
   const domains: Record<string, unknown> = {};
 
   // Itinerary — nest its OWN existing versioned Vault envelope.
@@ -366,11 +387,6 @@ export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobSto
   // trips' blobs), inlining each present blob as a base64 data URL.
   const meta = loadPhotos();
   const blobs: Record<string, string> = {};
-  for (const m of meta) {
-    const blob = await blobStore.get(m.id);
-    if (blob) blobs[m.id] = await blobToDataUrl(blob);
-  }
-
   const envelope: TripBackup = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -380,34 +396,53 @@ export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobSto
     domains,
     photos: { meta, blobs },
   };
-  return compressToBlob(JSON.stringify(envelope));
+  // KNOWN CEILING: budget uses uncompressed JSON size, so a few photos that would fit gzipped are omitted
+  // (it bounds the gzip output, and equals it in the plain-JSON fallback).
+  let budget = maxBytes - EXPORT_HEADROOM_BYTES - new Blob([JSON.stringify(envelope)]).size;
+  let missing = 0;
+  let omitted = 0;
+  for (const m of meta) {
+    const blob = await blobStore.get(m.id);
+    if (!blob) {
+      missing++;
+      continue;
+    }
+    // base64 length + data-URL header + JSON key/quotes, checked before the read allocates it.
+    const cost = Math.ceil(blob.size / 3) * 4 + m.id.length + 64;
+    if (cost > budget) {
+      omitted++;
+      continue;
+    }
+    blobs[m.id] = await blobToDataUrl(blob);
+    budget -= cost;
+  }
+
+  const out = await compressToBlob(JSON.stringify(envelope));
+  if (out.size > maxBytes) {
+    throw new Error('This trip is too large to back up in one file (over ' + Math.round(maxBytes / (1024 * 1024)) + ' MB).');
+  }
+  return { blob: out, missing, omitted };
+}
+
+export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobStore): Promise<Blob> {
+  return (await buildTripBackup(blobStore)).blob;
 }
 
 /**
- * Download the active trip's whole-trip backup as a file ( Ruling 2 — a PURE LIFT of
- * `backup-restore.tsx`'s prior `handleExport`, verbatim: same `exportTripBackup()` call, same
- * `supportsCompression() ?.gz:.json` filename choice, same `createObjectURL` → `<a download>` →
- * `click()` → `revokeObjectURL` dance). Exists so a second caller (the sign-out confirm dialog's
- * backup offer) can reuse it without duplicating those lines.
+ * Download the active trip's whole-trip backup as a file; shared by `backup-restore.tsx` and the
+ * sign-out confirm dialog's backup offer.
  *
- * Can THROW (e.g. a `FileReader` failure reading a stored photo, or an unguarded
- * `CompressionStream` failure in `core/vault/compression.ts`) — the CALLER owns try/catch and any
- * user-facing error copy, exactly as `backup-restore.tsx` did before this was lifted out. Returns
- * the filename used, so a caller can build its own success message without recomputing
- * `supportsCompression()` itself.
+ * Can THROW (a `FileReader` failure, a `CompressionStream` failure, or a trip too large for one
+ * file) — the CALLER owns try/catch and the user-facing error copy. Returns the filename plus how
+ * many photos were absent from storage (`missing`) or left out for size (`omitted`).
  */
-export async function downloadTripBackup(blobStore: BlobStorePort = defaultBlobStore): Promise<string> {
-  const blob = await exportTripBackup(blobStore);
+export async function downloadTripBackup(
+  blobStore: BlobStorePort = defaultBlobStore,
+): Promise<{ filename: string; missing: number; omitted: number }> {
+  const { blob, missing, omitted } = await buildTripBackup(blobStore);
   const filename = supportsCompression() ? EXPORT_FILENAME_GZ : EXPORT_FILENAME;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  return filename;
+  downloadBlob(blob, filename);
+  return { filename, missing, omitted };
 }
 
 // ── Import ──────────────────────────────────────────────────────────────────
@@ -447,8 +482,14 @@ export async function importTripBackup(
   let text: string;
   try {
     text = await decompressBlobOrText(file);
-  } catch {
-    return { ok: false, error: 'Could not read that backup file. No changes were made to your trip.' };
+  } catch (e) {
+    const tooLarge = e instanceof Error && e.message.startsWith('That file is too large');
+    return {
+      ok: false,
+      error: tooLarge
+        ? `${e.message} No changes were made to your trip.`
+        : 'Could not read that backup file. No changes were made to your trip.',
+    };
   }
 
   let parsed: unknown;
@@ -481,8 +522,8 @@ export async function importTripBackup(
         error: 'This backup is from a different trip. Switch to that trip, then restore it there.',
       };
     }
-    commitItinerary(pr.plans);
-    return { ok: true, restored: ['itinerary'], photosSkipped: 0 };
+    if (commitItinerary(pr.plans) === false) return { ok: false, error: NOTHING_WRITTEN };
+    return { ok: true, restored: ['itinerary'], photosSkipped: 0, refused: [], dropped: [] };
   }
 
   // A-5: refuse a cross-trip restore rather than silently overwriting the active trip. `env.tripId`
@@ -534,10 +575,13 @@ export async function importTripBackup(
 
   // ── Phase A — parse everything into memory, ZERO domain writes ──
   const domainWrites: Array<[string, unknown]> = [];
+  // Present in the file but malformed, so left as they are — named so the caller can say so.
+  const dropped: string[] = [];
   for (const [slot, spec] of Object.entries(DOMAINS)) {
     if (!(slot in env.domains)) continue;
     const cleaned = spec.validate(env.domains[slot]);
     if (cleaned !== null) domainWrites.push([slot, cleaned]); // else: malformed → drop (never-destroy)
+    else dropped.push(slot);
   }
 
   // Itinerary — validate the nested envelope through the SAME trust boundary (parseBackup); a
@@ -546,14 +590,18 @@ export async function importTripBackup(
   if ('itinerary' in env.domains) {
     const pr = parseBackup(JSON.stringify(env.domains.itinerary));
     if (pr.ok) itinPlans = pr.plans;
+    else dropped.push('itinerary');
   }
 
   // Photos — sanitize meta, decode each present blob. `hasMeta` is the shape gate the generic
   // domains get from `spec.validate` above: photos are the only domain with no remote copy, so a
   // malformed `meta` must DROP (leave the live index and its blobs alone), not commit an empty set.
+  // An EMPTY meta is treated as absent too (#751): replacing with nothing would delete every photo
+  // on this device, and they exist nowhere else.
   const rawMeta = env.photos?.meta;
-  const hasMeta = Array.isArray(rawMeta);
-  const metas = hasMeta ? sanitizePhotos(rawMeta) : [];
+  const metas = Array.isArray(rawMeta) ? sanitizePhotos(rawMeta) : [];
+  const hasMeta = metas.length > 0;
+  if (!hasMeta && rawMeta !== undefined && !(Array.isArray(rawMeta) && rawMeta.length === 0)) dropped.push('photos');
   const decoded: Array<[string, Blob]> = [];
   let photosSkipped = 0;
   for (const m of metas) {
@@ -567,10 +615,8 @@ export async function importTripBackup(
     }
   }
 
-  // Nothing survived validation — refuse before Phase B touches anything. `hasMeta` with
-  // `metas.length === 0` (a `photos.meta: []` envelope) would otherwise still reach `savePhotos`
-  // below and wipe every live photo blob, then report `restored: []` as if zero writes had
-  // happened. Checked here, before any write, so this can honestly promise none did.
+  // Nothing survived validation — refuse before Phase B touches anything, so this can honestly
+  // promise no write happened.
   if (domainWrites.length === 0 && itinPlans === null && metas.length === 0) {
     return {
       ok: false,
@@ -581,25 +627,21 @@ export async function importTripBackup(
 
   // ── Phase B — commit ──
   const restored: string[] = [];
+  // Domains whose local write was refused (e.g. quota): named so the caller can say so, never claimed.
+  const refused: string[] = [];
 
   // Blobs FIRST (id-preserving), so a re-import doesn't duplicate and meta↔blob links hold.
+  const putIds = new Set<string>();
   for (const [id, blob] of decoded) {
     const res = await blobStore.putWithId(id, blob);
-    if (!res.ok) photosSkipped++; // stored blob failed → meta stays as a placeholder
+    if (res.ok) putIds.add(id);
+    else photosSkipped++; // stored blob failed → meta stays as a placeholder
   }
   // Any meta whose blob was never provided at all is also a placeholder.
   photosSkipped += metas.filter((m) => env.photos?.blobs?.[m.id] === undefined).length;
 
-  if (hasMeta) {
-    // #344: the meta rollback is a tombstone-replace (restore wins), so any LIVE meta id absent
-    // from the restored set is being dropped here — without this, its blob orphans forever in the
-    // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).
-    const keptIds = new Set(metas.map((m) => m.id));
-    const orphaned = loadPhotos().filter((m) => !keptIds.has(m.id));
-    savePhotos(metas);
-    if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
-    if (metas.length > 0) restored.push('photos');
-  }
+  // Backup expense id → the fresh id it was restored under (sync mints new ones, D-671).
+  let expenseIds = new Map<string, string>();
 
   // `slot` here is a runtime string key (built from `Object.entries` above), not one of DOMAINS'
   // literal keys — the cast is safe because `slot` only ever came FROM `Object.entries(DOMAINS)`.
@@ -609,22 +651,22 @@ export async function importTripBackup(
     // UI passes the store's `restoreMyPlaces` under sync), route through it INSTEAD of the bare
     // write + generic merge enqueue — same idea as `commitItinerary`, one domain narrower. Absent
     // ⇒ unchanged default behavior below.
+    // Only an explicit `false` is a refusal, so a commit that returns nothing still counts as landed.
     if (slot === 'expenses' && commitExpenses) {
-      commitExpenses(cleaned as Expense[]);
-      restored.push(slot);
+      const res = commitExpenses(cleaned as Expense[]);
+      if (res instanceof Map) expenseIds = res;
+      (res === false ? refused : restored).push(slot);
       continue;
     }
     if (slot === 'myPlaces' && commitMyPlaces) {
-      commitMyPlaces(cleaned as MyPlace[]);
-      restored.push(slot);
+      (commitMyPlaces(cleaned as MyPlace[]) === false ? refused : restored).push(slot);
       continue;
     }
     // docsChecklist's injected dual path (issue #295): a same-id UPSERT via `mergeItems`, not a
     // tombstone-replace — the fixed 18-id template has no add/remove path. Same idea as the
     // myPlaces branch above, one domain narrower.
     if (slot === 'docsChecklist' && commitDocsChecklist) {
-      commitDocsChecklist(cleaned as DocItem[]);
-      restored.push(slot);
+      (commitDocsChecklist(cleaned as DocItem[]) === false ? refused : restored).push(slot);
       continue;
     }
     // Capture BEFORE the write: it reads the pre-restore local state as the push's `prev`. The
@@ -633,24 +675,47 @@ export async function importTripBackup(
     // other member's copy with data this device never kept.
     const pushRestored = domainsBySlot[slot].enqueueRestore?.(cleaned);
     const ok = domainsBySlot[slot].write(cleaned);
-    if (ok === false) continue; // refused local write: don't claim it, don't queue it (#698)
+    if (ok === false) {
+      refused.push(slot); // refused local write: don't claim it, don't queue it (#698)
+      continue;
+    }
     pushRestored?.();
     restored.push(slot);
   }
 
+  // Photos AFTER the domains, so receipt metas can follow their expense to its restored id.
+  const repoint = (list: PhotoMeta[]) =>
+    [...expenseIds].reduce((acc, [from, to]) => repointExpenseOwner(acc, from, to), list);
+  if (hasMeta) {
+    // #344: the meta rollback is a tombstone-replace (restore wins), so any LIVE meta id absent
+    // from the restored set is being dropped here — without this, its blob orphans forever in the
+    // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).
+    const keptIds = new Set(metas.map((m) => m.id));
+    const live = loadPhotos();
+    if (savePhotos(repoint(metas))) {
+      const orphaned = live.filter((m) => !keptIds.has(m.id));
+      if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
+      restored.push('photos');
+    } else {
+      // Index write refused: the live index still names its blobs, so keep every one of them.
+      // Only the blobs put above that no live photo owns are strays — drop those.
+      refused.push('photos');
+      const liveIds = new Set(live.map((m) => m.id));
+      const strays = metas.filter((m) => putIds.has(m.id) && !liveIds.has(m.id));
+      if (strays.length > 0) await deletePhotoBlobs(strays, blobStore);
+    }
+  } else if (expenseIds.size > 0) {
+    // Live photos are kept, so their receipts follow the restored expenses instead.
+    if (!savePhotos(repoint(loadPhotos()))) refused.push('photos');
+  }
+
   if (itinPlans !== null) {
-    commitItinerary(itinPlans); // dual path: restorePlans under sync, savePlans local
-    restored.push('itinerary');
+    // dual path: restorePlans under sync, savePlans local
+    (commitItinerary(itinPlans) === false ? refused : restored).push('itinerary');
   }
 
   // Content existed but every write was refused, so nothing changed on disk.
-  if (restored.length === 0) {
-    return {
-      ok: false,
-      error:
-        'Nothing could be restored — your browser refused every write, likely because storage is full. No changes were made to your trip.',
-    };
-  }
+  if (restored.length === 0) return { ok: false, error: NOTHING_WRITTEN };
 
-  return { ok: true, restored, photosSkipped };
+  return { ok: true, restored, photosSkipped, refused, dropped };
 }

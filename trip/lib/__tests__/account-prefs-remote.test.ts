@@ -46,7 +46,7 @@ vi.mock('@/lib/firebase-remote', () => ({
   // The uid is captured when getRemote is called, so each simulated device stamps with its own.
   getRemote: () => {
     const uid = device.uid;
-    if (device.down) return Promise.reject(new Error('sync paused on this device'));
+    if (device.down) return Promise.reject(new Error('device offline'));
     return Promise.resolve({ db: {}, fs, uid });
   },
 }));
@@ -127,7 +127,7 @@ describe('account prefs', () => {
     expect(await claimField('defaultShare', 'Z')).toBe(a);
   });
 
-  it('a paused/offline edit stays on this device and is pushed, with its own stamp, on the next read', async () => {
+  it('an offline edit stays on this device and is pushed, with its own stamp, on the next read', async () => {
     vi.useFakeTimers({ now: 5_000_000 });
     docs.set(PATH, { data: { homeCurrency: { v: 'USD', hlc: '000000001000000:000000:uid-old' } }, ver: 1 });
     device.down = true;
@@ -142,7 +142,7 @@ describe('account prefs', () => {
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.personPrefs)!).homeCurrency.dirty).toBeUndefined();
   });
 
-  it('a paused edit is pushed from the subscribe snapshot too', async () => {
+  it('an offline edit is pushed from the subscribe snapshot too', async () => {
     device.down = true;
     await setPref('homeCurrency', 'JPY');
     device.down = false;

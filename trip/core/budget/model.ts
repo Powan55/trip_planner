@@ -176,6 +176,22 @@ export function safeAmount(value: unknown): number {
   return n;
 }
 
+/** Largest amount the entry forms accept. Input-only; stored/imported values are never capped. */
+export const MAX_AMOUNT = 1_000_000_000;
+
+/**
+ * Parse a typed expense amount: rounded to what `formatMoney` shows for `cur` (USD cents, NPR/JPY
+ * whole) so stored == displayed, and 0 < n <= MAX_AMOUNT. Returns null when unusable (blank,
+ * junk, <= 0, too big, or rounds to 0, e.g. 0.001).
+ */
+export function parseAmountInput(raw: string, cur: CurrencyCode): number | null {
+  if (raw.trim() === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  const r = cur === 'USD' ? Math.round(n * 100) / 100 : Math.round(n);
+  return r > 0 && r <= MAX_AMOUNT ? r : null;
+}
+
 /**
  * A rate must be a FINITE POSITIVE number (a 0 or negative rate would divide-by-zero / flip
  * signs). A bad rate falls back to its seed so conversion is always well-defined.

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { m } from 'framer-motion';
 import { AlertTriangle, Check, CloudOff, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { usePresence } from '@/hooks/use-presence';
-import { useOnline } from '@/hooks/use-online';
+import { useBackOnline, useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
-import ShareDefaultTripDialog from '@/components/share-default-trip';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 
 /**
  * App-wide sync-status affordance — a passive, live "pending N / synced Xm ago" pill over
@@ -61,7 +61,7 @@ import ShareDefaultTripDialog from '@/components/share-default-trip';
  * three; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
  */
 export function SyncStatusBadge() {
-  const { pending, blocked, readBlocked, lastAckAt, localOnly, paused } = useSyncStatus();
+  const { pending, blocked, readBlocked, lastAckAt, localOnly, signInRequired } = useSyncStatus();
   /**
    * D-546 — DELIVERY, not transport. Everything above comes out of this device's own outbox:
    * `lastAckAt` is stamped when Firestore accepted the bytes, which is equally true whether one
@@ -75,30 +75,48 @@ export function SyncStatusBadge() {
    * which the Firestore SDK multiplexes onto one listen target.
    */
   const peers = usePresence();
-  const [shareOpen, setShareOpen] = useState(false);
   // OfflineBanner owns top-center at the same `top-20`, and at 360-414px its centred pill
   // overlaps this right-anchored one — which is exactly when both are showing (offline with
   // unsynced edits). Drop a row while it is up (#129).
   const online = useOnline();
+  const backOnline = useBackOnline();
+
+  // #753: journal and prefs otherwise only retry while their own view is mounted. One-shot pushes,
+  // no listener, so this spends no reads when nothing is dirty.
+  useEffect(() => {
+    const flush = () => {
+      if (!isRemoteConfigured() || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      void Promise.all([import('@/lib/journal-remote'), import('@/lib/account-prefs-remote')])
+        .then(([j, p]) => Promise.all([j.flushPendingJournal(), p.flushPendingPrefs()]))
+        .catch((err) => console.warn('[sync-status] flush unavailable:', err));
+    };
+    flush();
+    window.addEventListener('online', flush);
+    document.addEventListener('visibilitychange', flush);
+    return () => {
+      window.removeEventListener('online', flush);
+      document.removeEventListener('visibilitychange', flush);
+    };
+  }, []);
 
   // #267/#271: a REFUSED change (write) or a REFUSED read reads as pending forever, which is the
   // one thing this pill must never say. `blocked` is a subset of `pending` (a refused chunk is
   // never acked); `readBlocked` has no count to give (a denied snapshot stream has no chunk to key
   // against), so it ORs straight into `isBlocked` instead of adding to `blocked`.
-  // #600: sync switched off on this device outranks every other state; nothing else is live.
-  const isBlocked = !paused && (blocked > 0 || readBlocked);
+  // An anonymous session outranks every other state; nothing else is live until it signs in.
+  const isBlocked = !signInRequired && (blocked > 0 || readBlocked);
 
   // Dormant/guest (both read as pending:0 + lastAckAt:null + readBlocked:false) OR a real build
   // that has simply never synced anything yet — either way, nothing to show. But a device denied
   // on its very FIRST read (never synced: pending:0, lastAckAt:null) must still show — that is
   // the #271 case this pill exists for — so `isBlocked` gets its own clause rather than folding
   // into the pending/lastAckAt check above.
-  const show = paused || pending !== 0 || lastAckAt !== null || isBlocked || localOnly;
-  const isPending = !paused && pending > 0;
+  const show = signInRequired || pending !== 0 || lastAckAt !== null || isBlocked || localOnly;
+  const isPending = !signInRequired && pending > 0;
   // D-542 — LAST in precedence. `localOnly` and a pending/blocked count are mutually exclusive in
   // practice (a local-only device has a gated-off outbox, so it can never accumulate either), but
   // ordering it last means that if they ever do co-occur the live fact wins over the invitation.
-  const isLocalOnly = !paused && localOnly && !isBlocked && !isPending;
+  const isLocalOnly = !signInRequired && localOnly && !isBlocked && !isPending;
   // The same amber the pre-flight rows already use for 'attention' (with the same AlertTriangle),
   // so the two surfaces reading this one outbox agree on what a refusal looks like.
   const tone = isBlocked ? 'text-amber-300' : 'text-ink-mid';
@@ -110,8 +128,8 @@ export function SyncStatusBadge() {
    * stated as a positive; its absence is stated as a fact, in the sr-only sentence.
    */
   const audience = peers.length;
-  const label = paused
-    ? 'Sync off'
+  const label = signInRequired
+    ? 'Sign in to sync'
     : isBlocked
     ? blocked > 0
       ? `${blocked} not syncing`
@@ -124,9 +142,9 @@ export function SyncStatusBadge() {
           ? `Synced · ${audience} here`
           : `Saved ${relative ?? 'recently'}`;
   const localOnlySummary =
-    'Your plan is saved on this device only. Nothing you change here reaches anyone else, and it is not backed up anywhere. Activate to share it.';
-  const summary = paused
-    ? `Sync is off on this device. ${pending > 0 ? `${pending} change${pending === 1 ? ' is' : 's are'} saved here and will` : 'Changes stay on this device and'} upload when you turn sync back on in Settings.`
+    'Your plan is saved on this device only. It moves onto the shared trip once you sign in and agree to replace it, and nothing you change here reaches anyone else until then.';
+  const summary = signInRequired
+    ? `Sign in to sync. ${pending > 0 ? `${pending} change${pending === 1 ? ' is' : 's are'} saved here and will` : 'Changes stay on this device and'} upload once you sign in with your username and password.`
     : isBlocked
     ? blocked > 0
       ? `The shared trip refused ${blocked} change${blocked === 1 ? '' : 's'}, so ${blocked === 1 ? 'it is' : 'they are'} saved on this device only and will not upload on their own. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.`
@@ -139,19 +157,6 @@ export function SyncStatusBadge() {
           ? `All changes are synced to the shared trip${relative ? `, last confirmed ${relative}` : ''}. ${audience === 1 ? `${peers[0].name} is` : `${audience} other travellers are`} on it right now.`
           : `All changes are uploaded to the shared trip${relative ? `, last confirmed ${relative}` : ''}, and will be there the next time someone opens it. No one else is on the trip right now.`;
 
-  // The local-only pill is the ONE interactive state: it is an offer, not a report, so it is a real
-  // <button> (focusable, Enter/Space, a named action) rather than a pill with a click handler. The
-  // other three stay inert <div>s — nothing to do about a pending count but wait.
-  const Chip = isLocalOnly ? 'button' : 'div';
-  const chipProps = isLocalOnly
-    ? ({
-        type: 'button' as const,
-        onClick: () => setShareOpen(true),
-        'aria-haspopup': 'dialog' as const,
-        'data-testid': 'sync-status-share-cta',
-      })
-    : {};
-
   return (
     <>
       <div role="status" aria-live="polite" aria-label={show ? label : undefined}>
@@ -162,8 +167,8 @@ export function SyncStatusBadge() {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             data-testid="sync-status-badge"
             data-state={
-              paused
-                ? 'paused'
+              signInRequired
+                ? 'sign-in-required'
                 : isBlocked
                 ? 'blocked'
                 : isPending
@@ -174,20 +179,19 @@ export function SyncStatusBadge() {
                       ? 'synced'
                       : 'synced-alone'
             }
-            className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
+            className={`fixed ${online && !backOnline ? 'top-[calc(5rem+var(--safe-top))]' : 'top-[calc(8rem+var(--safe-top))]'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
           >
             {/* Printed stock, not glass. The FILL grammar carries the state: a struck
                 (solid) rule when synced, a hollow dashed one when the sync has not
                 landed. The word always says which — colour is never the only carrier. */}
-            <Chip
-              {...chipProps}
+            <div
               className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
-                paused || isBlocked || isPending || isLocalOnly
+                signInRequired || isBlocked || isPending || isLocalOnly
                   ? 'border-dashed border-[color:var(--text-lo)]'
                   : 'border-[hsl(var(--border))]'
-              } ${tone} ${isLocalOnly ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]' : ''}`}
+              } ${tone}`}
             >
-              {paused ? (
+              {signInRequired ? (
                 <CloudOff className="h-3 w-3 shrink-0" aria-hidden="true" />
               ) : isBlocked ? (
                 <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -202,13 +206,10 @@ export function SyncStatusBadge() {
                 {label}
               </span>
               <span className="sr-only">{summary}</span>
-            </Chip>
+            </div>
           </m.div>
         )}
       </div>
-      {/* Mounted only once the offer has been taken up — the dialog pulls in radix + token-auth, and
-          the badge is in the root layout on every route. */}
-      {shareOpen && <ShareDefaultTripDialog open={shareOpen} onOpenChange={setShareOpen} />}
     </>
   );
 }

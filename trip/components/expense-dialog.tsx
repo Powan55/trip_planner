@@ -8,7 +8,7 @@ import { X, Check, Users } from 'lucide-react';
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
 import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import {
-  legCurrency, currencySymbol, formatMoney,
+  legCurrency, currencySymbol, formatMoney, parseAmountInput, MAX_AMOUNT,
   BUDGET_CATEGORIES, LEGS, type Leg,
 } from '@/core/budget/model';
 import { legLabel } from '@/lib/leg-label';
@@ -135,14 +135,17 @@ export default function ExpenseDialog({
 
   const cur = legCurrency(leg);
   const sym = currencySymbol(cur);
-  const numericAmount = amount === '' ? NaN : Number(amount);
-  const amountValid = Number.isFinite(numericAmount) && numericAmount > 0;
+  // An untouched prefilled amount is kept verbatim: imports may hold values the input bounds
+  // reject (huge, sub-cent, fractional JPY), and a note-only edit must not round or block them.
+  const untouched = isEdit && !!expense && expense.amount > 0 && amount === String(expense.amount);
+  const parsedAmount = untouched ? expense!.amount : parseAmountInput(amount, cur);
+  const amountValid = parsedAmount !== null;
   // Save is blocked until a positive amount (category always has a value — chips, not empty).
   const saveDisabled = !amountValid;
 
   const handleSave = () => {
-    if (!amountValid) return; // guard (the button is also disabled)
-    const value = Number(amount);
+    if (parsedAmount === null) return; // guard (the button is also disabled)
+    const value = parsedAmount;
     const trimmedNote = note.trim();
     // Split fields: ON ⇒ payer + members; OFF ⇒ undefined (add: dropped by sanitize = byte-identical
     // fast path; edit: explicitly CLEARS a previously-split expense back to the fast path).
@@ -215,7 +218,7 @@ export default function ExpenseDialog({
         // lives with the primitive (`components/ui/sheet-dark.tsx`), gated by `lib/motion.ts`.
         {...overlayPanelMotion()}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full max-w-md bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 max-h-[90vh] flex flex-col overflow-hidden"
+        className="w-full max-w-md bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 max-h-[90dvh] flex flex-col overflow-hidden"
       >
         {/* Pinned header */}
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
@@ -272,9 +275,15 @@ export default function ExpenseDialog({
                   }}
                   placeholder="0"
                   autoComplete="off"
+                  aria-describedby={amount !== '' && !amountValid ? `${amountFieldId}-hint` : undefined}
                   className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/60 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
                 />
               </div>
+              {amount !== '' && !amountValid && (
+                <p id={`${amountFieldId}-hint`} className="mt-1 text-t-sm text-ink-mid">
+                  Enter an amount above 0, up to {formatMoney(MAX_AMOUNT, cur)}.
+                </p>
+              )}
             </div>
 
             {/* Leg toggle — preset, one tap to override */}
@@ -346,6 +355,7 @@ export default function ExpenseDialog({
               <input
                 id={noteFieldId}
                 data-testid="expense-note-input"
+                maxLength={200}
                 value={note}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNote(e.target.value)}
                 className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -429,7 +439,7 @@ export default function ExpenseDialog({
                     ) : (
                       <p className="mt-1.5 font-machine text-t-sm text-ink-mid" data-testid="expense-split-hint">
                         {amountValid
-                          ? `${formatMoney(Number(amount) / splitMembers.length, cur)} each`
+                          ? `${formatMoney((parsedAmount ?? 0) / splitMembers.length, cur)} each`
                           : `Split ${splitMembers.length} ways`}
                       </p>
                     )}

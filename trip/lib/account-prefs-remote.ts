@@ -11,13 +11,16 @@
 
 import { STORAGE_KEYS, getSyncCode, writeJson } from '@/core/storage/gateway';
 import { compareHlc, hlcSendOrLocal, parse, serialize } from '@/core/sync/hlc';
+import { SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
+import { isPermissionDenied } from '@/core/sync/denied';
+import { isPrefsDenied, markPrefsDenied } from '@/core/sync/read-denied';
 import { FIELD_RE, accountCode, readLocal, sanitize, values, type PrefEntries, type PrefEntry } from './account-prefs';
 import { getRemote } from './firebase-remote';
 import { realClock } from './trip-now';
 
 export { getCachedPrefs, hasAccount, type PrefEntries, type PrefEntry } from './account-prefs';
 
-// Stamps a local-only edit made before getRemote() is known to work (paused, offline).
+// Stamps a local-only edit made before getRemote() is known to work (offline).
 const LOCAL_ACTOR = 'local';
 
 function newer(a: PrefEntry | undefined, b: PrefEntry | undefined): PrefEntry | undefined {
@@ -38,18 +41,43 @@ function mergeIntoLocal(entries: PrefEntries, code: string | null): PrefEntries 
     const mine = merged[k];
     merged[k] = mine && compareHlc(parse(mine.hlc), parse(e.hlc)) > 0 ? mine : e;
   }
-  writeJson('local', STORAGE_KEYS.personPrefs, merged);
+  writeLocal(merged);
   return merged;
+}
+
+// The badge counts dirty fields (#753), so a mirror write re-renders it like an outbox write.
+function writeLocal(entries: PrefEntries): void {
+  writeJson('local', STORAGE_KEYS.personPrefs, entries);
+  window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
+}
+
+/** Push dirty fields with no prefs subscriber mounted (#753). Opens no listener. Never rejects. */
+export async function flushPendingPrefs(): Promise<void> {
+  const code = accountCode();
+  if (code) await pushDirty(code);
 }
 
 /**
  * Push every dirty mirror field that is still newer than the account's copy, with its ORIGINAL
  * stamp (an automatic retry must not out-rank an edit made elsewhere since). Never rejects.
  */
-async function pushDirty(code: string): Promise<void> {
-  if ((getSyncCode()?.trim() ?? '') !== code) return; // the mirror now belongs to another account
+let pushing: { code: string; run: Promise<boolean> } | null = null;
+
+/** Concurrent pushes for one account share a run. A refused account is not retried this page load. */
+function pushDirty(code: string): Promise<boolean> {
+  if (isPrefsDenied(code)) return Promise.resolve(false);
+  if (pushing?.code === code) return pushing.run;
+  const run = pushDirtyOnce(code).finally(() => {
+    if (pushing?.run === run) pushing = null;
+  });
+  pushing = { code, run };
+  return run;
+}
+
+async function pushDirtyOnce(code: string): Promise<boolean> {
+  if ((getSyncCode()?.trim() ?? '') !== code) return false; // the mirror now belongs to another account
   const dirty = Object.entries(readLocal()).filter(([, e]) => e.dirty);
-  if (!dirty.length) return;
+  if (!dirty.length) return false;
   try {
     const { db, fs } = await getRemote();
     const ref = fs.doc(db, 'trips', code, 'profile', 'prefs');
@@ -70,9 +98,18 @@ async function pushDirty(code: string): Promise<void> {
       return out;
     });
     mergeIntoLocal(won, code);
+    return accountCode() === code;
   } catch (err) {
-    console.warn('[account-prefs] retry failed, kept on this device:', err);
+    if (isPermissionDenied(err)) markPrefsDenied(code);
+    else console.warn('[account-prefs] retry failed, kept on this device:', err);
+    return false;
   }
+}
+
+/** Push every queued account pref now. Sign-out awaits this before the wipe (#816). Never rejects. */
+export async function flushPrefs(): Promise<void> {
+  const code = accountCode();
+  if (code) await pushDirty(code);
 }
 
 // JSON round-trip strips `undefined`, which Firestore rejects.
@@ -110,7 +147,7 @@ const latest: Record<string, number> = {};
 
 /**
  * Set one field: an explicit edit, so it always wins (the latest, when taps overlap). Mirrors
- * locally (synchronously, marked dirty) before touching the network, so a paused or offline
+ * locally (synchronously, marked dirty) before touching the network, so an offline
  * edit stays on this device and
  * `getPrefs`/`subscribePrefs` push it later. Then, in a transaction, stamps past the newer of the
  * mirror's and the account's stamp (so a slow clock or an unread account can't lose the edit)
@@ -123,7 +160,7 @@ export async function setPref(field: string, value: unknown): Promise<void> {
   const seq = (latest[field] = (latest[field] ?? 0) + 1);
   const local = readLocal();
   local[field] = { ...stampPast(local[field], value, LOCAL_ACTOR), dirty: true };
-  writeJson('local', STORAGE_KEYS.personPrefs, local);
+  writeLocal(local);
   try {
     const { db, fs, uid: actor } = await getRemote();
     const ref = fs.doc(db, 'trips', code, 'profile', 'prefs');
@@ -138,6 +175,7 @@ export async function setPref(field: string, value: unknown): Promise<void> {
     });
     if (entry) mergeIntoLocal({ [field]: entry }, code);
   } catch (err) {
+    if (isPermissionDenied(err)) markPrefsDenied(code);
     console.warn('[account-prefs] write failed, kept on this device:', err);
   }
 }
@@ -234,8 +272,17 @@ export function subscribePrefs(cb: (prefs: Record<string, unknown>) => void): ()
       console.warn('[account-prefs] subscribe unavailable:', err);
     }
   })();
+  const onOnline = () => {
+    void pushDirty(code)
+      .then((reconciled) => {
+        if (reconciled && !cancelled && accountCode() === code) cb(values(readLocal()));
+      })
+      .catch((err) => console.warn('[account-prefs] retry notification failed:', err));
+  };
+  window.addEventListener('online', onOnline);
   return () => {
     cancelled = true;
     unsub?.();
+    window.removeEventListener('online', onOnline);
   };
 }

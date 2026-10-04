@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
@@ -63,6 +64,30 @@ describe('#517 — switching the default pack to another shared trip', () => {
     expect(pushedTo).toEqual([]);
     expect(m.outboxDirty('itinerary')).toEqual([]);
     expect(localStorage.getItem(m.STORAGE_KEYS.itinerary)).toBeNull();
+  });
+
+  it('an edit queued under an old id never flushes into the shared trip after the move', async () => {
+    const m = await load();
+    m.setDefaultTripShareId(Y);
+    const plans = [{ date: DATE, city: 'Kathmandu', country: 'nepal' as const, items: [] }];
+    localStorage.setItem(m.STORAGE_KEYS.itinerary, JSON.stringify(plans));
+    const cs = {
+      domain: 'itinerary' as const,
+      chunkDiff: () => [DATE],
+      pushChunk: () => Promise.reject(new Error('offline')),
+    };
+    await m.withOutbox<typeof plans>(cs)([], plans);
+    expect(m.outboxDirty('itinerary')).toEqual([DATE]);
+
+    m.setDefaultTripShareId(SHARED_TRIP_ID);
+
+    const pushedTo: string[] = [];
+    await m.flushOutbox<typeof plans>(
+      { ...cs, chunkDiff: () => [], pushChunk: async () => void pushedTo.push(m.getTripId()) },
+      { load: () => plans, save: () => {}, has: () => true },
+    );
+    expect(pushedTo).toEqual([]);
+    expect(m.outboxDirty('itinerary')).toEqual([]);
   });
 
   it('a Y push resolving after the switch does not ack the same chunk queued under X', async () => {
@@ -134,25 +159,20 @@ describe('#654 — switching the active trip while a push is in flight', () => {
   });
 });
 
-describe('#572 — joining from an unshared default pack', () => {
+describe('#572 — joining the shared trip from a pack that holds local data', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
   });
 
-  it('confirms and drops local expenses before joining', async () => {
+  it('only returns to the pack: the id is not written and local expenses are not dropped', async () => {
     const m = await load();
     localStorage.setItem(m.STORAGE_KEYS.expenses, '[{"id":"e1"}]');
-    expect(m.joinReplacesLocalPlan(`pack:${X}`)).toBe(true);
-    expect(m.joinTrip(`pack:${X}`)).toBe(true);
-    expect(localStorage.getItem(m.STORAGE_KEYS.expenses)).toBeNull();
-    expect(m.getTripId()).toBe(X);
-  });
-
-  it('does not confirm when the pack holds nothing', async () => {
-    const m = await load();
-    expect(m.joinReplacesLocalPlan(`pack:${X}`)).toBe(false);
+    expect(m.joinTrip(`pack:${SHARED_TRIP_ID}`)).toBe(true);
+    expect(localStorage.getItem(m.STORAGE_KEYS.expenses)).toBe('[{"id":"e1"}]');
+    expect(m.getStoredDefaultTripShareId()).toBe('');
+    expect(m.getActiveTripId()).toBe(m.DEFAULT_TRIP_ID);
   });
 
   it('keeps the owner data when they start sharing their own pack', async () => {

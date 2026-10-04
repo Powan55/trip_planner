@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 /**
  * D-542 — the default pack gains a remote path WITHOUT moving any data.
@@ -40,11 +41,24 @@ describe('D-542 — the default pack can be shared without moving its data', () 
   });
 
   describe('the gate', () => {
-    it("absent share id ⇒ getTripId() is '' and the trip is local-only (#10 verbatim)", async () => {
+    it('absent share id and nothing stored ⇒ the shared trip, and sync is on', async () => {
       const { getTripId, isTripRemoteConfigured, isRemoteConfigured } = await loadWithEnv();
       expect(isRemoteConfigured()).toBe(true);
+      expect(getTripId()).toBe(SHARED_TRIP_ID);
+      expect(isTripRemoteConfigured()).toBe(true);
+    });
+
+    it("absent share id but local edits ⇒ '' until they are moved, so the shared trip cannot replace them", async () => {
+      const { getTripId, isTripRemoteConfigured, ITINERARY_STORAGE_KEY } = await loadWithEnv();
+      localStorage.setItem(ITINERARY_STORAGE_KEY, '[]');
       expect(getTripId()).toBe('');
       expect(isTripRemoteConfigured()).toBe(false);
+    });
+
+    it('a device on another id keeps it until it is moved', async () => {
+      const { getTripId } = await loadWithEnv();
+      localStorage.setItem(SHARE_KEY, ID);
+      expect(getTripId()).toBe(ID);
     });
 
     it('a minted share id ⇒ getTripId() returns it and sync turns ON', async () => {
@@ -68,12 +82,12 @@ describe('D-542 — the default pack can be shared without moving its data', () 
       expect(getTripId()).toBe(ID);
     });
 
-    it("clearing with '' removes the key and returns the trip to local-only", async () => {
+    it("clearing with '' removes the key and returns the trip to the shared one", async () => {
       const { getTripId, setDefaultTripShareId } = await loadWithEnv();
       setDefaultTripShareId(ID);
       setDefaultTripShareId('   ');
       expect(localStorage.getItem(SHARE_KEY)).toBeNull();
-      expect(getTripId()).toBe('');
+      expect(getTripId()).toBe(SHARED_TRIP_ID);
     });
   });
 
@@ -158,7 +172,7 @@ describe('D-542 — the default pack can be shared without moving its data', () 
   });
 
   describe('teardown', () => {
-    it('sign-out clears the share id — the next person on this device is not joined to the old trip', async () => {
+    it('sign-out clears a stored id — the next person on this device is not left on the old trip', async () => {
       const { setDefaultTripShareId, wipeAllTripData, getTripId } = await loadWithEnv();
       setDefaultTripShareId(ID);
       expect(getTripId()).toBe(ID);
@@ -166,7 +180,7 @@ describe('D-542 — the default pack can be shared without moving its data', () 
       wipeAllTripData();
 
       expect(localStorage.getItem(SHARE_KEY)).toBeNull();
-      expect(getTripId()).toBe('');
+      expect(getTripId()).toBe(SHARED_TRIP_ID);
     });
   });
 });

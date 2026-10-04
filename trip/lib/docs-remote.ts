@@ -29,7 +29,8 @@ import { saveDocs, loadDocs } from '@/core/docs/storage';
 import { sanitizeItems, type DocItem } from '@/core/docs/model';
 import { DOCS_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
-import { getRemote, type FirestoreMod } from './firebase-remote';
+import { SHARED_TRIP_ID } from './shared-trip';
+import { getSharedRemote, type FirestoreMod } from './firebase-remote';
 import { mergeItems } from '@/core/sync/merge-items';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { setReadDenied } from '@/core/sync/read-denied';
@@ -102,7 +103,7 @@ export async function pushChecklistMerged(
  */
 export async function pushDocsChunk(current: DocItem[], chunk: string, tripId: string): Promise<void> {
   if (chunk !== 'checklist') return; // unknown chunk → ack (never a bad write)
-  const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
+  const { db, fs } = await getSharedRemote(); // rejects when unreachable → decorator keeps it dirty
   await pushChecklistMerged(db, fs, current, tripId); // rejects on transport error → stays dirty
 }
 
@@ -149,7 +150,7 @@ export function subscribeRemoteDocs(): () => void {
     if (cancelled || established || settingUp) return;
     settingUp = true;
     try {
-      const { db, fs } = await getRemote();
+      const { db, fs } = await getSharedRemote();
       if (cancelled || established) return;
       const { doc, onSnapshot } = fs;
       const ref = doc(db, 'trips', getTripId(), 'docs', 'checklist');
@@ -175,7 +176,7 @@ export function subscribeRemoteDocs(): () => void {
             if (snap.exists()) {
               const remoteRows = docToRows(snap.data() as Record<string, unknown>);
               persistAndDispatch(mergeItems(local, remoteRows));
-            } else if (first) {
+            } else if (first && getTripId() !== SHARED_TRIP_ID) {
               // Never synced → seed the doc from local. Best-effort; a failure
               // stays local-only (local is untouched, so nothing is lost).
               void pushChecklistMerged(db, fs, local).catch((err) =>

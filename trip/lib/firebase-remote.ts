@@ -1,8 +1,10 @@
 'use client';
 
-import { FIREBASE_CONFIG, isRemoteConfigured } from './firebase-config';
-import { syncPausedPrefs, getSyncCode } from '@/core/storage/gateway';
+import { FIREBASE_CONFIG, getTripId, isRemoteConfigured } from './firebase-config';
+import { getSyncCode } from '@/core/storage/gateway';
+import { SHARED_TRIP_ID } from './shared-trip';
 import { isPermissionDenied } from '@/core/sync/denied';
+import { setSignInRequired } from '@/core/sync/read-denied';
 import { ACCOUNT_ID_RE, ACCOUNT_CLAIMED } from './account-codes';
 
 // ---------------------------------------------------------------------------
@@ -39,14 +41,15 @@ export interface RemoteHandle {
 let remotePromise: Promise<RemoteHandle> | null = null;
 
 /**
- * Rejection `getRemote()` gives while "Sync this device" is off (#600). Not a permission error on
- * purpose: the outbox keeps the chunk dirty and retries it later instead of marking it refused.
+ * Rejection `getSharedRemote()` gives an anonymous session on the shared trip. Not a permission error
+ * on purpose: the outbox keeps the chunk dirty and retries it after sign-in instead of marking it
+ * refused.
  */
-export class SyncPausedError extends Error {
-  readonly code = 'sync-paused';
+export class SignInRequiredError extends Error {
+  readonly code = 'sign-in-required';
   constructor() {
-    super('sync paused on this device');
-    this.name = 'SyncPausedError';
+    super('sign in to sync');
+    this.name = 'SignInRequiredError';
   }
 }
 
@@ -61,13 +64,32 @@ export class SyncPausedError extends Error {
  * before any caller issues a read or a write.
  */
 export function getRemote(): Promise<RemoteHandle> {
-  if (isRemoteConfigured() && syncPausedPrefs.get()) {
-    return Promise.reject(new SyncPausedError());
-  }
   return getAuthHandle();
 }
 
-// Sign-in only, for the auth helpers below: they move no trip data, so pausing sync leaves them be.
+/**
+ * `getRemote()` for the shared trip's content. The shared trip's rules answer to the account's
+ * email, so an anonymous session would only burn denied reads: it is turned away here instead,
+ * and the sync badge asks for a sign-in. Any other trip is unaffected. The one place the
+ * sign-in-required flag is set.
+ */
+export async function getSharedRemote(): Promise<RemoteHandle> {
+  const handle = await getAuthHandle();
+  const anonymous = getTripId() === SHARED_TRIP_ID && !handle.auth.currentUser?.email;
+  setSignInRequired(anonymous);
+  if (anonymous) throw new SignInRequiredError();
+  return handle;
+}
+
+/** `getRemote()` for a caller that needs a password account whatever trip it is on. */
+export async function getAccountRemote(): Promise<RemoteHandle> {
+  const handle = await getAuthHandle();
+  if (!handle.auth.currentUser?.email) throw new SignInRequiredError();
+  return handle;
+}
+
+// Sign-in only, for the auth helpers below: they move no trip data and must work for the anonymous
+// session the sign-in step starts from.
 export function getAuthHandle(): Promise<RemoteHandle> {
   if (!isRemoteConfigured()) {
     return Promise.reject(new Error('remote not configured'));

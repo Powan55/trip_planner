@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
 import { useOnline } from '@/hooks/use-online';
@@ -32,10 +32,10 @@ import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
 import { syncPriorNames } from '@/lib/prior-names-sync';
 import {
   getActiveTripId,
+  getDefaultTripShareId,
   DEFAULT_TRIP_ID,
   getSyncCode,
   identityStore,
-  syncPausedPrefs,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
 import TripInvites from '@/components/trip-invites';
@@ -44,8 +44,6 @@ import {
   formatShareToken,
   isOwnAccountToken,
   OWN_ACCOUNT_TOKEN_COPY,
-  joinReplacesLocalPlan,
-  replaceLocalPlanCopy,
 } from '@/core/trips/registry';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
@@ -59,6 +57,7 @@ import { expensesToCsvBlob } from '@/lib/expense-csv';
 import { itineraryToIcsBlob } from '@/lib/itinerary-ics';
 import { exportExpenses, parseExpenseBackup } from '@/lib/expense-export';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
+import { downloadBlob } from '@/lib/download-blob';
 import {
   currencySymbol,
   CURRENCIES,
@@ -408,60 +407,6 @@ function RenameIdentity({ current }: { current: string }) {
  * roster" would tell its owner their trip predates per-device access and take the control away.
  * A control is never hidden on a guess; unknown renders exactly what shipped before.
  */
-/**
- * #600: per-device sync off switch. The pause is enforced in `getRemote()`; the outbox keeps
- * queuing, so edits made while off upload after it is turned back on. Reloads because every
- * listener was armed under the old state.
- */
-export function SyncThisDevice() {
-  const [on, setOn] = useState<boolean | null>(null);
-  const labelId = useId();
-  const helpId = useId();
-  useEffect(() => setOn(!syncPausedPrefs.get()), []);
-
-  const toggle = () => {
-    if (on === null) return;
-    syncPausedPrefs.set(on);
-    setOn(!on);
-    window.location.reload();
-  };
-
-  return (
-    <div className="flex items-start justify-between gap-4 border-hair border-border bg-surface-raised px-gut py-4">
-      <div className="min-w-0">
-        <h3 id={labelId} className="pr pr--l text-ink-hi">
-          Sync this device
-        </h3>
-        <p id={helpId} className="mt-1 max-w-2xl text-t-body text-ink-mid">
-          Off: changes stay on this device until you turn it back on.
-        </p>
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on ?? true}
-        aria-labelledby={labelId}
-        aria-describedby={helpId}
-        disabled={on === null}
-        onClick={toggle}
-        data-testid="settings-sync-toggle"
-        className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-r1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-      >
-        <span
-          aria-hidden="true"
-          className={`flex h-6 w-11 items-center rounded-full border-2 p-0.5 ${
-            on === false ? 'justify-start border-ink-lo' : 'justify-end border-ink-hi bg-ink-hi'
-          }`}
-        >
-          <span
-            className={`h-4 w-4 rounded-full ${on === false ? 'bg-ink-lo' : 'bg-surface-low'}`}
-          />
-        </span>
-      </button>
-    </div>
-  );
-}
-
 function TripAccessGroup() {
   const [uid, setUid] = useState<string | null>(null);
   const [tripKey, setTripKey] = useState<string | null>(null);
@@ -476,8 +421,6 @@ function TripAccessGroup() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const online = useOnline();
-  // Only mounts once identified (client-side), and toggling reloads, so one read is enough.
-  const [paused] = useState(() => syncPausedPrefs.get());
   const { copy: copyToClipboard, error: uidCopyError } = useClipboardCopy();
 
   const loadMembers = async () => {
@@ -493,7 +436,6 @@ function TripAccessGroup() {
 
   useEffect(() => {
     setTripKey(getTripId());
-    if (paused) return;
     let cancelled = false;
     void import('@/lib/firebase-remote')
       .then(({ getRemote }) => getRemote())
@@ -509,7 +451,7 @@ function TripAccessGroup() {
     return () => {
       cancelled = true;
     };
-  }, [paused]);
+  }, []);
 
   const myRole = uid && typeof members === 'object' && members ? members[uid] : undefined;
 
@@ -525,7 +467,7 @@ function TripAccessGroup() {
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = addValue.trim();
-    if (!code || busy || !tripKey || paused) return;
+    if (!code || busy || !tripKey) return;
     if (!online) {
       setError('You’re offline. Adding a device needs a connection.');
       return;
@@ -551,7 +493,7 @@ function TripAccessGroup() {
   };
 
   const remove = async (memberUid: string) => {
-    if (busy || !tripKey || paused) return;
+    if (busy || !tripKey) return;
     if (!online) {
       setError('You’re offline. Removing a device needs a connection.');
       return;
@@ -577,16 +519,7 @@ function TripAccessGroup() {
 
   return (
     <div className="flex flex-col gap-4" data-testid="settings-access-card">
-      <SyncThisDevice />
-      {paused ? (
-        <p
-          data-testid="settings-access-paused"
-          className="flex items-center gap-2 border-hair border-border bg-surface-raised px-gut py-3 text-t-body text-ink-mid"
-        >
-          Sync is off on this device. Turn it back on to see or manage who can open this trip.
-        </p>
-      ) : null}
-      {!paused && !online && (
+      {!online && (
         <p
           role="alert"
           data-testid="settings-access-offline"
@@ -597,7 +530,6 @@ function TripAccessGroup() {
         </p>
       )}
       {/* This device's code — the out-of-band invite, and the thing a friend pastes. */}
-      {!paused && (
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <h3 className="pr pr--l text-ink-hi">Your access code</h3>
         <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
@@ -642,10 +574,8 @@ function TripAccessGroup() {
           </p>
         )}
       </div>
-      )}
 
       {/* The roster. */}
-      {!paused && (
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <h3 className="pr pr--l text-ink-hi">Who can open this trip</h3>
         {tripKey === '' ? (
@@ -703,7 +633,7 @@ function TripAccessGroup() {
                         <AlertDialogTrigger asChild>
                           <button
                             type="button"
-                            disabled={busy || !online || paused}
+                            disabled={busy || !online}
                             data-testid="settings-access-remove"
                             aria-label={`Remove device ${memberUid.slice(0, 8)}`}
                             className="btn btn--2 btn--danger min-w-tap px-0"
@@ -763,7 +693,7 @@ function TripAccessGroup() {
                 />
                 <button
                   type="submit"
-                  disabled={!addValue.trim() || busy || !online || paused}
+                  disabled={!addValue.trim() || busy || !online}
                   aria-busy={busy}
                   data-testid="settings-access-add-submit"
                   className="btn btn--2 px-4"
@@ -793,10 +723,7 @@ function TripAccessGroup() {
           </p>
         )}
       </div>
-      )}
-      {!paused && (
-        <TripInvites tripId={tripKey ?? ''} isOwner={myRole === 'owner'} open={members === null} />
-      )}
+      <TripInvites tripId={tripKey ?? ''} isOwner={myRole === 'owner'} open={members === null} />
     </div>
   );
 }
@@ -988,9 +915,9 @@ function ClaimOldName({ current }: { current: string }) {
  * (the REMOTE capability) — treated as a SECRET in copy: anyone holding it can read+write this trip
  * It is NOT the User Token, which is the account credential
  * and lives in its own group below — the two are never mixed.
- * #10 — on the DEFAULT pack `getTripId()` is now `''` (the sample is local-only; the old
- * `NEXT_PUBLIC_TRIP_ID` remote id is retired), so the token card renders an honest "no Trip
- * Token — this is the sample" note instead of an empty secret with copy buttons.
+ * On the DEFAULT pack there is no Trip Token to show (it is the shared trip, or the local-only
+ * sample on a build with no sync), so the token card renders a note instead of an empty secret
+ * with copy buttons.
  *
  * Deliberately NOT inside `TokenGate`: the front-door wall stays a zero-regression surface;
  * trip management is an opt-in Settings action most default-pack demo visitors never touch.
@@ -1011,15 +938,21 @@ function TripGroup() {
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
   // grandfathered default pack; read client-side like the Trip Token below.
   const [onSharedTrip, setOnSharedTrip] = useState(false);
+  // Read once after mount: getDefaultTripShareId() writes storage on an untouched device. A device
+  // holding local edits with no id reads '' and stays local-only until account-share moves it.
+  const [defaultSynced, setDefaultSynced] = useState(false);
   const { copy: copyToClipboard, error: copyError } = useClipboardCopy();
 
   // Read the active trip's remote token + pack identity after mount (client-only; ssr:false island).
   useEffect(() => {
     const active = getActiveTripId();
-    const remote = getTripId();
+    // The default pack's id is the shared trip's, which is closed to its three accounts: not a
+    // token anyone can be handed.
+    const remote = active === DEFAULT_TRIP_ID ? '' : getTripId();
     setTripKey(remote);
     setShareToken(formatShareToken(active, remote));
     setOnSharedTrip(active !== DEFAULT_TRIP_ID);
+    setDefaultSynced(isRemoteConfigured() && getDefaultTripShareId() !== '');
   }, []);
 
   const shareLink =
@@ -1039,7 +972,6 @@ function TripGroup() {
     e.preventDefault();
     const id = joinValue.trim();
     if (!id) return;
-    if (joinReplacesLocalPlan(id) && !window.confirm(replaceLocalPlanCopy())) return;
     // D-546 — `joinTrip` refuses a token it cannot use and reports whether the pointer landed
     // (storage writes are swallowed by contract). Reloading regardless used to look like the
     // paste had worked while leaving the browser exactly where it was.
@@ -1093,14 +1025,15 @@ function TripGroup() {
       <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <h3 className="pr pr--l text-ink-hi">This trip&rsquo;s Trip Token</h3>
         {tripKey === '' ? (
-          // #10 — the default pack is a local-only sample: no remote path, no token, nothing to
-          // share. Rendering the empty string as a "secret" with live copy buttons would hand the
-          // user a broken share link.
+          // The default pack has no Trip Token to hand out: the shared trip is closed to its own
+          // accounts, and a build with no sync keeps the sample on this device.
           <p
-            data-testid="settings-trip-key-sample"
+            data-testid="settings-trip-key-default"
             className="mt-1 max-w-2xl text-t-sm text-ink-mid"
           >
-            This is the sample trip &mdash; it lives on this device only and has no Trip Token.
+            {defaultSynced
+              ? 'This is the shared trip — it syncs for everyone on it and has no Trip Token to share. '
+              : 'This is the sample trip — it lives on this device only and has no Trip Token. '}
             Create a trip from your Trips page to get one you can share.
           </p>
         ) : (
@@ -1366,9 +1299,18 @@ function DataGroup() {
   // otherwise the blobs stay on the device with nothing left in the UI pointing at them (#119).
   const handleClearJournal = () => {
     const dayPhotos = photos.filter((p) => p.owner.kind === 'journal');
-    clearJournal();
+    if (clearJournal() === false) return;
     void (async () => {
       for (const photo of dayPhotos) await removePhoto(photo.id);
+    })();
+  };
+
+  // Same for receipts: their expenses are gone, so the photos would be unreachable.
+  const handleClearExpenses = () => {
+    const receipts = photos.filter((p) => p.owner.kind === 'expense');
+    if (clearExpenses() === false) return;
+    void (async () => {
+      for (const photo of receipts) await removePhoto(photo.id);
     })();
   };
 
@@ -1377,14 +1319,7 @@ function DataGroup() {
   const handleExportCsv = () => {
     // BOM-prefixed (see `expensesToCsvBlob`) — without it Excel on Windows decodes the download
     // with the system codepage and a non-ASCII note or name arrives as mojibake.
-    const url = URL.createObjectURL(expensesToCsvBlob(expenses));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'nepal-japan-expenses.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(expensesToCsvBlob(expenses), 'nepal-japan-expenses.csv');
   };
 
   const hasItineraryItems = plans.some((day) => day.items.some((item) => !item.deleted));
@@ -1392,14 +1327,7 @@ function DataGroup() {
   // #259 — calendar export (.ics) so itinerary items can reach a phone's lock screen / alarms.
   // Same Blob/URL.createObjectURL/<a download> idiom as the CSV/JSON exports above.
   const handleExportIcs = () => {
-    const url = URL.createObjectURL(itineraryToIcsBlob(plans));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'nepal-japan-itinerary.ics';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(itineraryToIcsBlob(plans), 'nepal-japan-itinerary.ics');
   };
 
   return (
@@ -1473,9 +1401,9 @@ function DataGroup() {
             label="Expenses"
             description="Every logged expense and split."
             title="Clear all expenses?"
-            body="This removes every logged expense. On a shared trip it clears expenses for everyone. This cannot be undone."
+            body="This removes every logged expense. On a shared trip it clears expenses for everyone. It also removes receipt photos from this device. This cannot be undone."
             confirmLabel="Clear expenses"
-            onConfirm={clearExpenses}
+            onConfirm={handleClearExpenses}
           />
           <ClearRow
             testId="settings-clear-budget"
@@ -1491,7 +1419,7 @@ function DataGroup() {
             label="Journal"
             description="Every private journal entry, on this device."
             title="Clear the journal?"
-            body="This removes every journal entry from this browser. Your other signed-in devices keep their copy, and other travellers never see it. This cannot be undone."
+            body="This removes every journal entry from this browser, and its day photos from this device. Your other signed-in devices keep their copy, and other travellers never see it. This cannot be undone."
             confirmLabel="Clear journal"
             onConfirm={handleClearJournal}
           />
@@ -1516,6 +1444,7 @@ function ExpensesBackupRestore({
   expenses: ReturnType<typeof useExpenses>['expenses'];
   restoreExpenses: ReturnType<typeof useExpenses>['restoreExpenses'];
 }) {
+  const { repointExpense } = usePhotos();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{ text: string; name: string } | null>(null);
   const [status, setStatus] = useState<
@@ -1528,14 +1457,7 @@ function ExpensesBackupRestore({
     // than re-implemented — feature-detects and falls back to plain bytes automatically.
     const blob = await compressToBlob(json);
     const filename = supportsCompression() ? 'nepal-japan-expenses.json.gz' : 'nepal-japan-expenses.json';
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, filename);
     setStatus({ kind: 'success', message: `Exported your expenses to ${filename}.` });
   };
 
@@ -1559,7 +1481,12 @@ function ExpensesBackupRestore({
     const parsed = parseExpenseBackup(pendingImport.text);
     setPendingImport(null);
     if (parsed.ok) {
-      restoreExpenses(parsed.expenses);
+      const ids = restoreExpenses(parsed.expenses);
+      if (!ids) {
+        setStatus({ kind: 'error', message: 'Could not save the imported expenses. No changes were made to your expenses.' });
+        return;
+      }
+      for (const [from, to] of ids) repointExpense(from, to);
       setStatus({
         kind: 'success',
         message: 'Expenses imported. Your logged expenses have been replaced with the backup.',
@@ -1598,10 +1525,11 @@ function ExpensesBackupRestore({
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,.gz,application/gzip"
           onChange={handleFileChange}
           data-testid="settings-import-expenses-input"
           aria-label="Choose an expenses backup file to restore"
+          tabIndex={-1}
           className="sr-only"
         />
       </div>
@@ -1643,7 +1571,8 @@ function ExpensesBackupRestore({
             <AlertDialogDescription className="text-t-body text-ink-mid">
               Importing <span className="font-machine text-t-sm text-ink-hi">{pendingImport?.name}</span> will
               replace your current expenses with the contents of that file. On a shared trip this
-              replaces expenses for everyone. This cannot be undone.
+              replaces expenses for everyone. Older files without trip information can only be
+              restored to an unshared trip; check that the file belongs to this trip. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1728,4 +1657,4 @@ function ClearRow({
 
 // Named exports for targeted component tests (offline gate, remove-confirm, clipboard fallback,
 // aria-pressed currency toggle) — the default export is the whole `/settings` island.
-export { TripAccessGroup, CurrencyGroup };
+export { TripAccessGroup, TripGroup, CurrencyGroup };

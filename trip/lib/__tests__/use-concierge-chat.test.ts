@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
+import { useOnline } from '@/hooks/use-online';
 
 const gate = vi.hoisted(() => ({ url: 'https://concierge.example.workers.dev' }));
 vi.mock('@/lib/concierge-config', () => ({
@@ -364,6 +365,21 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     }
   });
 
+  it('#714 — a 413 with history in the body says to start a new chat, not to shorten the question', async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () =>
+      calls++ === 0 ? jsonResponse({ reply: 'ok', ops: [] }) : jsonResponse({ error: 'too big' }, 413),
+    ) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('first');
+    await h.send('second');
+
+    expect(h.error).toContain('Start a new chat');
+    expect(h.error).not.toContain('Shorten');
+    h.unmount();
+  });
+
   // The defect the issue names: a dead/unreachable provider while the device believes it is ONLINE
   // (Worker deleted, DNS/TLS failure, CORS rejection) rejects with `TypeError: Failed to fetch`,
   // and that exact machine string used to reach the traveller through the catch's `err.message`.
@@ -463,6 +479,40 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     // Nothing was sent, so no user turn and no blank in-flight assistant bubble are left behind.
     expect(h.messages).toEqual([]);
     h.unmount();
+  });
+
+  // #773 — a failed THIRD-PARTY fetch makes `useOnline()` report unreachable for 30s; the concierge
+  // must still send, because the Worker may be fine. Only `navigator.onLine === false` blocks it.
+  it('#773: a failed third-party fetch does not lock the concierge out', async () => {
+    setNavigatorOnLine(true);
+    const realFetch = window.fetch;
+    window.fetch = vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }) as unknown as typeof fetch;
+    try {
+      const seen: boolean[] = [];
+      function Witness() {
+        seen.push(useOnline());
+        return null;
+      }
+      const c = document.createElement('div');
+      const root = createRoot(c);
+      act(() => root.render(createElement(Witness)));
+      await act(async () => {
+        await window.fetch('https://api.open-meteo.com/v1/forecast').catch(() => {});
+      });
+      expect(seen[seen.length - 1]).toBe(false); // the witness really did flip
+
+      const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+      const h = renderConciergeChat(fetchImpl);
+      await h.send('add ramen to the 20th');
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(h.error).toBeNull();
+      h.unmount();
+      act(() => root.unmount());
+    } finally {
+      window.fetch = realFetch;
+    }
   });
 
   // ── #13 — the other half of the same defect ────────────────────────────────────────────────

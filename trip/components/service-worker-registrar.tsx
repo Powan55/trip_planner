@@ -33,6 +33,7 @@ export function ServiceWorkerRegistrar() {
     }
 
     let refreshing = false;
+    let cleanupUpdateChecks: (() => void) | undefined;
 
     // Whether this page was ALREADY controlled by a worker when we registered.
     // On a FIRST-EVER visit the page starts uncontrolled and the activate handler's
@@ -40,7 +41,7 @@ export function ServiceWorkerRegistrar() {
     // then is a spurious ~200ms post-load refresh that re-hydrates the whole tree and
     // wipes any in-flight form state (e.g. a token typed into the gate). Only an UPDATE
     // (page was already controlled → SKIP_WAITING handshake) warrants a reload.
-    const hadController = !!navigator.serviceWorker.controller;
+    let hadController = !!navigator.serviceWorker.controller;
 
     // clients.claim() in the activate handler fires `controllerchange` in EVERY
     // open tab, not just the one whose user clicked Refresh (#531) — so only the
@@ -52,8 +53,14 @@ export function ServiceWorkerRegistrar() {
     // SKIP_WAITING), reload once onto the new version — but never on the first-install
     // claim (see `hadController`), and never in a tab that didn't click Refresh.
     const onControllerChange = () => {
-      if (!hadController || refreshing) return;
+      if (refreshing) return;
       if (!clickedRefresh) {
+        // A tab first opened uncontrolled sees the first-install claim once; swallow it
+        // so a LATER update's claim still reaches the reload path (#713).
+        if (!hadController) {
+          hadController = true;
+          return;
+        }
         // No worker ref: the controller here is already the NEW (active) worker,
         // so passing it would re-post SKIP_WAITING to an already-active worker
         // (a no-op — no second controllerchange, no reload). Omitting it routes
@@ -98,6 +105,52 @@ export function ServiceWorkerRegistrar() {
     navigator.serviceWorker
       .register(withBasePath('/sw.js'), { updateViaCache: 'none' })
       .then((registration) => {
+        // Install is the only thing that fills the precache, so ask the active worker
+        // to refill anything the browser cleared since (#758).
+        if (navigator.onLine && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'REPAIR' });
+        }
+
+        // #787 — the browser only re-checks sw.js on navigation (or a functional event
+        // older than 24h), so a long-lived installed PWA never sees a new build. Poll on
+        // foreground + hourly, and when a lazy chunk 404s while online (stale shell after a
+        // deploy). A found update flows through `updatefound` below -> the update toast.
+        const checkForUpdate = () => {
+          registration.update().catch(() => {
+            // Offline / transient failure — the next trigger retries.
+          });
+        };
+        const onVisibility = () => {
+          if (document.visibilityState === 'visible') checkForUpdate();
+        };
+        const isChunkFailure = (reason: unknown) => {
+          const r = reason as { name?: string; message?: string } | null | undefined;
+          return (
+            r?.name === 'ChunkLoadError' ||
+            /Loading chunk [^\s]+ failed|Failed to fetch dynamically imported module/i.test(
+              r?.message ?? ''
+            )
+          );
+        };
+        const onChunkError = (e: ErrorEvent) => {
+          if (navigator.onLine && isChunkFailure(e.error ?? { message: e.message })) {
+            checkForUpdate();
+          }
+        };
+        const onRejection = (e: PromiseRejectionEvent) => {
+          if (navigator.onLine && isChunkFailure(e.reason)) checkForUpdate();
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('error', onChunkError);
+        window.addEventListener('unhandledrejection', onRejection);
+        const interval = window.setInterval(checkForUpdate, 60 * 60 * 1000);
+        cleanupUpdateChecks = () => {
+          document.removeEventListener('visibilitychange', onVisibility);
+          window.removeEventListener('error', onChunkError);
+          window.removeEventListener('unhandledrejection', onRejection);
+          window.clearInterval(interval);
+        };
+
         // A worker already waiting at register time (e.g. user reopened the tab
         // after an update installed in the background) — prompt immediately,
         // but only if there's an active controller (first install => no prompt).
@@ -127,6 +180,7 @@ export function ServiceWorkerRegistrar() {
       });
 
     return () => {
+      cleanupUpdateChecks?.();
       navigator.serviceWorker.removeEventListener(
         'controllerchange',
         onControllerChange

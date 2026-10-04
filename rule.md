@@ -238,6 +238,55 @@ higher-numbered release, never a restore.
 4. Open the pull request from `dev` into `main`, same as any other release.
 5. Wait for CI and the deploy to finish — about twenty minutes end to end.
 
+A hotfix takes the same road: it lands on `dev` first and goes to `main` through the
+pull request, because `main` requires the `Ready for main` check. There is no shortcut
+branch.
+
+The hotfix recipe is the smallest change that can ship: the fix, the patch bump in
+`trip/package.json`, and the `trip/docs/RELEASES.md` entry, nothing else. `Ready for main`
+wants the pull request's head to be `dev`, so the hotfix is not a side branch into `main`.
+It is a normal pull request into `dev`, then the usual `dev` into `main` release pull
+request. That carries everything on `dev`, so in the freeze keep `dev` patches-only, and
+put `hotfix` in the release pull request's title.
+
+When the deploy run goes red, in this order:
+
+1. Re-run the failed job. Most failures are a flaky runner or a transient API error.
+2. If it fails the same way twice and the cause is not the code (a stuck required check,
+   say), an admin merge is the last resort. Only the owner decides that.
+3. Anything else is a forward fix, as above. Never revert on `main`.
+
+After each deploy the `smoke` job polls the live site until `sw.js` matches the build, then
+checks the home page, the manifest and the Worker's CORS preflight. A red `smoke` does not
+undo the deploy. It means go and look. The only alert is GitHub's failure email to whoever
+merged, so check the run yourself after every freeze-window release.
+
+Rehearse the break-glass order once before the freeze (re-run a failed job, then the admin
+merge path, then a forward fix), so nobody meets it for the first time on the road. Known
+gap: the `rules-check` job downloads the Firestore emulator jars at run time, so a
+network blip there blocks a release. Caching them is a `ci.yml` change and is not done yet.
+
+### Before the trip
+
+Phones only pick up a new release when the service worker updates, and that can take
+a couple of open-and-close cycles. So near departure:
+
+- Freeze two weeks before departure. The last feature release goes out at least three weeks
+  before departure, so every phone has had time to update.
+- Inside the freeze, patches only. Pause Dependabot, and take no Playwright, Next, Firebase
+  or runner-image bumps.
+- No `firestore.rules` or Worker deploys in the window unless probed with real headers
+  first. Leave `FIREBASE_SERVICE_ACCOUNT` deliberately set or unset, not half-changed.
+- Every release PR in the freeze gets the other person's approval; no `--admin` merges.
+- At trip start, write down the `main` sha and the live version.
+- Ship one trivial patch as a dry run. Confirm the update toast shows on two real phones
+  and write down how long it took to reach them.
+- The `smoke` job must already be on `main` before the freeze starts.
+
+Owner checklist, repo settings that are not turned on yet:
+
+- [ ] Dismiss stale pull request approvals when new commits are pushed.
+
 ## Where to look
 
 | Where | For |
@@ -263,12 +312,9 @@ after the blueprint was written.
 
 ```
 cd trip
-npm ci --legacy-peer-deps
+npm ci
 npm run dev
 ```
-
-`--legacy-peer-deps` is required, not optional: `@types/node` is pinned at
-20.6.2 and `vite@8` (via `vitest`) wants `^20.19.0 || >=22.12.0`.
 
 Tests:
 

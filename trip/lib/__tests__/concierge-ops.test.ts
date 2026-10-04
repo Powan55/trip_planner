@@ -121,6 +121,7 @@ describe('validateOps (D-234)', () => {
       { type: 'addItem', date: D0, title: 'x', category: 'food', startMinutes: 12.5 },
       { type: 'addItem', date: D0, title: 'x', category: 'food', durationMinutes: 0 },
       { type: 'addItem', date: D0, title: 'x', category: 'food', durationMinutes: -30 },
+      { type: 'addItem', date: D0, title: 'x', category: 'food', durationMinutes: 1e9 },
     ];
     expect(validateOps(ops, PLANS)).toEqual([]);
     // boundary values 0 and 1439 are IN range → survive

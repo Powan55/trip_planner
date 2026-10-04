@@ -77,7 +77,8 @@ describe('#20 · the night-before block on /checklist', () => {
         keys: async () => [{ url: 'https://x/_next/static/chunks/c04c.js' } as Request],
         match: async () => ({
           headers: { get: () => '1032412' },
-          text: async () => 'var maplibregl=1',
+          // Engine-sized body (#808: the marker alone no longer counts; the real engine is ~591 KB).
+          text: async () => `var maplibregl=(function(){/*${'x'.repeat(300_000)}*/})()`,
         }),
       }),
     };

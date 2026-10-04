@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
+  getKnownTrip,
   joinTrip,
   parseTripToken,
   isOwnAccountToken,
@@ -88,7 +89,7 @@ export default function TripJoinHandshake() {
     // the active-trip pointer) and, per the two-token rule, requires a LOGGED-IN user. With no
     // guest mode, UNIDENTIFIED is the only bail case: the front door owns it —
     // `token-gate.tsx` reads the same `?trip=` param, HOLDS it through log-in / create-account, and
-    // joins before its reload. Bailing here keeps a second, invisible dialog from mounting behind
+    // hands the link back as `/?trip=` after its reload. Bailing here keeps a second, invisible dialog from mounting behind
     // the wall.
     if (!identified) return;
     const params = new URLSearchParams(window.location.search);
@@ -100,18 +101,20 @@ export default function TripJoinHandshake() {
       stripParams(['invite']);
       setInvite(inv.trim());
     }
-    // D-546 — resolve WHICH namespace the link carries before anything is written. A token that
-    // can never be used (empty, path-unsafe, reserved) stops here with a stated refusal rather
-    // than being pasted into a Firestore path and opening a silently-empty trip.
-    const parsed = parseTripToken(t);
-    if (!parsed) {
-      setStatus('unusable');
-      return;
-    }
     // D-504 — a link carrying this device's own account key. `joinTrip` would refuse it anyway;
     // saying so up front beats a confirm whose only outcome is the storage-failure sentence.
     if (isOwnAccountToken(t)) {
       setStatus('own-key');
+      return;
+    }
+    // D-546 — resolve WHICH namespace the link carries before anything is written. A token that
+    // can never be used (empty, path-unsafe, reserved, a legacy account name) stops here with a
+    // stated refusal rather than being pasted into a Firestore path. A row this device already
+    // holds stays joinable, as in `joinTrip`.
+    const parsed: TripToken | null =
+      parseTripToken(t) ?? (getKnownTrip(t) ? { kind: 'custom', id: t } : null);
+    if (!parsed) {
+      setStatus('unusable');
       return;
     }
     // Prompt only when this is NOT where the browser already is. For a default-pack invitation

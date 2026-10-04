@@ -26,7 +26,8 @@ import { saveBudget, loadBudget } from '@/core/budget/storage';
 import type { BudgetModel } from '@/core/budget/model';
 import { BUDGET_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
-import { getRemote, type FirestoreMod } from './firebase-remote';
+import { SHARED_TRIP_ID } from './shared-trip';
+import { getSharedRemote, type FirestoreMod } from './firebase-remote';
 import { mergeBudget, type BudgetFields } from '@/core/sync/merge-budget';
 import { modelToFields, fieldsToModel } from '@/core/budget/flatten';
 import { isPermissionDenied } from '@/core/sync/denied';
@@ -97,7 +98,7 @@ export async function pushBudgetMerged(
  */
 export async function pushBudgetChunk(current: BudgetModel, chunk: string, tripId: string): Promise<void> {
   if (chunk !== 'model') return; // unknown chunk → ack (never a bad write)
-  const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
+  const { db, fs } = await getSharedRemote(); // rejects when unreachable → decorator keeps it dirty
   await pushBudgetMerged(db, fs, current, tripId); // rejects on transport error → stays dirty
 }
 
@@ -149,7 +150,7 @@ export function subscribeRemoteBudget(): () => void {
     if (cancelled || established || settingUp) return;
     settingUp = true;
     try {
-      const { db, fs } = await getRemote();
+      const { db, fs } = await getSharedRemote();
       if (cancelled || established) return;
       const { doc, onSnapshot } = fs;
       const ref = doc(db, 'trips', getTripId(), 'budget', 'model');
@@ -175,7 +176,7 @@ export function subscribeRemoteBudget(): () => void {
             if (snap.exists()) {
               const remoteFields = budgetDocToFields(snap.data() as Record<string, unknown>);
               persistAndDispatch(fieldsToModel(mergeBudget(localFields, remoteFields)));
-            } else if (first) {
+            } else if (first && getTripId() !== SHARED_TRIP_ID) {
               // Never synced → seed the doc from local. Best-effort; a failure
               // stays local-only (local is untouched, so nothing is lost).
               void pushBudgetMerged(db, fs, loadBudget()).catch((err) =>

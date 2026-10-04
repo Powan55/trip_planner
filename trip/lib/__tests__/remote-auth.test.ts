@@ -3,7 +3,7 @@
 // #10 — the Firebase Auth half of the shared remote seam (`lib/itinerary-remote.ts`), against a
 // FAKE `firebase/auth` (and a fake app/firestore, so nothing real is constructed). Proves:
 //
-//   1. `getRemote()` awaits the FIRST auth-state resolution and signs in anonymously only when
+//   1. `getAuthHandle()` (under `getRemote()`) awaits the FIRST auth-state resolution and signs in anonymously only when
 //      there is no restored session — a restored uid is reused, never re-minted (re-minting would
 //      orphan this device's entry in every trip's members map on every reload).
 //   2. A sign-in failure REJECTS and clears the cached handle, so a later call retries from
@@ -190,7 +190,7 @@ beforeEach(() => {
 
 describe('getRemote — anonymous sign-in is part of the handle (#10)', () => {
   it('signs in anonymously when there is no restored session, and exposes uid + auth', async () => {
-    const { getRemote } = await freshRemote();
+    const { getAuthHandle: getRemote } = await freshRemote();
     const handle = await getRemote();
     expect(authCtl.signInCalls).toBe(1);
     expect(handle.uid).toBe('anon-uid-new');
@@ -201,7 +201,7 @@ describe('getRemote — anonymous sign-in is part of the handle (#10)', () => {
   it('REUSES a restored session — the uid is stable across reloads, never re-minted', async () => {
     authCtl.restored = { uid: 'anon-uid-stored' };
     authCtl.currentUid = 'anon-uid-stored';
-    const { getRemote } = await freshRemote();
+    const { getAuthHandle: getRemote } = await freshRemote();
     const handle = await getRemote();
     // The whole point: a second anonymous uid would leave this device's members entry orphaned.
     expect(authCtl.signInCalls).toBe(0);
@@ -209,7 +209,7 @@ describe('getRemote — anonymous sign-in is part of the handle (#10)', () => {
   });
 
   it('caches one init — concurrent callers share a single sign-in', async () => {
-    const { getRemote } = await freshRemote();
+    const { getAuthHandle: getRemote } = await freshRemote();
     const [a, b] = await Promise.all([getRemote(), getRemote()]);
     expect(authCtl.signInCalls).toBe(1);
     expect(authCtl.getAuthCalls).toBe(1);
@@ -218,7 +218,7 @@ describe('getRemote — anonymous sign-in is part of the handle (#10)', () => {
 
   it('a sign-in failure rejects AND clears the cache, so a later call retries', async () => {
     authCtl.signInFails = true;
-    const { getRemote } = await freshRemote();
+    const { getAuthHandle: getRemote } = await freshRemote();
     await expect(getRemote()).rejects.toThrow('sign-in failed');
     expect(authCtl.signInCalls).toBe(1);
 
@@ -230,14 +230,14 @@ describe('getRemote — anonymous sign-in is part of the handle (#10)', () => {
 
   it('an auth-observer error rejects (and is retryable) rather than hanging forever', async () => {
     authCtl.observerFails = true;
-    const { getRemote } = await freshRemote();
+    const { getAuthHandle: getRemote } = await freshRemote();
     await expect(getRemote()).rejects.toThrow('auth unavailable');
     expect(authCtl.signInCalls).toBe(0);
   });
 
   it('never touches firebase when remote is unconfigured', async () => {
     gate.on = false;
-    const { getRemote } = await freshRemote();
+    const { getAuthHandle: getRemote } = await freshRemote();
     await expect(getRemote()).rejects.toThrow('remote not configured');
     expect(authCtl.getAuthCalls).toBe(0);
     expect(authCtl.signInCalls).toBe(0);
@@ -275,7 +275,7 @@ describe('getAuthIdToken — TOTAL: a token, or null (#10)', () => {
 
 describe('password accounts (D-660)', () => {
   it('sign-up LINKS the anonymous session, so the uid already in trip rosters is the account', async () => {
-    const { getRemote, createPasswordAccount } = await freshRemote();
+    const { getAuthHandle: getRemote, createPasswordAccount } = await freshRemote();
     const before = await getRemote();
     const uid = await createPasswordAccount('powan@x.invalid', 'longenough');
     expect(authCtl.calls).toEqual(['link:powan@x.invalid']);
@@ -287,7 +287,7 @@ describe('password accounts (D-660)', () => {
     authCtl.restored = { uid: 'someone-else' };
     authCtl.currentUid = 'someone-else';
     authCtl.anonymous = false;
-    const { createPasswordAccount, getRemote } = await freshRemote();
+    const { createPasswordAccount, getAuthHandle: getRemote } = await freshRemote();
     expect(await createPasswordAccount('new@x.invalid', 'longenough')).toBe('created-uid');
     expect(authCtl.calls).toEqual(['create:new@x.invalid']);
     expect((await getRemote()).uid).toBe('created-uid');
@@ -302,7 +302,7 @@ describe('password accounts (D-660)', () => {
   });
 
   it('sign-in rebinds the cached handle to the account uid (no stale anonymous uid)', async () => {
-    const { getRemote, signInWithPassword } = await freshRemote();
+    const { getAuthHandle: getRemote, signInWithPassword } = await freshRemote();
     expect((await getRemote()).uid).toBe('anon-uid-new');
     expect(await signInWithPassword('powan@x.invalid', 'pw')).toBe('account-uid');
     expect((await getRemote()).uid).toBe('account-uid');
@@ -313,7 +313,7 @@ describe('password accounts (D-660)', () => {
     authCtl.restored = { uid: 'account-uid' };
     authCtl.currentUid = 'account-uid';
     authCtl.anonymous = false;
-    const { getRemote } = await freshRemote();
+    const { getAuthHandle: getRemote } = await freshRemote();
     expect((await getRemote()).uid).toBe('account-uid');
     expect(authCtl.signInCalls).toBe(0);
   });

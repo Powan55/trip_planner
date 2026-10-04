@@ -29,3 +29,38 @@ export function setReadDenied(domain: SyncDomain, denied: boolean): void {
 export function isReadDenied(): boolean {
   return readDenied.size > 0;
 }
+
+// The default pack only syncs for a password account; an anonymous session is turned away in
+// `getSharedRemote()` before any read is spent. Same session lifetime and event as the flag above.
+let signInRequired = false;
+
+export function setSignInRequired(required: boolean): void {
+  if (required === signInRequired) return;
+  signInRequired = required;
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
+}
+
+export function isSignInRequired(): boolean {
+  return signInRequired;
+}
+
+// #753 — the journal and prefs twin of the outbox's #267 set: a refused journal day or prefs push
+// is skipped for the rest of the page load and counted as blocked. Kept dirty, never persisted.
+const queueDenied = new Set<string>();
+
+function markQueueDenied(key: string): void {
+  if (queueDenied.has(key)) return;
+  queueDenied.add(key);
+  console.warn('[sync] a journal or prefs push was refused by the rules — not retrying it this page load');
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
+}
+
+const journalKey = (code: string, tripId: string, date: string) => JSON.stringify(['journal', code, tripId, date]);
+const prefsKey = (code: string) => JSON.stringify(['prefs', code]);
+
+export const markJournalDenied = (code: string, tripId: string, date: string) =>
+  markQueueDenied(journalKey(code, tripId, date));
+export const isJournalDenied = (code: string, tripId: string, date: string) =>
+  queueDenied.has(journalKey(code, tripId, date));
+export const markPrefsDenied = (code: string) => markQueueDenied(prefsKey(code));
+export const isPrefsDenied = (code: string) => queueDenied.has(prefsKey(code));

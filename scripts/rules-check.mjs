@@ -51,7 +51,7 @@
  * So CI runs `node scripts/rules-check.mjs && touch "$RUNNER_TEMP/rules-ok"`, discards the CLI's
  * exit code, and asserts the file. Wiring the bare command in gives a RED gate on GREEN rules.
  *
- * WHAT IT PROVES, in twelve phases:
+ * WHAT IT PROVES, in fourteen phases:
  *   0. control      — deny-all really denies, allow-all really allows (else every PASS is noise)
  *   1. D-251        — `request.resource.size()` is Cloud STORAGE syntax; in Firestore it is a
  *                     CONSTANT 3 (the {data,id,__name__} wrapper's member count), so the
@@ -94,6 +94,10 @@
  *                     only together with its own 'member' roster add (D-662).
  *  13n. NEGATIVE CONTROL — the 13c invite-only stamp denials with stampsOwnRedeem() REMOVED
  *                     must all be ALLOWED.
+ *  14. shared trip  — the id in isShared() is reachable only by the three allowlisted emails,
+ *                     with no trip doc, a bare one, or a roster naming strangers as owners;
+ *                     other trips behave as in 6-9 (D-663).
+ *  14n. NEGATIVE CONTROL — each `!isShared()` guard removed in turn; the denial it owns must flip.
  */
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -925,6 +929,173 @@ for (const [name, fn] of STAMP_DENIALS) {
   await expect(name, 'DENIED', fn);
 }
 const phase13n = flush('PHASE 13n (invite stamp rule REMOVED)  <-- MUST be red');
+
+// ── 14. the shared trip (D-663) ──────────────────────────────────────────────
+console.log('\n\n=== 14. SHARED TRIP (D-663): the three allowlisted emails, whatever the trip doc says ===');
+await loadRules(shipped);
+// The id is read out of the rules so the check follows whatever value is published.
+const SH = /function isShared\(\)\s*\{[^}]*tripId == '([^']+)'/.exec(shipped)?.[1];
+if (!SH) throw new Error("phase 14: no `tripId == '...'` inside isShared() in firestore.rules. It was renamed; update this script.");
+console.log(`  shared id under test: ${SH}`);
+const emailClient = async (name, email) => {
+  const c = client(name);
+  const uid = (await createUserWithEmailAndPassword(authOf(c.app), email, `pw-663-${name}`)).user.uid;
+  return { ...c, uid };
+};
+const P = await emailClient('p14p', EMAIL('powan'));
+const SU = await emailClient('p14s', EMAIL('sushil'));
+const ES = await emailClient('p14e', EMAIL('stranger_63'));
+const LK = await emailClient('p14l', 'powan@evil.invalid');
+// Uttam takes the real client path: anonymous first, then linked, straight onto the cached token.
+const utApp = client('p14u');
+const utAuth = authOf(utApp.app);
+await signInAnonymously(utAuth);
+const UT = { ...utApp, uid: (await linkWithCredential(utAuth.currentUser,
+  EmailAuthProvider.credential(EMAIL('uttam'), 'pw-663-u'))).user.uid };
+
+const sp = (d, ...p) => doc(d, 'trips', SH, ...p);
+const shTrip = { schemaVersion: 1, createdAt: new Date() };
+const shDay = { date: GATED_DAY, city: 'Kathmandu', country: 'nepal', items: bigList(2) };
+const INVX = 'e0e0e0e0-0000-4000-8000-000000000663';
+const ACCESS = (d) => [
+  ['get trip doc', () => getDoc(sp(d))],
+  ['set trip doc', () => setDoc(sp(d), shTrip, { merge: true })],
+  ['get days/{date}', () => getDoc(sp(d, 'days', GATED_DAY))],
+  ['set days/{date}', () => setDoc(sp(d, 'days', GATED_DAY), shDay)],
+  ['list days', () => getDocs(collection(d, 'trips', SH, 'days'))],
+  ['delete days/{date}', () => deleteDoc(sp(d, 'days', GATED_DAY))],
+  ['get meta/info', () => getDoc(sp(d, 'meta', 'info'))],
+  ['set meta/info', () => setDoc(sp(d, 'meta', 'info'), { name: 'x' })],
+  ['get profile/tripList', () => getDoc(sp(d, 'profile', 'tripList'))],
+  ['set profile/tripList', () => setDoc(sp(d, 'profile', 'tripList'), { version: 1, trips: [], removed: [] })],
+  ['get profile/identity', () => getDoc(sp(d, 'profile', 'identity'))],
+  ['set profile/identity', () => setDoc(sp(d, 'profile', 'identity'), { name: 'x' })],
+  ['set presence/dev1', () => setDoc(sp(d, 'presence', 'dev1'), { name: 'x', lastSeen: 1 })],
+  ['list presence', () => getDocs(collection(d, 'trips', SH, 'presence'))],
+];
+const NOBODY = (d, uid) => [
+  ['get invites/x', () => getDoc(sp(d, 'invites', INV0))],
+  ['list invites', () => getDocs(collection(d, 'trips', SH, 'invites'))],
+  ['create invites/x', () => setDoc(sp(d, 'invites', INVX), { createdBy: uid, createdAt: serverTimestamp() })],
+  ['delete trip doc', () => deleteDoc(sp(d))],
+];
+const redeemSH = (d, uid) => {
+  const b = writeBatch(d);
+  b.update(sp(d, 'invites', INV0), { redeemedBy: uid, redeemedAt: serverTimestamp() });
+  b.update(sp(d), { [`members.${uid}`]: 'member', joinInvite: INV0 });
+  return b.commit();
+};
+const PRESENT_ONLY = (d, uid) => [
+  ['redeem-shaped batch', () => redeemSH(d, uid)],
+  ['self-enrol as owner', () => updateDoc(sp(d), { [`members.${uid}`]: 'owner' })],
+];
+const STRANGERS = [['stranger ES', ES.db, ES.uid], ['lookalike LK', LK.db, LK.uid],
+  ['anonymous A', dbS, S], ['UNAUTH', dbU, 'unauth-uid']];
+async function deniedEverywhere(state, present) {
+  for (const [who, d, uid] of STRANGERS) {
+    const cases = [...ACCESS(d), ...NOBODY(d, uid), ...(present ? PRESENT_ONLY(d, uid) : [])];
+    for (const [n, fn] of cases) await expect(`${who}: ${n} [${state}]`, 'DENIED', fn);
+  }
+}
+// kind: missing (no trip doc) | bare (no roster) | strangers-own (roster names ES and S as owners)
+// | only-P (roster names P as its only owner). Fixtures go in with the rules under test having no say.
+async function shState(kind, r = shipped) {
+  await wipe();
+  if (kind === 'missing') { await loadRules(r); return; }
+  const members = kind === 'strangers-own' ? { [ES.uid]: 'owner', [S]: 'owner' }
+    : kind === 'only-P' ? { [P.uid]: 'owner' } : null;
+  await seed(['trips', SH], members ? { ...shTrip, members } : shTrip, r);
+  await seed(['trips', SH, 'days', GATED_DAY], shDay, r);
+  await seed(['trips', SH, 'invites', INV0], { createdBy: P.uid, createdAt: new Date() }, r);
+}
+
+console.log('\n  -- 14a. no trip doc at all: strangers denied, the allowlist still works --');
+await shState('missing');
+await deniedEverywhere('no trip doc', false);
+await expect('P gets the missing trip doc', 'ALLOWED', () => getDoc(sp(P.db)));
+await expect('P writes a day while the trip doc is missing', 'ALLOWED', () => setDoc(sp(P.db, 'days', GATED_DAY), shDay));
+await expect('P creates the trip doc', 'ALLOWED', () => setDoc(sp(P.db), shTrip));
+
+console.log('\n  -- 14b. the three allowlisted accounts --');
+for (const [n, fn] of ACCESS(P.db)) await expect(`P (powan): ${n}`, 'ALLOWED', fn);
+for (const [who, c] of [['UT (uttam, linked from anonymous)', UT], ['SU (sushil)', SU]]) {
+  for (const [n, fn] of [ACCESS(c.db)[0], ACCESS(c.db)[1], ACCESS(c.db)[3], ACCESS(c.db)[4]]) {
+    await expect(`${who}: ${n}`, 'ALLOWED', fn);
+  }
+}
+for (const [who, c] of [['P', P], ['UT', UT]]) {
+  for (const [n, fn] of NOBODY(c.db, c.uid)) await expect(`${who}: ${n} (nobody, allowlist included)`, 'DENIED', fn);
+}
+
+console.log('\n  -- 14c. trip doc exists, no roster --');
+await shState('bare');
+await deniedEverywhere('doc, no roster', true);
+
+console.log('\n  -- 14d. a roster naming strangers as owners grants nothing --');
+await expect('P writes a roster naming ES and A as owners (rules allow it)', 'ALLOWED',
+  () => setDoc(sp(P.db), { ...shTrip, members: { [ES.uid]: 'owner', [S]: 'owner' } }));
+await deniedEverywhere('roster names strangers', true);
+await expect('P still reads a day', 'ALLOWED', () => getDoc(sp(P.db, 'days', GATED_DAY)));
+await expect('P still writes a day', 'ALLOWED', () => setDoc(sp(P.db, 'days', GATED_DAY), shDay));
+
+console.log('\n  -- 14e. every other trip behaves as in phases 6-9 --');
+await wipe();
+await seed(['trips', K], { schemaVersion: 1 });
+await seed(['trips', K, 'days', '2026-12-11'], { date: '2026-12-11', city: 'Osaka', country: 'japan', items: bigList(2) });
+await expect('open trip K: ES reads a day', 'ALLOWED', () => getDoc(doc(ES.db, 'trips', K, 'days', '2026-12-11')));
+await expect('open trip K: ES writes a day', 'ALLOWED',
+  () => setDoc(doc(ES.db, 'trips', K, 'days', '2026-12-12'), { date: '2026-12-12', city: 'Kyoto', country: 'japan', items: bigList(2) }));
+await expect('open trip K: P reads a day', 'ALLOWED', () => getDoc(doc(P.db, 'trips', K, 'days', '2026-12-11')));
+await expect('open trip K: ES mints an invite (no owner)', 'DENIED',
+  () => setDoc(doc(ES.db, 'trips', K, 'invites', INVX), { createdBy: ES.uid, createdAt: serverTimestamp() }));
+await seedGated();
+await expect('gated trip L: member M reads a day', 'ALLOWED', () => getDoc(doc(dbM, 'trips', L, 'days', GATED_DAY)));
+await expect('gated trip L: owner O writes a day', 'ALLOWED',
+  () => setDoc(doc(db, 'trips', L, 'days', GATED_DAY), { date: GATED_DAY, city: 'Pokhara', country: 'nepal', items: bigList(2) }));
+await expect('gated trip L: ES reads a day', 'DENIED', () => getDoc(doc(ES.db, 'trips', L, 'days', GATED_DAY)));
+await expect('gated trip L: allowlisted P reads a day (no leak)', 'DENIED', () => getDoc(doc(P.db, 'trips', L, 'days', GATED_DAY)));
+await expect('gated trip L: allowlisted P gets the trip doc (no leak)', 'DENIED', () => getDoc(doc(P.db, 'trips', L)));
+await expect('gated trip L: ES gets meta/info (carve-out kept)', 'ALLOWED', () => getDoc(doc(ES.db, 'trips', L, 'meta', 'info')));
+await expect('gated trip L: ES gets profile/identity (carve-out kept)', 'ALLOWED', () => getDoc(doc(ES.db, 'trips', L, 'profile', 'identity')));
+const PHASE14_ASSERTS = 279;
+const phase14 = flush('PHASE 14 (shared trip)');
+
+// Each mutant drops one `!isShared()` guard from a scratch copy; the denial it exists for must flip.
+// Some guards overlap (isMember and isOpen both refuse SHARED), so each mutant is judged on the
+// case only its own guard stops.
+const mutate = (src, edits) => edits.reduce((s, [from, to, n]) => {
+  if (s.split(from).length - 1 !== n) throw new Error(`phase 14n: expected ${n} of ${JSON.stringify(from)} in firestore.rules. It was edited; update this script.`);
+  return s.split(from).join(to);
+}, src);
+const MUTANTS = [
+  ['isOpen() guard', [['return !isShared() && (!exists(tripPath())', 'return (!exists(tripPath())', 1]], [
+    ['bare', 'ES updates the shared trip doc', () => setDoc(sp(ES.db), shTrip, { merge: true })],
+    ['bare', 'P deletes the shared trip doc', () => deleteDoc(sp(P.db))]]],
+  ['isMember() guard', [['|| (!isShared() && (isOpen() || role() in', '|| ((isOpen() || role() in', 1]], [
+    ['strangers-own', 'ES reads a day via the stray roster', () => getDoc(sp(ES.db, 'days', GATED_DAY))]]],
+  ['owner + invite guards', [['return !isShared() && request.auth != null', 'return request.auth != null', 3]], [
+    ['strangers-own', 'ES mints an invite via the stray roster', () => setDoc(sp(ES.db, 'invites', INVX), { createdBy: ES.uid, createdAt: serverTimestamp() })],
+    ['only-P', 'ES redeems INV0', () => redeemSH(ES.db, ES.uid)]]],
+  ['create guard', [['&& (!isShared() || isAllowlisted());', '', 1]], [
+    ['missing', 'ES creates the shared trip doc', () => setDoc(sp(ES.db), shTrip)]]],
+  ['meta + invites get guards', [['allow get: if request.auth != null && !isShared();', 'allow get: if request.auth != null;', 2]], [
+    ['bare', 'ES gets meta/info', () => getDoc(sp(ES.db, 'meta', 'info'))],
+    ['bare', 'ES gets invites/INV0', () => getDoc(sp(ES.db, 'invites', INV0))]]],
+  ['profile guards', [['isAccountDoc(docId) && !isShared();', 'isAccountDoc(docId);', 2]], [
+    ['bare', 'ES gets profile/identity', () => getDoc(sp(ES.db, 'profile', 'identity'))],
+    ['bare', 'ES sets profile/tripList', () => setDoc(sp(ES.db, 'profile', 'tripList'), { version: 1, trips: [], removed: [] })]]],
+];
+const MUTANT_CASES = MUTANTS.reduce((n, m) => n + m[2].length, 0);
+console.log('\n\n=== 14n. NEGATIVE CONTROL: one shared-trip guard removed at a time ===');
+for (const [label, edits, cases] of MUTANTS) {
+  const r = mutate(shipped, edits);
+  for (const [state, name, fn] of cases) {
+    await shState(state, r);
+    await expect(`${label} removed: ${name}`, 'DENIED', fn);
+  }
+}
+const phase14n = flush('PHASE 14n (shared-trip guards REMOVED)  <-- MUST be red');
+await loadRules(shipped);
 await loadRules(shipped);
 
 console.log('\n──────────────────────────────────────────────────────────────');
@@ -941,13 +1112,17 @@ console.log(`  phase 11  invite join REMOVED   ${phase11.pass} passed, ${phase11
 console.log(`  phase 12  users + claims        ${phase12.pass} passed, ${phase12.fail} failed`);
 console.log(`  phase 13  invites               ${phase13.pass} passed, ${phase13.fail} failed`);
 console.log(`  phase 13n invite stamp REMOVED  ${phase13n.pass} passed, ${phase13n.fail} failed   <- negative control`);
+console.log(`  phase 14  shared trip           ${phase14.pass} passed, ${phase14.fail} failed`);
+console.log(`  phase 14n shared guards REMOVED ${phase14n.pass} passed, ${phase14n.fail} failed   <- negative control`);
 const shapeProven = phase3.fail === 0 && phase4.fail === HOSTILE.length && phase5.fail === 0;
 const memberProven = phase6.fail === 0 && phase7.fail === 0 && phase8.fail === 0 && phase9.fail === 0
   && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0
   && phase11.fail === SELF_JOIN_DENIALS.length;
 const usersProven = phase12.fail === 0 && phase12.pass === PHASE12_ASSERTS
   && phase13.fail === 0 && phase13.pass === PHASE13_ASSERTS
-  && phase13n.fail === STAMP_DENIALS.length;
+  && phase13n.fail === STAMP_DENIALS.length
+  && phase14.fail === 0 && phase14.pass === PHASE14_ASSERTS
+  && phase14n.fail === MUTANT_CASES;
 const proven = shapeProven && memberProven && usersProven;
 console.log(`  VERDICT: ${proven
   ? `BOTH GUARDS BITE — all ${HOSTILE.length} hostile writes flip DENIED->ALLOWED without boundedWrite(), `
@@ -955,7 +1130,7 @@ console.log(`  VERDICT: ${proven
   : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'}, users ${usersProven ? 'ok' : 'BAD'})`}`);
 console.log('──────────────────────────────────────────────────────────────\n');
 
-for (const c of [owner, memberApp, strangerApp, anonApp, eApp, fApp, xApp]) {
+for (const c of [owner, memberApp, strangerApp, anonApp, eApp, fApp, xApp, P, SU, ES, LK, utApp]) {
   await terminate(c.db);
   await deleteApp(c.app);
 }

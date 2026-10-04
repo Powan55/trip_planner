@@ -172,7 +172,7 @@ describe('A3 — DefaultTripOnly empty-state switch-back', () => {
 
 describe('A5 — post-login name-hint one-shot', () => {
   // Drive the real wall: fill the username and password, then submit the login form.
-  async function submitLogin(view: { container: HTMLElement }) {
+  async function submitLogin(view: { container: HTMLElement }, loc: { replace: ReturnType<typeof vi.fn> }) {
     // S355: the wall opens on the marketing landing — a CTA opens the auth card.
     const cta = view.container.querySelector<HTMLButtonElement>('[data-testid="landing-cta-login"]')!;
     await act(async () => {
@@ -195,7 +195,8 @@ describe('A5 — post-login name-hint one-shot', () => {
     await act(async () => {
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     });
-    for (let i = 0; i < 4; i++) await flush(); // the dynamic import + probe chain
+    // The dynamic import + probe chain ends in finish() → location.replace.
+    await vi.waitFor(() => expect(loc.replace).toHaveBeenCalled(), { timeout: 5000 });
   }
 
   // ⚠ RE-SCOPED IN S378 (D-277), and the paragraph below is kept as written EXCEPT its last
@@ -213,12 +214,12 @@ describe('A5 — post-login name-hint one-shot', () => {
   // a name lookup into the door — that would violate D-239's firebase-free clause.
   it('the door defaults the local name slot to the transient placeholder and flags the hint (real handleLogin)', async () => {
     setSyncCode('11111111-2222-3333-4444-555555555555'); // this device's account id
-    stubLocation(); // finish() → window.location.replace
+    const loc = stubLocation(); // finish() → window.location.replace
     expect(getUserName()?.trim()).toBeFalsy(); // fresh device: nothing in the name slot
 
     const view = render(createElement(TokenGate));
     await flush(); // mount gate resolves → wall shows, savedToken effect runs
-    await submitLogin(view);
+    await submitLogin(view, loc);
 
     // Login defaulted the name to the placeholder and left the one-shot hint for the post-reload
     // consumer — which, since S378, only toasts if the account has no real name to adopt (branch 3).
@@ -230,12 +231,12 @@ describe('A5 — post-login name-hint one-shot', () => {
   it('a login that reuses an existing stored name does NOT set the flag', async () => {
     setSyncCode('11111111-2222-3333-4444-555555555555'); // this device's account id
     setUserName('Sora'); // name known from a prior session, but NOT signed in (no token) → wall shows
-    stubLocation();
+    const loc = stubLocation();
     expect(getUserName()).toBe('Sora');
 
     const view = render(createElement(TokenGate));
     await flush();
-    await submitLogin(view);
+    await submitLogin(view, loc);
 
     expect(getUserName()).toBe('Sora'); // reused, not overwritten by the default
     expect(window.localStorage.getItem('tripPlannerToken')).toBe('Sora'); // and actually signed in

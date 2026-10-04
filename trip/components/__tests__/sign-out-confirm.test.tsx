@@ -26,6 +26,12 @@ vi.mock('@/lib/firebase-remote', () => ({
   clearRemoteCache,
   isPasswordSession: async () => session.password,
 }));
+const flushAllDomains = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('@/hooks/use-domain-sync', () => ({ flushAllDomains }));
+const flushJournal = vi.hoisted(() => vi.fn(async () => {}));
+const flushPrefs = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('@/lib/journal-remote', () => ({ flushJournal }));
+vi.mock('@/lib/account-prefs-remote', () => ({ flushPrefs }));
 vi.mock('@/lib/firebase-config', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/firebase-config')>()),
   isRemoteConfigured: () => remoteGate.on,
@@ -218,6 +224,51 @@ describe('SignOutConfirm — teardown', () => {
       expect(clearRemoteCache).not.toHaveBeenCalled();
     } finally {
       remoteGate.on = true;
+    }
+  });
+
+  // #748: queued edits get a chance to land before the wipe, but a hung network can't hold it.
+  it('waits for the outbox flush before clearing anything, and says so', async () => {
+    clearRemoteCache.mockClear();
+    let release!: () => void;
+    flushAllDomains.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    await mount();
+    await click('t-confirm');
+    expect(at('t-flushing')!.textContent).toContain('Syncing');
+    expect(clearRemoteCache).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    await act(async () => release());
+    expect(clearRemoteCache).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  // #816: journal days and account prefs queue outside the outbox; the wipe must wait for them too.
+  it('also waits for the journal and prefs flushers before clearing', async () => {
+    clearRemoteCache.mockClear();
+    let release!: () => void;
+    flushJournal.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    await mount();
+    await click('t-confirm');
+    expect(flushPrefs).toHaveBeenCalled();
+    expect(clearRemoteCache).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    await act(async () => release());
+    expect(clearRemoteCache).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives up on a flush that never settles after 8s', async () => {
+    flushAllDomains.mockImplementationOnce(() => new Promise<void>(() => {}));
+    await mount();
+    vi.useFakeTimers();
+    try {
+      await click('t-confirm');
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8000);
+      });
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+    } finally {
+      vi.useRealTimers();
     }
   });
 
