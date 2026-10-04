@@ -6126,3 +6126,11 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 **Data.** The journal picker now offers a day only once the hero has reached it, so Dec 9 is no longer offered on Dec 8 evening at home. Entry keys are still the day the user picks, and existing entries are untouched.
 
 **Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
+
+### D-693 · Extends D-600 · A newer local trip name/config is re-pushed at boot (#846)
+
+**Decision.** `runTripMetaSelfHeal` already reads the remote `meta/info` on every load. When the active trip's local `updatedAt` is strictly greater than the remote one (a missing remote stamp counts as 0), it calls `pushTripMeta` with the local name, config and stamp. Equal or older local pushes nothing.
+
+**Why.** `pushTripMeta` is a blind `setDoc` whose failure is swallowed. A rename queued offline on one device can land after a newer rename from another, and the newer device never wrote again, so the two disagreed for good.
+
+**Not done.** A compare-and-set transaction inside `pushTripMeta`: `runTransaction` throws offline and would break offline rename, which the persistent cache queues today. Known limits: only the active trip is healed (a stale rename on another trip waits until that trip is opened), and a device clock set far ahead wins until the others write, the same ceiling as D-600.
