@@ -9,6 +9,7 @@ import { tourStore } from '@/core/storage/gateway';
 import { NAV_ITEMS, type NavItem } from '@/lib/nav-items';
 import { getActiveTrip } from '@/core/trips';
 import { overlayPanelMotion } from '@/lib/motion';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 /**
  * First-run guided tour — a one-time, ≤5-step coach-mark stepper introducing the
@@ -155,6 +156,7 @@ export default function FirstRunTour() {
   useEffect(() => setMounted(true), []);
 
   const [open, setOpen] = useState(false);
+  useDialogOpenFlag(open);
   const [step, setStep] = useState(0);
 
   // "Gate passed" = TokenGate itself would render NOTHING right now (see the file-header

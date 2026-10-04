@@ -349,15 +349,7 @@ describe('trip registry (S238)', () => {
 
   // ── #518: a tombstone dropped through importRemoteTrips wipes the trip's data too ─────────
   describe('importRemoteTrips — a tombstone that drops a locally-known trip wipes its data (#518)', () => {
-    it('wipes trip:{id}:* and the photo blobs for an id the incoming tombstone drops', async () => {
-      await defaultBlobStore.putWithId('ph-gone-1', new Blob(['a']));
-      await defaultBlobStore.putWithId('ph-kept-1', new Blob(['c']));
-      window.localStorage.setItem(
-        'trip:gone:photos',
-        JSON.stringify([
-          { id: 'ph-gone-1', owner: { kind: 'journal', date: '2026-12-10' }, altText: 'a', createdAt: '2026-12-10T00:00:00.000Z' },
-        ]),
-      );
+    it('wipes trip:{id}:* for an id the incoming tombstone drops when nothing is pending', () => {
       window.localStorage.setItem('trip:gone:budget', 'x');
       window.localStorage.setItem('trip:kept:budget', 'keep-me');
 
@@ -368,7 +360,33 @@ describe('trip registry (S238)', () => {
 
       expect(window.localStorage.getItem('trip:gone:budget')).toBeNull();
       expect(window.localStorage.getItem('trip:kept:budget')).toBe('keep-me');
-      await vi.waitFor(async () => expect(await defaultBlobStore.list()).toEqual(['ph-kept-1']));
+    });
+
+    it.each([
+      ['an unsynced outbox chunk', 'trip:gone:syncOutbox', JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] } })],
+      [
+        'a device-only photo',
+        'trip:gone:photos',
+        JSON.stringify([
+          { id: 'ph-gone-1', owner: { kind: 'journal', date: '2026-12-10' }, altText: 'a', createdAt: '2026-12-10T00:00:00.000Z' },
+        ]),
+      ],
+    ])('keeps trip:{id}:* and blobs when the device holds %s, still drops the entry (#843)', async (_n, key, value) => {
+      await defaultBlobStore.putWithId('ph-gone-1', new Blob(['a']));
+      window.localStorage.setItem(key, value);
+      window.localStorage.setItem('trip:gone:budget', 'x');
+
+      upsertKnownTrip('gone', 'Going away');
+      joinTrip(DEFAULT_TRIP_ID);
+
+      importRemoteTrips([], [{ id: 'gone', removedAt: Date.now() + 60_000 }]);
+      await new Promise((r) => setTimeout(r, 20)); // let a (wrongly) fired blob delete land
+
+      expect(listKnownTrips().some((t) => t.id === 'gone')).toBe(false);
+      expect(listRemovedTrips().some((r) => r.id === 'gone')).toBe(true);
+      expect(window.localStorage.getItem('trip:gone:budget')).toBe('x');
+      expect(window.localStorage.getItem(key)).toBe(value);
+      expect(await defaultBlobStore.list()).toContain('ph-gone-1');
     });
 
     it('does NOT wipe an id the tombstone drops but the same merge re-adds (re-join beats a stale tombstone)', () => {

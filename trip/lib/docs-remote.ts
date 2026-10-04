@@ -116,7 +116,7 @@ export async function pushDocsChunk(current: DocItem[], chunk: string, tripId: s
  * Gated + lazy + self-degrading: no-op unsubscribe when dormant; any
  * failure → local-only via console.warn, never throws. Mirrors `subscribeRemoteBudget`.
  */
-export function subscribeRemoteDocs(): () => void {
+export function subscribeRemoteDocs(onDead?: () => void): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -140,6 +140,8 @@ export function subscribeRemoteDocs(): () => void {
     };
     window.addEventListener('online', onlineHandler);
   };
+  // The caller's reopen timer (#845) replaces the `online` wait; both would double-listen.
+  const retry = () => (onDead ? onDead() : armOnlineRetry());
 
   const persistAndDispatch = (rows: DocItem[]) => {
     saveDocs(rows);
@@ -198,7 +200,7 @@ export function subscribeRemoteDocs(): () => void {
             setReadDenied('docs', true);
             return;
           }
-          if (!cancelled) armOnlineRetry();
+          if (!cancelled) retry();
         },
       );
 
@@ -211,7 +213,7 @@ export function subscribeRemoteDocs(): () => void {
       }
     } catch (err) {
       console.warn('[docs-remote] remote sync unavailable, staying local-only:', err);
-      if (!cancelled) armOnlineRetry();
+      if (!cancelled) retry();
     } finally {
       settingUp = false;
     }

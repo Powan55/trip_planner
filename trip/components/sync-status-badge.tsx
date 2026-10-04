@@ -61,7 +61,7 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
  * three; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
  */
 export function SyncStatusBadge() {
-  const { pending, blocked, readBlocked, lastAckAt, localOnly, signInRequired } = useSyncStatus();
+  const { pending, blocked, readBlocked, readDead, lastAckAt, localOnly, signInRequired } = useSyncStatus();
   /**
    * D-546 — DELIVERY, not transport. Everything above comes out of this device's own outbox:
    * `lastAckAt` is stamped when Firestore accepted the bytes, which is equally true whether one
@@ -111,15 +111,17 @@ export function SyncStatusBadge() {
   // on its very FIRST read (never synced: pending:0, lastAckAt:null) must still show — that is
   // the #271 case this pill exists for — so `isBlocked` gets its own clause rather than folding
   // into the pending/lastAckAt check above.
-  const show = signInRequired || pending !== 0 || lastAckAt !== null || isBlocked || localOnly;
-  const isPending = !signInRequired && pending > 0;
+  // #845: the listener died without a refusal (weak network); our pushes may still land but peers' edits do not arrive.
+  const isDead = !signInRequired && !isBlocked && readDead;
+  const show = signInRequired || pending !== 0 || lastAckAt !== null || isBlocked || isDead || localOnly;
+  const isPending = !signInRequired && !isDead && pending > 0;
   // D-542 — LAST in precedence. `localOnly` and a pending/blocked count are mutually exclusive in
   // practice (a local-only device has a gated-off outbox, so it can never accumulate either), but
   // ordering it last means that if they ever do co-occur the live fact wins over the invitation.
-  const isLocalOnly = !signInRequired && localOnly && !isBlocked && !isPending;
+  const isLocalOnly = !signInRequired && localOnly && !isBlocked && !isDead && !isPending;
   // The same amber the pre-flight rows already use for 'attention' (with the same AlertTriangle),
   // so the two surfaces reading this one outbox agree on what a refusal looks like.
-  const tone = isBlocked ? 'text-amber-300' : 'text-ink-mid';
+  const tone = isBlocked || isDead ? 'text-amber-300' : 'text-ink-mid';
   const relative = lastAckAt ? formatRelativeTime(lastAckAt) : null;
   /**
    * How many OTHER devices are on this trip right now. Being alone on a trip is the NORMAL case,
@@ -134,6 +136,8 @@ export function SyncStatusBadge() {
     ? blocked > 0
       ? `${blocked} not syncing`
       : 'Not syncing'
+    : isDead
+      ? 'Not receiving updates'
     : isPending
       ? `${pending} pending`
       : isLocalOnly
@@ -149,6 +153,8 @@ export function SyncStatusBadge() {
     ? blocked > 0
       ? `The shared trip refused ${blocked} change${blocked === 1 ? '' : 's'}, so ${blocked === 1 ? 'it is' : 'they are'} saved on this device only and will not upload on their own. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.`
       : `The shared trip refused to send this device its latest data. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.`
+    : isDead
+      ? `This device is not receiving updates from the shared trip, so other travellers' changes may be missing. It keeps retrying on its own${pending > 0 ? `, and ${pending} change${pending === 1 ? '' : 's'} of yours ${pending === 1 ? 'is' : 'are'} still waiting to upload` : ''}. Check your connection.`
     : isPending
       ? `${pending} change${pending === 1 ? '' : 's'} ${pending === 1 ? 'is' : 'are'} waiting to sync to the shared trip. This will clear automatically once the connection confirms.`
       : isLocalOnly
@@ -171,6 +177,8 @@ export function SyncStatusBadge() {
                 ? 'sign-in-required'
                 : isBlocked
                 ? 'blocked'
+                : isDead
+                ? 'dead'
                 : isPending
                   ? 'pending'
                   : isLocalOnly
@@ -186,14 +194,14 @@ export function SyncStatusBadge() {
                 landed. The word always says which — colour is never the only carrier. */}
             <div
               className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
-                signInRequired || isBlocked || isPending || isLocalOnly
+                signInRequired || isBlocked || isDead || isPending || isLocalOnly
                   ? 'border-dashed border-[color:var(--text-lo)]'
                   : 'border-[hsl(var(--border))]'
               } ${tone}`}
             >
               {signInRequired ? (
                 <CloudOff className="h-3 w-3 shrink-0" aria-hidden="true" />
-              ) : isBlocked ? (
+              ) : isBlocked || isDead ? (
                 <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
               ) : isPending ? (
                 <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />

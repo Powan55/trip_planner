@@ -6134,3 +6134,36 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 **Why.** Any 1-128 character token such as "abc" joined, and `reconcileFirstSnapshot` then seeded that trip doc, so a mistyped or guessed token landed on a world-guessable open trip. App-minted ids are v4 UUIDs.
 
 **Unknown.** A live trip with a short hand-made id that no device has joined yet can no longer be joined fresh. Owner to confirm none exist.
+### D-693 · Extends D-600 · A newer local trip name/config is re-pushed at boot (#846)
+
+**Decision.** `runTripMetaSelfHeal` already reads the remote `meta/info` on every load. When the active trip's local `updatedAt` is strictly greater than the remote one (a missing remote stamp counts as 0), it calls `pushTripMeta` with the local name, config and stamp. Equal or older local pushes nothing.
+
+**Why.** `pushTripMeta` is a blind `setDoc` whose failure is swallowed. A rename queued offline on one device can land after a newer rename from another, and the newer device never wrote again, so the two disagreed for good.
+
+**Not done.** A compare-and-set transaction inside `pushTripMeta`: `runTransaction` throws offline and would break offline rename, which the persistent cache queues today. Known limits: only the active trip is healed (a stale rename on another trip waits until that trip is opened), and a device clock set far ahead wins until the others write, the same ceiling as D-600.
+### D-695 · (issue #848, 2026-10-04) · A day push keeps remote itinerary rows this build cannot parse
+
+`pushDayMerged` rebuilt the day from the rows `sanitizeItineraryItems` accepts, then `tx.set` wrote that, so an older build erased a newer peer's row it could not read (e.g. `lat` as a string). The write now appends every raw remote row that is an object with a non-blank string `id` not already in the merged items, verbatim and untouched by tombstone GC. Rows with no usable id (null, primitives) are still dropped. The push is not refused: one unreadable row would otherwise block the whole day. The local copy never sees the kept rows.
+
+Sibling row sanitizers in the other synced domains have the same class of risk; not touched here.
+### D-692 · Extends D-591 · (issue #845, 2026-10-04) · A dead read listener reopens on backoff and the badge says it is not receiving
+
+**Decision.** Each `subscribeRemote*` (itinerary, expenses, budget, docs, places) takes the port's `onDead` and calls it on both a setup failure and a non-permission stream error, instead of arming its own `online` wait; with no `onDead` the old `online` retry still runs. `useDomainSync` clears the dead handle and reopens on the D-670 schedule (`RETRY_BASE_MS` doubling to `RETRY_MAX_MS`, `RETRY_MAX_ATTEMPTS` tries, none while `navigator.onLine` is false). The count resets on `online`, tab return and identity change; past the cap only those events reopen. A permission-denied read stays no-retry (#271). `core/sync/read-denied.ts` gains `setReadDead`/`isReadDead` on the same change event, cleared by the next good snapshot; `SyncStatus.readDead` is false while sign-in is required. The badge shows "Not receiving updates" in amber (`data-state="dead"`), below a refusal and above a pending count.
+
+**Why.** On a weak or captive network `navigator.onLine` stays true, so no `online` event came and the listener stayed dead until reload while the badge read "Saved Xm ago". This closes the two cases D-591 deferred: stream errors and the captive-portal wait.
+
+**Cost.** A reopen is a fresh listen that re-reads the domain's docs, at most six per domain per outage.
+### D-690 · Extends #518 · (issue #843, 2026-10-04) · A remote forget keeps this device's pending work
+
+**Decision.** `importRemoteTrips` skips `wipeForgottenTripData` for an id with unsynced edits (`unsyncedEditCountFor`) or device-only photos (`localPhotoCountFor`). The entry still leaves the list and the tombstone is still recorded; nothing is stamped or stripped, so the forget does not bounce back to the device that made it. A local forget (`removeKnownTrip`) still wipes everything.
+
+**Why.** Device A forgetting a trip made device B's next trip-list snapshot delete B's offline edits and its photos, which exist nowhere else.
+
+**Known ceiling.** The kept `trip:{id}:*` data sits on disk with no list entry. Re-joining the trip or forgetting it locally clears it. No prompt, no UI.
+### D-691 · Extends D-230 and D-569 · (issue #844, 2026-10-04) · The editor saves only the fields it changed
+
+**Decision.** `handleSaveItem` sends `itemPatch(editingItem, saved)` to `updateItem`: the keys whose value differs from the item the editor opened with, over the union of both key sets. A key cleared to `undefined` is kept, since that is how the editor clears location, notes, coordinates and end date.
+
+**Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
+
+**Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.

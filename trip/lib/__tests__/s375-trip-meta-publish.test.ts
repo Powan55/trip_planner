@@ -445,6 +445,37 @@ describe('D-600 — a peer rename reaches this device by updatedAt LWW', () => {
     expect(getKnownTrip(TRIP)?.name).toBe('Kerala');
   });
 
+  it('D-693: a stale remote is re-pushed with the local name, config and stamp', async () => {
+    stubLocation();
+    fetchTripMetaMock.mockResolvedValue({ name: 'Old', updatedAt: localAt() - 1 });
+    runTripMetaSelfHeal();
+    await flush();
+    expect(pushTripMetaMock).toHaveBeenCalledTimes(1);
+    expect(pushTripMetaMock).toHaveBeenCalledWith(TRIP, {
+      name: 'Kerala',
+      config: getKnownTrip(TRIP)!.config,
+      updatedAt: localAt(),
+    });
+  });
+
+  it('D-693: an unstamped remote is re-pushed too', async () => {
+    stubLocation();
+    fetchTripMetaMock.mockResolvedValue({ name: 'From an old client' });
+    runTripMetaSelfHeal();
+    await flush();
+    expect(pushTripMetaMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('D-693: an equal or newer remote is not re-pushed', async () => {
+    stubLocation();
+    for (const delta of [0, 1]) {
+      fetchTripMetaMock.mockResolvedValue({ name: 'Kerala', updatedAt: localAt() + delta });
+      runTripMetaSelfHeal();
+      await flush();
+    }
+    expect(pushTripMetaMock).not.toHaveBeenCalled();
+  });
+
   it('a placeholder name never overwrites a real one, even with a newer stamp', () => {
     expect(applyRemoteTripMeta(TRIP, { name: SHARED_NAME, updatedAt: localAt() + 1000 })).toBe(false);
     expect(getKnownTrip(TRIP)?.name).toBe('Kerala');

@@ -95,7 +95,7 @@ export const itinerarySyncPort: SyncPort<DayPlan[]> = {
     import('./itinerary-remote')
       .then(({ subscribeRemote }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemote();
+        realUnsub = subscribeRemote(onDead);
       })
       .catch((err) => {
         // Degrade to local-only; never crash.

@@ -13,10 +13,25 @@ import type { SyncDomain } from '@/core/sync/outbox';
 import { SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
 
 const readDenied = new Set<SyncDomain>();
+// #845 — a listener that died for a reason other than a refusal (network, setup failure) and has
+// not delivered a snapshot since. Cleared by the next good snapshot via `setReadDenied(d, false)`.
+const readDead = new Set<SyncDomain>();
+
+export function setReadDead(domain: SyncDomain, dead: boolean): void {
+  if (dead === readDead.has(domain)) return;
+  if (dead) readDead.add(domain);
+  else readDead.delete(domain);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
+}
+
+export function isReadDead(): boolean {
+  return readDead.size > 0;
+}
 
 /** Record (or clear) a permission-denied `onSnapshot` stream error for `domain`. A no-op call
  * (already at that state) skips the event so a steady run of successful snapshots doesn't spam it. */
 export function setReadDenied(domain: SyncDomain, denied: boolean): void {
+  if (!denied) setReadDead(domain, false);
   const had = readDenied.has(domain);
   if (denied === had) return;
   if (denied) readDenied.add(domain);

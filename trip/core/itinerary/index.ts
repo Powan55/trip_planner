@@ -20,5 +20,6 @@ export {
   getDayPlan,
   findPlacements,
   noStamp,
+  itemPatch,
   type ItemStamper,
 } from './crud';
