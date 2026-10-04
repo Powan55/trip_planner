@@ -6167,3 +6167,9 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+
+### D-700 · Amends D-356 · (issue #853, 2026-10-04) · Forgetting a trip deletes its exact slot keys, not a prefix
+
+**Why.** Trip ids may contain `:`, so the `trip:a:` sweep in `wipeTripData` also deleted the data of a hand-made trip `a:b`.
+
+**Decision.** `wipeTripData` removes `keyForTrip(id, slot)` for each `TRIP_SCOPED_SLOTS` member. Only `keyForTrip` writes `trip:` keys, so nothing is orphaned. `wipeAllTripData` keeps its prefix sweep because it wants everything.
