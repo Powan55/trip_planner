@@ -6113,7 +6113,7 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 
 **What did not change.** The tier is still one value, so the D-334 rule of three tiers and no fourth holds. Five harness guards (`--text-lo` over the hero photo, capped hero NP/JP, wall cover, np-a 18% screen) now pass and moved into `pairs` as "not used" floors. The authoring rules they guarded (no floor-tier words over a photograph, tint screens cap at 14%) stand. Loosening either is its own decision.
 
-**Trade-off.** `--t-micro` and `--t-label` are the same size, so a mono-caps key over a label value now differs by family, case and tier, not size. Visual baselines move app-wide.
+**Trade-off.** `--t-micro` and `--t-label` are the same size, so a mono-caps key over a label value now differs by family, case and tier, not size. The mid/lo tier gap also shrank to about 1.20:1 luminance, so hierarchy leans on size, weight and case. Visual baselines move app-wide.
 
 **Changes if:** a layout cannot fit 12.75px (then move that site, never the floor back down); or someone re-tiers hero copy using the new numbers.
 

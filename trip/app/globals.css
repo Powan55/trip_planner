@@ -1456,7 +1456,7 @@ html {
   border-radius: 9999px;
   background: var(--stamp-ink);
   color: var(--paper);
-  font-size: 0.75rem;
+  font-size: var(--t-micro);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
