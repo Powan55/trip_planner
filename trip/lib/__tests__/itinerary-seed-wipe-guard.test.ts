@@ -27,6 +27,8 @@ const gate = vi.hoisted(() => ({
   onTxStart: null as null | ((path: string) => void),
   /** When set, getDocFromServer waits on it before answering. */
   holdServerRead: null as null | Promise<void>,
+  /** When set, getDocFromServer rejects (offline). */
+  failServerRead: false,
 }));
 
 vi.mock('@/lib/firebase-config', () => ({
@@ -106,6 +108,7 @@ vi.mock('firebase/firestore', () => ({
   },
   getDocFromServer: async (ref: { path: string }) => {
     if (gate.holdServerRead) await gate.holdServerRead;
+    if (gate.failServerRead) throw new Error('offline: server unreachable');
     const data = fake.docs.get(ref.path);
     return { exists: () => data !== undefined, data: () => data };
   },
@@ -176,6 +179,7 @@ beforeEach(() => {
   gate.failDayWrites = false;
   gate.onTxStart = null;
   gate.holdServerRead = null;
+  gate.failServerRead = false;
 });
 
 afterEach(() => {
@@ -249,6 +253,22 @@ describe('D-544 — an empty remote NEVER erases a non-empty local', () => {
 
     expect(loadPlans()).toHaveLength(3); // the days survive...
     expect(localIds(loadPlans())).toEqual([]); // ...emptied, verbatim. No resurrection.
+    unsub();
+  });
+});
+
+describe('D-699 — an unconfirmed absence never seeds the trip doc', () => {
+  it('server read fails and the cache lacks the doc ⇒ no marker setDoc, local kept', async () => {
+    savePlans(LOCAL_TRIP);
+    gate.failServerRead = true; // cache getDoc answers "absent" — the doc is not in the fake
+
+    const unsub = subscribeRemote();
+    await flush();
+    fake.emitServerSnapshot();
+    await flush();
+
+    expect(writeLog.filter((w) => w.startsWith('set:'))).toEqual([]);
+    expect(localIds(loadPlans())).toEqual(['a1', 'a2', 'b1', 'c1', 'c2', 'c3']);
     unsub();
   });
 });
