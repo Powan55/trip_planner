@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getNowAtTrip } from '@/lib/trip-now';
+import { getTripDayDate } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 
 /**
@@ -12,7 +12,7 @@ import { useTravelTick } from '@/lib/travel-tick';
 export function useTripDay(): string {
   const [day, setDay] = useState('');
   const tickN = useTravelTick();
-  useEffect(() => setDay(getNowAtTrip().date), [tickN]);
+  useEffect(() => setDay(getTripDayDate()), [tickN]);
   return day;
 }
 

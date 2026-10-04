@@ -16,7 +16,7 @@ const h = vi.hoisted(() => ({
   ] as { date: string; text: string; mood: null; highlight: string; updatedAt: string }[],
 }));
 
-vi.mock('@/lib/trip-now', () => ({ getNowAtTrip: () => ({ date: h.now, minutes: 0 }) }));
+vi.mock('@/lib/trip-now', () => ({ getTripDayDate: () => h.now }));
 
 vi.mock('@/hooks/use-journal', () => ({
   useJournal: () => ({
@@ -79,6 +79,19 @@ describe('JournalBrowse — write about a day with no entry (#722)', () => {
     expect(r.container.querySelectorAll('[data-testid="journal-card"]')).toHaveLength(1);
     expect(r.container.textContent).toContain('December 9');
     expect(picker(r.container)!.disabled).toBe(true);
+    r.unmount();
+  });
+
+  it('picks up a new day on the shared tick without remounting (#791)', () => {
+    h.now = '2026-12-10';
+    const r = render(createElement(JournalBrowse));
+    expect([...picker(r.container)!.options].map((o) => o.value)).toEqual(['', '2026-12-09']);
+
+    h.now = '2026-12-11';
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect([...picker(r.container)!.options].map((o) => o.value)).toEqual(['', '2026-12-11', '2026-12-09']);
     r.unmount();
   });
 

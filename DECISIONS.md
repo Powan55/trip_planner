@@ -6104,3 +6104,13 @@ The badge read only the outbox, so it said Synced while a journal day or an acco
 Both mirrors dispatch the outbox's change event on every write, so an ack clears the badge without waiting for the minute tick. The badge, which is mounted app-wide, runs a one-shot push of both queues on mount, on `online`, and when the tab becomes visible.
 
 **Not a listener.** Mounting the journal's snapshot stream app-wide would cost a read on every change for the life of the page. The one-shot push costs nothing when nothing is dirty, and one transaction read per dirty day or per prefs flush otherwise.
+
+### D-677 · Extends D-420 · (issues #789, #791, 2026-10-03) · Day-of readers use the hero's day
+
+**Decision.** `getTripDayDate()` in `lib/trip-now.ts` returns `getTodayInTrip()?.date`, else the device's own calendar day. The journal's missed-day picker, the passport stamps, both recaps, the wrapped story and the home stat row read it in place of `getNowAtTrip().date`. The ones that read it once on mount now re-read on the shared travel tick (20s, plus a catch-up on tab visible), so a page left open past midnight moves on. `getNowAtTrip` is unchanged and still feeds the concierge digest, the weather card (the forecast day is the destination's), the hero's post-trip check and visit autocount.
+
+**Why.** On a home-time phone the destination-only day disagreed with the hero at both trip edges: from 13:15 EST on Dec 8 these surfaces already showed Dec 9 while the hero counted down, and from 10:00 EST on Jan 9 the recap unlocked while the hero said Day 32.
+
+**Data.** The journal picker now offers a day only once the hero has reached it, so Dec 9 is no longer offered on Dec 8 evening at home. Entry keys are still the day the user picks, and existing entries are untouched.
+
+**Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
