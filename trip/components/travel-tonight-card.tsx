@@ -32,7 +32,7 @@ export default function TravelTonightCard() {
   const { getDayPlan, hydrated } = useItineraryContext();
 
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
-  const [nowUtcMs, setNowUtcMs] = useState<number>(0);
+  const [nowUtcMs, setNowUtcMs] = useState<number>(() => Date.now());
 
   // recompute on the shared `/travel` tick (base 20s) instead of a private 1s interval.
   const tickN = useTravelTick();

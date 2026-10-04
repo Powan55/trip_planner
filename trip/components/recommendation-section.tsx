@@ -224,7 +224,7 @@ function FilterSheet({
       labelledBy={titleId}
       side="right"
       testId="guide-filters-sheet"
-      className={`${SHEET_PANEL} w-full sm:w-[440px] sm:max-w-full sm:h-full max-h-[85vh] sm:max-h-none`}
+      className={`${SHEET_PANEL} w-full sm:w-[440px] sm:max-w-full sm:h-full max-h-[85dvh] sm:max-h-none`}
     >
       <div className={SHEET_HEAD}>
         <div className="min-w-0">
