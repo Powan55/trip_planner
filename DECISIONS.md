@@ -6127,6 +6127,11 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 
 **Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
 
+### D-695 · (issue #848, 2026-10-04) · A day push keeps remote itinerary rows this build cannot parse
+
+`pushDayMerged` rebuilt the day from the rows `sanitizeItineraryItems` accepts, then `tx.set` wrote that, so an older build erased a newer peer's row it could not read (e.g. `lat` as a string). The write now appends every raw remote row that is an object with a non-blank string `id` not already in the merged items, verbatim and untouched by tombstone GC. Rows with no usable id (null, primitives) are still dropped. The push is not refused: one unreadable row would otherwise block the whole day. The local copy never sees the kept rows.
+
+Sibling row sanitizers in the other synced domains have the same class of risk; not touched here.
 ### D-692 · Extends D-591 · (issue #845, 2026-10-04) · A dead read listener reopens on backoff and the badge says it is not receiving
 
 **Decision.** Each `subscribeRemote*` (itinerary, expenses, budget, docs, places) takes the port's `onDead` and calls it on both a setup failure and a non-permission stream error, instead of arming its own `online` wait; with no `onDead` the old `online` retry still runs. `useDomainSync` clears the dead handle and reopens on the D-670 schedule (`RETRY_BASE_MS` doubling to `RETRY_MAX_MS`, `RETRY_MAX_ATTEMPTS` tries, none while `navigator.onLine` is false). The count resets on `online`, tab return and identity change; past the cap only those events reopen. A permission-denied read stays no-retry (#271). `core/sync/read-denied.ts` gains `setReadDead`/`isReadDead` on the same change event, cleared by the next good snapshot; `SyncStatus.readDead` is false while sign-in is required. The badge shows "Not receiving updates" in amber (`data-state="dead"`), below a refusal and above a pending count.
