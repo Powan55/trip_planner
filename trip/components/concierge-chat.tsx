@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { m } from 'framer-motion';
 import { MessageSquare, Send, AlertTriangle, Check, WifiOff, X } from 'lucide-react';
 import {
@@ -421,6 +421,19 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
   // (`visiblePlans(plans)` is a fresh array each time), so an effect keyed on it would fire in a
   // loop rather than on a real edit.
   const [clashByOp, setClashByOp] = useState<Record<string, string>>({});
+  const logRef = useRef<HTMLDivElement | null>(null);
+  const followLog = useRef(true);
+  const mountLog = useCallback((el: HTMLDivElement | null) => {
+    logRef.current = el;
+    if (el) {
+      followLog.current = true;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, []);
+  useLayoutEffect(() => {
+    const el = logRef.current;
+    if (el && followLog.current) el.scrollTop = el.scrollHeight;
+  });
 
   // — "every time I send a message I have to re-click the textbox". Root cause was
   // `disabled={status==='streaming'}` on the input: disabling blurs it and nothing ever restored
@@ -590,6 +603,11 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
           aria-live="polite"
           aria-label="Concierge conversation"
           data-testid="concierge-messages"
+          ref={mountLog}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            followLog.current = el.scrollHeight - el.clientHeight - el.scrollTop <= 80;
+          }}
           className="min-h-0 flex-1 space-y-3 overflow-y-auto px-gut py-3"
         >
           {messages.length === 0 && (
