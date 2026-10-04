@@ -34,7 +34,7 @@ import { describeItemTime } from '@/lib/item-time-display';
  */
 export default function HomeBento() {
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
-  const [nowUtcMs, setNowUtcMs] = useState<number>(0);
+  const [nowUtcMs, setNowUtcMs] = useState<number>(() => Date.now());
 
   useEffect(() => {
     const tick = () => {

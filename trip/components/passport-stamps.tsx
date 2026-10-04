@@ -8,8 +8,7 @@ import OptimizedImage from '@/components/optimized-image';
 import { claimStamps, type StampBoard } from '@/core/places/passport';
 import { TRIP_DATES, getCityForDate, getCountryForDate, formatDate } from '@/core/dates';
 import { elapsedTripDates } from '@/core/recap/model';
-import { getTripDayDate } from '@/lib/trip-now';
-import { useTravelTick } from '@/lib/travel-tick';
+import { useTripDay } from '@/hooks/use-trip-day';
 import { journeyLegs } from '@/lib/journey-legs';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { INSPIRATION_HIGHLIGHTS } from '@/lib/inspiration-data';
@@ -108,11 +107,9 @@ export default function PassportStamps() {
   const claimedRef = useRef(false);
   const { getDayPlan } = useItineraryContext();
 
-  // '' until mount, then the hero's trip day — the SAME clock `/recap` and the home recap read,
-  // so the log and those surfaces can never disagree about which day it is. Ticks past midnight.
-  const [today, setToday] = useState('');
-  const tick = useTravelTick();
-  useEffect(() => setToday(getTripDayDate()), [tick]);
+  // '' until mount, then the destination-local trip day — the SAME clock `/recap` and the home
+  // recap read, so the log and those surfaces can never disagree about which day it is.
+  const today = useTripDay();
 
   const legs = useMemo(journeyLegs, []);
 

@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence, useDragControls } from 'framer-motion';
 
 import { overlayPanelMotion } from '@/lib/motion';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
@@ -90,6 +90,20 @@ export default function Sheet({
   useEffect(() => setMounted(true), []);
 
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Swipe-down-to-dismiss: only the bottom-sheet form (side 'right' below the sm breakpoint).
+  // The drag starts from a grab handle only, so the scrolling body keeps its own gestures.
+  const dragControls = useDragControls();
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(max-width: 639px)');
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener?.('change', sync);
+    return () => mq.removeEventListener?.('change', sync);
+  }, []);
+  const swipeable = side === 'right' && isMobile;
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -194,8 +208,33 @@ export default function Sheet({
             onKeyDown={handleKeyDown}
             {...panelMotion}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            {...(swipeable
+              ? {
+                  drag: 'y' as const,
+                  dragControls,
+                  dragListener: false,
+                  dragConstraints: { top: 0, bottom: 0 },
+                  dragElastic: { top: 0, bottom: 0.6 },
+                  onDragEnd: (
+                    _e: unknown,
+                    info: { offset: { y: number }; velocity: { y: number } },
+                  ) => {
+                    if (info.offset.y > 100 || info.velocity.y > 500) onCloseRef.current();
+                  },
+                }
+              : {})}
             className={`sheet-surface flex flex-col overflow-hidden ${className}`}
           >
+            {swipeable && (
+              <div
+                data-testid="sheet-grab-handle"
+                aria-hidden="true"
+                onPointerDown={(e) => dragControls.start(e)}
+                className="flex shrink-0 cursor-grab touch-none items-center justify-center py-2"
+              >
+                <span className="h-1 w-10 rounded-full bg-white/30" />
+              </div>
+            )}
             {children}
           </m.div>
         </m.div>

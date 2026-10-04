@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { Share2, MapPin, CheckCircle2, Wallet, BookOpen, Camera, Backpack, FileCheck2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { getTripDayDate } from '@/lib/trip-now';
-import { useTravelTick } from '@/lib/travel-tick';
+import { useTripDay } from '@/hooks/use-trip-day';
 import { deriveWrapped, type WrappedStats } from '@/core/recap/wrapped';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useExpenses } from '@/hooks/use-expenses';
@@ -126,13 +125,10 @@ export default function WrappedStory() {
   const { items: docItems, hydrated: docsHydrated } = useDocs();
   const reducedMotion = useReducedMotion();
 
-  // The hero's trip day (`getTripDayDate()`), the same one `trip-recap.tsx` and every other
-  // trip-day surface reads, re-read on the shared tick so it follows midnight.
-  const [nowDateStr, setNowDateStr] = useState('');
-  const tick = useTravelTick();
-  useEffect(() => {
-    setNowDateStr(getTripDayDate());
-  }, [tick]);
+  // The DESTINATION-offset trip day (`getNowAtTrip().date`), the same one `trip-recap.tsx` and
+  // every other trip-day surface reads — not the device's own calendar day, which diverges from it
+  // for most of the day on a device left on home time.
+  const nowDateStr = useTripDay();
 
   const hydrated =
     itineraryHydrated &&
