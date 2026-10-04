@@ -33,7 +33,7 @@ import { cityCoord } from '@/lib/city-coords';
 import { haversineKm } from '@/lib/day-anchor';
 import { countryLabelForDate } from '@/lib/leg-label';
 import { getActiveTraveler } from '@/lib/token-auth';
-import { getNowAtTrip, getTodayInTrip, isClockOverridden } from '@/lib/trip-now';
+import { getTripDayDate, getTodayInTrip, isClockOverridden } from '@/lib/trip-now';
 
 /** A place the visit record can hold: a display city name and its day's country LABEL. */
 export interface VisitPlace {
@@ -159,10 +159,11 @@ export function runVisitAutocount(): void {
     // must not accrue visits and — much more importantly — must not be shown a location prompt.
     if (getActiveTraveler() === null) return;
 
-    // The trip-clock day: destination-local, `?today=`-aware, and it answers before, during and
-    // after the trip window (`getTodayInTrip()` deliberately does not). Before the trip this is
-    // earlier than every trip date, so the loop below counts nothing.
-    const today = getNowAtTrip().date;
+    // The trip-day clock the hero reads (#822): the trip day inside the window, the device's own day
+    // outside it, so a city is never credited while the hero still counts down to it (the evening
+    // before departure, EST, is already Kathmandu's tomorrow). Before the trip this is earlier than
+    // every trip date, so the loop below counts nothing.
+    const today = getTripDayDate();
     for (const place of tripPlacesThrough(today)) addVisit(place);
 
     // ── The one-shot confirmation ────────────────────────────────────────────────────────────

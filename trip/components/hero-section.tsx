@@ -10,7 +10,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
 import { daysToGo } from '@/lib/home-stats';
-import { getNow, getTodayInTrip, getNowAtTrip, type TripToday } from '@/lib/trip-now';
+import { getNow, getTodayInTrip, getTripDayDate, type TripToday } from '@/lib/trip-now';
 import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
 import { isPostTrip } from '@/core/recap/model';
@@ -268,10 +268,12 @@ export default function HeroSection() {
   // null, so without this the countdown-grid branch below ran for both and post-trip showed
   // a permanently zeroed clock ("00:00:00", 0 total days) under "Countdown to day one" —
   // wrong once the trip is over. Mount-gated for the same hydration reason as `custom` above.
-  // Reuses `getNowAtTrip().date` (the SAME destination-local trip-day source A-22's
+  // Reads `getTripDayDate()` (#822), the SAME trip-day clock the recap unlock and passport read, so
+  // the countdown can never zero out while the recap is unlocked (a device east of Tokyo on Jan 10).
+  // It replaced `getNowAtTrip().date`, A-22's
   // `trip-recap.tsx` fix and `trip-story-recap.tsx`/`core/recap/wrapped.ts` already read) —
   // no new device-local date helper.
-  const postTrip = mounted && !todayInTrip && isPostTrip(getNowAtTrip().date);
+  const postTrip = mounted && !todayInTrip && isPostTrip(getTripDayDate());
 
   // — custom (non-default-pack) trips get a versatile vibe hero: no Nepal×Japan art/copy.
   // Mount-gated (SSR always renders the default pack's prerendered content,/SSG hydration
