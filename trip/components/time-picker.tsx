@@ -94,6 +94,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
       return;
     }
     if (e.key !== 'Tab') return;
+    e.stopPropagation();
     const panel = panelRef.current;
     if (!panel) return;
     const focusable = Array.from(
