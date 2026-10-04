@@ -474,6 +474,22 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     expect(written.items.map((i) => i.id)).toEqual(['X']);
   });
 
+  // #848: a remote row this build's schema rejects must survive the push; id-less rows are dropped.
+  it('pushDayMerged keeps a remote row it cannot parse, verbatim, and drops id-less rows', async () => {
+    const bad = { id: 'bad', title: 'peer row', lat: 'x', future: { a: 1 } };
+    fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
+      date: '2026-12-09',
+      city: 'Kathmandu',
+      country: 'nepal',
+      items: [item('B', { hlc: hlc(2000, 'friend'), rev: 1 }), bad, null, 'junk'],
+    });
+    await pushDayMerged(fake as unknown as Firestore, fs, day('2026-12-09', [item('A', { hlc: hlc(3000, 'me'), rev: 1 })]));
+
+    const written = fake.docs.get(`trips/${TRIP_ID}/days/2026-12-09`) as unknown as DayPlan;
+    expect(written.items.map((i) => i.id).sort()).toEqual(['A', 'B', 'bad']);
+    expect(written.items.find((i) => i.id === 'bad')).toEqual(bad);
+  });
+
   // #408: `mergeDay(local, remote)` resolves a day-metadata key present on BOTH sides to
   // LOCAL (union with local precedence, see merge-day.ts). `pushDayMerged` must pass the
   // actual local day as `local`, not the just-read remote-now doc — else an edit to a field

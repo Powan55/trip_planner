@@ -290,7 +290,20 @@ export async function pushDayMerged(
     // the push — write-once on both sides, and free to disagree forever. Items are unaffected:
     // the `mergeItems` join is commutative, so only the metadata precedence moves.
     const merged = gcTombstones(mergeDay(localDay, remoteNow), realClock.now().getTime());
-    tx.set(ref, sanitizeDayForWrite(merged));
+    const out = sanitizeDayForWrite(merged);
+    // Rows this build can't parse (a newer peer's schema) would be erased by the set; carry them verbatim. #848
+    if (snap.exists()) {
+      const rawItems = (snap.data() as Record<string, unknown>).items;
+      // parsed rows are excluded too, so a GC'd tombstone is not carried back
+      const have = new Set([...merged.items, ...remoteNow.items].map((it) => it.id));
+      const kept = Array.isArray(rawItems)
+        ? rawItems.filter(
+            (r) => r && typeof r === 'object' && typeof r.id === 'string' && r.id.trim() !== '' && !have.has(r.id),
+          )
+        : [];
+      if (kept.length) out.items = [...(out.items as unknown[]), ...kept];
+    }
+    tx.set(ref, out);
   });
 }
 
@@ -343,7 +356,7 @@ export async function pushDayChunk(current: DayPlan[], date: string, tripId: str
  *
  * @returns an unsubscribe function (always safe to call, even on the dormant path).
  */
-export function subscribeRemote(): () => void {
+export function subscribeRemote(onDead?: () => void): () => void {
   // Dormant gate: with no config — or on the local-only default pack (#10) — never touch firebase.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -391,6 +404,8 @@ export function subscribeRemote(): () => void {
     };
     window.addEventListener('online', onlineHandler);
   };
+  // The caller's reopen timer (#845) replaces the `online` wait; both would double-listen.
+  const retry = () => (onDead ? onDead() : armOnlineRetry());
 
   // Persist + dispatch a resolved plan set to the local store (the shared write tail).
   // Writes through the EXISTING persistence and dispatches the EXISTING
@@ -577,7 +592,7 @@ export function subscribeRemote(): () => void {
             setReadDenied('itinerary', true);
             return;
           }
-          if (!cancelled) armOnlineRetry();
+          if (!cancelled) retry();
         },
       );
 
@@ -598,7 +613,7 @@ export function subscribeRemote(): () => void {
       // network). getRemote() clears its cached promise on failure, so a retry gets a
       // fresh attempt; arm the `online` listener to fire that retry on reconnect.
       console.warn('[itinerary-remote] remote sync unavailable, staying local-only:', err);
-      if (!cancelled) armOnlineRetry();
+      if (!cancelled) retry();
     } finally {
       settingUp = false;
     }

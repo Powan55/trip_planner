@@ -14,8 +14,7 @@ import { useEffect, useState } from 'react';
  * only place that knows one layer is open over another — and a layer that is covered has to stand
  * down from the document-level keys the topmost one owns (see the Escape handler in
  * `ui/sheet-dark.tsx`). A count could not tell "two layers" from "I am the deeper one".
- * It only sees what registers: `first-run-tour.tsx` and `time-picker.tsx` are `aria-modal` and do
- * not, so neither covers the layer beneath it.
+ * Only registered layers cover the layer beneath them.
  */
 let nextId = 1;
 let stack: number[] = [];

@@ -105,6 +105,19 @@ export function updateItem(
 }
 
 /**
+ * The keys of `next` that differ from `prev`. An editor save sends this, not the whole stale
+ * item, so unchanged `done`/`rev`/`hlc` never ride along. A key cleared to `undefined` is kept.
+ */
+export function itemPatch(prev: ItineraryItem, next: ItineraryItem): Partial<ItineraryItem> {
+  const patch: Record<string, unknown> = {};
+  for (const k of new Set([...Object.keys(prev), ...Object.keys(next)])) {
+    const key = k as keyof ItineraryItem;
+    if (!Object.is(next[key], prev[key])) patch[k] = next[key];
+  }
+  return patch as Partial<ItineraryItem>;
+}
+
+/**
  * Remove an item from a day. Verbatim from `use-itinerary.ts`'s `removeItem` →
  * `upsertDay` updater body. No attribution.
  */
