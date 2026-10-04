@@ -6132,3 +6132,24 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 `pushDayMerged` rebuilt the day from the rows `sanitizeItineraryItems` accepts, then `tx.set` wrote that, so an older build erased a newer peer's row it could not read (e.g. `lat` as a string). The write now appends every raw remote row that is an object with a non-blank string `id` not already in the merged items, verbatim and untouched by tombstone GC. Rows with no usable id (null, primitives) are still dropped. The push is not refused: one unreadable row would otherwise block the whole day. The local copy never sees the kept rows.
 
 Sibling row sanitizers in the other synced domains have the same class of risk; not touched here.
+### D-692 · Extends D-591 · (issue #845, 2026-10-04) · A dead read listener reopens on backoff and the badge says it is not receiving
+
+**Decision.** Each `subscribeRemote*` (itinerary, expenses, budget, docs, places) takes the port's `onDead` and calls it on both a setup failure and a non-permission stream error, instead of arming its own `online` wait; with no `onDead` the old `online` retry still runs. `useDomainSync` clears the dead handle and reopens on the D-670 schedule (`RETRY_BASE_MS` doubling to `RETRY_MAX_MS`, `RETRY_MAX_ATTEMPTS` tries, none while `navigator.onLine` is false). The count resets on `online`, tab return and identity change; past the cap only those events reopen. A permission-denied read stays no-retry (#271). `core/sync/read-denied.ts` gains `setReadDead`/`isReadDead` on the same change event, cleared by the next good snapshot; `SyncStatus.readDead` is false while sign-in is required. The badge shows "Not receiving updates" in amber (`data-state="dead"`), below a refusal and above a pending count.
+
+**Why.** On a weak or captive network `navigator.onLine` stays true, so no `online` event came and the listener stayed dead until reload while the badge read "Saved Xm ago". This closes the two cases D-591 deferred: stream errors and the captive-portal wait.
+
+**Cost.** A reopen is a fresh listen that re-reads the domain's docs, at most six per domain per outage.
+### D-690 · Extends #518 · (issue #843, 2026-10-04) · A remote forget keeps this device's pending work
+
+**Decision.** `importRemoteTrips` skips `wipeForgottenTripData` for an id with unsynced edits (`unsyncedEditCountFor`) or device-only photos (`localPhotoCountFor`). The entry still leaves the list and the tombstone is still recorded; nothing is stamped or stripped, so the forget does not bounce back to the device that made it. A local forget (`removeKnownTrip`) still wipes everything.
+
+**Why.** Device A forgetting a trip made device B's next trip-list snapshot delete B's offline edits and its photos, which exist nowhere else.
+
+**Known ceiling.** The kept `trip:{id}:*` data sits on disk with no list entry. Re-joining the trip or forgetting it locally clears it. No prompt, no UI.
+### D-691 · Extends D-230 and D-569 · (issue #844, 2026-10-04) · The editor saves only the fields it changed
+
+**Decision.** `handleSaveItem` sends `itemPatch(editingItem, saved)` to `updateItem`: the keys whose value differs from the item the editor opened with, over the union of both key sets. A key cleared to `undefined` is kept, since that is how the editor clears location, notes, coordinates and end date.
+
+**Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
+
+**Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.

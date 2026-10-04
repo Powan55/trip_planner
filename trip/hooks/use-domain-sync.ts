@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import type { StoragePort, SyncPort } from '@/core/ports';
 import { flushOutbox, outboxRetryable, SYNC_OUTBOX_CHANGED_EVENT, type ChunkSync } from '@/core/sync/outbox';
+import { setReadDead } from '@/core/sync/read-denied';
 import { getActiveTraveler, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
 // #748 retry backoff: 10s doubling to a 5 min cap, then hand back to the online/visible/edit
@@ -43,7 +44,16 @@ export function useDomainSync<T>(
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
 
+    let reopenTimer: ReturnType<typeof setTimeout> | null = null;
+    let reopenAttempts = 0;
+    const clearReopen = () => {
+      if (reopenTimer) clearTimeout(reopenTimer);
+      reopenTimer = null;
+    };
+
     const teardown = () => {
+      clearReopen();
+      setReadDead(outboxSync.domain, false);
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;
@@ -79,18 +89,35 @@ export function useDomainSync<T>(
 
     const flush = () => {
       resetRetry();
+      clearReopen();
+      reopenAttempts = 0;
       void flushOutbox(outboxSync, storagePort).then(armRetry);
     };
     const flushNow = () => flushOutbox(outboxSync, storagePort);
     flushers.add(flushNow);
     window.addEventListener(SYNC_OUTBOX_CHANGED_EVENT, armRetry);
 
+    // #845: a dead listener reopens on the same backoff as a failed push; past the cap only
+    // online / tab return bring it back.
+    const scheduleReopen = () => {
+      if (disposed || reopenTimer || reopenAttempts >= RETRY_MAX_ATTEMPTS || navigator.onLine === false) return;
+      const delay = Math.min(RETRY_BASE_MS * 2 ** reopenAttempts, RETRY_MAX_MS);
+      reopenAttempts += 1;
+      reopenTimer = setTimeout(() => {
+        reopenTimer = null;
+        if (gated()) open();
+      }, delay);
+    };
+
     // Only a dead subscribe is reopened; reopening a healthy one re-reads every doc (D-591).
     const open = () => {
       if (unsubscribe) return;
       let mine: (() => void) | null = null;
       mine = syncPort.subscribe(() => {
-        if (unsubscribe === mine) unsubscribe = null;
+        if (unsubscribe !== mine) return;
+        unsubscribe = null;
+        setReadDead(outboxSync.domain, true);
+        scheduleReopen();
       });
       unsubscribe = mine;
     };

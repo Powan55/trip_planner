@@ -298,6 +298,43 @@ describe('SignOutConfirm — teardown', () => {
   });
 });
 
+describe('SignOutConfirm — busy dismissal', () => {
+  it.each([true, false])('blocks Cancel and Escape during flush (password session: %s)', async (password) => {
+    session.password = password;
+    window.localStorage.setItem(SYNC_KEY, CODE);
+    let release!: () => void;
+    flushAllDomains.mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)));
+    await mount();
+    if (!password) {
+      await click('t-confirm');
+      await click('t-key-ack');
+    }
+    await click(password ? 't-confirm' : 't-key-confirm');
+    try {
+      expect(at<HTMLButtonElement>('t-cancel')!.disabled).toBe(true);
+      await click('t-cancel');
+      await act(async () => {
+        at('t-dialog')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      });
+      expect(at('t-dialog')).not.toBeNull();
+      expect(at('t-flushing')!.textContent).toBe('Syncing your last changes…');
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    } finally {
+      await act(async () => release());
+    }
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('still allows Escape before confirming', async () => {
+    await mount();
+    await act(async () => {
+      at('t-dialog')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(at('t-dialog')).toBeNull();
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+  });
+});
+
 // #623 — the wipe drops any queued-but-unsynced edit; the dialog must say so before it happens.
 describe('SignOutConfirm — unsynced-edit warning', () => {
   const OUTBOX_KEY = 'nepal_japan_sync_outbox';

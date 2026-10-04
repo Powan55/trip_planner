@@ -29,7 +29,14 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 });
 
 import { flushOutbox, outboxDirty, withOutbox } from '@/core/sync/outbox';
-import { flushAllDomains, RETRY_BASE_MS, useDomainSync } from '@/hooks/use-domain-sync';
+import { isReadDead, setReadDenied } from '@/core/sync/read-denied';
+import {
+  flushAllDomains,
+  RETRY_BASE_MS,
+  RETRY_MAX_ATTEMPTS,
+  RETRY_MAX_MS,
+  useDomainSync,
+} from '@/hooks/use-domain-sync';
 import { IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
 function fakePort(dies: boolean) {
@@ -117,6 +124,73 @@ describe('useDomainSync dead-subscribe recovery', () => {
     deaths[0]();
     window.dispatchEvent(new Event('online'));
     expect(port.subscribe).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('#845 timed reopen of a dead listener', () => {
+  beforeEach(() => {
+    auth.signedIn = true;
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    act(() => root?.unmount());
+    root = null;
+    vi.useRealTimers();
+  });
+
+  it('reopens after RETRY_BASE_MS, doubles the delay, and stops at the cap', async () => {
+    const { port, deaths } = fakePort(false);
+    const calls = () => vi.mocked(port.subscribe).mock.calls.length;
+    mount(port);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(calls()).toBe(1);
+
+    deaths[deaths.length - 1]();
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_MS - 1);
+    expect(calls()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(calls()).toBe(2);
+
+    // second death waits twice as long
+    deaths[deaths.length - 1]();
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_MS * 2 - 1);
+    expect(calls()).toBe(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(calls()).toBe(3);
+
+    for (let i = 0; i < RETRY_MAX_ATTEMPTS; i++) {
+      deaths[deaths.length - 1]();
+      await vi.advanceTimersByTimeAsync(RETRY_MAX_MS);
+    }
+    const capped = calls();
+    deaths[deaths.length - 1]();
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    expect(calls()).toBe(capped);
+
+    // past the cap, online still reopens
+    window.dispatchEvent(new Event('online'));
+    expect(calls()).toBe(capped + 1);
+  });
+
+  it('flags the domain dead, and clears the flag once a snapshot lands', async () => {
+    const { port, deaths } = fakePort(false);
+    mount(port, { domain: 'itinerary' } as ChunkSync<unknown>);
+    await vi.advanceTimersByTimeAsync(0);
+    deaths[0]();
+    expect(isReadDead()).toBe(true);
+    setReadDenied('itinerary', false);
+    expect(isReadDead()).toBe(false);
+  });
+
+  it('does not schedule a reopen while offline', async () => {
+    const { port, deaths } = fakePort(false);
+    mount(port);
+    await vi.advanceTimersByTimeAsync(0);
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    deaths[0]();
+    await vi.advanceTimersByTimeAsync(RETRY_MAX_MS);
+    expect(port.subscribe).toHaveBeenCalledTimes(1);
+    online.mockRestore();
   });
 });
 

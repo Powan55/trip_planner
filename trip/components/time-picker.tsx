@@ -6,6 +6,7 @@ import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Clock, X, Check } from 'lucide-react';
 import { formatTimeAmPm } from '@/core/dates';
 import { overlayPanelMotion } from '@/lib/motion';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import {
   DEFAULT_TIME_MINUTES,
   MAX_DURATION_MINUTES,
@@ -47,6 +48,7 @@ export interface TimePickerProps {
 
 export default function TimePicker({ id, value, onChange, testId }: TimePickerProps) {
   const [open, setOpen] = useState(false);
+  useDialogOpenFlag(open);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -94,6 +96,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
       return;
     }
     if (e.key !== 'Tab') return;
+    e.stopPropagation();
     const panel = panelRef.current;
     if (!panel) return;
     const focusable = Array.from(

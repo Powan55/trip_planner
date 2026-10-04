@@ -45,6 +45,7 @@ import { isDefaultTrip } from '@/core/trips';
 import { normalizePath, routeLabel } from '@/lib/nav-items';
 import { prefersReducedMotion } from '@/lib/motion';
 import { markPaletteMounted, consumePendingPaletteOpen } from '@/lib/palette-open';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 /**
  * ⌘K / Ctrl+K command palette.
@@ -306,6 +307,7 @@ function PaletteResults({
 
 export default function CommandPalette() {
   const [open, setOpen] = React.useState(false);
+  useDialogOpenFlag(open);
   const router = useRouter();
   const pathname = usePathname();
   // Focus-return shim: the element focused at the moment the palette opened, so we can

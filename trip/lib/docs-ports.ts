@@ -59,7 +59,7 @@ export const docsSyncPort: SyncPort<DocItem[]> = {
     import('./docs-remote')
       .then(({ subscribeRemoteDocs }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemoteDocs();
+        realUnsub = subscribeRemoteDocs(onDead);
       })
       .catch((err) => {
         console.warn('[docs] remote subscribe unavailable:', err);
