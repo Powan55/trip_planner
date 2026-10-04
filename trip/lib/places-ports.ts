@@ -62,7 +62,7 @@ export const placesSyncPort: SyncPort<MyPlace[]> = {
     import('./places-remote')
       .then(({ subscribeRemotePlaces }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemotePlaces();
+        realUnsub = subscribeRemotePlaces(onDead);
       })
       .catch((err) => {
         console.warn('[places] remote subscribe unavailable:', err);

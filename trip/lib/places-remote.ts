@@ -119,7 +119,7 @@ export async function pushPlacesChunk(current: MyPlace[], chunk: string, tripId:
  * self-degrading: no-op unsubscribe when dormant or on the default pack; any failure → local-only
  * via console.warn, never throws. Mirrors `subscribeRemoteDocs`.
  */
-export function subscribeRemotePlaces(): () => void {
+export function subscribeRemotePlaces(onDead?: () => void): () => void {
   // Trip-scoped gate: the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -143,6 +143,8 @@ export function subscribeRemotePlaces(): () => void {
     };
     window.addEventListener('online', onlineHandler);
   };
+  // The caller's reopen timer (#845) replaces the `online` wait; both would double-listen.
+  const retry = () => (onDead ? onDead() : armOnlineRetry());
 
   const persistAndDispatch = (rows: MyPlace[]) => {
     saveMyPlaces(rows);
@@ -215,7 +217,7 @@ export function subscribeRemotePlaces(): () => void {
             setReadDenied('places', true);
             return;
           }
-          if (!cancelled) armOnlineRetry();
+          if (!cancelled) retry();
         },
       );
 
@@ -228,7 +230,7 @@ export function subscribeRemotePlaces(): () => void {
       }
     } catch (err) {
       console.warn('[places-remote] remote sync unavailable, staying local-only:', err);
-      if (!cancelled) armOnlineRetry();
+      if (!cancelled) retry();
     } finally {
       settingUp = false;
     }
