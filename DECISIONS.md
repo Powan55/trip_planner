@@ -6167,3 +6167,11 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+
+### D-698 · (issue #850, 2026-10-04) · A synced reorder keeps live rows missing from its id list
+
+**Decision.** Under sync, `reorderItems` appends every row of the day absent from `orderedIds` (live and tombstones), not just tombstones.
+
+**Why.** The id list comes from the drag render. A peer row that arrives before the commit was dropped by the core reorder, and a drop that had already been pushed is not healed from remote.
+
+**Not changed.** The core drop of unlisted rows and the cross-day branch in `use-calendar-dnd.ts` (unreachable today).

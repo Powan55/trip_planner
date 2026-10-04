@@ -621,8 +621,8 @@ export function useItinerary(): ItineraryStore {
       }
       // SYNC ON:
       // (a) `orderedIds` comes from the UI, which only ever sees LIVE items (the tombstone
-      // filter). Core `reorderItems` drops any item not listed, so APPEND this day's tombstone
-      // ids or the reorder silently drops pending deletes and stops them propagating.
+      // filter). Core `reorderItems` drops any item not listed, so APPEND every row the list
+      // lacks (tombstones, and live rows a peer added since the drag) or they are silently dropped.
       // (b) re-stamp the live items so their `ord`s ASCEND in the new order. Order is NOT a
       // merge-visible fact on its own: `mergeItems` re-sorts by `ord ?? hlc` ascending at both
       // sync boundaries, so an order-only reorder was reverted by the next merge — the user's
@@ -632,10 +632,11 @@ export function useItinerary(): ItineraryStore {
       // same commit.
       commit((current) => {
         const day = current.find((p) => p.date === date);
-        const tombstoneIds = (day?.items ?? [])
-          .filter((i) => i.deleted === true && !orderedIds.includes(i.id))
+        // Also keeps live rows a peer added after the drag rendered (absent from the stale list).
+        const missingIds = (day?.items ?? [])
+          .filter((i) => !orderedIds.includes(i.id))
           .map((i) => i.id);
-        const ids = tombstoneIds.length > 0 ? [...orderedIds, ...tombstoneIds] : orderedIds;
+        const ids = missingIds.length > 0 ? [...orderedIds, ...missingIds] : orderedIds;
         const now = realClock.now().getTime();
         const actor = syncActor();
         return itinerary
