@@ -6167,3 +6167,11 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+
+### D-703 · Extends D-540 · (issue #856, 2026-10-04) · The rules no longer let an owner delete the trip doc
+
+**Decision.** `allow delete` on `trips/{tripId}` drops `|| isOwner()` and keeps only the open-trip branch (`isOpen() && request.auth != null`). A trip with a roster cannot be deleted from a client, owner or not.
+
+**Why.** Subcollections outlive a deleted doc, and a trip id with no doc reads as open (D-540), so the orphaned tree became readable and writable by any signed-in holder of the id, who could also re-create the doc as owner. No client path deletes a trip doc today; this closes it before one exists.
+
+**Not changed.** The repair for a malformed or empty roster still deletes (those read open). The console and admin SDK bypass rules. These rules are not published by this change; publishing stays an owner step.
