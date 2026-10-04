@@ -6167,3 +6167,9 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+
+### D-704 · Extends D-674 · (issue #857, 2026-10-04) · A journal restore pushes the dates it removed, too
+
+Restore replaces the whole local journal but pushed only the dates in the file, so the account journal doc kept the days the backup lacked and other devices still showed them. The journal `write` in `trip-backup.ts` now reads the pre-restore local dates before the write and pushes the union with the backup's dates. `pushJournalEntry` already tombstones a date that is absent locally with a sync record, and no-ops when it has none, so no new primitive and no new reads: one transaction per date on the single journal doc, as before.
+
+The `ok` gate stays: a refused local write pushes nothing.
