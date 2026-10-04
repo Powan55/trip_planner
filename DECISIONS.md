@@ -6127,6 +6127,13 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 
 **Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
 
+### D-693 · Extends D-600 · A newer local trip name/config is re-pushed at boot (#846)
+
+**Decision.** `runTripMetaSelfHeal` already reads the remote `meta/info` on every load. When the active trip's local `updatedAt` is strictly greater than the remote one (a missing remote stamp counts as 0), it calls `pushTripMeta` with the local name, config and stamp. Equal or older local pushes nothing.
+
+**Why.** `pushTripMeta` is a blind `setDoc` whose failure is swallowed. A rename queued offline on one device can land after a newer rename from another, and the newer device never wrote again, so the two disagreed for good.
+
+**Not done.** A compare-and-set transaction inside `pushTripMeta`: `runTransaction` throws offline and would break offline rename, which the persistent cache queues today. Known limits: only the active trip is healed (a stale rename on another trip waits until that trip is opened), and a device clock set far ahead wins until the others write, the same ceiling as D-600.
 ### D-695 · (issue #848, 2026-10-04) · A day push keeps remote itinerary rows this build cannot parse
 
 `pushDayMerged` rebuilt the day from the rows `sanitizeItineraryItems` accepts, then `tx.set` wrote that, so an older build erased a newer peer's row it could not read (e.g. `lat` as a string). The write now appends every raw remote row that is an object with a non-blank string `id` not already in the merged items, verbatim and untouched by tombstone GC. Rows with no usable id (null, primitives) are still dropped. The push is not refused: one unreadable row would otherwise block the whole day. The local copy never sees the kept rows.
