@@ -448,6 +448,8 @@ export function applyRemoteTripMeta(
  */
 export const DEFAULT_SHARE_PREFIX = 'pack:';
 
+const MIN_TRIP_TOKEN_LEN = 20;
+
 /** What a pasted/linked token turns out to be. */
 export type TripToken =
   | { kind: 'default'; id: string }
@@ -471,6 +473,9 @@ export function parseTripToken(raw: string): TripToken | null {
   if (trimmed.toLowerCase() === SHARED_TRIP_ID) return { kind: 'default', id: SHARED_TRIP_ID };
   // The legacy account names are account paths (`trips/<Name>/profile/...`), never trips.
   if (isLegacyAccountKey(trimmed)) return null;
+  // D-696 (#852) — a token this short is guessable; app-minted ids are uuids. The default
+  // pack's own slug is the way back to it, not a guess.
+  if (trimmed.length < MIN_TRIP_TOKEN_LEN && trimmed !== DEFAULT_TRIP_ID) return null;
   return { kind: 'custom', id: trimmed };
 }
 

@@ -469,7 +469,7 @@ describe('one shot, on DAY CHANGE only', () => {
     // The joiner's NORMAL state (SB-6 / A-2): a registered TripMeta with no config block, so the
     // active pack resolves to `placeholderTripConfig` — one day, at a fixed unreachable sentinel.
     const { joinTrip } = await import('@/core/trips/registry');
-    joinTrip('joined-no-config');
+    joinTrip('joined-no-config-0123456789');
 
     // The clock is the REAL current UTC day, uniquely in this file, and that is the point: it is
     // the one reading that catches a placeholder span moved back onto "today" (the pre-D-342 code

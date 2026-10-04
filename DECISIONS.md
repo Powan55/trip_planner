@@ -6126,3 +6126,11 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 **Data.** The journal picker now offers a day only once the hero has reached it, so Dec 9 is no longer offered on Dec 8 evening at home. Entry keys are still the day the user picks, and existing entries are untouched.
 
 **Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
+
+### D-696 · Extends D-675 · (issue #852, 2026-10-04) · Joining a trip needs a 20-character token
+
+**Decision.** `parseTripToken` in `core/trips/registry.ts` refuses a custom token shorter than `MIN_TRIP_TOKEN_LEN` (20), so `joinTrip`, the `?trip=` handshake and the front door's held link all refuse it with the existing "incomplete code" copy. The floor is a length, not a UUID check, so a long hand-made id still joins. The default pack's own slug is exempt (it is the way back to the pack), and `isSafeTripSegment` is untouched because it guards stored paths. `joinTrip` and the handshake already let a row this device holds through, so existing short-id trips keep switching.
+
+**Why.** Any 1-128 character token such as "abc" joined, and `reconcileFirstSnapshot` then seeded that trip doc, so a mistyped or guessed token landed on a world-guessable open trip. App-minted ids are v4 UUIDs.
+
+**Unknown.** A live trip with a short hand-made id that no device has joined yet can no longer be joined fresh. Owner to confirm none exist.

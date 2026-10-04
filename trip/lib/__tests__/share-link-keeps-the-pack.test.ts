@@ -96,9 +96,9 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
       expect(forDefault).toBe(`pack:${SHARED_TRIP_ID}`);
       expect(parseTripToken(forDefault)).toEqual({ kind: 'default', id: SHARED_TRIP_ID });
 
-      const forCustom = formatShareToken('hokkaido-2027', 'hokkaido-2027');
-      expect(forCustom).toBe('hokkaido-2027');
-      expect(parseTripToken(forCustom)).toEqual({ kind: 'custom', id: 'hokkaido-2027' });
+      const forCustom = formatShareToken('hokkaido-2027-trip-0123', 'hokkaido-2027-trip-0123');
+      expect(forCustom).toBe('hokkaido-2027-trip-0123');
+      expect(parseTripToken(forCustom)).toEqual({ kind: 'custom', id: 'hokkaido-2027-trip-0123' });
 
       // A pack with no remote path yet has nothing to share, which is what every share
       // affordance disables itself on.
@@ -164,8 +164,8 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
     it('a joiner already on a custom trip is brought back to the pack', async () => {
       const { joinTrip, getActiveTripId, tripOffsetMinFor } = await load();
 
-      joinTrip('hokkaido-2027', 'Their other trip');
-      expect(getActiveTripId()).toBe('hokkaido-2027');
+      joinTrip('hokkaido-2027-trip-0123', 'Their other trip');
+      expect(getActiveTripId()).toBe('hokkaido-2027-trip-0123');
       expect(tripOffsetMinFor(IN_NEPAL)).toBeNull(); // custom: no geography
 
       expect(joinTrip(`pack:${SHARED_TRIP_ID}`, 'Shared trip')).toBe(true);
@@ -228,8 +228,8 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
   describe('joinTrip reports whether the switch landed', () => {
     it('returns true on a successful custom-trip switch (the unchanged path)', async () => {
       const { joinTrip, getActiveTripId } = await load();
-      expect(joinTrip('hokkaido-2027', 'Shared trip')).toBe(true);
-      expect(getActiveTripId()).toBe('hokkaido-2027');
+      expect(joinTrip('hokkaido-2027-trip-0123', 'Shared trip')).toBe(true);
+      expect(getActiveTripId()).toBe('hokkaido-2027-trip-0123');
     });
 
     it('returns false when the browser swallows the write (private mode / full box)', async () => {
@@ -242,7 +242,7 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
           throw new DOMException('QuotaExceededError');
         });
       try {
-        expect(joinTrip('hokkaido-2027', 'Shared trip')).toBe(false);
+        expect(joinTrip('hokkaido-2027-trip-0123', 'Shared trip')).toBe(false);
         expect(getActiveTripId()).toBe(PACK_ID);
       } finally {
         setItem.mockRestore();
