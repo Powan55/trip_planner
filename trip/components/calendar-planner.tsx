@@ -35,6 +35,7 @@ import { useCalendarDnd } from '@/hooks/use-calendar-dnd';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
+import { itemPatch } from '@/core/itinerary';
 import QuickAddInput from '@/components/quick-add-input';
 import MapIslandBoundary from '@/components/map-island-boundary';
 import { prefersReducedMotion } from '@/lib/motion';
@@ -925,7 +926,9 @@ export default function CalendarPlanner() {
     const dayPlan = getDayPlan(selectedDate);
     const exists = (dayPlan.items ?? []).some((i) => i.id === item.id);
     if (exists) {
-      updateItem(selectedDate, item.id, item);
+      // changed keys only: a whole-item patch re-stamps done and carries stale rev/hlc (#844)
+      const prev = editingItem ?? (dayPlan.items ?? []).find((i) => i.id === item.id)!;
+      updateItem(selectedDate, item.id, itemPatch(prev, item));
     } else {
       addItem(selectedDate, item);
     }

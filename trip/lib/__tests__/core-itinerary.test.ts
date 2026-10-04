@@ -27,6 +27,7 @@ import {
   getDayPlan,
   findPlacements,
   noStamp,
+  itemPatch,
 } from '@/core/itinerary';
 import type { StoragePort } from '@/core/ports';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
@@ -41,6 +42,26 @@ function item(id: string, extra: Partial<ItineraryItem> = {}): ItineraryItem {
 function day(date: string, items: ItineraryItem[], over: Partial<DayPlan> = {}): DayPlan {
   return { date, city: 'X', country: 'nepal', items, ...over };
 }
+
+describe('core/itinerary — itemPatch', () => {
+  it('emits only the changed keys', () => {
+    const prev = item('a', { done: true, rev: 3, notes: 'old' });
+    expect(itemPatch(prev, { ...prev, notes: 'new' })).toEqual({ notes: 'new' });
+  });
+
+  it('keeps a key cleared to undefined', () => {
+    const prev = item('a', { lat: 1, lng: 2, notes: 'n' });
+    const patch = itemPatch(prev, { ...prev, lat: undefined, notes: undefined });
+    expect(patch).toHaveProperty('lat', undefined);
+    expect(patch).toHaveProperty('notes', undefined);
+    expect('lng' in patch).toBe(false);
+  });
+
+  it('is empty for an unchanged item', () => {
+    const prev = item('a', { done: true });
+    expect(itemPatch(prev, { ...prev })).toEqual({});
+  });
+});
 
 describe('core/itinerary — synthesizeDay', () => {
   it('synthesizes a Nepal day (Kathmandu) for a Nepal-leg date', () => {

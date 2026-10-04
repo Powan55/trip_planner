@@ -6134,3 +6134,17 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 **Why.** On a weak or captive network `navigator.onLine` stays true, so no `online` event came and the listener stayed dead until reload while the badge read "Saved Xm ago". This closes the two cases D-591 deferred: stream errors and the captive-portal wait.
 
 **Cost.** A reopen is a fresh listen that re-reads the domain's docs, at most six per domain per outage.
+### D-690 · Extends #518 · (issue #843, 2026-10-04) · A remote forget keeps this device's pending work
+
+**Decision.** `importRemoteTrips` skips `wipeForgottenTripData` for an id with unsynced edits (`unsyncedEditCountFor`) or device-only photos (`localPhotoCountFor`). The entry still leaves the list and the tombstone is still recorded; nothing is stamped or stripped, so the forget does not bounce back to the device that made it. A local forget (`removeKnownTrip`) still wipes everything.
+
+**Why.** Device A forgetting a trip made device B's next trip-list snapshot delete B's offline edits and its photos, which exist nowhere else.
+
+**Known ceiling.** The kept `trip:{id}:*` data sits on disk with no list entry. Re-joining the trip or forgetting it locally clears it. No prompt, no UI.
+### D-691 · Extends D-230 and D-569 · (issue #844, 2026-10-04) · The editor saves only the fields it changed
+
+**Decision.** `handleSaveItem` sends `itemPatch(editingItem, saved)` to `updateItem`: the keys whose value differs from the item the editor opened with, over the union of both key sets. A key cleared to `undefined` is kept, since that is how the editor clears location, notes, coordinates and end date.
+
+**Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
+
+**Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
