@@ -6105,6 +6105,18 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 
 **Not a listener.** Mounting the journal's snapshot stream app-wide would cost a read on every change for the life of the page. The one-shot push costs nothing when nothing is dirty, and one transaction read per dirty day or per prefs flush otherwise.
 
+### D-676 · Amends D-334's text-tier clause · (issue #781, 2026-10-03) · The base app gets an outdoor floor: --text-lo #BEB4D6, 12.75px micro, .9 stamp scrim
+
+**Decision.** Three moves for reading the base app in sunlight, not only in Travel Mode (D-165). (1) `--text-lo` goes `#A79BC0 -> #BEB4D6` (and `--muted-foreground` with it): lighter, same hue family, 7.24:1 on `--surface-3` where it was 5.48. hi and mid do not move. (2) `--t-micro`, the size floor, goes 11.69px -> 12.75px, so it now equals `--t-label`. The hero countdown labels move off their 10px literal onto `text-t-label`. (3) The Must-See stamp scrim on guide photos goes .72 -> .9 (6.84 np-a / 7.64 jp-a on a pure white pixel).
+
+**Why.** The floor tier and floor size are what every meta row, chip and key reads at, so they bind first outdoors. Lifting the tokens fixes ~728 tier sites and every micro label at once instead of re-tiering them one by one.
+
+**What did not change.** The tier is still one value, so the D-334 rule of three tiers and no fourth holds. Five harness guards (`--text-lo` over the hero photo, capped hero NP/JP, wall cover, np-a 18% screen) now pass and moved into `pairs` as "not used" floors. The authoring rules they guarded (no floor-tier words over a photograph, tint screens cap at 14%) stand. Loosening either is its own decision.
+
+**Trade-off.** `--t-micro` and `--t-label` are the same size, so a mono-caps key over a label value now differs by family, case and tier, not size. The mid/lo tier gap also shrank to about 1.20:1 luminance, so hierarchy leans on size, weight and case. Visual baselines move app-wide.
+
+**Changes if:** a layout cannot fit 12.75px (then move that site, never the floor back down); or someone re-tiers hero copy using the new numbers.
+
 ### D-677 · Extends D-420 · (issues #789, #791, 2026-10-03) · Day-of readers use the hero's day
 
 **Decision.** `getTripDayDate()` in `lib/trip-now.ts` returns `getTodayInTrip()?.date`, else the device's own calendar day. The journal's missed-day picker, the passport stamps, both recaps, the wrapped story and the home stat row read it in place of `getNowAtTrip().date`. The ones that read it once on mount now re-read on the shared travel tick (20s, plus a catch-up on tab visible), so a page left open past midnight moves on. `getNowAtTrip` is unchanged and still feeds the concierge digest, the weather card (the forecast day is the destination's), the hero's post-trip check and visit autocount.

@@ -98,7 +98,7 @@ function RecommendationCard({
             </div>
             <div className="absolute top-3 left-3 z-[3] flex flex-col items-start gap-1.5">
               {item.mustSee && (
-                <span className="stamp border-[color:var(--now)] bg-[rgb(var(--scrim-ink-rgb)/0.72)] text-now">
+                <span className="stamp border-[color:var(--now)] bg-[rgb(var(--scrim-ink-rgb)/0.9)] text-now">
                   <Star className="w-3 h-3 fill-current" aria-hidden="true" />
                   Must-see
                 </span>

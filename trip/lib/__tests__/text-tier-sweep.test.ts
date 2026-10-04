@@ -75,7 +75,7 @@ describe('issue #27 — the three-tier line holds across every surface', () => {
     // A tier class pointing at a var nobody declares would paint nothing at all, and would do it
     // silently — so tie the Tailwind key to the declaration in the same assertion.
     const css = read('app/globals.css');
-    for (const v of ['--text-hi: #FFFFFF', '--text-mid: #CFC6E0', '--text-lo: #A79BC0'])
+    for (const v of ['--text-hi: #FFFFFF', '--text-mid: #CFC6E0', '--text-lo: #BEB4D6'])
       expect(css, `globals.css no longer declares ${v}`).toContain(v);
   });
 

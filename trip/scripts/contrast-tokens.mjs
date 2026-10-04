@@ -69,7 +69,7 @@ const C = {
   // material scoped to one surface, not a light mode.
   paper: '#DCCDAE',
   // ---- text ----
-  textHi: '#FFFFFF', textMid: '#CFC6E0', textLo: '#A79BC0',
+  textHi: '#FFFFFF', textMid: '#CFC6E0', textLo: '#BEB4D6',
   // --paper-lo BINDS FIRST when the page darkens: on the old cream it was #6B5B7E
   // with only 5.27:1 of headroom, and D-294's darker parchment forced it to #524563.
   // Re-measure this one before ever changing --paper again.
@@ -200,6 +200,9 @@ C.docsNoteFill = over('#FFFFFF', C.surface1, 0.03);
 // the page below it and the section blends with no seam; that also makes it very slightly
 // STRICTER than ramping toward the darker ink, so nothing here is flattered.
 C.heroScrim76 = over(C.bg, '#FFFFFF', 0.76); // the ramp's floor — where hero copy sits
+// #781: the Must-See stamp on an UNGRADED guide photo (recommendation-section.tsx). No duotone
+// caps these, so the worst pixel is pure white. At .72 it measured 4.39-4.85 on real photos.
+C.stampScrim90 = over(C.scrimInk, '#FFFFFF', 0.9);
 C.heroScrim90 = over(C.bg, '#FFFFFF', 0.90); // the ramp's top/bottom, under the navbar
 // The entrance reveal runs each hero element from FADE_FLOOR (0.95) to 1, and the axe scan
 // runs WITHOUT reduced motion, so it can sample that frame. These are the tiers painted at
@@ -570,6 +573,20 @@ const pairs = [
   ['stat value (hi) on a stat cell', C.textHi, C.surface1, 4.5],
   ['stat caption (lo) on a stat cell', C.textLo, C.surface1, 4.5],
 
+  ['-- ISSUE #781: OUTDOOR LEGIBILITY (base app) --'],
+  // The Must-See stamp paints --now (np-a or jp-a) on a .9 scrim over the photo.
+  ['Must-See stamp (np-a) on .9 scrim, white px', C.npA, C.stampScrim90, 4.5],
+  ['Must-See stamp (jp-a) on .9 scrim, white px', C.jpA, C.stampScrim90, 4.5],
+  // These five were GUARDS (must stay under 4.5) while --text-lo was #A79BC0. The lift
+  // makes them pass, so they are now floors that keep passing. MEASURED, NOT USED: the
+  // authoring rules they guarded (no floor-tier words over a photograph; tint screens cap
+  // at 14%) are unchanged. Loosening either is its own decision, not a side effect of #781.
+  ['--text-lo over the hero photo (not used)', C.textLo, C.heroScrim76, 4.5],
+  ['--text-lo over capped hero, NP (not used)', C.textLo, C.heroCapNp76, 4.5],
+  ['--text-lo over capped hero, JP (not used)', C.textLo, C.heroCapJp76, 4.5],
+  ['--text-lo over the wall cover (not used)', C.textLo, C.doorWall, 4.5],
+  ['--text-lo on np-a 18% screen (not used)', C.textLo, C.npScreen18, 4.5],
+
   ['-- THE DANGER VARIANT (globals.css `.btn--danger`, SPEC 9.7 defines none) --'],
   // The filled confirm. --destructive is a SATURATED FILL and the ink rule covers it like
   // any other; the guards below carry the two spellings that keep getting reached for.
@@ -696,13 +713,15 @@ const guards = [
   // against the raw color-mix. This is what it measures once the grain lands: 4.48, under the
   // floor. 18% is legal ONLY on a surface proven to carry nothing composited over it — prove
   // it, never assume it. If this guard starts passing, the grain or --text-lo moved.
-  ['np-a screened at 18% under --text-lo', C.textLo, C.npScreen18, 4.5],
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
+  // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // Issue #26. The hero's rule is "no floor-tier TEXT over the photograph", and this is
   // what makes it load-bearing instead of a comment: --text-lo is 3.55:1 at the scrim
   // floor, fine for a decorative mark and NOT fine for a word. If this guard ever starts
   // passing, the scrim got darker and hero copy can be re-tiered — which is a decision
   // somebody should make on purpose, having seen this line flip.
-  ['--text-lo as hero copy over the photo', C.textLo, C.heroScrim76, 4.5],
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
+  // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // Issue #89. THE CAP DOES NOT UNLOCK THE FLOOR TIER, and this is the line that proves it
   // rather than asserting it. The `.hero-cap` darken layer lifts the floor tier from 3.55
   // to 4.08 (NP) / 4.18 (JP) — a real gain, and still short of 4.5. Somebody reading the
@@ -716,8 +735,8 @@ const guards = [
   // (or the page field it composites over). That is precisely the direction in which a
   // floor-tier re-tier would become defensible, so it should be a decision somebody makes
   // having watched this line flip, not a side effect of a palette tweak.
-  ['--text-lo as hero copy over the capped photo, NP', C.textLo, C.heroCapNp76, 4.5],
-  ['--text-lo as hero copy over the capped photo, JP', C.textLo, C.heroCapJp76, 4.5],
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
+  // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // Issue #25. The front door reuses the header ramp, so the floor tier DOES clear AA over the
   // cover — but the ghost CTA's edge is the pair that would bind first if that ramp is ever
   // lightened, and --border is what an author reaches for when they do not know that. Measured
@@ -738,7 +757,8 @@ const guards = [
   // panel scrim: fine for a decorative mark, not fine for a word. It is the same rule the
   // hero's guard above carries, on the other photographic surface, and nothing renders in
   // that tier over either of them today — this is what keeps it that way.
-  ['--text-lo as copy over the wall cover', C.textLo, C.doorWall, 4.5],
+  // RETIRED AS A GUARD by #781 (D-676): the lifted --text-lo passes here. Now a pairing in
+  // the #781 block of `pairs`; the authoring rule above still stands until re-tiered on purpose.
   // (2) The auth panel is separated from the picture by DEPTH, not by contrast: an opaque
   // surface-2 fill measures 1.74:1 against the graded worst-case pixel behind it, and its
   // --border hairline is decorative like every other one in the app (the `--border as the
