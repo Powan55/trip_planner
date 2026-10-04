@@ -341,23 +341,32 @@ export function DurationField({
   onChange: (minutes: number | undefined) => void;
   testId?: string;
 }) {
+  const [draft, setDraft] = useState(String(value ?? ''));
+  useEffect(() => setDraft(String(value ?? '')), [value]);
+
+  const commit = () => {
+    const raw = draft.trim();
+    const number = Number(raw);
+    const minutes = raw === '' ? undefined : Number.isFinite(number)
+      ? Math.min(MAX_DURATION_MINUTES, Math.max(1, Math.round(number)))
+      : value;
+    setDraft(String(minutes ?? ''));
+    if (minutes !== value) onChange(minutes);
+  };
+
   return (
     <input
       id={id}
       // type="text" + inputMode="numeric" (not type="number"): gives the mobile numeric
       // keypad WITHOUT the number-spinner's mouse-wheel footgun, where scrolling the page
-      // over a focused field silently increments its value. onChange validates below.
+      // over a focused field silently increments its value. Blur validates the draft.
       type="text"
       inputMode="numeric"
-      value={value ?? ''}
-      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-        const raw = e.target.value.trim();
-        if (raw === '') {
-          onChange(undefined);
-          return;
-        }
-        const n = Math.round(Number(raw));
-        onChange(Number.isFinite(n) && n > 0 && n <= MAX_DURATION_MINUTES ? n : undefined);
+      value={draft}
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
       }}
       title={`Whole minutes, up to ${MAX_DURATION_MINUTES}`}
       data-testid={testId ?? 'duration-field-input'}
