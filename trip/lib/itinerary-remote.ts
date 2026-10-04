@@ -290,7 +290,20 @@ export async function pushDayMerged(
     // the push — write-once on both sides, and free to disagree forever. Items are unaffected:
     // the `mergeItems` join is commutative, so only the metadata precedence moves.
     const merged = gcTombstones(mergeDay(localDay, remoteNow), realClock.now().getTime());
-    tx.set(ref, sanitizeDayForWrite(merged));
+    const out = sanitizeDayForWrite(merged);
+    // Rows this build can't parse (a newer peer's schema) would be erased by the set; carry them verbatim. #848
+    if (snap.exists()) {
+      const rawItems = (snap.data() as Record<string, unknown>).items;
+      // parsed rows are excluded too, so a GC'd tombstone is not carried back
+      const have = new Set([...merged.items, ...remoteNow.items].map((it) => it.id));
+      const kept = Array.isArray(rawItems)
+        ? rawItems.filter(
+            (r) => r && typeof r === 'object' && typeof r.id === 'string' && r.id.trim() !== '' && !have.has(r.id),
+          )
+        : [];
+      if (kept.length) out.items = [...(out.items as unknown[]), ...kept];
+    }
+    tx.set(ref, out);
   });
 }
 
