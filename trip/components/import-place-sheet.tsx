@@ -246,7 +246,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
       testId="import-place-sheet"
       // Named exception to SHEET_PANEL: that constant rounds for a right-side drawer
       // (`sm:rounded-l-r3`); this sheet is side="center" and needs all four corners.
-      className="w-full max-w-md rounded-r3 max-h-[90vh]"
+      className="w-full max-w-md rounded-r3 max-h-[90dvh]"
     >
         <div className={SHEET_HEAD}>
           <div className="min-w-0">

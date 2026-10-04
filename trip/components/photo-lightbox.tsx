@@ -36,7 +36,7 @@ export default function PhotoLightbox({ open, photo, onClose, onExitComplete }: 
       labelledBy={titleId}
       side="center"
       testId="photo-lightbox"
-      className="w-full max-w-3xl max-h-[90vh] rounded-r2"
+      className="w-full max-w-3xl max-h-[90dvh] rounded-r2"
     >
       <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-2 pt-4">
         <h3 id={titleId} className="sr-only">
