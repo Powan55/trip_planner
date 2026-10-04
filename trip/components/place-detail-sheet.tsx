@@ -77,7 +77,7 @@ export const SHEET_PANEL = 'rounded-t-r3 sm:rounded-t-none sm:rounded-l-r3';
 export const SHEET_HEAD =
   'shrink-0 flex items-center justify-between gap-3 p-gut py-3 border-b-2 border-[color:hsl(var(--border))]';
 export const SHEET_FOOT =
-  'shrink-0 p-gut pt-3 pb-5 border-t-2 border-[color:hsl(var(--border))] bg-surface-low space-y-2.5';
+  'shrink-0 p-gut pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t-2 border-[color:hsl(var(--border))] bg-surface-low space-y-2.5';
 export const SHEET_CLOSE =
   'shrink-0 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:hsl(var(--border))] text-ink-mid transition-colors hover:border-[color:var(--border-ui)] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 
