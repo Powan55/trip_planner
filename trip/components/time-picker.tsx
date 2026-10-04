@@ -80,7 +80,10 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
       const panel = panelRef.current;
       if (!panel) return;
       const target = panel.querySelector<HTMLElement>('[data-col="hour"][aria-selected="true"]');
-      target?.focus();
+      target?.focus({ preventScroll: true });
+      panel.querySelectorAll<HTMLElement>('[data-col][aria-selected="true"]').forEach((option) => {
+        option.scrollIntoView?.({ block: 'center', behavior: 'auto' });
+      });
     }, 30);
     return () => clearTimeout(timer);
   }, [open]);

@@ -38,12 +38,12 @@ async function flush(ms = 50): Promise<void> {
   });
 }
 
-function renderPicker(onKeyDown?: (event: React.KeyboardEvent) => void) {
+function renderPicker(onKeyDown?: (event: React.KeyboardEvent) => void, value?: number) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
   act(() => {
-    root.render(createElement('div', { onKeyDown }, createElement(TimePicker, { value: undefined, onChange: vi.fn() })));
+    root.render(createElement('div', { onKeyDown }, createElement(TimePicker, { value, onChange: vi.fn() })));
   });
   return {
     unmount() {
@@ -54,6 +54,31 @@ function renderPicker(onKeyDown?: (event: React.KeyboardEvent) => void) {
 }
 
 describe('TimePicker — Tab focus trap (#230)', () => {
+  it('centers every selected column on each open while keeping hour focus (#867)', async () => {
+    const scroll = vi.fn();
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    const h = renderPicker(undefined, 23 * 60 + 58);
+    try {
+      for (let opened = 0; opened < 2; opened++) {
+        scroll.mockClear();
+        act(() => q('time-picker-trigger').click());
+        await flush();
+        expect(scroll.mock.instances).toEqual([
+          q('time-picker-hour-11'), q('time-picker-minute-58'), q('time-picker-period-PM'),
+        ]);
+        expect(scroll.mock.calls).toEqual(Array(3).fill([{ block: 'center', behavior: 'auto' }]));
+        expect(document.activeElement).toBe(q('time-picker-hour-11'));
+        act(() => q('time-picker-close').click());
+      }
+    } finally {
+      h.unmount();
+      HTMLElement.prototype.scrollIntoView = original;
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('keeps portaled Tab events out of the parent dialog trap (#862)', async () => {
     const parentTrap = vi.fn((event: React.KeyboardEvent) => {
       if (event.key === 'Tab') q('time-picker-trigger').focus();
