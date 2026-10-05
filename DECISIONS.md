@@ -6167,6 +6167,13 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+### D-701 · Amends D-199 · (issue #854, 2026-10-04) · Restore stops reading a gzip file once it unpacks past 64 MB
+
+**Decision.** `decompressBlobOrText` reads the decompression stream chunk by chunk and, once the output passes `MAX_IMPORT_BYTES`, cancels the stream and throws "That file is too large to open (over 64 MB once unpacked)." The prefix is the one `trip-backup.ts` already keys on, so Restore shows its usual "No changes were made" line.
+
+**Why.** The 64 MB cap measured the compressed file only. A small crafted archive inflated without limit through `Response(stream).text()` and froze the tab.
+
+**Not changed.** The cap is the existing constant, so a real backup is bounded the same whether it arrives plain or gzipped.
 
 ### D-700 · Amends D-356 · (issue #853, 2026-10-04) · Forgetting a trip deletes its exact slot keys, not a prefix
 
