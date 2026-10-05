@@ -135,6 +135,14 @@ describe('useCardTilt — gyro permission gating', () => {
     hook.unmount();
   });
 
+  it('ungated browser (Android) listens without any permission call', () => {
+    (globalThis as any).DeviceOrientationEvent = function () {};
+    const addSpy = vi.spyOn(window, 'addEventListener');
+    const hook = renderTilt();
+    expect(hasOrientationListener(addSpy)).toBe(true);
+    hook.unmount();
+  });
+
   it('a denied iOS request is a silent no-op — still no listener', async () => {
     (globalThis as any).DeviceOrientationEvent = function () {};
     (globalThis as any).DeviceOrientationEvent.requestPermission = vi

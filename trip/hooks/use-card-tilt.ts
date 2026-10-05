@@ -85,7 +85,10 @@ function onDeviceOrientation(e: DeviceOrientationEvent): void {
 }
 
 function startGyro(): void {
-  if (gyroListening || !gyroGranted || typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return;
+  // Android/ungated browsers: nothing to ask, and no opt-in button renders there.
+  if (typeof DeviceOrientationEvent !== 'undefined' && !motionPermissionSupported()) gyroGranted = true;
+  if (gyroListening || !gyroGranted) return;
   gyroListening = true;
   window.addEventListener('deviceorientation', onDeviceOrientation);
 }
