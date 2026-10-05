@@ -347,7 +347,7 @@ describe('mergeItems — done state merges apart from the body winner (#541, D-5
   });
 });
 
-describe('mergeItems — different fields of one row merge per field group (#847, D-680)', () => {
+describe('mergeItems — different fields of one row merge per field group (#847, D-705)', () => {
   type FRow = Row & { notes?: string; time?: string; startMinutes?: number; title?: string };
   const T0 = serialize(H(50, 0, 'A'));
   const T1 = serialize(H(100, 0, 'A'));

@@ -172,6 +172,13 @@ describe('drag-to-reorder inside a day survives the sync round trip', () => {
     expect(ids(mergeDays(loadPlans(), [mergeDay(localDay, localDay)])[0].items)).toEqual(['c', 'a']);
   });
 
+  it('a live row missing from a stale orderedIds is kept, not dropped', async () => {
+    const h = await seedThreeItems();
+    state.nowMs += 1000;
+    await h.run((s) => s.reorderItems(DATE, ['c', 'a']));
+    expect(ids(dayOf(loadPlans()).items)).toEqual(['c', 'a', 'b']);
+  });
+
   it('checking off the FIRST row leaves it first — an edit advances the conflict key, not the order key', async () => {
     // The done toggle (components/travel-agenda-card.tsx) is a plain `updateItem`, so it takes
     // the same stamping path as the item editor and the rename-and-claim pass. When one field

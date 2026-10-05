@@ -86,7 +86,7 @@ export const itineraryItemSchema = z
     doneBy: z.string().optional(),
     doneAt: z.string().optional(),
     doneHlc: z.string().optional(),
-    // Per-field-group merge stamps (#847, D-680). Additive OPTIONAL: NO migration, NO version bump.
+    // Per-field-group merge stamps (#847, D-705). Additive OPTIONAL: NO migration, NO version bump.
     fieldHlc: z.record(z.string(), z.string()).optional(),
     // Manual pin-drop ( — additive OPTIONAL, per lenient-read rule, mirrors the
     // `done` entry above). NO migration and NO version bump: an item with lat/lng absent is

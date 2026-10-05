@@ -104,7 +104,7 @@ beforeEach(() => {
   replace.mockReset();
   window.localStorage.clear();
   window.sessionStorage.clear();
-  window.history.replaceState(null, '', `/?trip=trip-xyz&invite=${TOKEN}`);
+  window.history.replaceState(null, '', `/?trip=trip-xyz-0123456789abcd&invite=${TOKEN}`);
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -122,9 +122,9 @@ describe('TokenGate with an invite link (#641)', () => {
   it('strips the invite on mount, redeems it, and hands the link on without joining', async () => {
     h.redeem = 'joined';
     await logIn();
-    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`]);
+    expect(h.calls).toEqual([`redeem:trip-xyz-0123456789abcd:${TOKEN}`]);
     expect(replace).toHaveBeenCalledTimes(1);
-    expect(replace.mock.calls[0][0]).toMatch(/\/\?trip=trip-xyz$/);
+    expect(replace.mock.calls[0][0]).toMatch(/\/\?trip=trip-xyz-0123456789abcd$/);
     expect(q('trip-join-dialog')).toBeNull();
     expect(JSON.stringify({ ...window.localStorage })).not.toContain(TOKEN);
     expect(JSON.stringify({ ...window.sessionStorage })).not.toContain(TOKEN);
@@ -133,7 +133,7 @@ describe('TokenGate with an invite link (#641)', () => {
   it('refused invite: says so, joins nothing, offers a way on', async () => {
     h.redeem = 'invalid';
     await logIn();
-    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`]);
+    expect(h.calls).toEqual([`redeem:trip-xyz-0123456789abcd:${TOKEN}`]);
     expect(replace).not.toHaveBeenCalled();
     expect(q('token-gate-error')?.textContent).toContain('expired, was already used');
     expect(q('token-gate-invite-retry')).toBeNull();
@@ -144,9 +144,9 @@ describe('TokenGate with an invite link (#641)', () => {
   it('already a member: the link still goes to the join dialog', async () => {
     h.redeem = 'already';
     await logIn();
-    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`]);
+    expect(h.calls).toEqual([`redeem:trip-xyz-0123456789abcd:${TOKEN}`]);
     expect(replace).toHaveBeenCalledTimes(1);
-    expect(replace.mock.calls[0][0]).toMatch(/\/\?trip=trip-xyz$/);
+    expect(replace.mock.calls[0][0]).toMatch(/\/\?trip=trip-xyz-0123456789abcd$/);
   });
 
   it('an unusable token (a legacy account name) lands /trips/ and joins nothing', async () => {
@@ -163,7 +163,7 @@ describe('TokenGate with an invite link (#641)', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
-    expect(h.calls).toEqual([`redeem:trip-xyz:${TOKEN}`]);
+    expect(h.calls).toEqual([`redeem:trip-xyz-0123456789abcd:${TOKEN}`]);
     expect(replace).not.toHaveBeenCalled();
     expect(q('token-gate-error')?.textContent).toContain('could not reach the trip');
     expect(document.activeElement).toBe(q('token-gate-invite-retry'));

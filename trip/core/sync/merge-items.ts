@@ -122,7 +122,7 @@ function mergeDone<R extends SyncedRow>(win: R, a: R, b: R): R {
 }
 
 /**
- * Content fields that merge per group (#847, D-680), each on its own `fieldHlc` stamp. Groups, not
+ * Content fields that merge per group (#847, D-705), each on its own `fieldHlc` stamp. Groups, not
  * single keys, so the free-text `time` and its numeric `startMinutes` (likewise `duration` and
  * `durationMinutes`) always travel together and can never come from different edits. Everything
  * else on a row (category, pin, source link, ...) still follows the body winner.

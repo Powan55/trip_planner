@@ -74,6 +74,7 @@ export default function SignOutConfirm({
   const [passwordSession, setPasswordSession] = useState(false);
   const [unsynced, setUnsynced] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
   const [flushing, setFlushing] = useState(false);
   const busyRef = useRef(false);
 
@@ -145,7 +146,10 @@ export default function SignOutConfirm({
 
   return (
     <AlertDialog
+      open={open}
       onOpenChange={(open) => {
+        if (!open && busyRef.current) return;
+        setOpen(open);
         if (!open) return;
         setBackup('idle'); // fresh dialog, fresh backup-offer state
         setStep('confirm');
@@ -209,7 +213,7 @@ export default function SignOutConfirm({
               busy={busy}
             />
             <AlertDialogFooter>
-              <AlertDialogCancel data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={busy} data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
             </AlertDialogFooter>
           </>
         ) : (
@@ -238,7 +242,7 @@ export default function SignOutConfirm({
             </div>
 
             <AlertDialogFooter>
-              <AlertDialogCancel data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={busy} data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 data-testid={`${testId}-confirm`}
                 // `preventDefault` keeps Radix from closing the dialog: with a key to show, this

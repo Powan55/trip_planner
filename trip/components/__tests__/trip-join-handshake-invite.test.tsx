@@ -39,7 +39,7 @@ const replace = vi.fn();
 beforeEach(() => {
   calls.length = 0;
   window.localStorage.clear();
-  window.history.replaceState(null, '', `/?trip=trip-xyz&invite=${TOKEN}`);
+  window.history.replaceState(null, '', `/?trip=trip-xyz-0123456789abcd&invite=${TOKEN}`);
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -57,7 +57,7 @@ describe('TripJoinHandshake with an invite (#641)', () => {
     await act(async () => root.render(<TripJoinHandshake />));
 
     expect(spy).toHaveBeenCalled();
-    expect(window.location.search).toBe('?trip=trip-xyz');
+    expect(window.location.search).toBe('?trip=trip-xyz-0123456789abcd');
 
     const confirm = document.querySelector<HTMLButtonElement>('[data-testid="trip-join-confirm"]');
     expect(confirm).not.toBeNull();
@@ -68,7 +68,7 @@ describe('TripJoinHandshake with an invite (#641)', () => {
     });
     await act(async () => confirm!.click());
 
-    expect(calls).toEqual([`redeem:trip-xyz:${TOKEN}`, 'join:trip-xyz']);
+    expect(calls).toEqual([`redeem:trip-xyz-0123456789abcd:${TOKEN}`, 'join:trip-xyz-0123456789abcd']);
     expect(replace).toHaveBeenCalledTimes(1);
   });
 

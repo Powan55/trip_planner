@@ -19,7 +19,7 @@ import {
   getSyncCode,
   nameHintFlag,
 } from '@/core/storage/gateway';
-import { getKnownTrip, applyRemoteTripMeta } from '@/core/trips/registry';
+import { getKnownTrip, applyRemoteTripMeta, SHARED_NAME } from '@/core/trips/registry';
 import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib/expenses-ports';
 import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budget-ports';
@@ -290,6 +290,13 @@ export function runTripMetaSelfHeal(): () => void {
     .then((remote) => {
       if (cancelled || getActiveTripId() !== activeId) return; // forgotten mid-fetch (#656)
       if (!remote) return; // not there YET (or unreachable) — a later load retries
+      // D-693: a stale queued write can land after ours; re-push when local is strictly newer.
+      const local = getKnownTrip(activeId);
+      if (local?.updatedAt && local.name !== SHARED_NAME && local.updatedAt > (remote.updatedAt ?? 0)) {
+        void import('@/lib/trips-remote').then(({ pushTripMeta }) =>
+          pushTripMeta(activeId, { name: local.name, config: local.config, updatedAt: local.updatedAt }),
+        );
+      }
       // D-600: runs on every boot and applies a peer's rename/config by updatedAt LWW.
       if (!applyRemoteTripMeta(activeId, remote)) return;
       if (tripMetaSelfHealGuard.hasRun(activeId)) return; // one reload per session, even if a write keeps failing

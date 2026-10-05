@@ -35,6 +35,7 @@ import { useCalendarDnd } from '@/hooks/use-calendar-dnd';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
+import { itemPatch } from '@/core/itinerary';
 import QuickAddInput from '@/components/quick-add-input';
 import MapIslandBoundary from '@/components/map-island-boundary';
 import { prefersReducedMotion } from '@/lib/motion';
@@ -485,7 +486,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         animate={isDesktop ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
         exit={isDesktop ? { scale: 0.9, opacity: 0 } : { y: 40, opacity: 0 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 sm:p-6 max-h-[90dvh] overflow-y-auto overscroll-contain scrollbar-hide"
+        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto overscroll-contain scrollbar-hide"
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id={titleId} className="pr pr--l text-ink-hi">{item ? 'Edit item' : 'Add item'}</h3>
@@ -857,7 +858,7 @@ export default function CalendarPlanner() {
 
   // drag-and-drop wiring (sensors, active-drag id, reorder / move-between-days
   // handlers) lives in a co-located hook now — same logic, lifted out to shrink this file.
-  const { sensors, announcements, activeItem, handleDragStart, handleDragOver, handleDragEnd } = useCalendarDnd({
+  const { sensors, announcements, activeItem, handleDragStart, handleDragOver, handleDragEnd, handleDragCancel } = useCalendarDnd({
     plans,
     getDayPlan,
     moveItem,
@@ -925,7 +926,9 @@ export default function CalendarPlanner() {
     const dayPlan = getDayPlan(selectedDate);
     const exists = (dayPlan.items ?? []).some((i) => i.id === item.id);
     if (exists) {
-      updateItem(selectedDate, item.id, item);
+      // changed keys only: a whole-item patch re-stamps done and carries stale rev/hlc (#844)
+      const prev = editingItem ?? (dayPlan.items ?? []).find((i) => i.id === item.id)!;
+      updateItem(selectedDate, item.id, itemPatch(prev, item));
     } else {
       addItem(selectedDate, item);
     }
@@ -1766,6 +1769,7 @@ export default function CalendarPlanner() {
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
             >
               <DroppableDay dateStr={selectedDate}>
                 <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>

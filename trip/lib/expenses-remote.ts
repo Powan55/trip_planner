@@ -162,7 +162,7 @@ export async function pushExpenseChunk(current: Expense[], leg: string, tripId: 
  * lazy + self-degrading: no-op unsubscribe when dormant; any failure → local-only via console.warn,
  * never throws. Returns an unsubscribe fn.
  */
-export function subscribeRemoteExpenses(): () => void {
+export function subscribeRemoteExpenses(onDead?: () => void): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -186,6 +186,8 @@ export function subscribeRemoteExpenses(): () => void {
     };
     window.addEventListener('online', onlineHandler);
   };
+  // The caller's reopen timer (#845) replaces the `online` wait; both would double-listen.
+  const retry = () => (onDead ? onDead() : armOnlineRetry());
 
   // Persist + dispatch the resolved rows to the local store (the shared write tail). Writes
   // through the EXISTING persistence and dispatches the EXISTING event DIRECTLY — NOT via
@@ -311,7 +313,7 @@ export function subscribeRemoteExpenses(): () => void {
             setReadDenied('expenses', true);
             return;
           }
-          if (!cancelled) armOnlineRetry();
+          if (!cancelled) retry();
         },
       );
 
@@ -324,7 +326,7 @@ export function subscribeRemoteExpenses(): () => void {
       }
     } catch (err) {
       console.warn('[expenses-remote] remote sync unavailable, staying local-only:', err);
-      if (!cancelled) armOnlineRetry();
+      if (!cancelled) retry();
     } finally {
       settingUp = false;
     }

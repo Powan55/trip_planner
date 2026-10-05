@@ -69,7 +69,7 @@ export async function compressToBlob(text: string): Promise<Blob> {
 /**
  * Largest file the restore path will read into memory (#411). See the note at the check itself
  * for how the number was chosen. A gzip file is measured COMPRESSED, so a crafted archive can
- * still expand past this -- the cap bounds the read, not the expansion.
+ * still expand past this, so the unpacked output is capped at the same number below.
  */
 export const MAX_IMPORT_BYTES = 64 * 1024 * 1024;
 
@@ -97,5 +97,20 @@ export async function decompressBlobOrText(input: Blob | string): Promise<string
     throw new Error('This file is compressed and this browser cannot decompress it.');
   }
   const stream = bytesToStream(bytes).pipeThrough(new DecompressionStream('gzip'));
-  return new Response(stream).text();
+  // Count bytes as they come out and stop at the cap; a gzip bomb never gets fully inflated.
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > MAX_IMPORT_BYTES) {
+      await reader.cancel().catch(() => {});
+      throw new Error('That file is too large to open (over ' + Math.round(MAX_IMPORT_BYTES / (1024 * 1024)) + ' MB once unpacked).');
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
 }

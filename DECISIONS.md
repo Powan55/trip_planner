@@ -6127,7 +6127,94 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 
 **Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
 
-### D-680 · Extends D-103, D-106 · (issue #847, 2026-10-05) · Concurrent edits to different fields of one item both survive
+### D-696 · Extends D-675 · (issue #852, 2026-10-04) · Joining a trip needs a 20-character token
+
+**Decision.** `parseTripToken` in `core/trips/registry.ts` refuses a custom token shorter than `MIN_TRIP_TOKEN_LEN` (20), so `joinTrip`, the `?trip=` handshake and the front door's held link all refuse it with the existing "incomplete code" copy. The floor is a length, not a UUID check, so a long hand-made id still joins. The default pack's own slug is exempt (it is the way back to the pack), and `isSafeTripSegment` is untouched because it guards stored paths. `joinTrip` and the handshake already let a row this device holds through, so existing short-id trips keep switching.
+
+**Why.** Any 1-128 character token such as "abc" joined, and `reconcileFirstSnapshot` then seeded that trip doc, so a mistyped or guessed token landed on a world-guessable open trip. App-minted ids are v4 UUIDs.
+
+**Unknown.** A live trip with a short hand-made id that no device has joined yet can no longer be joined fresh. Owner to confirm none exist.
+### D-693 · Extends D-600 · A newer local trip name/config is re-pushed at boot (#846)
+
+**Decision.** `runTripMetaSelfHeal` already reads the remote `meta/info` on every load. When the active trip's local `updatedAt` is strictly greater than the remote one (a missing remote stamp counts as 0), it calls `pushTripMeta` with the local name, config and stamp. Equal or older local pushes nothing.
+
+**Why.** `pushTripMeta` is a blind `setDoc` whose failure is swallowed. A rename queued offline on one device can land after a newer rename from another, and the newer device never wrote again, so the two disagreed for good.
+
+**Not done.** A compare-and-set transaction inside `pushTripMeta`: `runTransaction` throws offline and would break offline rename, which the persistent cache queues today. Known limits: only the active trip is healed (a stale rename on another trip waits until that trip is opened), and a device clock set far ahead wins until the others write, the same ceiling as D-600.
+### D-695 · (issue #848, 2026-10-04) · A day push keeps remote itinerary rows this build cannot parse
+
+`pushDayMerged` rebuilt the day from the rows `sanitizeItineraryItems` accepts, then `tx.set` wrote that, so an older build erased a newer peer's row it could not read (e.g. `lat` as a string). The write now appends every raw remote row that is an object with a non-blank string `id` not already in the merged items, verbatim and untouched by tombstone GC. Rows with no usable id (null, primitives) are still dropped. The push is not refused: one unreadable row would otherwise block the whole day. The local copy never sees the kept rows.
+
+Sibling row sanitizers in the other synced domains have the same class of risk; not touched here.
+### D-692 · Extends D-591 · (issue #845, 2026-10-04) · A dead read listener reopens on backoff and the badge says it is not receiving
+
+**Decision.** Each `subscribeRemote*` (itinerary, expenses, budget, docs, places) takes the port's `onDead` and calls it on both a setup failure and a non-permission stream error, instead of arming its own `online` wait; with no `onDead` the old `online` retry still runs. `useDomainSync` clears the dead handle and reopens on the D-670 schedule (`RETRY_BASE_MS` doubling to `RETRY_MAX_MS`, `RETRY_MAX_ATTEMPTS` tries, none while `navigator.onLine` is false). The count resets on `online`, tab return and identity change; past the cap only those events reopen. A permission-denied read stays no-retry (#271). `core/sync/read-denied.ts` gains `setReadDead`/`isReadDead` on the same change event, cleared by the next good snapshot; `SyncStatus.readDead` is false while sign-in is required. The badge shows "Not receiving updates" in amber (`data-state="dead"`), below a refusal and above a pending count.
+
+**Why.** On a weak or captive network `navigator.onLine` stays true, so no `online` event came and the listener stayed dead until reload while the badge read "Saved Xm ago". This closes the two cases D-591 deferred: stream errors and the captive-portal wait.
+
+**Cost.** A reopen is a fresh listen that re-reads the domain's docs, at most six per domain per outage.
+### D-690 · Extends #518 · (issue #843, 2026-10-04) · A remote forget keeps this device's pending work
+
+**Decision.** `importRemoteTrips` skips `wipeForgottenTripData` for an id with unsynced edits (`unsyncedEditCountFor`) or device-only photos (`localPhotoCountFor`). The entry still leaves the list and the tombstone is still recorded; nothing is stamped or stripped, so the forget does not bounce back to the device that made it. A local forget (`removeKnownTrip`) still wipes everything.
+
+**Why.** Device A forgetting a trip made device B's next trip-list snapshot delete B's offline edits and its photos, which exist nowhere else.
+
+**Known ceiling.** The kept `trip:{id}:*` data sits on disk with no list entry. Re-joining the trip or forgetting it locally clears it. No prompt, no UI.
+### D-691 · Extends D-230 and D-569 · (issue #844, 2026-10-04) · The editor saves only the fields it changed
+
+**Decision.** `handleSaveItem` sends `itemPatch(editingItem, saved)` to `updateItem`: the keys whose value differs from the item the editor opened with, over the union of both key sets. A key cleared to `undefined` is kept, since that is how the editor clears location, notes, coordinates and end date.
+
+**Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
+
+**Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+
+### D-704 · Extends D-674 · (issue #857, 2026-10-04) · A journal restore pushes the dates it removed, too
+
+Restore replaces the whole local journal but pushed only the dates in the file, so the account journal doc kept the days the backup lacked and other devices still showed them. The journal `write` in `trip-backup.ts` now reads the pre-restore local dates before the write and pushes the union with the backup's dates. `pushJournalEntry` already tombstones a date that is absent locally with a sync record, and no-ops when it has none, so no new primitive and no new reads: one transaction per date on the single journal doc, as before.
+
+The `ok` gate stays: a refused local write pushes nothing.
+### D-703 · Extends D-540 · (issue #856, 2026-10-04) · The rules no longer let an owner delete the trip doc
+
+**Decision.** `allow delete` on `trips/{tripId}` drops `|| isOwner()` and keeps only the open-trip branch (`isOpen() && request.auth != null`). A trip with a roster cannot be deleted from a client, owner or not.
+
+**Why.** Subcollections outlive a deleted doc, and a trip id with no doc reads as open (D-540), so the orphaned tree became readable and writable by any signed-in holder of the id, who could also re-create the doc as owner. No client path deletes a trip doc today; this closes it before one exists.
+
+**Not changed.** The repair for a malformed or empty roster still deletes (those read open). The console and admin SDK bypass rules. These rules are not published by this change; publishing stays an owner step.
+### D-702 · Extends D-650 · (issue #855, 2026-10-04) · `saveItinerary` refuses to overwrite a newer envelope
+
+**Decision.** `saveItinerary` reads the stored value first and, if its `schemaVersion` is above `CURRENT_ITINERARY_VERSION`, warns and returns `false`, the same refused-save result as D-650, so `commit()` skips the push and snaps back. A missing, unparseable or older value writes as before, and older versions still upgrade on write.
+
+**Why.** A stale bundle (service-worker skew) reads a future envelope leniently, and its next save rewrote it as the current version, silently downgrading data a newer build had written.
+
+**Not changed.** Import still writes through `writeString` and bypasses the check. No toast or UI.
+
+**Trade-off.** Switching to an older branch on the same localhost origin locks saves until site data is cleared. The warning says so.
+### D-701 · Amends D-199 · (issue #854, 2026-10-04) · Restore stops reading a gzip file once it unpacks past 64 MB
+
+**Decision.** `decompressBlobOrText` reads the decompression stream chunk by chunk and, once the output passes `MAX_IMPORT_BYTES`, cancels the stream and throws "That file is too large to open (over 64 MB once unpacked)." The prefix is the one `trip-backup.ts` already keys on, so Restore shows its usual "No changes were made" line.
+
+**Why.** The 64 MB cap measured the compressed file only. A small crafted archive inflated without limit through `Response(stream).text()` and froze the tab.
+
+**Not changed.** The cap is the existing constant, so a real backup is bounded the same whether it arrives plain or gzipped.
+
+### D-700 · Amends D-356 · (issue #853, 2026-10-04) · Forgetting a trip deletes its exact slot keys, not a prefix
+
+**Why.** Trip ids may contain `:`, so the `trip:a:` sweep in `wipeTripData` also deleted the data of a hand-made trip `a:b`.
+
+**Decision.** `wipeTripData` removes `keyForTrip(id, slot)` for each `TRIP_SCOPED_SLOTS` member. Only `keyForTrip` writes `trip:` keys, so nothing is orphaned. `wipeAllTripData` keeps its prefix sweep because it wants everything.
+### D-699 · (issue #851, 2026-10-04) · The first-snapshot seed needs a confirmed server read
+
+**Decision.** In `reconcileFirstSnapshot`, if `getDocFromServer` fails and the cache fallback also lacks the trip doc, the reconcile applies a non-empty remote (never an empty one) and returns. It no longer runs the seed, whose non-merge marker `setDoc` could overwrite an existing `members` map on the owner device. A cache hit still counts as the doc existing.
+
+**Not done.** The stale-backup warning is deferred. The dead `pushPlans` is not removed.
+### D-698 · (issue #850, 2026-10-04) · A synced reorder keeps live rows missing from its id list
+
+**Decision.** Under sync, `reorderItems` appends every row of the day absent from `orderedIds` (live and tombstones), not just tombstones.
+
+**Why.** The id list comes from the drag render. A peer row that arrives before the commit was dropped by the core reorder, and a drop that had already been pushed is not healed from remote.
+
+**Not changed.** The core drop of unlisted rows and the cross-day branch in `use-calendar-dnd.ts` (unreachable today).
+### D-705 · Extends D-103, D-106 · (issue #847, 2026-10-05) · Concurrent edits to different fields of one item both survive
 
 **Decision.** Itinerary items carry an optional `fieldHlc`, a map from field group to the `hlc` of that group's last change. The groups are `title`, `time` (`time` + `startMinutes`), `duration` (`duration` + `durationMinutes`), `notes` and `location`. `resolvePair` joins each group from the row with the higher stamp, apart from the body winner, the same way it already joins `ord` and the done state (D-569); the merged `fieldHlc` is the per-group max. A tie keeps the body winner, a tombstone on either side is left to the body winner, and a group with no stamp compares by the row's `hlc`. Under sync, `updateItem` stamps a group with the new `hlc` only when its value actually changed (compared against the stored item, since the editors send the whole form on every save) and writes the pre-edit key for the rest; the rename-and-claim pass writes pre-edit keys for all. Everything else on the row (category, pin, source link, ...) still follows the body winner. No migration, no Vault version bump; `freshCopyOf` strips `fieldHlc` like the other stamps.
 

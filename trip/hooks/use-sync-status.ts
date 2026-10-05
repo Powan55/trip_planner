@@ -11,7 +11,13 @@ import {
   isSafeTripSegment,
 } from '@/core/storage/gateway';
 import { outboxBlocked, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
-import { isJournalDenied, isPrefsDenied, isReadDenied, isSignInRequired } from '@/core/sync/read-denied';
+import {
+  isJournalDenied,
+  isPrefsDenied,
+  isReadDead,
+  isReadDenied,
+  isSignInRequired,
+} from '@/core/sync/read-denied';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { journalDirtyDates, personPrefsDirty } from '@/core/trips/registry';
@@ -51,6 +57,8 @@ export interface SyncStatus {
    * `blocked` — clears on the next successful snapshot or a reload.
    */
   readBlocked: boolean;
+  /** #845 — a read listener died (network, setup failure) and has not delivered since: peers' edits are not arriving. */
+  readDead: boolean;
   lastAckAt: string | null;
   /**
    * D-542 — this device is on the DEFAULT pack, the build CAN sync (firebase web config present),
@@ -73,6 +81,7 @@ const SSR_DEFAULT: SyncStatus = {
   pending: 0,
   blocked: 0,
   readBlocked: false,
+  readDead: false,
   lastAckAt: null,
   localOnly: false,
   signInRequired: false,
@@ -98,6 +107,7 @@ function readStatus(): SyncStatus {
     pending,
     blocked: outboxBlocked() + queuedBlocked,
     readBlocked: isReadDenied(),
+    readDead: !isSignInRequired() && isReadDead(),
     lastAckAt,
     localOnly:
       isRemoteConfigured() &&

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { stampFieldHlc, stampSyncUpdated } from '@/core/sync/stamp';
 import type { ItineraryItem } from '@/lib/trip-data';
 
-/** #847, D-680 — an edit claims only the field groups whose value actually changed. */
+/** #847, D-705 — an edit claims only the field groups whose value actually changed. */
 describe('stampFieldHlc — stamps changed groups only', () => {
   const prev: ItineraryItem = {
     id: 'x',

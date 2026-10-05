@@ -88,7 +88,7 @@ export interface ItineraryItem {
   doneHlc?: string; // HLC of the last done toggle (tick or untick), sync only; merge key for done (D-569)
   // Per-field-group merge stamps (title/time/duration/notes/location), sync only, keyed by the group
   // names in core/sync/merge-items.ts FIELD_GROUPS. Lets concurrent edits to DIFFERENT fields both
-  // survive (#847, D-680).
+  // survive (#847, D-705).
   fieldHlc?: Record<string, string>;
   // Manual pin-drop ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
   // `done` precedent above). Absent = un-pinned (the item plots, if at all, via the existing
