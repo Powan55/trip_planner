@@ -6167,6 +6167,16 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 **Why.** The whole-item patch put `done` in every edit, so `stampDone` re-stamped `doneBy`/`doneAt` on a notes edit of a done item (D-230 says immutable) and `doneHlc` took the edit's stamp, so an editor opened before another device's tick could revert it on save (D-569). It also carried stale `rev`/`hlc`/`ord` over fresh local values.
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
+
+### D-702 · Extends D-650 · (issue #855, 2026-10-04) · `saveItinerary` refuses to overwrite a newer envelope
+
+**Decision.** `saveItinerary` reads the stored value first and, if its `schemaVersion` is above `CURRENT_ITINERARY_VERSION`, warns and returns `false`, the same refused-save result as D-650, so `commit()` skips the push and snaps back. A missing, unparseable or older value writes as before, and older versions still upgrade on write.
+
+**Why.** A stale bundle (service-worker skew) reads a future envelope leniently, and its next save rewrote it as the current version, silently downgrading data a newer build had written.
+
+**Not changed.** Import still writes through `writeString` and bypasses the check. No toast or UI.
+
+**Trade-off.** Switching to an older branch on the same localhost origin locks saves until site data is cleared. The warning says so.
 ### D-701 · Amends D-199 · (issue #854, 2026-10-04) · Restore stops reading a gzip file once it unpacks past 64 MB
 
 **Decision.** `decompressBlobOrText` reads the decompression stream chunk by chunk and, once the output passes `MAX_IMPORT_BYTES`, cancels the stream and throws "That file is too large to open (over 64 MB once unpacked)." The prefix is the one `trip-backup.ts` already keys on, so Restore shows its usual "No changes were made" line.
