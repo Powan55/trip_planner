@@ -6168,6 +6168,11 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
 
+### D-704 · Extends D-674 · (issue #857, 2026-10-04) · A journal restore pushes the dates it removed, too
+
+Restore replaces the whole local journal but pushed only the dates in the file, so the account journal doc kept the days the backup lacked and other devices still showed them. The journal `write` in `trip-backup.ts` now reads the pre-restore local dates before the write and pushes the union with the backup's dates. `pushJournalEntry` already tombstones a date that is absent locally with a sync record, and no-ops when it has none, so no new primitive and no new reads: one transaction per date on the single journal doc, as before.
+
+The `ok` gate stays: a refused local write pushes nothing.
 ### D-703 · Extends D-540 · (issue #856, 2026-10-04) · The rules no longer let an owner delete the trip doc
 
 **Decision.** `allow delete` on `trips/{tripId}` drops `|| isOwner()` and keeps only the open-trip branch (`isOpen() && request.auth != null`). A trip with a roster cannot be deleted from a client, owner or not.

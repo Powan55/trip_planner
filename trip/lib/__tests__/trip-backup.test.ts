@@ -860,6 +860,24 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(res.restored).not.toContain('journal');
   });
 
+  it('#857: a restore also pushes the local-only journal dates, so they get tombstoned remotely', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    journalStore.set(
+      sanitizeEntries([...SEED_JOURNAL, { date: '2026-12-11', text: 'Local only', createdAt: '', updatedAt: '' }]),
+    );
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    expect(res.ok).toBe(true);
+    await vi.waitFor(() => expect(pushJournalEntryMock).toHaveBeenCalledWith('2026-12-11'));
+    expect(pushJournalEntryMock).toHaveBeenCalledWith('2026-12-10');
+  });
+
   it('reports ok:false, not a fake success, when every write is refused (storage full)', async () => {
     const env = {
       format: 'nepal-japan-trip-backup',
