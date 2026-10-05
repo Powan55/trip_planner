@@ -3,6 +3,7 @@ import {
   mergeItems,
   resolvePair,
   gcTombstoneRows,
+  fieldKey,
   DEFAULT_GC_HORIZON_MS,
   type SyncedRow,
   type MergePolicy,
@@ -343,5 +344,97 @@ describe('mergeItems — done state merges apart from the body winner (#541, D-5
     const a: DoneRow = { ...base, hlc: T1, doneHlc: T1, checked: true };
     const b: DoneRow = { ...base, hlc: T2, doneHlc: base.hlc, checked: false, note: 'P123' };
     for (const m of both(a, b)) expect(m).toMatchObject({ checked: true, note: 'P123' });
+  });
+});
+
+describe('mergeItems — different fields of one row merge per field group (#847, D-680)', () => {
+  type FRow = Row & { notes?: string; time?: string; startMinutes?: number; title?: string };
+  const T0 = serialize(H(50, 0, 'A'));
+  const T1 = serialize(H(100, 0, 'A'));
+  const T2 = serialize(H(200, 0, 'B'));
+  const T3 = serialize(H(300, 0, 'A'));
+  const all = (v: string) => ({ title: v, time: v, duration: v, notes: v, location: v });
+  const base: FRow = { id: 'x', label: 'x', rev: 1, hlc: T0, notes: 'old', time: '9:00', startMinutes: 540 };
+  const both = (a: FRow, b: FRow) => [mergeItems([a], [b])[0], mergeItems([b], [a])[0]] as FRow[];
+
+  it('A edits notes, B edits time → merged row keeps both, either argument order', () => {
+    const a: FRow = { ...base, hlc: T1, notes: 'gate 4', fieldHlc: { ...all(T0), notes: T1 } };
+    const b: FRow = { ...base, hlc: T2, time: '10:30', startMinutes: 630, fieldHlc: { ...all(T0), time: T2 } };
+    for (const m of both(a, b)) {
+      expect(m.notes).toBe('gate 4');
+      expect(m.time).toBe('10:30');
+      expect(m.startMinutes).toBe(630);
+      expect(m.hlc).toBe(T2);
+      expect(m.fieldHlc).toEqual({ ...all(T0), notes: T1, time: T2 });
+    }
+  });
+
+  it('same group edited on both sides: the later stamp wins, as before', () => {
+    const a: FRow = { ...base, hlc: T1, notes: 'a', fieldHlc: { ...all(T0), notes: T1 } };
+    const b: FRow = { ...base, hlc: T2, notes: 'b', fieldHlc: { ...all(T0), notes: T2 } };
+    for (const m of both(a, b)) expect(m.notes).toBe('b');
+  });
+
+  it('time and startMinutes always come from the same row', () => {
+    const a: FRow = { ...base, hlc: T3, time: '8:00', startMinutes: 480, fieldHlc: { ...all(T0), time: T3 } };
+    const b: FRow = { ...base, hlc: T2, notes: 'n', fieldHlc: { ...all(T0), notes: T2 } };
+    for (const m of both(a, b)) expect([m.time, m.startMinutes]).toEqual(['8:00', 480]);
+  });
+
+  it('a field cleared on the newer side stays cleared', () => {
+    const { notes: _n, ...cleared } = base;
+    const a: FRow = { ...cleared, hlc: T2, fieldHlc: { ...all(T0), notes: T2 } };
+    const b: FRow = { ...base, hlc: T1, time: '11:00', fieldHlc: { ...all(T0), time: T1 } };
+    for (const m of both(a, b)) {
+      expect('notes' in m).toBe(false);
+      expect(m.time).toBe('11:00');
+    }
+  });
+
+  it('a row with no fieldHlc compares by its hlc, so an older build whole-row edit beats an older per-field edit', () => {
+    const old: FRow = { ...base, hlc: T3, notes: 'from old build', time: '7:00', startMinutes: 420 };
+    const cur: FRow = { ...base, hlc: T2, notes: 'newer field edit', fieldHlc: { ...all(T0), notes: T2 } };
+    for (const m of both(old, cur)) {
+      expect(m.notes).toBe('from old build');
+      expect(m.time).toBe('7:00');
+    }
+    expect(fieldKey(old, 'notes')).toBe(T3);
+  });
+
+  it('a tombstone is left to the body winner: no field is copied into or out of it', () => {
+    const tomb: FRow = { ...base, hlc: T2, deleted: true, fieldHlc: all(T2) };
+    const edit: FRow = { ...base, hlc: T1, notes: 'late', fieldHlc: { ...all(T0), notes: T1 } };
+    for (const m of both(tomb, edit)) {
+      expect(m.deleted).toBe(true);
+      expect(m.notes).toBe('old');
+    }
+  });
+
+  it('rows without fieldHlc on either side merge byte-identically to before', () => {
+    const a: FRow = { ...base, hlc: T1, notes: 'a' };
+    const b: FRow = { ...base, hlc: T2, time: '10:30' };
+    for (const m of both(a, b)) expect(m).toEqual(b);
+  });
+
+  it('commutative, associative-in-practice and idempotent over randomized edits', () => {
+    const rand = rng(847);
+    const groupsKeys = ['title', 'time', 'duration', 'notes', 'location'] as const;
+    let n = 0;
+    const mk = (): FRow => {
+      const pt = 100 + Math.floor(rand() * 5);
+      const stamp = serialize(H(pt, 0, rand() < 0.5 ? 'A' : 'B'));
+      const fh: Record<string, string> = {};
+      const r: FRow = { id: 'x', label: 'x', rev: 1, hlc: stamp, notes: `n${n++}`, time: `t${n}`, startMinutes: n };
+      for (const g of groupsKeys) fh[g] = serialize(H(90 + Math.floor(rand() * 15), 0, rand() < 0.5 ? 'A' : 'B'));
+      return rand() < 0.2 ? r : { ...r, fieldHlc: fh };
+    };
+    for (let i = 0; i < 300; i++) {
+      const [x, y, z] = [mk(), mk(), mk()];
+      const xy = mergeItems([x], [y]);
+      expect(mergeItems([y], [x])).toEqual(xy);
+      expect(mergeItems([x], xy)).toEqual(xy);
+      expect(mergeItems(xy, xy)).toEqual(xy);
+      void z;
+    }
   });
 });

@@ -8,7 +8,13 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { realClock } from '@/lib/trip-now';
 import { stampCreated, stampUpdated, stampDone } from '@/lib/attribution';
-import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted, reorderSyncStamps } from '@/core/sync/stamp';
+import {
+  stampSyncCreated,
+  stampSyncUpdated,
+  stampSyncDeleted,
+  stampFieldHlc,
+  reorderSyncStamps,
+} from '@/core/sync/stamp';
 import { doneKey } from '@/core/sync/merge-items';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
@@ -128,7 +134,7 @@ function syncActor(): string {
 // duplicate is byte-for-byte the same fresh-id-copy mechanics as a sync-on move target —
 // always a new id, never the source id.
 export function freshCopyOf(item: ItineraryItem): ItineraryItem {
-  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, doneHlc: _dh, ...content } = item;
+  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, doneHlc: _dh, fieldHlc: _fh, ...content } = item;
   return { ...content, id: generateItemId() } as ItineraryItem;
 }
 
@@ -191,8 +197,9 @@ export function useItinerary(): ItineraryStore {
       // A content edit stamps updatedBy/updatedAt and, when sync is on (gated),
       // bumps rev + advances hlc from the item's PREVIOUS hlc. The core stamps the
       // MERGED item via the injected stamper; no-op attribution when no name is set.
-      commit((current) =>
-        itinerary.updateItem(current, date, itemId, patch, (i) => {
+      commit((current) => {
+        const prev = current.find((d) => d.date === date)?.items?.find((x) => x.id === itemId);
+        return itinerary.updateItem(current, date, itemId, patch, (i) => {
           // stampUpdated → stampDone → stampSyncUpdated
           // (rev/hlc). All three land on ONE merged item / ONE commit, so done + doneBy/doneAt +
           // updatedBy + rev/hlc stay atomic.: patch-gated on
@@ -202,9 +209,13 @@ export function useItinerary(): ItineraryStore {
           const attributed = stampDone(stampUpdated(i, getUserName), patch, getUserName);
           if (!syncEnabled()) return attributed;
           const synced = stampSyncUpdated(attributed, realClock.now().getTime(), syncActor());
-          return { ...synced, doneHlc: 'done' in patch ? synced.hlc : doneKey(i) };
-        }),
-      );
+          return {
+            ...synced,
+            doneHlc: 'done' in patch ? synced.hlc : doneKey(i),
+            fieldHlc: stampFieldHlc(prev ?? i, synced),
+          };
+        });
+      });
     },
     [commit],
   );
@@ -581,7 +592,11 @@ export function useItinerary(): ItineraryStore {
               ...(i.doneBy === from ? { doneBy: to } : {}),
             };
             return sync
-              ? { ...stampSyncUpdated(renamed, realClock.now().getTime(), actor), doneHlc: doneKey(i) }
+              ? {
+                  ...stampSyncUpdated(renamed, realClock.now().getTime(), actor),
+                  doneHlc: doneKey(i),
+                  fieldHlc: stampFieldHlc(i, renamed),
+                }
               : renamed;
           });
         }

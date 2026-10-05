@@ -6126,3 +6126,13 @@ Both mirrors dispatch the outbox's change event on every write, so an ack clears
 **Data.** The journal picker now offers a day only once the hero has reached it, so Dec 9 is no longer offered on Dec 8 evening at home. Entry keys are still the day the user picks, and existing entries are untouched.
 
 **Not done here.** The preflight clock row's `onTrip` (`lib/preflight.ts`) still uses the destination-only gate; that file is in another open change. Visit autocount and the hero's post-trip check still read `getNowAtTrip`, so on Dec 8 evening EST autocount can credit Day 1 places early.
+
+### D-680 · Extends D-103, D-106 · (issue #847, 2026-10-05) · Concurrent edits to different fields of one item both survive
+
+**Decision.** Itinerary items carry an optional `fieldHlc`, a map from field group to the `hlc` of that group's last change. The groups are `title`, `time` (`time` + `startMinutes`), `duration` (`duration` + `durationMinutes`), `notes` and `location`. `resolvePair` joins each group from the row with the higher stamp, apart from the body winner, the same way it already joins `ord` and the done state (D-569); the merged `fieldHlc` is the per-group max. A tie keeps the body winner, a tombstone on either side is left to the body winner, and a group with no stamp compares by the row's `hlc`. Under sync, `updateItem` stamps a group with the new `hlc` only when its value actually changed (compared against the stored item, since the editors send the whole form on every save) and writes the pre-edit key for the rest; the rename-and-claim pass writes pre-edit keys for all. Everything else on the row (category, pin, source link, ...) still follows the body winner. No migration, no Vault version bump; `freshCopyOf` strips `fieldHlc` like the other stamps.
+
+**Why.** Whole-row winner meant A's notes edit and B's time edit of the same item, made concurrently, resolved to whichever row had the higher `hlc` and the other edit vanished silently. D-103 put field-level merge out of scope for *same*-field edits; this is the different-field case it did not address, and it needs no CRDT: same-field edits still resolve last-writer-wins, per group.
+
+**Compatibility.** An older build ignores `fieldHlc` and edits the whole row; its row carries no (or a stale) stamp per group and compares by `hlc`, so its edit still beats an older per-field edit. Stale `fieldHlc` left on a row by such a build can make a newer peer edit lose a group it should have won; same accepted ceiling as `doneHlc`.
+
+**Not done here.** Category, pin and source-link fields stay whole-row. No "overwritten" notice in the activity feed: a same-group collision is still last-writer-wins and silent.
