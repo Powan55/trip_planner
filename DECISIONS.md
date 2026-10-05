@@ -6223,3 +6223,12 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Compatibility.** An older build ignores `fieldHlc` and edits the whole row; its row carries no (or a stale) stamp per group and compares by `hlc`, so its edit still beats an older per-field edit. Stale `fieldHlc` left on a row by such a build can make a newer peer edit lose a group it should have won; same accepted ceiling as `doneHlc`.
 
 **Not done here.** Category, pin and source-link fields stay whole-row. No "overwritten" notice in the activity feed: a same-group collision is still last-writer-wins and silent.
+
+
+### D-706 · Extends D-650 · (issue #851, 2026-10-05) · The restore confirm names a stale backup's age, and the dead `pushPlans` is gone
+
+**Decision.** Under sync, picking a backup file reads its `exportedAt` (`backupAgeDays` in `lib/trip-backup.ts`, read-only and best-effort), and when it is `STALE_BACKUP_DAYS` (7) days old or more the "Replace your current trip?" confirm adds one line: the backup's age in days, and that anything the others added or changed since will be removed for everyone. Nothing blocks the restore, a fresh or unreadable stamp shows no line, and an unsynced device never reads the file early. `pushPlans` and `dayEquals` in `lib/itinerary-remote.ts` are deleted: nothing in production called them since the outbox-decorated `pushDayChunk` took over, and the guest gate they carried lives in `withOutbox`. Their tests go with them, and the two that exercised the transactional merge now call `pushDayChunk`.
+
+**Why.** A synced restore tombstones every live row, including items peers added after the file was made, and the only warning was generic. The age is the one fact in the file that tells the user how much they are about to lose.
+
+**Not done here.** The seed guard from the same issue shipped earlier.

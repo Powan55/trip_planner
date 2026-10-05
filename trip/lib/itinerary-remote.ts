@@ -8,13 +8,12 @@
 // `itinerary:changed` CustomEvent. Because that event is already what
 // `use-itinerary.ts`'s reread() listens for, the whole reactive UI (calendar,
 // dashboard, timeline, every card) updates with ZERO component edits.
-// WRITE (local → remote): `pushPlans(prev,next)` is called from the store's
-// `commit()` AFTER the local `savePlans(next)`. It diffs prev→next PER DAY and
-// writes ONLY the changed `trips/{TRIP_ID}/days/{date}` docs (per-day
-// last-write-wins,) — a day that became empty writes `items:[]`, a day
-// removed entirely is deleted.
+// WRITE (local → remote): the store's `commit()` hands each changed day to the outbox
+// (`withOutbox(itineraryChunkSync)` in `itinerary-ports.ts`) AFTER the local `savePlans(next)`,
+// which calls `pushDayChunk` → `pushDayMerged`: a merge-aware transactional write of ONLY the
+// changed `trips/{TRIP_ID}/days/{date}` doc. Whole-day removal is not a user-reachable operation.
 //
-// ECHO-SUPPRESSION: `pushPlans` is called ONLY from `commit()`
+// ECHO-SUPPRESSION: the write path runs ONLY from `commit()`
 // (genuine local mutations), NEVER from the snapshot-ingest path — the snapshot path
 // calls `savePlans()` + dispatch DIRECTLY, so it can never re-push. Firestore's own
 // local-write echo is additionally skipped via `snapshot.metadata.hasPendingWrites`
@@ -167,27 +166,6 @@ export function sanitizeDayForWrite(day: DayPlan): Record<string, unknown> {
 }
 
 /**
- * Stable per-day equality: have this day's persisted contents actually changed
- * prev→next? Compared by value (JSON) so an unchanged day is NOT re-written (keeps
- * writes minimal — only changed day-docs hit Firestore,).
- */
-export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return JSON.stringify(a) === JSON.stringify(b);
-}
-
-/**
- * Push local itinerary changes to Firestore (local → remote), per-day.
- *
- * Called from the store's `commit()` AFTER the local `savePlans(next)` — so the offline
- * cache + instant same-tab echo are already in place; the remote write is best-effort
- * on top. Diffs `prev`→`next` by date:
- * - a day whose contents CHANGED → a merge-aware transactional write (see below)
- *
- * - a day present in `prev` but ABSENT in `next` → `deleteDoc(days/{date})`
- * - unchanged days are not touched (no spurious writes / no echo storm)
- *
  * SYNC-V2 MERGE-AWARE WRITE. Today's blind
  * `setDoc(whole day)` is the lost-update bug at the TRANSPORT layer: even with a correct
  * local merge, two clients pushing the SAME day still overwrite each other's items. So each
@@ -204,61 +182,12 @@ export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boole
  * 3 editors. A day newly-created locally (absent remote) merges against an
  * empty remote and writes the local items — same code path, no special-casing.
  *
- * ECHO-SUPPRESSION: this is invoked ONLY from `commit()` (genuine local mutations),
- * never from the snapshot path. Attribution + the rev/hlc stamp (
- * gated on config) are already on the items handed in; they are written as-is here.
  *
- * Gated + lazy + degrading: no-ops when `isRemoteConfigured()` is false; wraps all SDK
- * work in try/catch → console.warn so a failed push NEVER breaks the local edit.
- */
-export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void> {
-  // Dormant gate: with no config — or on the default pack, whose remote id is retired (#10,
-  // `isTripRemoteConfigured`) — never touch firebase.
-  // NO-ACTIVE-TRAVELER gate: a session with no active traveler must NEVER push
-  // edits into the friends' shared trip — unattributed edits would otherwise pollute it via the
-  // union merge. `getActiveTraveler` is firebase-free (token-auth), so this stays dormant-safe. This
-  // mirrors the subscribe gate: sync requires BOTH config AND an identified traveler.
-  if (!isTripRemoteConfigured() || !getActiveTraveler()) return;
-
-  const tripId = getTripId();
-  try {
-    const { db, fs } = await getSharedRemote();
-    const { doc, deleteDoc } = fs;
-
-    const prevByDate = new Map(prev.map((d) => [d.date, d]));
-    const nextByDate = new Map(next.map((d) => [d.date, d]));
-
-    const writes: Promise<void>[] = [];
-
-    // Changed or newly-added days → merge-aware transactional write of that single day-doc.
-    for (const day of next) {
-      if (!dayEquals(prevByDate.get(day.date), day)) {
-        writes.push(pushDayMerged(db, fs, day, tripId));
-      }
-    }
-
-    // Days removed entirely (in prev, gone from next) → deleteDoc that day-doc.
-    for (const day of prev) {
-      if (!nextByDate.has(day.date)) {
-        const ref = doc(db, 'trips', tripId, 'days', day.date);
-        writes.push(deleteDoc(ref));
-      }
-    }
-
-    if (writes.length === 0) return; // nothing changed → no network at all
-    await Promise.all(writes);
-  } catch (err) {
-    // A failed push must not break the local edit — degrade to local-only.
-    console.warn('[itinerary-remote] push failed, staying local-only:', err);
-  }
-}
-
-/**
  * Merge-aware transactional write of ONE changed day. Reads the
  * current remote day-doc inside a transaction, `mergeDay`s the local day on top of it, and
  * writes the merged result — so a concurrent same-day peer write forces a retry that
  * re-merges rather than clobbering. Exported for the wired-behavior unit test (fake
- * Firestore). See `pushPlans` for the full rationale.
+ * Firestore).
  */
 export async function pushDayMerged(
   db: import('firebase/firestore').Firestore,
@@ -758,7 +687,7 @@ async function reconcileFirstSnapshot(
       });
     }
 
-    // Push every local day up through the OUTBOX-DECORATED port, not the bare `pushPlans`
+    // Push every local day up through the OUTBOX-DECORATED port, not a bare push
     // (D-544). Same per-day merge-aware writes, with an empty `prev` so every present day is
     // written and no day is "removed" — but now write-ahead recorded: the dates are enqueued
     // BEFORE any network, so a push that fails stays dirty, retries on the next ordinary flush

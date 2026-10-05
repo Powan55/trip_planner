@@ -3,7 +3,7 @@
 // EXTRACTED MECHANICALLY from `hooks/use-itinerary.ts`. Every array-manipulation
 // body below is the VERBATIM logic that previously lived inside the hook's mutators —
 // moved, not rewritten. The hook is now a thin React adapter that wires these pure
-// functions to the ports (StoragePort = the Vault gateway; SyncPort = pushPlans) and
+// functions to the ports (StoragePort = the Vault gateway; SyncPort = the outbox-decorated per-day push) and
 // supplies the two I/O-bearing callbacks these functions inject:
 //
 // - `getCountryForDate` is imported from `@/core/dates` (pure, TZ-safe) — same source

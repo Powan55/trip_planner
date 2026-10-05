@@ -38,11 +38,9 @@ vi.mock('@/lib/firebase-config', () => ({
   getTripId: () => 'nepal-japan-2026',
 }));
 
-// S110-FIX / F2 (D-055 LOCKED): `pushPlans` now also gates on an ACTIVE TRAVELER (a guest never
-// pushes). This suite exercises the merge-aware PUSH path, which in the real app only ever runs for
-// an identified traveler — so we mock a signed-in traveler here (the suite's implicit precondition).
-// This is SETUP only; no existing assertion below is changed. The guest-returns-early branch itself
-// is covered by the dedicated itinerary-remote-guest-gate.test.ts.
+// D-055 LOCKED: a guest never pushes. This suite exercises the merge-aware PUSH path, which in the
+// real app only ever runs for an identified traveler — so we mock a signed-in traveler here (the
+// suite's implicit precondition). The guest gate itself lives in the outbox (core-sync-outbox.test.ts).
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
   return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
@@ -189,7 +187,7 @@ import {
   defaultItemSyncFields,
   defaultDayForMerge,
   pushDayMerged,
-  pushPlans,
+  pushDayChunk,
   subscribeRemote,
 } from '@/lib/itinerary-remote';
 import { loadPlans, savePlans, ITINERARY_STORAGE_KEY } from '@/lib/itinerary-storage';
@@ -577,7 +575,7 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     savePlans([local]);
 
     // local → Firestore (transactional merge against the existing remote doc)
-    await pushPlans([], [local]);
+    await pushDayChunk([local], '2026-12-09', TRIP_ID);
     expect((fake.docs.get(dayPath) as Record<string, unknown>).weatherNote).toBe('monsoon');
 
     // Firestore → snapshot → merge → local
@@ -604,17 +602,16 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     expect(merged.weatherNote).toBe('typhoon');
   });
 
-  it('pushPlans routes a changed day through the transactional merge-aware write (no blind setDoc)', async () => {
-    // Remote has B; local changed Dec 9 to include A. pushPlans should tx-set, merging both.
+  it('pushDayChunk routes a changed day through the transactional merge-aware write (no blind setDoc)', async () => {
+    // Remote has B; local changed Dec 9 to include A. pushDayChunk should tx-set, merging both.
     fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
       date: '2026-12-09',
       city: 'Kathmandu',
       country: 'nepal',
       items: [item('B', { hlc: hlc(2000, 'friend'), rev: 1 })],
     });
-    const prev: DayPlan[] = [];
     const next = [day('2026-12-09', [item('A', { hlc: hlc(3000, 'me'), rev: 1 })])];
-    await pushPlans(prev, next);
+    await pushDayChunk(next, '2026-12-09', TRIP_ID);
     // The write went through runTransaction (tx-set), NOT a blind setDoc.
     expect(writeLog.some((w) => w.startsWith('tx-set:'))).toBe(true);
     expect(writeLog.some((w) => w.startsWith('set:'))).toBe(false);

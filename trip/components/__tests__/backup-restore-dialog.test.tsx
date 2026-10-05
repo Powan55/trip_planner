@@ -34,6 +34,8 @@ vi.mock('@/lib/itinerary-storage', () => ({ savePlans: vi.fn() }));
 vi.mock('@/lib/trip-backup', () => ({
   downloadTripBackup: vi.fn(),
   importTripBackup: vi.fn(async () => ({ ok: false, error: 'not under test' })),
+  backupAgeDays: vi.fn(async () => null),
+  STALE_BACKUP_DAYS: 7,
 }));
 
 import BackupRestore from '@/components/backup-restore';

@@ -29,7 +29,7 @@ import * as itinerary from '@/core/itinerary';
  * framework-free `core/itinerary` (pure `DayPlan[]` transforms), persistence is expressed as
  * the `StoragePort` (production impl = the Vault gateway `loadPlans`/`savePlans`/
  * `hasStoredPlans`), and the local→remote fan-out is the `SyncPort` (production impl =
- * the lazy-gated `pushPlans`). This hook only owns React state + effects + the same-tab/
+ * the outbox-decorated push). This hook only owns React state + effects + the same-tab/
  * cross-tab event wiring + attribution stamping at the boundary. It does NOT re-implement or
  * alter the persistence contract (key-presence, never a length gate; always writes, incl.
  * `[]`) — those all live in the StoragePort impl.
@@ -265,7 +265,7 @@ export function useItinerary(): ItineraryStore {
   // stamping; the cleared day is a legitimate empty state that never reseeds.
   // - SYNC ON: a clear is N deletes that must PROPAGATE + win, so we TOMBSTONE every LIVE
   // item on the day inside ONE commit() — the SAME stamp removeItem's sync path applies,
-  // folded over the day's live ids. One commit ⇒ pushPlans diffs one changed day ⇒ ONE
+  // folded over the day's live ids. One commit ⇒ the outbox diffs one changed day ⇒ ONE
   // per-day doc write, not N writes. Existing tombstones are left as-is.
   const clearDay = useCallback(
     (date: string) => {
@@ -295,7 +295,7 @@ export function useItinerary(): ItineraryStore {
   // the emptied days are legit empty states that never reseed (the key stays present).
   // - SYNC ON: tombstone EVERY live item across EVERY day inside ONE commit() — the SAME stamp
   // clearDay/removeItem apply, folded over the whole trip (identical to restorePlans step (a)).
-  // One commit ⇒ pushPlans diffs the changed days ⇒ per-day writes, and each tombstone
+  // One commit ⇒ the outbox diffs the changed days ⇒ per-day writes, and each tombstone
   // PROPAGATES + wins over a peer's still-live copy, so the clear survives the next snapshot —
   // NOT a blind local wipe that the union-merge would unwind.
   const clearAll = useCallback(() => {
@@ -358,7 +358,7 @@ export function useItinerary(): ItineraryStore {
   //), so a restored item can NEVER lose to an existing tombstone on an HLC tie, and a
   // concurrent peer edit that is STRICTLY-LATER still survives the next merge (not a blind
   // clobber). A backup tombstone is skipped (not re-added live).
-  // One commit ⇒ pushPlans diffs the changed days ⇒ per-day writes via the normal outbox/commit
+  // One commit ⇒ the outbox diffs the changed days ⇒ per-day writes via the normal outbox/commit
   // fan-out — the restore syncs.
   const restorePlans = useCallback(
     (backup: DayPlan[]) => {
@@ -456,7 +456,7 @@ export function useItinerary(): ItineraryStore {
   );
 
   // ── Bulk ops — each is ONE commit(), the same mode-gated stamping as its
-  // single-item sibling FOLDED over the selection, so one commit ⇒ pushPlans diffs a few
+  // single-item sibling FOLDED over the selection, so one commit ⇒ the outbox diffs a few
   // changed days ⇒ few per-day doc writes, never N commits. ────────────────────────
 
   // Bulk delete a SET of items (multi-select). Same mode-gating as removeItem:

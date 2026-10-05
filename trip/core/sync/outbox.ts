@@ -31,7 +31,7 @@
 // identical and a guest can never queue pollution for later. Both gates are firebase-
 // free (firebase-config reads inlined env; token-auth reads localStorage via the gateway), so
 // this module pulls NO firebase onto the dormant hot path. (Runtime import of the two app-wide
-// gates from lib/ mirrors `lib/itinerary-remote.pushPlans`, and core/vault already imports lib
+// gates from lib/ mirrors the itinerary push in `lib/itinerary-remote`, and core/vault already imports lib
 // at runtime — the dependency direction is an accepted, existing pattern for the sync seam.)
 
 import type { StoragePort, SyncPort } from '@/core/ports';

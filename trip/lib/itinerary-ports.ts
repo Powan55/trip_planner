@@ -6,7 +6,7 @@
 // StoragePort impl = the Vault-backed itinerary gateway: loadPlans / savePlans /
 // hasStoredPlans, called UNCHANGED; their key-presence three-state, `[]`-survives, and
 // quarantine behavior live inside those functions.
-// SyncPort impl = pushPlans(prev, next), reached via a DYNAMIC import gated on
+// SyncPort impl = the outbox-decorated per-day push (`pushDayChunk`), reached via a DYNAMIC import gated on
 // isRemoteConfigured() — firebase stays off the dormant
 // hot path. Best-effort + never-throws.
 
@@ -36,9 +36,8 @@ export const itineraryStoragePort: StoragePort<DayPlan[]> = {
  * path. Best-effort + self-degrading: a dormant gate is a silent no-op, and any import/push
  * failure is swallowed to a warn so a remote failure never breaks the local edit.
  *
- * - `push` — the merge-aware per-day transactional write. Mirrors the hook's
- * former inline `if (isRemoteConfigured()) import(...).then(pushPlans)`
- * byte-for-byte; the merge-awareness is entirely inside `pushPlans`.
+ * - `push` — the merge-aware per-day transactional write; the merge-awareness is entirely inside
+ * `pushDayMerged`.
  * - `subscribe` — the remote→local snapshot listener. The dynamic import is async, so we
  * return a proxy unsubscribe immediately and swap in the real one once the
  * module resolves; a teardown before then cancels the pending subscribe. A
@@ -48,7 +47,7 @@ export const itineraryStoragePort: StoragePort<DayPlan[]> = {
 /**
  * Itinerary `ChunkSync` for the offline outbox. Chunk = a day (keyed by `date`).
  * - `chunkDiff` = the dates whose day-contents changed prev→next (the same per-day JSON compare
- * `pushPlans` uses as `dayEquals`, inlined here so this module keeps NOT statically importing
+ * the retired `pushPlans` used as `dayEquals`, inlined here so this module keeps NOT statically importing
  * `itinerary-remote` — firebase stays off the dormant hot path,).
  * - `pushChunk` = the merge-aware per-day transactional write of ONE present day, reached via the
  * SAME dynamic, gated import as before; it REJECTS on failure so the decorator keeps the chunk
