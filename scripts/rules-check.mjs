@@ -498,6 +498,15 @@ await expect('O steps down to "member" (M still owns the trip)', 'ALLOWED',
 await expect('M, now an owner, makes O an owner again', 'ALLOWED',
   () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'owner' }));
 await expect('O steps M back down to "member"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'member' }));
+// A member leaving (#859): its own key alone, and nothing alongside it.
+await expect('M leaves with another field in the same write', 'DENIED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: deleteField(), seededFrom: 'x' }));
+await expect('M leaves while adding another uid in the same write', 'DENIED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: deleteField(), [`members.${THIRD}`]: 'member' }));
+await expect('M leaves: removes its own roster key', 'ALLOWED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: deleteField() }));
+await expect('M, no longer on the roster, cannot read trips/L', 'DENIED', () => getDoc(doc(dbM, 'trips', L)));
+await expect('O adds M back as "member"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'member' }));
 await expect('O deletes trips/L (refused: it would orphan the subtree, #856)', 'DENIED', () => deleteDoc(doc(db, 'trips', L)));
 const phase6 = flush('PHASE 6 (membership, positive)');
 

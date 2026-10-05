@@ -16,11 +16,13 @@ vi.mock('@/lib/firebase-config', () => ({ getTripId: () => 'trip-key-1', isRemot
 
 let roster: Record<string, string> = {};
 const setTripMemberRole = vi.fn(async (..._a: unknown[]) => 'ok');
+const leaveTrip = vi.fn(async (..._a: unknown[]): Promise<string> => 'ok');
 vi.mock('@/lib/trips-remote', () => ({
   fetchTripMembers: async () => ({ state: 'roster', members: roster }),
   addTripMember: vi.fn(async () => 'ok'),
   removeTripMember: vi.fn(async () => 'ok'),
   setTripMemberRole: (...a: unknown[]) => setTripMemberRole(...a),
+  leaveTrip: (...a: unknown[]) => leaveTrip(...a),
 }));
 vi.mock('@/lib/firebase-remote', () => ({ getRemote: async () => ({ uid: 'me' }) }));
 vi.mock('@/hooks/use-budget', () => ({
@@ -96,5 +98,44 @@ describe('TripAccessGroup — owner roles (#858)', () => {
     await mount({ me: 'member', them: 'owner', other: 'member' });
     expect(q('settings-access-promote')).toBeNull();
     expect(q('settings-access-stepdown')).toBeNull();
+  });
+});
+
+describe('TripAccessGroup — leaving a trip (#859)', () => {
+  it('a member can leave, behind a confirm, and the card then says so', async () => {
+    await mount({ me: 'member', them: 'owner' });
+    click(must('settings-access-leave'));
+    await flush();
+    expect(leaveTrip).not.toHaveBeenCalled();
+
+    click(must('settings-access-leave-confirm'));
+    await flush();
+    expect(leaveTrip).toHaveBeenCalledWith('trip-key-1', 'me');
+    expect(q('settings-access-left')).not.toBeNull();
+    expect(q('settings-access-leave')).toBeNull();
+    expect(q('settings-access-add-submit')).toBeNull(); // nothing left to manage from here
+  });
+
+  it('a sole owner is not offered Leave; an owner with a co-owner is', async () => {
+    await mount({ me: 'owner', them: 'member' });
+    expect(q('settings-access-leave')).toBeNull();
+    act(() => root.unmount());
+    root = createRoot(container);
+    roster = { me: 'owner', them: 'owner' };
+    act(() => root.render(createElement(TripAccessGroup)));
+    await flush();
+    expect(q('settings-access-leave')).not.toBeNull();
+  });
+
+  it('a refused leave shows why and keeps the controls', async () => {
+    leaveTrip.mockResolvedValueOnce('denied');
+    await mount({ me: 'member', them: 'owner' });
+    click(must('settings-access-leave'));
+    await flush();
+    click(must('settings-access-leave-confirm'));
+    await flush();
+    expect(q('settings-access-error')).not.toBeNull();
+    expect(q('settings-access-left')).toBeNull();
+    expect(q('settings-access-leave')).not.toBeNull();
   });
 });

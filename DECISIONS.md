@@ -6248,3 +6248,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
 
 **Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
+
+### D-708 · Extends D-642, D-662 · (issue #859, 2026-10-05) · A member can leave a gated trip by removing its own roster key
+
+**Decision.** `leavesRoster()` in `firestore.rules` lets a member write an update whose only affected key is `members` and whose only change is removing the writer's own uid: nothing else removed, added or re-roled. An owner leaves through `isOwner()` as before, so `rosterIsWellFormed()` still refuses a roster left with no owner and the last owner cannot walk away. `leaveTrip` in `lib/trips-remote.ts` makes that write, and Settings shows **Leave this trip** (behind a confirm) to a member, or to an owner while a second owner exists; the card then says the device has left. Leaving does not forget the trip locally; that stays on the Trips page. `scripts/rules-check.mjs` pins the leave, the two refused extras and the read denial afterwards.
+
+**Why.** `addsMembersOnly()` refused every removal from a non-owner, so a member had no way out of a gated trip short of asking the owner.
+
+**Not done here.** The other half of the issue stands: any member can still add any uid, including one the owner removed, so "removal sticks" (D-662) holds against self-join but not against another member adding the uid by its code. Closing it needs either owner-only adds, which undoes the "send me your code" flow of D-642, or a removed-uids list in the trip doc that every add is checked against. That is a product call and is left open.
