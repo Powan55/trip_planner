@@ -597,6 +597,16 @@ export async function removeTripMember(tripId: string, uid: string): Promise<Mem
 }
 
 /**
+ * Leave a trip (#859): remove THIS device's own roster key. The rules let any member write that
+ * and nothing else, and refuse it when it would leave the roster with no owner, so the last owner
+ * gets `'denied'`. It does not forget the trip locally and does not stop another member adding the
+ * uid back by its code.
+ */
+export async function leaveTrip(tripId: string, uid: string): Promise<MemberWriteResult> {
+  return writeMemberField(tripId, uid, null);
+}
+
+/**
  * Change a member's role (#858): promote a member to a second `'owner'`, or step an owner down to
  * `'member'`. OWNER ONLY, enforced twice like `removeTripMember`: the controls render for owners,
  * and the rules refuse a non-owner role write. The rules also refuse any roster left naming no

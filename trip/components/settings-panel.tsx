@@ -420,6 +420,9 @@ function TripAccessGroup() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  // Set once this device has removed itself from the roster: the list can no longer be read, so
+  // the card says so rather than showing "not available right now" (#859).
+  const [left, setLeft] = useState(false);
   const online = useOnline();
   const { copy: copyToClipboard, error: uidCopyError } = useClipboardCopy();
 
@@ -546,6 +549,30 @@ function TripAccessGroup() {
     }
   };
 
+  const leave = async () => {
+    if (busy || !tripKey || !uid) return;
+    if (!online) {
+      setError('You’re offline. Leaving a trip needs a connection.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const { leaveTrip } = await import('@/lib/trips-remote');
+      const result = await leaveTrip(tripKey, uid);
+      if (result === 'ok') {
+        setLeft(true);
+      } else if (result === 'denied') {
+        setError('You’re the only owner. Make someone else an owner first, then leave.');
+      } else {
+        setError('Couldn’t leave this trip. Try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // Stepping down is offered only while a second owner exists; the rules refuse a roster with none.
   const ownerCount =
     typeof members === 'object' && members
@@ -620,7 +647,12 @@ function TripAccessGroup() {
           </p>
         ) : (
           <>
-            {members === 'absent' ? (
+            {left ? (
+              <p data-testid="settings-access-left" className="mt-1 max-w-2xl text-t-body text-ink-mid">
+                You left this trip. This device can no longer open it. To clear it from your list, forget
+                it on the Trips page. Anyone on the trip can add this device back by its code.
+              </p>
+            ) : members === 'absent' ? (
               <p
                 data-testid="settings-access-absent"
                 className="mt-1 max-w-2xl text-t-body text-ink-mid"
@@ -788,7 +820,45 @@ function TripAccessGroup() {
 
             {/* Hidden ONLY on a confirmed-rosterless trip, where the rules can never accept the
                 write. `undefined` (unknown) keeps it, exactly as it shipped before #477. */}
-            {members !== null && members !== 'absent' && (
+            {!left && myRole && (myRole === 'member' || ownerCount > 1) && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={busy || !online}
+                    data-testid="settings-access-leave"
+                    className="btn btn--2 btn--danger mt-3 px-4"
+                  >
+                    Leave this trip
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent
+                  className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+                  data-testid="settings-access-leave-dialog"
+                >
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Leave this trip?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-t-body text-ink-mid">
+                      This removes this device from the member list, so it can no longer open the trip.
+                      What you added stays on the trip. Anyone on the trip can add this device back by its
+                      code.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel data-testid="settings-access-leave-cancel">Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      data-testid="settings-access-leave-confirm"
+                      onClick={() => leave()}
+                      className="btn btn--danger"
+                    >
+                      Leave trip
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {members !== null && members !== 'absent' && !left && (
               <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <label htmlFor="settings-access-add" className="sr-only">
                   Device code to add
