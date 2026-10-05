@@ -6256,3 +6256,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** `addsMembersOnly()` refused every removal from a non-owner, so a member had no way out of a gated trip short of asking the owner.
 
 **Not done here.** The other half of the issue stands: any member can still add any uid, including one the owner removed, so "removal sticks" (D-662) holds against self-join but not against another member adding the uid by its code. Closing it needs either owner-only adds, which undoes the "send me your code" flow of D-642, or a removed-uids list in the trip doc that every add is checked against. That is a product call and is left open.
+
+### D-709 · Extends D-662, D-642 · (issue #859, 2026-10-05) · Removal does not block a re-add; accepted ceiling
+
+**Decision.** A member removed from a gated trip can be added again by any member through `addTripMember` (D-642), or by an owner minting a fresh invite (D-662). No removed-uids list is kept. The leave half of #859 shipped as `leavesRoster()` in `firestore.rules` and `leaveTrip` in `lib/trips-remote.ts` (PR #896).
+
+**Why.** Removal cannot hold against a member who wants the person back. Invites are owner-only to mint, but `addsMembersOnly()` takes any uid, and a removed person can show up under a new anonymous uid, so a tombstone on the old uid blocks nothing that matters. It would add a trip-doc field and a `get()` on every add, touch the open-roster reading (D-540), and need a rules publish, which is inert until #263.
+
+**Trade-off.** An owner who removes someone cannot stop a member re-adding them. Remove the member who re-adds, or move the trip to a new id. Revisit if rules enforcement becomes real (#263) and a stricter add path is wanted.
