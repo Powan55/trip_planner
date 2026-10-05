@@ -453,6 +453,26 @@ function isTripBackup(v: unknown): v is TripBackup {
   return isPlainObject(v) && v.format === BACKUP_FORMAT && isPlainObject(v.domains);
 }
 
+/** A backup this many days old or older earns the "made on" warning in the restore confirm. */
+export const STALE_BACKUP_DAYS = 7;
+
+/**
+ * Whole days between a backup's `exportedAt` and `now`, or `null` when the file is not a full-trip
+ * backup, carries no readable stamp, or cannot be read at all (#851). Read-only and best-effort: the
+ * restore itself re-validates everything, so a failure here only means no warning is shown. A stamp
+ * in the future counts as 0 days.
+ */
+export async function backupAgeDays(file: Blob, now: number = Date.now()): Promise<number | null> {
+  try {
+    const parsed: unknown = JSON.parse(await decompressBlobOrText(file));
+    if (!isTripBackup(parsed) || typeof parsed.exportedAt !== 'string') return null;
+    const at = Date.parse(parsed.exportedAt);
+    return Number.isNaN(at) ? null : Math.max(0, Math.floor((now - at) / 86_400_000));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Restore a whole-trip backup into the ACTIVE trip, replacing it. Fails safe:
  * - a non-JSON / unrecognized file OR a legacy itinerary-only export is routed to the importer,

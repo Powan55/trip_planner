@@ -8,7 +8,13 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { realClock } from '@/lib/trip-now';
 import { stampCreated, stampUpdated, stampDone } from '@/lib/attribution';
-import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted, reorderSyncStamps } from '@/core/sync/stamp';
+import {
+  stampSyncCreated,
+  stampSyncUpdated,
+  stampSyncDeleted,
+  stampFieldHlc,
+  reorderSyncStamps,
+} from '@/core/sync/stamp';
 import { doneKey } from '@/core/sync/merge-items';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
@@ -23,7 +29,7 @@ import * as itinerary from '@/core/itinerary';
  * framework-free `core/itinerary` (pure `DayPlan[]` transforms), persistence is expressed as
  * the `StoragePort` (production impl = the Vault gateway `loadPlans`/`savePlans`/
  * `hasStoredPlans`), and the local→remote fan-out is the `SyncPort` (production impl =
- * the lazy-gated `pushPlans`). This hook only owns React state + effects + the same-tab/
+ * the outbox-decorated push). This hook only owns React state + effects + the same-tab/
  * cross-tab event wiring + attribution stamping at the boundary. It does NOT re-implement or
  * alter the persistence contract (key-presence, never a length gate; always writes, incl.
  * `[]`) — those all live in the StoragePort impl.
@@ -128,7 +134,7 @@ function syncActor(): string {
 // duplicate is byte-for-byte the same fresh-id-copy mechanics as a sync-on move target —
 // always a new id, never the source id.
 export function freshCopyOf(item: ItineraryItem): ItineraryItem {
-  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, doneHlc: _dh, ...content } = item;
+  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, doneHlc: _dh, fieldHlc: _fh, ...content } = item;
   return { ...content, id: generateItemId() } as ItineraryItem;
 }
 
@@ -191,8 +197,9 @@ export function useItinerary(): ItineraryStore {
       // A content edit stamps updatedBy/updatedAt and, when sync is on (gated),
       // bumps rev + advances hlc from the item's PREVIOUS hlc. The core stamps the
       // MERGED item via the injected stamper; no-op attribution when no name is set.
-      commit((current) =>
-        itinerary.updateItem(current, date, itemId, patch, (i) => {
+      commit((current) => {
+        const prev = current.find((d) => d.date === date)?.items?.find((x) => x.id === itemId);
+        return itinerary.updateItem(current, date, itemId, patch, (i) => {
           // stampUpdated → stampDone → stampSyncUpdated
           // (rev/hlc). All three land on ONE merged item / ONE commit, so done + doneBy/doneAt +
           // updatedBy + rev/hlc stay atomic.: patch-gated on
@@ -202,9 +209,13 @@ export function useItinerary(): ItineraryStore {
           const attributed = stampDone(stampUpdated(i, getUserName), patch, getUserName);
           if (!syncEnabled()) return attributed;
           const synced = stampSyncUpdated(attributed, realClock.now().getTime(), syncActor());
-          return { ...synced, doneHlc: 'done' in patch ? synced.hlc : doneKey(i) };
-        }),
-      );
+          return {
+            ...synced,
+            doneHlc: 'done' in patch ? synced.hlc : doneKey(i),
+            fieldHlc: stampFieldHlc(prev ?? i, synced),
+          };
+        });
+      });
     },
     [commit],
   );
@@ -254,7 +265,7 @@ export function useItinerary(): ItineraryStore {
   // stamping; the cleared day is a legitimate empty state that never reseeds.
   // - SYNC ON: a clear is N deletes that must PROPAGATE + win, so we TOMBSTONE every LIVE
   // item on the day inside ONE commit() — the SAME stamp removeItem's sync path applies,
-  // folded over the day's live ids. One commit ⇒ pushPlans diffs one changed day ⇒ ONE
+  // folded over the day's live ids. One commit ⇒ the outbox diffs one changed day ⇒ ONE
   // per-day doc write, not N writes. Existing tombstones are left as-is.
   const clearDay = useCallback(
     (date: string) => {
@@ -284,7 +295,7 @@ export function useItinerary(): ItineraryStore {
   // the emptied days are legit empty states that never reseed (the key stays present).
   // - SYNC ON: tombstone EVERY live item across EVERY day inside ONE commit() — the SAME stamp
   // clearDay/removeItem apply, folded over the whole trip (identical to restorePlans step (a)).
-  // One commit ⇒ pushPlans diffs the changed days ⇒ per-day writes, and each tombstone
+  // One commit ⇒ the outbox diffs the changed days ⇒ per-day writes, and each tombstone
   // PROPAGATES + wins over a peer's still-live copy, so the clear survives the next snapshot —
   // NOT a blind local wipe that the union-merge would unwind.
   const clearAll = useCallback(() => {
@@ -347,7 +358,7 @@ export function useItinerary(): ItineraryStore {
   //), so a restored item can NEVER lose to an existing tombstone on an HLC tie, and a
   // concurrent peer edit that is STRICTLY-LATER still survives the next merge (not a blind
   // clobber). A backup tombstone is skipped (not re-added live).
-  // One commit ⇒ pushPlans diffs the changed days ⇒ per-day writes via the normal outbox/commit
+  // One commit ⇒ the outbox diffs the changed days ⇒ per-day writes via the normal outbox/commit
   // fan-out — the restore syncs.
   const restorePlans = useCallback(
     (backup: DayPlan[]) => {
@@ -445,7 +456,7 @@ export function useItinerary(): ItineraryStore {
   );
 
   // ── Bulk ops — each is ONE commit(), the same mode-gated stamping as its
-  // single-item sibling FOLDED over the selection, so one commit ⇒ pushPlans diffs a few
+  // single-item sibling FOLDED over the selection, so one commit ⇒ the outbox diffs a few
   // changed days ⇒ few per-day doc writes, never N commits. ────────────────────────
 
   // Bulk delete a SET of items (multi-select). Same mode-gating as removeItem:
@@ -581,7 +592,11 @@ export function useItinerary(): ItineraryStore {
               ...(i.doneBy === from ? { doneBy: to } : {}),
             };
             return sync
-              ? { ...stampSyncUpdated(renamed, realClock.now().getTime(), actor), doneHlc: doneKey(i) }
+              ? {
+                  ...stampSyncUpdated(renamed, realClock.now().getTime(), actor),
+                  doneHlc: doneKey(i),
+                  fieldHlc: stampFieldHlc(i, renamed),
+                }
               : renamed;
           });
         }

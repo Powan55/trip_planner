@@ -484,6 +484,20 @@ await expect('M adds a third uid as "member"  (add-only is allowed)', 'ALLOWED',
   () => updateDoc(doc(dbM, 'trips', L), { [`members.${THIRD}`]: 'member' }));
 await expect('O removes that third uid', 'ALLOWED',
   () => updateDoc(doc(db, 'trips', L), { [`members.${THIRD}`]: deleteField() }));
+// Ownership transfer (#858): promote, step down while another owner exists, and hand it back.
+await expect('O promotes M to "owner"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'owner' }));
+await expect('O steps down to "member" (M still owns the trip)', 'ALLOWED',
+  () => updateDoc(doc(db, 'trips', L), { [`members.${O}`]: 'member' }));
+await expect('M, now an owner, makes O an owner again', 'ALLOWED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'owner' }));
+await expect('O steps M back down to "member"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'member' }));
+// Ownership transfer (#858): promote, step down while another owner exists, and hand it back.
+await expect('O promotes M to "owner"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'owner' }));
+await expect('O steps down to "member" (M still owns the trip)', 'ALLOWED',
+  () => updateDoc(doc(db, 'trips', L), { [`members.${O}`]: 'member' }));
+await expect('M, now an owner, makes O an owner again', 'ALLOWED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'owner' }));
+await expect('O steps M back down to "member"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'member' }));
 await expect('O deletes trips/L (refused: it would orphan the subtree, #856)', 'DENIED', () => deleteDoc(doc(db, 'trips', L)));
 const phase6 = flush('PHASE 6 (membership, positive)');
 

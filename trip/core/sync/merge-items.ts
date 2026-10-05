@@ -36,6 +36,13 @@ export interface SyncedRow {
    * apart from the body winner (D-569). Written on tick AND untick, so an untick can win too.
    */
   doneHlc?: string;
+  /**
+   * Per-group stamps for the content fields in `FIELD_GROUPS` (#847), keyed by group name. Lets
+   * two devices edit DIFFERENT fields of one item concurrently without the body winner erasing
+   * the loser's field. Absent on every domain but itinerary items; a group with no entry
+   * compares by the row's `hlc`.
+   */
+  fieldHlc?: Record<string, string>;
   deleted?: boolean;
   /** Legacy HLC seed source when `hlc` is absent (seedHlcFromLegacy). */
   updatedAt?: string;
@@ -83,7 +90,7 @@ function rowHlc(row: SyncedRow): Hlc {
  * itself, so every merge over pre-split data is byte-identical to before.
  */
 export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R {
-  const win = mergeDone(resolveWinner(a, b, policy), a, b);
+  const win = mergeFields(mergeDone(resolveWinner(a, b, policy), a, b), a, b);
   const ord =
     a.ord === undefined ? b.ord : b.ord === undefined ? a.ord : a.ord > b.ord ? a.ord : b.ord;
   return ord === undefined || ord === win.ord ? win : { ...win, ord };
@@ -111,6 +118,59 @@ function mergeDone<R extends SyncedRow>(win: R, a: R, b: R): R {
     if (k in from) out[k] = from[k];
     else delete out[k];
   }
+  return out as unknown as R;
+}
+
+/**
+ * Content fields that merge per group (#847, D-705), each on its own `fieldHlc` stamp. Groups, not
+ * single keys, so the free-text `time` and its numeric `startMinutes` (likewise `duration` and
+ * `durationMinutes`) always travel together and can never come from different edits. Everything
+ * else on a row (category, pin, source link, ...) still follows the body winner.
+ */
+export const FIELD_GROUPS: Readonly<Record<string, readonly string[]>> = {
+  title: ['title'],
+  time: ['time', 'startMinutes'],
+  duration: ['duration', 'durationMinutes'],
+  notes: ['notes'],
+  location: ['location'],
+};
+
+/**
+ * When a field group last changed on this row. A group with no stamp (a row from an older build,
+ * or one never edited since) falls back to the row's `hlc`, so a whole-row edit from an older build
+ * still beats an older per-field edit. Current builds write the pre-edit key for every group an
+ * edit does not touch, so a notes edit does not claim the time.
+ */
+export function fieldKey(row: SyncedRow, group: string): string {
+  return row.fieldHlc?.[group] ?? row.hlc ?? seedHlcFromLegacy(row.updatedAt);
+}
+
+/**
+ * Join each `FIELD_GROUPS` group from whichever row has the higher stamp for it, apart from the
+ * body winner (#847). Same reasoning as `ord` and the done state: A's notes edit and B's time edit
+ * are independent, so the body winner must not carry its stale copy of the other's field over it.
+ * Nothing to do unless a row carries `fieldHlc`, so every other domain, and every itinerary row from
+ * before this change, merges exactly as before. A tombstone on either side is left to the body
+ * winner, and a tie keeps the body winner's value. The result's stamp per group is the max of the
+ * two, so the join stays commutative, associative and idempotent.
+ */
+function mergeFields<R extends SyncedRow>(win: R, a: R, b: R): R {
+  if (a.fieldHlc === undefined && b.fieldHlc === undefined) return win;
+  if (a.deleted === true || b.deleted === true) return win;
+  const out = { ...win } as Record<string, unknown>;
+  const stamps: Record<string, string> = {};
+  for (const [group, keys] of Object.entries(FIELD_GROUPS)) {
+    const ka = fieldKey(a, group);
+    const kb = fieldKey(b, group);
+    stamps[group] = ka > kb ? ka : kb;
+    if (ka === kb) continue;
+    const src = (ka > kb ? a : b) as unknown as Record<string, unknown>;
+    for (const k of keys) {
+      if (k in src) out[k] = src[k];
+      else delete out[k];
+    }
+  }
+  out.fieldHlc = stamps;
   return out as unknown as R;
 }
 

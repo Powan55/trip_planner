@@ -27,6 +27,7 @@
 
 import type { ItineraryItem } from '@/lib/trip-data';
 import { hlcSendOrLocal, parse, serialize } from './hlc';
+import { FIELD_GROUPS, fieldKey } from './merge-items';
 
 // ── The PURE, TYPE-AGNOSTIC hlc-advance primitives ────────────────────────────────────
 // The itinerary `stampSync*` wrappers below stay
@@ -93,6 +94,24 @@ export function stampSyncCreated(item: ItineraryItem, physicalNow: number, actor
 export function stampSyncUpdated(item: ItineraryItem, physicalNow: number, actor: string): ItineraryItem {
   const ord = item.ord ?? item.hlc;
   return { ...item, ...(ord ? { ord } : {}), ...nextSyncStamp(item, physicalNow, actor) };
+}
+
+/**
+ * The `fieldHlc` an edited item should carry (#847): `next.hlc` for each `FIELD_GROUPS` group whose
+ * value actually changed between `prev` and `next`, and the group's pre-edit key for every other.
+ * Compared by value, not by patch keys, because the editors send the whole form on every save and
+ * would otherwise claim every field. Pass `next` AFTER `stampSyncUpdated`, so its `hlc` is the new
+ * stamp; `prev` is the item as it was before the patch.
+ */
+export function stampFieldHlc(prev: ItineraryItem, next: ItineraryItem): Record<string, string> {
+  const p = prev as unknown as Record<string, unknown>;
+  const n = next as unknown as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const [group, keys] of Object.entries(FIELD_GROUPS)) {
+    const changed = keys.some((k) => p[k] !== n[k]);
+    out[group] = changed && next.hlc ? next.hlc : fieldKey(prev, group);
+  }
+  return out;
 }
 
 /**

@@ -517,6 +517,41 @@ function TripAccessGroup() {
     }
   };
 
+  const changeRole = async (memberUid: string, role: 'owner' | 'member') => {
+    if (busy || !tripKey) return;
+    if (!online) {
+      setError('You’re offline. Changing who owns a trip needs a connection.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const { setTripMemberRole } = await import('@/lib/trips-remote');
+      const result = await setTripMemberRole(tripKey, memberUid, role);
+      if (result === 'ok') {
+        setStatus(
+          role === 'owner'
+            ? 'Made an owner. They can now remove devices and manage invites too.'
+            : 'You’re a member now. The other owner manages this trip.',
+        );
+        await loadMembers();
+      } else if (result === 'denied') {
+        setError('Only an owner of this trip can change who owns it.');
+      } else {
+        setError('Couldn’t change that. Try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Stepping down is offered only while a second owner exists; the rules refuse a roster with none.
+  const ownerCount =
+    typeof members === 'object' && members
+      ? Object.values(members).filter((r) => r === 'owner').length
+      : 0;
+
   return (
     <div className="flex flex-col gap-4" data-testid="settings-access-card">
       {!online && (
@@ -628,6 +663,84 @@ function TripAccessGroup() {
                         {memberUid === uid ? ' · this device' : ''}
                       </span>
                     </span>
+                    {myRole === 'owner' && role !== 'owner' && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={busy || !online}
+                            data-testid="settings-access-promote"
+                            className="btn btn--2 px-3"
+                          >
+                            Make owner
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent
+                          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+                          data-testid="settings-access-promote-dialog"
+                        >
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Make this device an owner?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-t-body text-ink-mid">
+                              Device {memberUid.slice(0, 8)}&hellip; will be able to remove devices,
+                              manage invites and make other owners, the same as you. You stay an owner
+                              until you step down.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel data-testid="settings-access-promote-cancel">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              data-testid="settings-access-promote-confirm"
+                              onClick={() => changeRole(memberUid, 'owner')}
+                              className="btn btn--2"
+                            >
+                              Make owner
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    {myRole === 'owner' && memberUid === uid && ownerCount > 1 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={busy || !online}
+                            data-testid="settings-access-stepdown"
+                            className="btn btn--2 px-3"
+                          >
+                            Step down
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent
+                          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+                          data-testid="settings-access-stepdown-dialog"
+                        >
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Step down as owner?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-t-body text-ink-mid">
+                              This device becomes a member. It can still use the trip and add devices,
+                              but it can no longer remove devices or manage invites, and only another
+                              owner can make it an owner again.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel data-testid="settings-access-stepdown-cancel">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              data-testid="settings-access-stepdown-confirm"
+                              onClick={() => changeRole(memberUid, 'member')}
+                              className="btn btn--danger"
+                            >
+                              Step down
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                     {myRole === 'owner' && memberUid !== uid && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

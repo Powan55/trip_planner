@@ -74,7 +74,7 @@ export interface StoragePort<T> {
  * just exposes the operation.
  *
  * Production impl: the adapter in `lib/itinerary-ports.ts` delegating to
- * `lib/itinerary-remote.ts`'s `pushPlans` / `subscribeRemote`, each reached via a DYNAMIC
+ * `lib/itinerary-remote.ts`'s `pushDayChunk` / `subscribeRemote`, each reached via a DYNAMIC
  * `import()` gated on `isRemoteConfigured()` so the dormant build never pulls firebase onto
  * the hot path. This port must NEVER be implemented by a module that
  * statically imports firebase.

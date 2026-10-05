@@ -6214,3 +6214,37 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The id list comes from the drag render. A peer row that arrives before the commit was dropped by the core reorder, and a drop that had already been pushed is not healed from remote.
 
 **Not changed.** The core drop of unlisted rows and the cross-day branch in `use-calendar-dnd.ts` (unreachable today).
+### D-705 · Extends D-103, D-106 · (issue #847, 2026-10-05) · Concurrent edits to different fields of one item both survive
+
+**Decision.** Itinerary items carry an optional `fieldHlc`, a map from field group to the `hlc` of that group's last change. The groups are `title`, `time` (`time` + `startMinutes`), `duration` (`duration` + `durationMinutes`), `notes` and `location`. `resolvePair` joins each group from the row with the higher stamp, apart from the body winner, the same way it already joins `ord` and the done state (D-569); the merged `fieldHlc` is the per-group max. A tie keeps the body winner, a tombstone on either side is left to the body winner, and a group with no stamp compares by the row's `hlc`. Under sync, `updateItem` stamps a group with the new `hlc` only when its value actually changed (compared against the stored item, since the editors send the whole form on every save) and writes the pre-edit key for the rest; the rename-and-claim pass writes pre-edit keys for all. Everything else on the row (category, pin, source link, ...) still follows the body winner. No migration, no Vault version bump; `freshCopyOf` strips `fieldHlc` like the other stamps.
+
+**Why.** Whole-row winner meant A's notes edit and B's time edit of the same item, made concurrently, resolved to whichever row had the higher `hlc` and the other edit vanished silently. D-103 put field-level merge out of scope for *same*-field edits; this is the different-field case it did not address, and it needs no CRDT: same-field edits still resolve last-writer-wins, per group.
+
+**Compatibility.** An older build ignores `fieldHlc` and edits the whole row; its row carries no (or a stale) stamp per group and compares by `hlc`, so its edit still beats an older per-field edit. Stale `fieldHlc` left on a row by such a build can make a newer peer edit lose a group it should have won; same accepted ceiling as `doneHlc`.
+
+**Not done here.** Category, pin and source-link fields stay whole-row. No "overwritten" notice in the activity feed: a same-group collision is still last-writer-wins and silent.
+
+
+### D-706 · Extends D-650 · (issue #851, 2026-10-05) · The restore confirm names a stale backup's age, and the dead `pushPlans` is gone
+
+**Decision.** Under sync, picking a backup file reads its `exportedAt` (`backupAgeDays` in `lib/trip-backup.ts`, read-only and best-effort), and when it is `STALE_BACKUP_DAYS` (7) days old or more the "Replace your current trip?" confirm adds one line: the backup's age in days, and that anything the others added or changed since will be removed for everyone. Nothing blocks the restore, a fresh or unreadable stamp shows no line, and an unsynced device never reads the file early. `pushPlans` and `dayEquals` in `lib/itinerary-remote.ts` are deleted: nothing in production called them since the outbox-decorated `pushDayChunk` took over, and the guest gate they carried lives in `withOutbox`. Their tests go with them, and the two that exercised the transactional merge now call `pushDayChunk`.
+
+**Why.** A synced restore tombstones every live row, including items peers added after the file was made, and the only warning was generic. The age is the one fact in the file that tells the user how much they are about to lose.
+
+**Not done here.** The seed guard from the same issue shipped earlier.
+
+### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
+
+**Decision.** `setTripMemberRole` in `lib/trips-remote.ts` writes `members.{uid}` as `'owner'` or `'member'` through the same field-path write as add and remove. The members list in Settings shows an owner a **Make owner** button on each member row and a **Step down** button on their own row, each behind a confirm. Step down is offered only while the roster names a second owner. `firestore.rules` is unchanged: it already let an owner write any well-formed roster (`isOwner()`), refuses one that names no owner (`rosterIsWellFormed`), and refuses a member's role write (D-642); `scripts/rules-check.mjs` now pins the promote, step-down and hand-back writes.
+
+**Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
+
+**Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
+
+### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
+
+**Decision.** `setTripMemberRole` in `lib/trips-remote.ts` writes `members.{uid}` as `'owner'` or `'member'` through the same field-path write as add and remove. The members list in Settings shows an owner a **Make owner** button on each member row and a **Step down** button on their own row, each behind a confirm. Step down is offered only while the roster names a second owner. `firestore.rules` is unchanged: it already let an owner write any well-formed roster (`isOwner()`), refuses one that names no owner (`rosterIsWellFormed`), and refuses a member's role write (D-642); `scripts/rules-check.mjs` now pins the promote, step-down and hand-back writes.
+
+**Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
+
+**Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
