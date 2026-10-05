@@ -6232,3 +6232,19 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** A synced restore tombstones every live row, including items peers added after the file was made, and the only warning was generic. The age is the one fact in the file that tells the user how much they are about to lose.
 
 **Not done here.** The seed guard from the same issue shipped earlier.
+
+### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
+
+**Decision.** `setTripMemberRole` in `lib/trips-remote.ts` writes `members.{uid}` as `'owner'` or `'member'` through the same field-path write as add and remove. The members list in Settings shows an owner a **Make owner** button on each member row and a **Step down** button on their own row, each behind a confirm. Step down is offered only while the roster names a second owner. `firestore.rules` is unchanged: it already let an owner write any well-formed roster (`isOwner()`), refuses one that names no owner (`rosterIsWellFormed`), and refuses a member's role write (D-642); `scripts/rules-check.mjs` now pins the promote, step-down and hand-back writes.
+
+**Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
+
+**Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
+
+### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
+
+**Decision.** `setTripMemberRole` in `lib/trips-remote.ts` writes `members.{uid}` as `'owner'` or `'member'` through the same field-path write as add and remove. The members list in Settings shows an owner a **Make owner** button on each member row and a **Step down** button on their own row, each behind a confirm. Step down is offered only while the roster names a second owner. `firestore.rules` is unchanged: it already let an owner write any well-formed roster (`isOwner()`), refuses one that names no owner (`rosterIsWellFormed`), and refuses a member's role write (D-642); `scripts/rules-check.mjs` now pins the promote, step-down and hand-back writes.
+
+**Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
+
+**Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
