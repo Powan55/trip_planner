@@ -673,11 +673,13 @@ async function reconcileFirstSnapshot(
   // and seed the sample over a peer's real remote). Fall back to a cache getDoc only if the
   // server read fails, and even then only the never-wipe-on-empty interpretation applies.
   let tripExists = false;
+  let serverFailed = false;
   try {
     let tripSnap;
     try {
       tripSnap = await getDocFromServer(tripRef);
     } catch {
+      serverFailed = true;
       tripSnap = await getDoc(tripRef); // server unreachable → best-effort cache read
     }
     tripExists = tripSnap.exists();
@@ -685,6 +687,12 @@ async function reconcileFirstSnapshot(
     // If the marker read fails, fall back to the safe interpretation: treat a non-empty
     // remote as authoritative, but NEVER wipe local with an empty remote.
     console.warn('[itinerary-remote] trip-doc marker read failed:', err);
+    if (remoteDays.length > 0) applyRemote(remoteDays);
+    return;
+  }
+
+  // An unconfirmed absence must not seed: the non-merge marker setDoc would overwrite a members map.
+  if (serverFailed && !tripExists) {
     if (remoteDays.length > 0) applyRemote(remoteDays);
     return;
   }

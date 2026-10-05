@@ -6168,6 +6168,11 @@ Sibling row sanitizers in the other synced domains have the same class of risk; 
 
 **Not changed.** `core.updateItem` still gates on `'done' in patch`; every other writer already sends partial patches. The merge in `core/sync` is untouched.
 
+### D-699 · (issue #851, 2026-10-04) · The first-snapshot seed needs a confirmed server read
+
+**Decision.** In `reconcileFirstSnapshot`, if `getDocFromServer` fails and the cache fallback also lacks the trip doc, the reconcile applies a non-empty remote (never an empty one) and returns. It no longer runs the seed, whose non-merge marker `setDoc` could overwrite an existing `members` map on the owner device. A cache hit still counts as the doc existing.
+
+**Not done.** The stale-backup warning is deferred. The dead `pushPlans` is not removed.
 ### D-698 · (issue #850, 2026-10-04) · A synced reorder keeps live rows missing from its id list
 
 **Decision.** Under sync, `reorderItems` appends every row of the day absent from `orderedIds` (live and tombstones), not just tombstones.
