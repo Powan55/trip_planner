@@ -12,6 +12,22 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.8.0 (app) · 2026-10-05 · worker stays at v1.11.0
+
+A sync and trip-access hardening pass (#843 through #872).
+
+Sync: different fields of one itinerary item merge per field group instead of the last write winning (#847), and the editor sends only the fields that changed (#844). Rows the app cannot parse survive a day push (#848), a newer local trip rename is pushed again on boot (#846), and reorder keeps live rows missing from the dragged list (#850). A dead read listener reopens with backoff and shows in the sync badge (#845). The app refuses to save over an itinerary written by a newer version (#855), and does not seed the trip doc when the server read failed (#851).
+
+Forget and restore: forgetting a trip wipes its exact slot keys instead of a prefix (#853), and pending edits and photos survive another device forgetting the trip (#843). Restore caps decompressed output at 64 MB (#854), pushes journal deletions for dates the backup dropped (#857), and warns when a synced backup is a week old or more (#851).
+
+Trip access: owners can make another member an owner and step down (#858). A member can leave a gated trip by removing its own roster key (#859); removal does not block a later re-add, which is an accepted ceiling. Expired invites are pruned when listed (#860), and a custom join token needs 20 or more characters (#852). Rules: nobody deletes a trip doc (#856).
+
+UI: focus moves to the main region after route changes (#871), gyro tilt starts on browsers with no permission API (#872), overlays register above sheets (#865), the concierge follows new replies near the bottom of the thread (#863), sign-out cannot be cancelled mid-flush (#864), and Tab stays inside the time picker (#862). Smaller fixes in #866 to #870.
+
+**Deploy targets:** GitHub Pages mirror. No worker changes. `firestore.rules` changes (no trip-doc delete, leave-by-own-key) but the deploy does not publish rules (no service-account secret is set), so they need a manual publish.
+
+---
+
 ## v7.7.0 (app) · 2026-10-04 · worker stays at v1.11.0
 
 The default trip is now one shared trip for everybody instead of one per account or device, so all three accounts (Powan, Uttam, Sushil) land on the same plan (#728). The per-device sync switch is gone; sync is always on. Only those three accounts can read or write that trip, enforced by email in the Firestore rules (D-663, published and live). A device that was on its own trip id asks before moving over and keeps a backup of its local plan. Settings shows no Trip Token for the shared trip, the online-presence pill works again now that everyone is on the same trip (#729), and join links now refuse legacy account names and go through the confirm dialog after the sign-in wall (#775).
