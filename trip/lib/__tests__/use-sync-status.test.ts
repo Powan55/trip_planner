@@ -33,7 +33,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 
 import { useSyncStatus, type SyncStatus } from '@/hooks/use-sync-status';
 import { withOutbox, flushOutbox, type ChunkSync } from '@/core/sync/outbox';
-import { setReadDenied } from '@/core/sync/read-denied';
+import { setReadDead, setReadDenied } from '@/core/sync/read-denied';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 import type { StoragePort } from '@/core/ports';
 
@@ -74,7 +74,7 @@ function renderSyncStatus(): HookHandle {
   document.body.appendChild(container);
   const root: Root = createRoot(container);
   const ref: { current: SyncStatus } = {
-    current: { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false, signInRequired: false },
+    current: { pending: 0, blocked: 0, readBlocked: false, readDead: false, lastAckAt: null, localOnly: false, signInRequired: false },
   };
 
   function Probe() {
@@ -107,11 +107,12 @@ describe('useSyncStatus (S229)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     setReadDenied('itinerary', false); // #271: module-singleton flag — reset between tests
+    setReadDead('itinerary', false);
   });
 
   it('starts at the SSR-safe default {pending:0, lastAckAt:null} and confirms it on mount when nothing is dirty', () => {
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false, signInRequired: false });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, readDead: false, lastAckAt: null, localOnly: false, signInRequired: false });
     h.unmount();
   });
 
@@ -191,13 +192,30 @@ describe('useSyncStatus (S229)', () => {
     h.unmount();
   });
 
+  it('readDead flips via setReadDead and clears on the next good snapshot (#845)', () => {
+    const h = renderSyncStatus();
+    expect(h.current.readDead).toBe(false);
+
+    act(() => {
+      setReadDead('itinerary', true);
+    });
+    expect(h.current.readDead).toBe(true);
+    expect(h.current.readBlocked).toBe(false);
+
+    act(() => {
+      setReadDenied('itinerary', false); // what every good snapshot calls
+    });
+    expect(h.current.readDead).toBe(false);
+    h.unmount();
+  });
+
   it('DORMANT: reads {pending:0, lastAckAt:null} even with real dirty+acked bytes on disk (D-038)', async () => {
     const failing = new Set<string>();
     await withOutbox(makeHarness(failing))({}, { d1: 1 }); // acks, writes real bytes
 
     gate.remoteOn = false;
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false, signInRequired: false });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, readDead: false, lastAckAt: null, localOnly: false, signInRequired: false });
     h.unmount();
   });
 
@@ -211,7 +229,7 @@ describe('useSyncStatus (S229)', () => {
     // The dirty bytes make the default pack a held-back one (edits, no id yet), which is
     // independent of identity, so `localOnly` reads true; the D-055 point — that they stay
     // invisible to a guest — is carried by the outbox fields.
-    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: true, signInRequired: false });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, readDead: false, lastAckAt: null, localOnly: true, signInRequired: false });
     h.unmount();
   });
 

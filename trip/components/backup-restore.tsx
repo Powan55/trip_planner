@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { downloadTripBackup, importTripBackup } from '@/lib/trip-backup';
+import { downloadTripBackup, importTripBackup, backupAgeDays, STALE_BACKUP_DAYS } from '@/lib/trip-backup';
 import { savePlans } from '@/lib/itinerary-storage';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
@@ -113,7 +113,7 @@ export default function BackupRestore() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // The picked file, held while the confirm dialog is open (so Confirm can import it and Cancel can
   // discard it). importTripBackup decompresses + parses the raw file itself, so we don't pre-read.
-  const [pendingImport, setPendingImport] = useState<{ file: File; name: string } | null>(null);
+  const [pendingImport, setPendingImport] = useState<{ file: File; name: string; ageDays: number | null } | null>(null);
   // Guards the confirm button while the async restore runs (a restore reads/writes IndexedDB blobs).
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -161,13 +161,16 @@ export default function BackupRestore() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Reset the input value NOW so picking the same file twice still fires `change`.
     e.target.value = '';
     if (!file) return;
     setStatus({ kind: 'idle' });
-    setPendingImport({ file, name: file.name });
+    // Only a synced restore can overwrite what other people added, so only then is the file's age
+    // worth the read (#851). Never blocks the dialog: an unreadable stamp just means no warning.
+    const ageDays = synced ? await backupAgeDays(file) : null;
+    setPendingImport({ file, name: file.name, ageDays });
   };
 
   const confirmImport = async () => {
@@ -376,6 +379,12 @@ export default function BackupRestore() {
               <strong className="font-semibold text-ink-hi">on this device</strong> that isn&apos;t in it is
               removed. This cannot be undone. The page will reload once it&apos;s restored.
             </p>
+            {synced && pendingImport && pendingImport.ageDays !== null && pendingImport.ageDays >= STALE_BACKUP_DAYS && (
+              <p data-testid="backup-stale-warning" className="text-t-body font-medium text-ink-hi">
+                This backup is {pendingImport.ageDays} days old. Anything the others on this trip added or
+                changed since then will be removed for everyone.
+              </p>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel

@@ -171,6 +171,23 @@ describe('SYNC ON — rev/hlc stamping + tombstone removeItem + exposed-plans fi
     h.unmount();
   });
 
+  it('a notes-only patch on a done item keeps doneBy/doneAt/doneHlc (#844)', async () => {
+    const h = renderItinerary();
+    await h.run((s) => s.addItem(TEST_DATE, { id: 'x', title: 'Temple', category: 'cultural' }));
+    await h.run((s) => s.updateItem(TEST_DATE, 'x', { done: true }));
+    const ticked = dayItems(h.current.plans, TEST_DATE).find((i) => i.id === 'x')!;
+    expect(ticked.doneHlc).toBeTruthy();
+
+    await h.run((s) => s.updateItem(TEST_DATE, 'x', { notes: 'bring cash' }));
+    const edited = dayItems(h.current.plans, TEST_DATE).find((i) => i.id === 'x')!;
+    expect(edited.notes).toBe('bring cash');
+    expect(edited.doneBy).toBe(ticked.doneBy);
+    expect(edited.doneAt).toBe(ticked.doneAt);
+    expect(edited.doneHlc).toBe(ticked.doneHlc);
+    expect(edited.hlc! > ticked.hlc!).toBe(true);
+    h.unmount();
+  });
+
   it('removeItem writes a TOMBSTONE on disk but the EXPOSED plans hide it (D-026)', async () => {
     const h = renderItinerary();
     await h.run((s) => {

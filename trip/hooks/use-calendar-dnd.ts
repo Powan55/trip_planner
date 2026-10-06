@@ -67,6 +67,8 @@ export function useCalendarDnd({ plans, getDayPlan, moveItem, reorderItems }: Ca
   // UNREACHABLE note on handleDragEnd's cross-day branch below if a second day container ships.
   const handleDragOver = (_event: DragOverEvent) => {};
 
+  const handleDragCancel = () => setActiveId(null);
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event ?? {};
     setActiveId(null);
@@ -118,5 +120,5 @@ export function useCalendarDnd({ plans, getDayPlan, moveItem, reorderItems }: Ca
 
   const activeItem = activeId ? plans.flatMap((p) => p.items ?? []).find((i: ItineraryItem) => i.id === activeId) : null;
 
-  return { sensors, announcements: makeAnnouncements(plans), activeId, activeItem, handleDragStart, handleDragOver, handleDragEnd };
+  return { sensors, announcements: makeAnnouncements(plans), activeId, activeItem, handleDragStart, handleDragOver, handleDragEnd, handleDragCancel };
 }

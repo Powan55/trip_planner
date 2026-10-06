@@ -262,7 +262,7 @@ describe('S375 half 1 — create must not navigate out from under its own meta p
 describe('S375 control — the NON-navigating push path stays fire-and-forget', () => {
   it('rename pushes meta without awaiting it and without navigating', async () => {
     const loc = stubLocation();
-    joinTrip('trip-to-rename', 'Old name');
+    joinTrip('trip-to-rename-0123456789', 'Old name');
     setActiveTripId(DEFAULT_TRIP_ID); // rename a row that is not the active one
 
     const view = render(createElement(TripsHub));
@@ -287,23 +287,23 @@ describe('S375 control — the NON-navigating push path stays fire-and-forget', 
 
     // The rename committed locally and the form closed IMMEDIATELY — no await on the network,
     // even though `metaPush` is still pending. This is the D1b shape: the push is unchanged.
-    expect(getKnownTrip('trip-to-rename')?.name).toBe('New name');
+    expect(getKnownTrip('trip-to-rename-0123456789')?.name).toBe('New name');
     expect(view.container.querySelector('[data-testid^="trips-hub-rename-input-"]')).toBeNull();
     expect(loc.assign).not.toHaveBeenCalled();
     await flush();
     expect(pushTripMetaMock).toHaveBeenCalledTimes(1);
     expect(pushTripMetaMock.mock.calls[0][1]).toMatchObject({
       name: 'New name',
-      updatedAt: getKnownTrip('trip-to-rename')?.updatedAt, // D-600: the stamp peers compare on
+      updatedAt: getKnownTrip('trip-to-rename-0123456789')?.updatedAt, // D-600: the stamp peers compare on
     });
-    expect(typeof getKnownTrip('trip-to-rename')?.updatedAt).toBe('number');
+    expect(typeof getKnownTrip('trip-to-rename-0123456789')?.updatedAt).toBe('number');
 
     view.unmount();
   });
 });
 
 describe('S375 half 2 — the self-heal guard marks only a FOUND doc', () => {
-  const TRIP = 'joined-trip-xyz';
+  const TRIP = 'joined-trip-xyz-0123456789';
 
   beforeEach(() => {
     joinTrip(TRIP, SHARED_NAME);
@@ -389,7 +389,7 @@ describe('S375 half 2 — the self-heal guard marks only a FOUND doc', () => {
 });
 
 describe('D-600 — a peer rename reaches this device by updatedAt LWW', () => {
-  const TRIP = 'renamed-trip';
+  const TRIP = 'renamed-trip-0123456789';
   const cfg = (start: string) => ({
     start,
     end: '2027-01-10',
@@ -443,6 +443,37 @@ describe('D-600 — a peer rename reaches this device by updatedAt LWW', () => {
     runTripMetaSelfHeal();
     await flush();
     expect(getKnownTrip(TRIP)?.name).toBe('Kerala');
+  });
+
+  it('D-693: a stale remote is re-pushed with the local name, config and stamp', async () => {
+    stubLocation();
+    fetchTripMetaMock.mockResolvedValue({ name: 'Old', updatedAt: localAt() - 1 });
+    runTripMetaSelfHeal();
+    await flush();
+    expect(pushTripMetaMock).toHaveBeenCalledTimes(1);
+    expect(pushTripMetaMock).toHaveBeenCalledWith(TRIP, {
+      name: 'Kerala',
+      config: getKnownTrip(TRIP)!.config,
+      updatedAt: localAt(),
+    });
+  });
+
+  it('D-693: an unstamped remote is re-pushed too', async () => {
+    stubLocation();
+    fetchTripMetaMock.mockResolvedValue({ name: 'From an old client' });
+    runTripMetaSelfHeal();
+    await flush();
+    expect(pushTripMetaMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('D-693: an equal or newer remote is not re-pushed', async () => {
+    stubLocation();
+    for (const delta of [0, 1]) {
+      fetchTripMetaMock.mockResolvedValue({ name: 'Kerala', updatedAt: localAt() + delta });
+      runTripMetaSelfHeal();
+      await flush();
+    }
+    expect(pushTripMetaMock).not.toHaveBeenCalled();
   });
 
   it('a placeholder name never overwrites a real one, even with a newer stamp', () => {

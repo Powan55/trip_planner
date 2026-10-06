@@ -420,6 +420,9 @@ function TripAccessGroup() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  // Set once this device has removed itself from the roster: the list can no longer be read, so
+  // the card says so rather than showing "not available right now" (#859).
+  const [left, setLeft] = useState(false);
   const online = useOnline();
   const { copy: copyToClipboard, error: uidCopyError } = useClipboardCopy();
 
@@ -517,6 +520,65 @@ function TripAccessGroup() {
     }
   };
 
+  const changeRole = async (memberUid: string, role: 'owner' | 'member') => {
+    if (busy || !tripKey) return;
+    if (!online) {
+      setError('You’re offline. Changing who owns a trip needs a connection.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const { setTripMemberRole } = await import('@/lib/trips-remote');
+      const result = await setTripMemberRole(tripKey, memberUid, role);
+      if (result === 'ok') {
+        setStatus(
+          role === 'owner'
+            ? 'Made an owner. They can now remove devices and manage invites too.'
+            : 'You’re a member now. The other owner manages this trip.',
+        );
+        await loadMembers();
+      } else if (result === 'denied') {
+        setError('Only an owner of this trip can change who owns it.');
+      } else {
+        setError('Couldn’t change that. Try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const leave = async () => {
+    if (busy || !tripKey || !uid) return;
+    if (!online) {
+      setError('You’re offline. Leaving a trip needs a connection.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const { leaveTrip } = await import('@/lib/trips-remote');
+      const result = await leaveTrip(tripKey, uid);
+      if (result === 'ok') {
+        setLeft(true);
+      } else if (result === 'denied') {
+        setError('You’re the only owner. Make someone else an owner first, then leave.');
+      } else {
+        setError('Couldn’t leave this trip. Try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Stepping down is offered only while a second owner exists; the rules refuse a roster with none.
+  const ownerCount =
+    typeof members === 'object' && members
+      ? Object.values(members).filter((r) => r === 'owner').length
+      : 0;
+
   return (
     <div className="flex flex-col gap-4" data-testid="settings-access-card">
       {!online && (
@@ -585,7 +647,12 @@ function TripAccessGroup() {
           </p>
         ) : (
           <>
-            {members === 'absent' ? (
+            {left ? (
+              <p data-testid="settings-access-left" className="mt-1 max-w-2xl text-t-body text-ink-mid">
+                You left this trip. This device can no longer open it. To clear it from your list, forget
+                it on the Trips page. Anyone on the trip can add this device back by its code.
+              </p>
+            ) : members === 'absent' ? (
               <p
                 data-testid="settings-access-absent"
                 className="mt-1 max-w-2xl text-t-body text-ink-mid"
@@ -628,6 +695,84 @@ function TripAccessGroup() {
                         {memberUid === uid ? ' · this device' : ''}
                       </span>
                     </span>
+                    {myRole === 'owner' && role !== 'owner' && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={busy || !online}
+                            data-testid="settings-access-promote"
+                            className="btn btn--2 px-3"
+                          >
+                            Make owner
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent
+                          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+                          data-testid="settings-access-promote-dialog"
+                        >
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Make this device an owner?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-t-body text-ink-mid">
+                              Device {memberUid.slice(0, 8)}&hellip; will be able to remove devices,
+                              manage invites and make other owners, the same as you. You stay an owner
+                              until you step down.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel data-testid="settings-access-promote-cancel">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              data-testid="settings-access-promote-confirm"
+                              onClick={() => changeRole(memberUid, 'owner')}
+                              className="btn btn--2"
+                            >
+                              Make owner
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    {myRole === 'owner' && memberUid === uid && ownerCount > 1 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={busy || !online}
+                            data-testid="settings-access-stepdown"
+                            className="btn btn--2 px-3"
+                          >
+                            Step down
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent
+                          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+                          data-testid="settings-access-stepdown-dialog"
+                        >
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Step down as owner?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-t-body text-ink-mid">
+                              This device becomes a member. It can still use the trip and add devices,
+                              but it can no longer remove devices or manage invites, and only another
+                              owner can make it an owner again.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel data-testid="settings-access-stepdown-cancel">
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              data-testid="settings-access-stepdown-confirm"
+                              onClick={() => changeRole(memberUid, 'member')}
+                              className="btn btn--danger"
+                            >
+                              Step down
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                     {myRole === 'owner' && memberUid !== uid && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -675,7 +820,45 @@ function TripAccessGroup() {
 
             {/* Hidden ONLY on a confirmed-rosterless trip, where the rules can never accept the
                 write. `undefined` (unknown) keeps it, exactly as it shipped before #477. */}
-            {members !== null && members !== 'absent' && (
+            {!left && myRole && (myRole === 'member' || ownerCount > 1) && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={busy || !online}
+                    data-testid="settings-access-leave"
+                    className="btn btn--2 btn--danger mt-3 px-4"
+                  >
+                    Leave this trip
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent
+                  className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
+                  data-testid="settings-access-leave-dialog"
+                >
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Leave this trip?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-t-body text-ink-mid">
+                      This removes this device from the member list, so it can no longer open the trip.
+                      What you added stays on the trip. Anyone on the trip can add this device back by its
+                      code.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel data-testid="settings-access-leave-cancel">Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      data-testid="settings-access-leave-confirm"
+                      onClick={() => leave()}
+                      className="btn btn--danger"
+                    >
+                      Leave trip
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {members !== null && members !== 'absent' && !left && (
               <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <label htmlFor="settings-access-add" className="sr-only">
                   Device code to add

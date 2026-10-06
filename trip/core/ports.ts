@@ -74,7 +74,7 @@ export interface StoragePort<T> {
  * just exposes the operation.
  *
  * Production impl: the adapter in `lib/itinerary-ports.ts` delegating to
- * `lib/itinerary-remote.ts`'s `pushPlans` / `subscribeRemote`, each reached via a DYNAMIC
+ * `lib/itinerary-remote.ts`'s `pushDayChunk` / `subscribeRemote`, each reached via a DYNAMIC
  * `import()` gated on `isRemoteConfigured()` so the dormant build never pulls firebase onto
  * the hot path. This port must NEVER be implemented by a module that
  * statically imports firebase.
@@ -91,7 +91,8 @@ export interface SyncPort<T> {
   /**
    * Open the remote→local subscription (merge + `savePlans()`+dispatch, never `commit()`).
    * Returns an unsubscribe fn; a no-op unsub when `isConfigured()` is false.
-   * `onDead` fires if the subscription failed to open and was not torn down first.
+   * `onDead` fires if the subscription failed to open, or its stream errored for a reason other
+   * than a permission refusal, and it was not torn down first.
    */
   subscribe(onDead?: () => void): () => void;
   /** The dormant/config gate surfaced through the port. */

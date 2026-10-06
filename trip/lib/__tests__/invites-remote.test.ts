@@ -50,9 +50,22 @@ vi.mock('firebase/firestore', () => ({
     if (fake.readError) throw err(fake.readError.code);
     return { exists: () => fake.trip !== undefined, data: () => fake.trip };
   },
-  getDocsFromServer: async () => {
+  Timestamp: { fromMillis: (ms: number) => ({ ms }) },
+  where: (_f: string, op: string, v: { ms: number }) => ({ op, ms: v.ms }),
+  limit: (n: number) => ({ n }),
+  query: (col: { path: string }, ...c: { op?: string; ms?: number; n?: number }[]) => ({ ...col, c }),
+  getDocsFromServer: async (q: { c?: { op?: string; ms?: number; n?: number }[] }) => {
     fake.reads += 1;
-    return { forEach: (fn: (d: unknown) => void) => fake.invites.forEach((i) => fn({ id: i.id, data: () => i.data })) };
+    const w = q.c?.find((x) => x.op);
+    const n = q.c?.find((x) => x.n)?.n ?? Infinity;
+    const docs = fake.invites
+      .filter((i) => {
+        const ms = (i.data.createdAt as { toMillis: () => number }).toMillis();
+        return !w || (w.op === '<=' ? ms <= w.ms! : ms > w.ms!);
+      })
+      .slice(0, n)
+      .map((i) => ({ id: i.id, ref: { path: `trips/${TRIP}/invites/${i.id}` }, data: () => i.data }));
+    return { docs, forEach: (fn: (d: unknown) => void) => docs.forEach(fn) };
   },
   setDoc: async (ref: { path: string }, data: Record<string, unknown>) => {
     fake.sets.push({ path: ref.path, data });
@@ -109,6 +122,9 @@ describe('listInvites / revokeInvite', () => {
     expect(await listInvites(TRIP)).toEqual([
       { token: TOKEN, createdAt: now - 1000, expiresAt: now - 1000 + INVITE_TTL_MS },
     ]);
+    // expired doc pruned during list; redeemed-but-fresh one is left to age out
+    expect(fake.deletes).toEqual([`trips/${TRIP}/invites/1f8b6c2e-1d3a-4b5c-8d7e-9f0a1b2c3d4e`]);
+    fake.deletes.length = 0;
     expect(await revokeInvite(TRIP, TOKEN)).toBe(true);
     expect(fake.deletes).toEqual([`trips/${TRIP}/invites/${TOKEN}`]);
   });

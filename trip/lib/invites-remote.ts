@@ -16,6 +16,8 @@ import { readMembers } from './trips-remote';
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+const PRUNE_BATCH = 25;
+
 const TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export function isInviteToken(token: unknown): token is string {
@@ -57,8 +59,17 @@ export async function listInvites(tripId: string): Promise<TripInvite[] | null> 
   if (!usable(tripId)) return null;
   try {
     const { db, fs } = await getRemote();
-    const snap = await fs.getDocsFromServer(fs.collection(db, 'trips', tripId, 'invites'));
+    const col = fs.collection(db, 'trips', tripId, 'invites');
     const now = Date.now();
+    const cutoff = fs.Timestamp.fromMillis(now - INVITE_TTL_MS);
+    // Expired docs are dead weight: delete a few per list (best effort) instead of reading them all every time.
+    try {
+      const old = await fs.getDocsFromServer(fs.query(col, fs.where('createdAt', '<=', cutoff), fs.limit(PRUNE_BATCH)));
+      await Promise.all(old.docs.map((d) => fs.deleteDoc(d.ref)));
+    } catch (err) {
+      console.warn('[invites-remote] prune skipped:', err);
+    }
+    const snap = await fs.getDocsFromServer(fs.query(col, fs.where('createdAt', '>', cutoff)));
     const out: TripInvite[] = [];
     snap.forEach((d) => {
       const data = d.data() as { createdAt?: { toMillis?: () => number }; redeemedBy?: unknown };

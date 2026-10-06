@@ -313,11 +313,11 @@ describe('mergeTripLists — additive union + updatedAt LWW (Plan D6)', () => {
 
 describe('removeKnownTrip — local forget + tombstone (S269, D-222)', () => {
   it('drops the trip from the known list and records a tombstone', () => {
-    joinTrip('t1', 'One');
+    joinTrip('trip-one-0123456789abcd', 'One');
     setActiveTripId(DEFAULT_TRIP_ID); // not the active trip, so no self-heal re-adds it
-    removeKnownTrip('t1');
-    expect(listKnownTrips().map((t) => t.id)).not.toContain('t1');
-    expect(listRemovedTrips().map((r) => r.id)).toEqual(['t1']);
+    removeKnownTrip('trip-one-0123456789abcd');
+    expect(listKnownTrips().map((t) => t.id)).not.toContain('trip-one-0123456789abcd');
+    expect(listRemovedTrips().map((r) => r.id)).toEqual(['trip-one-0123456789abcd']);
   });
 
   it('REFUSES the default pack (never removable — no tombstone, still listed first)', () => {
@@ -327,18 +327,18 @@ describe('removeKnownTrip — local forget + tombstone (S269, D-222)', () => {
   });
 
   it('forgetting the ACTIVE trip switches the pointer to the default pack (caller reloads)', () => {
-    joinTrip('active-1', 'Active'); // joinTrip writes the active pointer
-    expect(getActiveTripId()).toBe('active-1');
-    removeKnownTrip('active-1');
+    joinTrip('active-0123456789abcdef', 'Active'); // joinTrip writes the active pointer
+    expect(getActiveTripId()).toBe('active-0123456789abcdef');
+    removeKnownTrip('active-0123456789abcdef');
     expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID);
   });
 
   it('a forgotten trip does NOT resurrect through importRemoteTrips when the remote still lists it', () => {
-    joinTrip('t1', 'One');
+    joinTrip('trip-one-0123456789abcd', 'One');
     setActiveTripId(DEFAULT_TRIP_ID);
-    removeKnownTrip('t1');
-    importRemoteTrips([meta('t1', { joinedAt: 1 })], []); // remote still has t1, no tombstone
-    expect(listKnownTrips().map((t) => t.id)).not.toContain('t1');
+    removeKnownTrip('trip-one-0123456789abcd');
+    importRemoteTrips([meta('trip-one-0123456789abcd', { joinedAt: 1 })], []); // remote still has t1, no tombstone
+    expect(listKnownTrips().map((t) => t.id)).not.toContain('trip-one-0123456789abcd');
   });
 
   // The forget used to be undone by any OTHER device still sitting on that trip. The incoming
@@ -347,46 +347,46 @@ describe('removeKnownTrip — local forget + tombstone (S269, D-222)', () => {
   // `entryRecency` outranked `removedAt`, and the next merge deleted the tombstone and re-pushed
   // the trip to every device — including the one that forgot it.
   it('a remote forget of the ACTIVE trip moves the pointer, so the self-heal cannot resurrect it', () => {
-    joinTrip('t1', 'One'); // joinTrip writes the pointer AND the entry
-    expect(getActiveTripId()).toBe('t1');
+    joinTrip('trip-one-0123456789abcd', 'One'); // joinTrip writes the pointer AND the entry
+    expect(getActiveTripId()).toBe('trip-one-0123456789abcd');
     const removedAt = Date.now() + 60_000; // the peer forgot it after this device joined
 
-    importRemoteTrips([], [{ id: 't1', removedAt }]);
+    importRemoteTrips([], [{ id: 'trip-one-0123456789abcd', removedAt }]);
 
-    expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID); // pre-fix: still 't1'
+    expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID); // pre-fix: still 'trip-one-0123456789abcd'
     // This read is the self-heal's own trigger — pre-fix it re-minted the entry right here.
-    expect(listKnownTrips().map((t) => t.id)).not.toContain('t1');
-    expect(listRemovedTrips().map((r) => r.id)).toContain('t1'); // and the tombstone survives
+    expect(listKnownTrips().map((t) => t.id)).not.toContain('trip-one-0123456789abcd');
+    expect(listRemovedTrips().map((r) => r.id)).toContain('trip-one-0123456789abcd'); // and the tombstone survives
   });
 
   it('a remote forget of a NON-active trip leaves the pointer alone', () => {
-    joinTrip('keep-me', 'Active');
-    joinTrip('t1', 'One');
-    setActiveTripId('keep-me');
-    importRemoteTrips([], [{ id: 't1', removedAt: Date.now() + 60_000 }]);
-    expect(getActiveTripId()).toBe('keep-me');
-    expect(listKnownTrips().map((t) => t.id)).toContain('keep-me');
+    joinTrip('keep-me-0123456789abcd', 'Active');
+    joinTrip('trip-one-0123456789abcd', 'One');
+    setActiveTripId('keep-me-0123456789abcd');
+    importRemoteTrips([], [{ id: 'trip-one-0123456789abcd', removedAt: Date.now() + 60_000 }]);
+    expect(getActiveTripId()).toBe('keep-me-0123456789abcd');
+    expect(listKnownTrips().map((t) => t.id)).toContain('keep-me-0123456789abcd');
   });
 
   it('a remote re-join (newer joinedAt) revives a locally-forgotten trip through import', () => {
-    joinTrip('t1', 'One');
+    joinTrip('trip-one-0123456789abcd', 'One');
     setActiveTripId(DEFAULT_TRIP_ID);
-    removeKnownTrip('t1');
+    removeKnownTrip('trip-one-0123456789abcd');
     const removedAt = listRemovedTrips()[0].removedAt;
-    importRemoteTrips([meta('t1', { name: 'Re-joined', joinedAt: removedAt + 1000 })], []);
-    expect(listKnownTrips().map((t) => t.id)).toContain('t1');
-    expect(listRemovedTrips().map((r) => r.id)).not.toContain('t1'); // stale tombstone cleared
+    importRemoteTrips([meta('trip-one-0123456789abcd', { name: 'Re-joined', joinedAt: removedAt + 1000 })], []);
+    expect(listKnownTrips().map((t) => t.id)).toContain('trip-one-0123456789abcd');
+    expect(listRemovedTrips().map((r) => r.id)).not.toContain('trip-one-0123456789abcd'); // stale tombstone cleared
   });
 });
 
 describe('importRemoteTrips — merge lands in the local registry, default preserved', () => {
   it('a remote-only trip appears in listKnownTrips after import', () => {
-    joinTrip('local-1', 'Mine');
+    joinTrip('local-0123456789abcdefg', 'Mine');
     const { localHadExtras } = importRemoteTrips([meta('remote-1', { name: 'Phone trip' })]);
     expect(localHadExtras).toBe(true);
     const ids = listKnownTrips().map((t) => t.id);
     expect(ids).toContain('remote-1');
-    expect(ids).toContain('local-1');
+    expect(ids).toContain('local-0123456789abcdefg');
     expect(ids[0]).toBe(DEFAULT_TRIP_ID); // default still first, untouched by the merge
   });
 });
@@ -394,21 +394,21 @@ describe('importRemoteTrips — merge lands in the local registry, default prese
 // ── B. wired push/subscribe against fake firestore ───────────────────────────────────────────────
 describe('pushTripList — writes the union to trips/{code}/profile/tripList', () => {
   it('writes {version:1, trips:[…]} at the exact path, WITHOUT the default pack entry', async () => {
-    joinTrip('t1', 'Trip one');
+    joinTrip('trip-one-0123456789abcd', 'Trip one');
     await pushTripList(CODE);
     expect(writeLog).toHaveLength(1);
     expect(writeLog[0].path).toBe(DOC_PATH);
     const data = writeLog[0].data as { version: number; trips: TripMeta[] };
     expect(data.version).toBe(1);
-    expect(data.trips.map((t) => t.id)).toEqual(['t1']); // no DEFAULT_TRIP_ID leaked
+    expect(data.trips.map((t) => t.id)).toEqual(['trip-one-0123456789abcd']); // no DEFAULT_TRIP_ID leaked
   });
 
   it('union-merges with a present remote doc (remote-only trip survives the push)', async () => {
-    joinTrip('t1', 'Trip one');
+    joinTrip('trip-one-0123456789abcd', 'Trip one');
     fake.setDocData(DOC_PATH, { version: 1, trips: [meta('r1', { name: 'Remote' })] });
     await pushTripList(CODE);
     const data = writeLog[0].data as { trips: TripMeta[] };
-    expect(data.trips.map((t) => t.id).sort()).toEqual(['r1', 't1']);
+    expect(data.trips.map((t) => t.id).sort()).toEqual(['r1', 'trip-one-0123456789abcd']);
   });
 
   it('no-ops when dormant or code empty', async () => {
@@ -420,13 +420,13 @@ describe('pushTripList — writes the union to trips/{code}/profile/tripList', (
   });
 
   it('purges a forgotten trip the remote doc still lists, and writes its tombstone (S269)', async () => {
-    joinTrip('t1', 'One');
-    removeKnownTrip('t1'); // t1 was active → pointer switched to default; t1 forgotten + tombstoned
-    fake.setDocData(DOC_PATH, { version: 1, trips: [meta('t1', { joinedAt: 1 })] }); // remote still lists it, no tombstone
+    joinTrip('trip-one-0123456789abcd', 'One');
+    removeKnownTrip('trip-one-0123456789abcd'); // t1 was active → pointer switched to default; t1 forgotten + tombstoned
+    fake.setDocData(DOC_PATH, { version: 1, trips: [meta('trip-one-0123456789abcd', { joinedAt: 1 })] }); // remote still lists it, no tombstone
     await pushTripList(CODE);
     const data = writeLog[0].data as { trips: TripMeta[]; removed: RemovedTrip[] };
     expect(data.trips.map((t) => t.id)).toEqual([]); // purged from the pushed union
-    expect(data.removed.map((r) => r.id)).toEqual(['t1']);
+    expect(data.removed.map((r) => r.id)).toEqual(['trip-one-0123456789abcd']);
   });
 });
 
@@ -437,7 +437,7 @@ describe('subscribeTripList — docs-remote first-snapshot recipe', () => {
   // absent first snapshot now does nothing, and the doc is created only by the deliberate
   // writers (the door's create path, trips-hub's pushes). This pins the deletion.
   it('ABSENT first snapshot ⇒ NO write at all (the auto-seed is deleted, #10)', async () => {
-    joinTrip('seed-me', 'Seed trip');
+    joinTrip('seed-me-0123456789abcd', 'Seed trip');
     const unsub = subscribeTripList(CODE);
     await flush();
     fireSnapshot(DOC_PATH); // doc absent
@@ -445,12 +445,12 @@ describe('subscribeTripList — docs-remote first-snapshot recipe', () => {
     expect(writeLog).toHaveLength(0); // pushTripList was NOT called
     expect(fake.docs.has(DOC_PATH)).toBe(false); // no account doc was manufactured
     // The local registry is untouched either way.
-    expect(listKnownTrips().map((t) => t.id)).toContain('seed-me');
+    expect(listKnownTrips().map((t) => t.id)).toContain('seed-me-0123456789abcd');
     unsub();
   });
 
   it('PRESENT snapshot ⇒ merges into the local registry (remote-only trip shows up locally)', async () => {
-    joinTrip('mine', 'Mine');
+    joinTrip('mine-0123456789abcdefgh', 'Mine');
     fake.setDocData(DOC_PATH, { version: 1, trips: [meta('theirs', { name: 'Phone trip' })] });
     const onMerge = vi.fn();
     const unsub = subscribeTripList(CODE, onMerge);
@@ -459,11 +459,11 @@ describe('subscribeTripList — docs-remote first-snapshot recipe', () => {
     await flush();
     const ids = listKnownTrips().map((t) => t.id);
     expect(ids).toContain('theirs');
-    expect(ids).toContain('mine');
+    expect(ids).toContain('mine-0123456789abcdefgh');
     expect(onMerge).toHaveBeenCalled();
-    // Local had 'mine' which remote lacked ⇒ pushed the union back.
+    // Local had 'mine-0123456789abcdefgh' which remote lacked ⇒ pushed the union back.
     const pushed = fake.docs.get(DOC_PATH) as { trips: TripMeta[] };
-    expect(pushed.trips.map((t) => t.id).sort()).toEqual(['mine', 'theirs']);
+    expect(pushed.trips.map((t) => t.id).sort()).toEqual(['mine-0123456789abcdefgh', 'theirs']);
     unsub();
   });
 
@@ -487,17 +487,17 @@ describe('subscribeTripList — docs-remote first-snapshot recipe', () => {
   });
 
   it('PRESENT snapshot with a tombstone purges the forgotten trip from the local registry (S269)', async () => {
-    joinTrip('t1', 'One');
-    joinTrip('keep', 'Keep'); // active = keep, so t1 is no longer active and self-heal will not re-add it
+    joinTrip('trip-one-0123456789abcd', 'One');
+    joinTrip('keep-0123456789abcdefgh', 'Keep'); // active = keep, so t1 is no longer active and self-heal will not re-add it
     const removedAt = Date.now() + 1_000_000; // newer than t1's joinedAt → the tombstone wins
-    fake.setDocData(DOC_PATH, { version: 1, trips: [], removed: [{ id: 't1', removedAt }] });
+    fake.setDocData(DOC_PATH, { version: 1, trips: [], removed: [{ id: 'trip-one-0123456789abcd', removedAt }] });
     const unsub = subscribeTripList(CODE);
     await flush();
     fireSnapshot(DOC_PATH);
     await flush();
     const ids = listKnownTrips().map((t) => t.id);
-    expect(ids).not.toContain('t1');
-    expect(ids).toContain('keep');
+    expect(ids).not.toContain('trip-one-0123456789abcd');
+    expect(ids).toContain('keep-0123456789abcdefgh');
     unsub();
   });
 });

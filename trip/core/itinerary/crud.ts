@@ -3,7 +3,7 @@
 // EXTRACTED MECHANICALLY from `hooks/use-itinerary.ts`. Every array-manipulation
 // body below is the VERBATIM logic that previously lived inside the hook's mutators —
 // moved, not rewritten. The hook is now a thin React adapter that wires these pure
-// functions to the ports (StoragePort = the Vault gateway; SyncPort = pushPlans) and
+// functions to the ports (StoragePort = the Vault gateway; SyncPort = the outbox-decorated per-day push) and
 // supplies the two I/O-bearing callbacks these functions inject:
 //
 // - `getCountryForDate` is imported from `@/core/dates` (pure, TZ-safe) — same source
@@ -102,6 +102,19 @@ export function updateItem(
       i.id === itemId ? stamp({ ...i, ...patch }) : i,
     ),
   }));
+}
+
+/**
+ * The keys of `next` that differ from `prev`. An editor save sends this, not the whole stale
+ * item, so unchanged `done`/`rev`/`hlc` never ride along. A key cleared to `undefined` is kept.
+ */
+export function itemPatch(prev: ItineraryItem, next: ItineraryItem): Partial<ItineraryItem> {
+  const patch: Record<string, unknown> = {};
+  for (const k of new Set([...Object.keys(prev), ...Object.keys(next)])) {
+    const key = k as keyof ItineraryItem;
+    if (!Object.is(next[key], prev[key])) patch[k] = next[key];
+  }
+  return patch as Partial<ItineraryItem>;
 }
 
 /**

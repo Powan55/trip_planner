@@ -333,6 +333,14 @@ describe('wipeTripData — forgetting ONE trip sweeps only that id\'s trip:{id}:
     }
   });
 
+  it('leaves a trip whose id extends the target with ":" alone (#853)', () => {
+    window.localStorage.setItem('trip:a:itinerary', 'a');
+    window.localStorage.setItem('trip:a:b:itinerary', 'a-b');
+    wipeTripData('a');
+    expect(window.localStorage.getItem('trip:a:itinerary')).toBeNull();
+    expect(window.localStorage.getItem('trip:a:b:itinerary')).toBe('a-b');
+  });
+
   it('sweeps a dirty syncOutbox for the forgotten id too, so a re-join can never replay it (A-10)', () => {
     window.localStorage.setItem(
       'trip:target-trip:syncOutbox',

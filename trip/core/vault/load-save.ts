@@ -192,6 +192,18 @@ export function saveItinerary(plans: DayPlan[], config: VaultConfig): boolean {
   const nowISO = config.nowISO ?? defaultNowISO;
   const envelope = makeEnvelope(CURRENT_ITINERARY_VERSION, plans, nowISO());
   try {
+    const existing = window.localStorage.getItem(storageKey);
+    const stored = existing === null ? null : detectVersion(JSON.parse(existing));
+    if (stored !== null && stored > CURRENT_ITINERARY_VERSION) {
+      console.warn(
+        `[vault] save refused: stored itinerary is v${stored}, this build writes v${CURRENT_ITINERARY_VERSION}. Reload to get the latest version. (Dev only: switching to an older branch on the same localhost origin locks saves until site data is cleared.)`,
+      );
+      return false;
+    }
+  } catch {
+    // unreadable or unparseable existing value: fall through to the normal write
+  }
+  try {
     window.localStorage.setItem(storageKey, JSON.stringify(envelope));
     return true;
   } catch (err) {

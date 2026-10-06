@@ -40,9 +40,9 @@ rules_version = '2';
 // session first.
 //
 // ROLES. `owner` = the creator: may remove members, change roles (short of leaving no
-// owner), and delete the trip.
+// owner). Nobody deletes the trip doc through rules (#856).
 // `member` = full content read+write, and may ADD other members (add-only; a member can
-// never remove or re-role an existing entry). `viewer` (read, no write) is the named
+// never remove or re-role anyone else's entry) and LEAVE by removing its own key alone (#859). `viewer` (read, no write) is the named
 // upgrade path and is deliberately NOT built: it needs a second predicate on every write
 // rule plus UI to assign it, and nothing needs it yet.
 //
@@ -266,6 +266,16 @@ service cloud.firestore {
              == resource.data.members.values().removeAll(['member']).size();
       }
 
+      // A member may remove ITS OWN key and nothing else (#859): no other key removed, added or
+      // re-roled, no other field touched. An owner leaves through isOwner(), which still has to
+      // pass rosterIsWellFormed(), so the last owner cannot walk away and strand the trip.
+      function leavesRoster() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.diff(resource.data.members).removedKeys() == [request.auth.uid].toSet()
+          && request.resource.data.members.diff(resource.data.members).addedKeys().size() == 0
+          && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0;
+      }
+
       function joinInvitePath() {
         return /databases/$(database)/documents/trips/$(tripId)/invites/$(request.resource.data.joinInvite);
       }
@@ -296,9 +306,11 @@ service cloud.firestore {
         || (isOpen() && request.auth != null)   // grandfathered capability trip
         || isOwner()                         // owner: anything, incl. removing members
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else
+        || (isMember() && leavesRoster())    // member: may remove its own roster key (#859)
         || redeemsInvite()                   // invitee: may add itself as 'member' (D-662)
       );
-      allow delete: if (isOpen() && request.auth != null) || isOwner();
+      // No owner delete (#856): the subtree would outlive the doc, and a doc-less id reads open.
+      allow delete: if isOpen() && request.auth != null;
 
       // ── CARVE-OUT: the account path + the login door ──────────────────────────
       // `trips/{userToken}/profile/{identity,tripList,prefs,journal_*}` is not trip content: the

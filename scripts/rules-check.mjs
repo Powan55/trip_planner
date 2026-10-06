@@ -484,7 +484,30 @@ await expect('M adds a third uid as "member"  (add-only is allowed)', 'ALLOWED',
   () => updateDoc(doc(dbM, 'trips', L), { [`members.${THIRD}`]: 'member' }));
 await expect('O removes that third uid', 'ALLOWED',
   () => updateDoc(doc(db, 'trips', L), { [`members.${THIRD}`]: deleteField() }));
-await expect('O deletes trips/L', 'ALLOWED', () => deleteDoc(doc(db, 'trips', L)));
+// Ownership transfer (#858): promote, step down while another owner exists, and hand it back.
+await expect('O promotes M to "owner"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'owner' }));
+await expect('O steps down to "member" (M still owns the trip)', 'ALLOWED',
+  () => updateDoc(doc(db, 'trips', L), { [`members.${O}`]: 'member' }));
+await expect('M, now an owner, makes O an owner again', 'ALLOWED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'owner' }));
+await expect('O steps M back down to "member"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'member' }));
+// Ownership transfer (#858): promote, step down while another owner exists, and hand it back.
+await expect('O promotes M to "owner"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'owner' }));
+await expect('O steps down to "member" (M still owns the trip)', 'ALLOWED',
+  () => updateDoc(doc(db, 'trips', L), { [`members.${O}`]: 'member' }));
+await expect('M, now an owner, makes O an owner again', 'ALLOWED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'owner' }));
+await expect('O steps M back down to "member"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'member' }));
+// A member leaving (#859): its own key alone, and nothing alongside it.
+await expect('M leaves with another field in the same write', 'DENIED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: deleteField(), seededFrom: 'x' }));
+await expect('M leaves while adding another uid in the same write', 'DENIED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: deleteField(), [`members.${THIRD}`]: 'member' }));
+await expect('M leaves: removes its own roster key', 'ALLOWED',
+  () => updateDoc(doc(dbM, 'trips', L), { [`members.${M}`]: deleteField() }));
+await expect('M, no longer on the roster, cannot read trips/L', 'DENIED', () => getDoc(doc(dbM, 'trips', L)));
+await expect('O adds M back as "member"', 'ALLOWED', () => updateDoc(doc(db, 'trips', L), { [`members.${M}`]: 'member' }));
+await expect('O deletes trips/L (refused: it would orphan the subtree, #856)', 'DENIED', () => deleteDoc(doc(db, 'trips', L)));
 const phase6 = flush('PHASE 6 (membership, positive)');
 
 // ── 7. MEMBERSHIP, the negative path ─────────────────────────────────────────
@@ -503,7 +526,6 @@ const MEMBER_DENIALS = [
   ['stranger S adds ITSELF to members as "owner"', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'owner' })],
   ['member M removes the owner', () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: deleteField() })],
   ["member M changes the owner's role", () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'member' })],
-  ['member M deletes trips/L', () => deleteDoc(doc(dbM, 'trips', L))],
   // A fresh id every call, so this is always a CREATE — never an update of what a previous
   // (deliberately permissive) phase was allowed to leave behind.
   ['create a trip with SELF as "member", not "owner"',
@@ -533,6 +555,9 @@ console.log('\n\n=== 7. MEMBERSHIP (negative): everyone else is out ===');
 await seedGated();
 console.log(`  -- 7a. the ${MEMBER_DENIALS.length} member denials (phase 10 re-runs exactly these) --`);
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
+// Not in MEMBER_DENIALS: neutering isOwner/isMember cannot flip these, so phase 10 would read INCONCLUSIVE.
+await expect('owner O deletes trips/L (#856)', 'DENIED', () => deleteDoc(doc(db, 'trips', L)));
+await expect('member M deletes trips/L', 'DENIED', () => deleteDoc(doc(dbM, 'trips', L)));
 
 console.log('\n  -- 7b. the auth floor: a client that never signed in reaches nothing --');
 await expect('UNAUTH gets trips/L', 'DENIED', () => getDoc(doc(dbU, 'trips', L)));

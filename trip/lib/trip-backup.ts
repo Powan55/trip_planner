@@ -215,6 +215,7 @@ const DOMAINS = {
   journal: {
     read: () => journalStore.get<unknown>(ABSENT),
     write: (v) => {
+      const before = sanitizeEntries(journalStore.get<unknown>([])).map((e) => e.date);
       const ok = journalStore.set(v);
       // Re-stamp each restored day so the restore wins on the author's other devices (D-596).
       // Gated on `ok` (#698 follow-up): pushJournalEntry re-reads the LOCAL journal to stamp it,
@@ -222,7 +223,8 @@ const DOMAINS = {
       // fresh HLC — old content wins everywhere, and a date the backup dropped locally gets
       // pushed out as a deletion.
       if (ok && isRemoteConfigured()) {
-        const dates = (v as JournalEntry[]).map((e) => e.date);
+        // Union with the pre-restore dates: a day the backup dropped gets a tombstone (#857).
+        const dates = [...new Set([...before, ...(v as JournalEntry[]).map((e) => e.date)])];
         void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
       }
       return ok;
@@ -449,6 +451,26 @@ export async function downloadTripBackup(
 /** Narrow an unknown parse to a full-trip backup envelope by its magic `format`. */
 function isTripBackup(v: unknown): v is TripBackup {
   return isPlainObject(v) && v.format === BACKUP_FORMAT && isPlainObject(v.domains);
+}
+
+/** A backup this many days old or older earns the "made on" warning in the restore confirm. */
+export const STALE_BACKUP_DAYS = 7;
+
+/**
+ * Whole days between a backup's `exportedAt` and `now`, or `null` when the file is not a full-trip
+ * backup, carries no readable stamp, or cannot be read at all (#851). Read-only and best-effort: the
+ * restore itself re-validates everything, so a failure here only means no warning is shown. A stamp
+ * in the future counts as 0 days.
+ */
+export async function backupAgeDays(file: Blob, now: number = Date.now()): Promise<number | null> {
+  try {
+    const parsed: unknown = JSON.parse(await decompressBlobOrText(file));
+    if (!isTripBackup(parsed) || typeof parsed.exportedAt !== 'string') return null;
+    const at = Date.parse(parsed.exportedAt);
+    return Number.isNaN(at) ? null : Math.max(0, Math.floor((now - at) / 86_400_000));
+  } catch {
+    return null;
+  }
 }
 
 /**

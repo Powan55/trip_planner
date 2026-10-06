@@ -9,6 +9,7 @@ import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
 import { ClockOverrideBanner } from '@/components/clock-override-banner'
+import { RouteFocus } from '@/components/route-focus'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
 import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
@@ -188,6 +189,7 @@ export default function RootLayout({
             {/* App chrome: one persistent navbar/footer around the routed
                 page content. TokenGate + PresenceBar render inside the provider. */}
             <Navbar />
+            <RouteFocus />
             {/* routed content + footer must clear the fixed mobile
                 tab bar; 64px fallback = the bar's published height contract. */}
             {/* `#main` is the skip link's target; tabIndex=-1 makes a non-interactive

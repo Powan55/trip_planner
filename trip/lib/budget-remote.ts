@@ -114,7 +114,7 @@ export async function pushBudgetChunk(current: BudgetModel, chunk: string, tripI
  * lazy + self-degrading: no-op unsubscribe when dormant; any failure → local-only via console.warn,
  * never throws. Returns an unsubscribe fn. Mirrors `subscribeRemoteExpenses`.
  */
-export function subscribeRemoteBudget(): () => void {
+export function subscribeRemoteBudget(onDead?: () => void): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -138,6 +138,8 @@ export function subscribeRemoteBudget(): () => void {
     };
     window.addEventListener('online', onlineHandler);
   };
+  // The caller's reopen timer (#845) replaces the `online` wait; both would double-listen.
+  const retry = () => (onDead ? onDead() : armOnlineRetry());
 
   // Persist + dispatch the resolved model to the local store (the shared write tail) — DIRECTLY,
   // never via commit(), so the snapshot path never re-pushes.
@@ -198,7 +200,7 @@ export function subscribeRemoteBudget(): () => void {
             setReadDenied('budget', true);
             return;
           }
-          if (!cancelled) armOnlineRetry();
+          if (!cancelled) retry();
         },
       );
 
@@ -211,7 +213,7 @@ export function subscribeRemoteBudget(): () => void {
       }
     } catch (err) {
       console.warn('[budget-remote] remote sync unavailable, staying local-only:', err);
-      if (!cancelled) armOnlineRetry();
+      if (!cancelled) retry();
     } finally {
       settingUp = false;
     }
