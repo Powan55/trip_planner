@@ -12,6 +12,10 @@ import dynamic from 'next/dynamic';
 import LazyVisible from '@/components/lazy-visible';
 import SectionSkeleton from '@/components/section-skeleton';
 import DefaultTripOnly from '@/components/default-trip-only';
+import { HERO_DEFAULT } from '@/lib/hero-image';
+import { buildSrcSet } from '@/lib/image-srcset';
+import manifest from '@/lib/image-manifest.json';
+import { withBasePath } from '@/lib/utils';
 
 // HOME: hero · stat row · today/recap content · bento · travel-inspiration,
 // plus the legacy v1 hash redirect. Navbar/Footer live in the root layout now.
@@ -255,6 +259,14 @@ function GatedHomeChapters() {
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-surface">
+      <link
+        rel="preload"
+        as="image"
+        type="image/avif"
+        imageSrcSet={buildSrcSet(manifest[HERO_DEFAULT].variants, withBasePath) ?? withBasePath(manifest[HERO_DEFAULT].avif)}
+        imageSizes="100vw"
+        fetchPriority="high"
+      />
       {/* — content-first order. The real content (TodayPanel/TripRecap, in-trip
           agenda + plan-vs-actual, null pre-trip per) sits directly under the hero,
           ABOVE the interface-heavy stat dashboard and the "at a glance" bento, which are
