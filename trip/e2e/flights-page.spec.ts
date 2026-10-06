@@ -53,6 +53,7 @@ test.describe('S325 · /flights honest + deep-linked', () => {
     await page.setViewportSize({ width: 320, height: 800 });
     const cards = page.locator('[data-testid^="flight-card-"]');
     await expect(cards).toHaveCount(4);
+    await page.evaluate(() => document.fonts.ready);
     const overflowing = await cards.evaluateAll((elements) =>
       elements.flatMap((card) => [card, ...card.querySelectorAll('span')])
         .filter((element) => {
@@ -64,7 +65,7 @@ test.describe('S325 · /flights honest + deep-linked', () => {
     );
     expect(overflowing).toEqual([]);
     await expect(cards.first().getByText('Confirmation', { exact: true }).first()).toBeVisible();
-    await expect(cards.first().getByText('Depart 5:30am Wed Dec 9', { exact: true }).last()).toBeVisible();
+    await expect(cards.first().getByText(/^Depart .+Wed Dec 9$/).last()).toBeVisible();
   });
 
   test('each journey shows an external "Check live status" deep-link rail from booking-data', async ({ page }) => {

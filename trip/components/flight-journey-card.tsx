@@ -78,7 +78,7 @@ function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
       <span className="num text-n-sm text-ink-hi">{leg.fromCode}</span>
 
       <span className="min-w-0">
-        <span className="nm">{leg.flightNumber}</span>
+        <span className="nm break-words">{leg.flightNumber}</span>
         <span className="mt">
           {leg.fromName} → {leg.toName}
         </span>
