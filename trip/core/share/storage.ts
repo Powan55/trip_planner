@@ -19,9 +19,9 @@ export function loadShareInbox(): ShareItem[] {
   return sanitizeItems(shareInboxStore.get<unknown>([]));
 }
 
-/** Sanitize + persist the whole inbox as JSON. No-op / never-throws under SSR or storage failure. */
-export function saveShareInbox(items: ShareItem[]): void {
-  shareInboxStore.set<ShareItem[]>(sanitizeItems(items));
+/** Sanitize + persist the whole inbox as JSON. Never throws; false when the write was refused. */
+export function saveShareInbox(items: ShareItem[]): boolean {
+  return shareInboxStore.set<ShareItem[]>(sanitizeItems(items));
 }
 
 /**

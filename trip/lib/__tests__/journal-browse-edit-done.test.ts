@@ -33,6 +33,7 @@ vi.mock('@/hooks/use-journal', () => ({
     saveEntry: (date: string, patch: { text: string; mood: string | null; highlight: string }) => {
       const i = h.entries.findIndex((e) => e.date === date);
       if (i >= 0) h.entries[i] = { ...h.entries[i], ...patch, mood: patch.mood as never };
+      return true;
     },
     removeEntry: () => {},
     clearAll: () => {},

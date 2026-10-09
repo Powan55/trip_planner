@@ -33,7 +33,8 @@ export interface ShareStore {
   items: ShareItem[];
   hydrated: boolean;
   /** Add a received share (id + receivedAt injected here). Newest-first, capped at 100. */
-  addShare(input: NewShareInput): void;
+  /** False when the write was refused (storage full); the caller keeps the source. */
+  addShare(input: NewShareInput): boolean;
   /** Remove an inbox item by id. */
   removeShare(id: string): void;
   /** Assign (`day`) or clear (`undefined`) the trip day for an item. */
@@ -67,7 +68,7 @@ export function useShare(): ShareStore {
         ...(input.text ? { text: input.text } : {}),
         ...(input.url ? { url: input.url } : {}),
       };
-      commit((current) => addShareItem(current, item));
+      return commit((current) => addShareItem(current, item));
     },
     [commit],
   );

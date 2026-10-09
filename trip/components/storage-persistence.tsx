@@ -68,11 +68,6 @@ import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
 // resets it on every real navigation/reload — no need to route it through the gateway.
 let quotaWarnedThisLoad = false;
 
-// Per-page-load guard for the REACTIVE write-failure toast. Same shape/rationale as
-// `quotaWarnedThisLoad` above — a throttle so a burst of rejected writes (e.g. several
-// keystrokes each triggering a save) shows at most ONE toast per session, not one per failure.
-let quotaExceededToastedThisLoad = false;
-
 // Poll cadence for the leg-change backup nudge (#5 below). A leg changes at most once a day, so
 // this is a plain low-frequency poll rather than hero-section's 1s countdown tick.
 const LEG_CHECK_INTERVAL_MS = 60_000;
@@ -177,9 +172,9 @@ export function StoragePersistence() {
 
     // ── 4. Reactive write-failure toast (; complements #2's proactive estimate() warning) ──
     const onQuotaExceeded = () => {
-      if (quotaExceededToastedThisLoad) return;
-      quotaExceededToastedThisLoad = true;
+      // Fixed id: a burst replaces one toast, and a later refusal after dismissal shows again.
       toast("Couldn't save — device storage is full", {
+        id: 'quota-exceeded',
         description: 'Export your trip from Settings → Data and free up space.',
         duration: 10000,
         action: {

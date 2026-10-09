@@ -146,11 +146,12 @@ export default function JournalCard({
 
   const handleSave = () => {
     // `null` for mood/highlight explicitly clears; the core removes the entry if all content is empty.
-    saveEntry(date, {
+    // Refused write: keep the editor and draft open; the quota toast explains.
+    if (!saveEntry(date, {
       text: draftText,
       mood: draftMood,
       highlight: draftHighlight,
-    });
+    })) return;
     setEditing(false);
     onDone?.();
   };
