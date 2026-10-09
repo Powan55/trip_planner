@@ -21,9 +21,9 @@ export function loadJournal(): JournalEntry[] {
   return sanitizeEntries(raw);
 }
 
-/** Sanitize + persist the whole journal list as JSON. No-op / never-throws under SSR or storage failure. */
-export function saveJournal(entries: JournalEntry[]): void {
-  journalStore.set<JournalEntry[]>(sanitizeEntries(entries));
+/** Sanitize + persist the whole journal list as JSON. Never throws; false when the write was refused. */
+export function saveJournal(entries: JournalEntry[]): boolean {
+  return journalStore.set<JournalEntry[]>(sanitizeEntries(entries));
 }
 
 /**

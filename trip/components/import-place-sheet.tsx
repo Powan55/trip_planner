@@ -170,7 +170,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
     if (!trimmedName) return; // guard (button also disabled)
     const id = newPlaceId();
     const trimmedUrl = url.trim();
-    addPlace({
+    const placeSaved = addPlace({
       id,
       name: trimmedName,
       legId,
@@ -184,8 +184,9 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
       lng: coords.lng,
       note: note.trim() || undefined,
     });
-    if (showAddToPlan && selectedDate) {
-      addItem(selectedDate, {
+    // Refused write: keep the sheet open and the source share row; the quota toast explains.
+    if (!placeSaved) return;
+    if (showAddToPlan && selectedDate && addItem(selectedDate, {
         id: generateItemId(),
         title: trimmedName,
         category,
@@ -200,7 +201,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
         // is a no-op, same as never setting the field.
         lat: coords.lat,
         lng: coords.lng,
-      });
+      })) {
       toast.success(`Saved “${trimmedName}” and added it to ${formatDate(selectedDate)}`);
     } else {
       toast.success(`Saved “${trimmedName}” to your places`);
