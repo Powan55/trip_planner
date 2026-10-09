@@ -167,15 +167,6 @@ export default function RootLayout({
         <meta name="referrer" content={REFERRER_POLICY} />
       </head>
       <body className="font-sans bg-surface">
-        {/* WCAG 2.4.1 (B-1). ONE link at the root covers every route: all 19 pages
-            render inside the `#main` wrapper below, so no page-level skip link is needed.
-            Invisible until focused, then a real chip above the navbar (z-50). */}
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-ui)] focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          Skip to content
-        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -186,6 +177,15 @@ export default function RootLayout({
               so it mounts once and is never torn down by route navigation. */}
           <SeasonAccentEngine />
           <ItineraryProvider>
+            {/* WCAG 2.4.1 (B-1). ONE link covers every route: all 19 pages
+                render inside the `#main` wrapper below, so no page-level skip link is needed.
+                Rendered inside the provider so it exists only when #main does (not on the signed-out wall). Invisible until focused, then a real chip above the navbar (z-50). */}
+            <a
+              href="#main"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-ui)] focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              Skip to content
+            </a>
             {/* App chrome: one persistent navbar/footer around the routed
                 page content. TokenGate + PresenceBar render inside the provider. */}
             <Navbar />
