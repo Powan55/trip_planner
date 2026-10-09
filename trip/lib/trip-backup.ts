@@ -621,7 +621,10 @@ export async function importTripBackup(
   // An EMPTY meta is treated as absent too (#751): replacing with nothing would delete every photo
   // on this device, and they exist nowhere else.
   const rawMeta = env.photos?.meta;
-  const metas = Array.isArray(rawMeta) ? sanitizePhotos(rawMeta) : [];
+  // Any invalid row rejects the whole photo set (#912): the replace would delete that row's live
+  // photo and its bytes, and the originals exist nowhere else.
+  const metaOk = Array.isArray(rawMeta) && rawMeta.every((r) => sanitizePhotos([r]).length === 1);
+  const metas = metaOk ? sanitizePhotos(rawMeta) : [];
   const hasMeta = metas.length > 0;
   if (!hasMeta && rawMeta !== undefined && !(Array.isArray(rawMeta) && rawMeta.length === 0)) dropped.push('photos');
   const decoded: Array<[string, Blob]> = [];
@@ -654,7 +657,11 @@ export async function importTripBackup(
 
   // Blobs FIRST (id-preserving), so a re-import doesn't duplicate and meta↔blob links hold.
   const putIds = new Set<string>();
+  // Originals this import is about to overwrite, put back if the index write is refused (#913).
+  const originals = new Map<string, Blob>();
   for (const [id, blob] of decoded) {
+    const prev = await blobStore.get(id);
+    if (prev) originals.set(id, prev);
     const res = await blobStore.putWithId(id, blob);
     if (res.ok) putIds.add(id);
     else photosSkipped++; // stored blob failed → meta stays as a placeholder
@@ -725,6 +732,7 @@ export async function importTripBackup(
       const liveIds = new Set(live.map((m) => m.id));
       const strays = metas.filter((m) => putIds.has(m.id) && !liveIds.has(m.id));
       if (strays.length > 0) await deletePhotoBlobs(strays, blobStore);
+      for (const [id, blob] of originals) if (putIds.has(id)) await blobStore.putWithId(id, blob);
     }
   } else if (expenseIds.size > 0) {
     // Live photos are kept, so their receipts follow the restored expenses instead.
