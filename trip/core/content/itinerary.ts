@@ -313,7 +313,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j13-1', title: 'Late brunch & easy shopping', category: 'free', time: '11:00', duration: '2h', notes: 'Keep the daytime light — rest up for the big night ahead', location: 'Shinjuku, Tokyo' },
       { id: 'j13-2', title: 'Pre-game dinner', category: 'food', time: '18:00', duration: '1.5h', notes: 'A relaxed dinner in Shinjuku or Shibuya before the countdown', location: 'Shinjuku/Shibuya, Tokyo' },
       { id: 'j13-3', title: "New Year's Eve club/event", category: 'nightlife', time: '21:30', duration: '2h 15m', notes: "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
-      { id: 'j13-4', title: 'New Year countdown', category: 'nightlife', time: '23:45', duration: '1h 45m', notes: "See in 2027 with the club/event crowd and stay on the floor after it; trains run all night on New Year's Eve", location: 'Tokyo' },
+      { id: 'j13-4', title: 'New Year countdown', category: 'nightlife', time: '23:45', duration: '1h 45m', notes: "See in 2027 with the club/event crowd and stay on the floor after it; extra NYE trains vary by line and operator, so check your line's timetable on the JR East, Tokyo Metro or Toei site before relying on one. Fallback: taxi or stay out till first train", location: 'Tokyo' },
     ],
   },
   {

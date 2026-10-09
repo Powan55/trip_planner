@@ -13,9 +13,12 @@ describe('lastTrainNotice (S245)', () => {
     expect(lastTrainNotice('2026-12-20', 'japan')).toBe('Last trains ~00:00 · first ~05:00');
   });
 
-  it('is the NYE all-night exception on Dec 31', () => {
+  it('Dec 31 makes no all-night promise and gives a fallback', () => {
     expect(NYE_DATE).toBe('2026-12-31');
-    expect(lastTrainNotice(NYE_DATE, 'japan')).toMatch(/trains run all night/i);
+    const n = lastTrainNotice(NYE_DATE, 'japan');
+    expect(n).not.toMatch(/all night|no last-train/i);
+    expect(n).toMatch(/unconfirmed/);
+    expect(n).toMatch(/taxi/i);
   });
 
   it('the NYE exception only applies when the day is ALSO Japan-phase', () => {
