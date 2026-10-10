@@ -11,7 +11,14 @@ import {
   MapPin, X, Check, ChevronLeft, ChevronRight, ChevronDown,
   ExternalLink, Map as MapIcon, MoreHorizontal,
 } from 'lucide-react';
-import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
+import { DndContext, closestCenter, DragOverlay, type CollisionDetection } from '@dnd-kit/core';
+
+// The day container is also droppable; a keyboard drag whose centre lands nearer to it than to the
+// target row resolves to `day-*`, which handleDragEnd ignores, so the reorder silently dropped.
+const closestItem: CollisionDetection = (args) => {
+  const rows = args.droppableContainers.filter((c) => !String(c.id).startsWith('day-'));
+  return closestCenter({ ...args, droppableContainers: rows.length ? rows : args.droppableContainers });
+};
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import {
   TRIP_DATES, getCountryForDate, formatDate, formatDateLong,
@@ -1377,7 +1384,7 @@ export default function CalendarPlanner() {
             incidental: it is the strip's resting height and `h-[72px]` its compact height once the page
             scrolls (#776; hysteresis below stops flicker at the threshold). Nothing else parks on it
             now that the composer scrolls. Desktop keeps the month grid as its picker and never renders this. */}
-        <div className={`sticky top-[var(--nav-h)] z-20 -mx-4 mb-4 flex ${stripCompact ? 'h-[72px]' : 'h-[104px]'} items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden`}>
+        <div className={`sticky top-[calc(var(--nav-h)+2px)] z-20 -mx-4 mb-4 flex ${stripCompact ? 'h-[72px]' : 'h-[104px]'} items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden`}>
           <div className="min-w-0 flex-1">
             <DayStrip
               dates={TRIP_DATES}
@@ -1759,7 +1766,7 @@ export default function CalendarPlanner() {
             <DndContext
               sensors={sensors}
               accessibility={{ announcements }}
-              collisionDetection={closestCenter}
+              collisionDetection={closestItem}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
