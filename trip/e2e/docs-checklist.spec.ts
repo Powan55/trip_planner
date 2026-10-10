@@ -93,6 +93,7 @@ test.describe('S217 docs checklist â€” check -> reload -> persists (the har
     await gotoAsTraveler(page, '/checklist/');
     await expect(page.getByTestId('docs-checklist')).toBeVisible();
 
+    await page.getByTestId('docs-details-toggle-passport-validity').click();
     const note = page.getByTestId('docs-note-passport-validity');
     await note.fill('Expires 14 Mar 2029');
     await note.blur(); // commit-on-blur (one write, not per keystroke)
