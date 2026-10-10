@@ -95,7 +95,8 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     // ── S191 — Travel Mode acceptance net on real-device-shaped viewports ────────────────────
-    // Engine call (S191): chromium-engine emulation, not real WebKit.
+    // Engine call (S191): chromium-engine emulation, not real WebKit. Real WebKit lives in the
+    // webkit-* projects below (PLAYWRIGHT_WEBKIT=1).
     // WebKit is not installed in this sandbox (only chromium-1228 is), a `playwright install
     // webkit` download is an unverified/possibly-blocked step, and WebKit-on-Windows against the
     // single-threaded serve-out server is exactly the class of flake the config header already

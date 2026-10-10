@@ -67,33 +67,53 @@ test.describe('@webkit Safari engine', () => {
   // neither can show what Safari serves from cache. Instead the app runs from its own
   // throwaway server on a second origin, and that server is killed once the worker is warm.
   test('cached navigation and reload work once the origin is gone', async ({ page }) => {
+    test.setTimeout(90_000);
     const origin = `http://127.0.0.1:${OFFLINE_PORT}`;
     const server = spawn(process.execPath, ['scripts/serve-out.mjs', '--port', String(OFFLINE_PORT)], {
       stdio: 'ignore',
     });
+    const exited = new Promise((done) => server.once('exit', done));
     try {
       await expect
         .poll(() => fetch(origin).then((r) => r.ok, () => false), { timeout: 15_000 })
         .toBe(true);
 
       await page.goto(`${origin}/`, { waitUntil: 'load' });
+      // Cutting the origin while the page is still fetching leaves the worker unable to answer.
+      await expect(page.getByTestId('navbar')).toBeVisible();
+      await page.waitForLoadState('networkidle');
       await page.waitForFunction(
         async () => {
           if (navigator.serviceWorker.controller?.state !== 'activated') return false;
-          // Install precaches entries one by one; the route itself is the thing offline needs.
-          return !!(await caches.match('/plan/'));
+          // Install precaches entries one by one: wait for the route and its JS chunks, then
+          // for the entry count to stop moving, so the cut lands after install has finished.
+          if (!(await caches.match('/plan/'))) return false;
+          let n = 0;
+          let chunks = false;
+          for (const name of await caches.keys()) {
+            const keys = await (await caches.open(name)).keys();
+            n += keys.length;
+            chunks ||= keys.some((k) => k.url.includes('/_next/static/'));
+          }
+          const w = window as unknown as { __n?: number };
+          const settled = chunks && w.__n === n;
+          w.__n = n;
+          return settled;
         },
         null,
-        { timeout: 30_000 },
+        { timeout: 30_000, polling: 1000 },
       );
 
-      await page.waitForTimeout(5000);
       server.kill();
+      await exited;
       await expect
         .poll(() => fetch(origin).then(() => true, () => false), { timeout: 10_000 })
         .toBe(false);
 
-      expect(await page.evaluate(() => fetch('/plan/').then((r) => r.status))).toBe(200);
+      // The worker, not the network, must answer now; poll until it does.
+      await expect
+        .poll(() => page.evaluate(() => fetch('/plan/').then((r) => r.status, () => 0)), { timeout: 15_000 })
+        .toBe(200);
       const crash = page.getByRole('heading', { name: 'The app hit a problem', exact: true });
       const navbar = page.getByTestId('navbar');
       // Page-initiated, as a user's tap or pull-to-refresh would be: the driver's own goto skips the worker.
@@ -109,6 +129,7 @@ test.describe('@webkit Safari engine', () => {
       await expect(navbar).toBeVisible();
     } finally {
       server.kill();
+      await exited;
     }
   });
 });
