@@ -361,6 +361,55 @@ jobs:
             trip/test-results
           retention-days: 14
 
+  # Real WebKit (#918). The chromium projects emulate iPhones on Chromium, so Safari storage
+  # and cached-offline behaviour were never exercised. Own job so the chromium e2e job stays
+  # as is; PLAYWRIGHT_WEBKIT=1 is what adds the webkit-* projects. A failed browser install
+  # fails the step (no continue-on-error), and the run line names both projects so a
+  # missing project errors instead of passing on nothing.
+  webkit:
+    name: WebKit (Safari engine)
+    needs: checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trip
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: trip/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build the static export
+        env:
+          NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
+        run: npm run build
+
+      - name: Install WebKit
+        run: npx playwright install --with-deps webkit
+
+      - name: WebKit suite
+        env:
+          CI: '1'
+          PLAYWRIGHT_WEBKIT: '1'
+        run: npm run test:e2e -- --project=webkit-desktop --project=webkit-mobile
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report-webkit-${{ github.run_id }}
+          path: |
+            trip/playwright-report
+            trip/test-results
+          retention-days: 14
+
   # D-379 (amends D-362). The 36 committed baselines are Windows-canonical, so this
   # job runs on windows-latest instead of matching the rest of CI — that is the whole
   # fix: same OS as the baselines means the platform-suffixed snapshot path Playwright

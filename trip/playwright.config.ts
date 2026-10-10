@@ -48,6 +48,18 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
  */
 const SHOOT_IGNORE = process.env.PLAYWRIGHT_SHOOT ? [] : ['**/landing-shots.spec.ts'];
 
+// Real WebKit (#918): Safari storage and offline behaviour, which the iPhone descriptors
+// below do not exercise (they run on Chromium). The projects exist only when
+// PLAYWRIGHT_WEBKIT=1, so the Chromium sweeps never list or run them and a runner without
+// WebKit installed is unaffected. The `webkit` job in ci.yml sets it.
+const WEBKIT_SPEC = '**/webkit.spec.ts';
+const WEBKIT_PROJECTS = process.env.PLAYWRIGHT_WEBKIT
+  ? [
+      { name: 'webkit-desktop', testMatch: [WEBKIT_SPEC], use: { ...devices['Desktop Safari'] } },
+      { name: 'webkit-mobile', testMatch: [WEBKIT_SPEC], use: { ...devices['iPhone 15 Pro'] } },
+    ]
+  : [];
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -79,11 +91,12 @@ export default defineConfig({
       // chromium multiply it would double an already-~10-min run (S191). testIgnore keeps
       // chromium's spec set byte-identical to its pre-S191 baseline.
       // S356: the landing-shots shoot is excluded unless PLAYWRIGHT_SHOOT=1 (see SHOOT_IGNORE).
-      testIgnore: ['**/tm-acceptance.spec.ts', ...SHOOT_IGNORE],
+      testIgnore: ['**/tm-acceptance.spec.ts', WEBKIT_SPEC, ...SHOOT_IGNORE],
       use: { ...devices['Desktop Chrome'] },
     },
     // ── S191 — Travel Mode acceptance net on real-device-shaped viewports ────────────────────
-    // Engine call (S191): chromium-engine emulation, not real WebKit.
+    // Engine call (S191): chromium-engine emulation, not real WebKit. Real WebKit lives in the
+    // webkit-* projects below (PLAYWRIGHT_WEBKIT=1).
     // WebKit is not installed in this sandbox (only chromium-1228 is), a `playwright install
     // webkit` download is an unverified/possibly-blocked step, and WebKit-on-Windows against the
     // single-threaded serve-out server is exactly the class of flake the config header already
@@ -111,6 +124,7 @@ export default defineConfig({
         defaultBrowserType: 'chromium',
       },
     },
+    ...WEBKIT_PROJECTS,
   ],
 
   webServer: {
