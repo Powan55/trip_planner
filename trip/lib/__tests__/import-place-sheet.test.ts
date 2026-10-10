@@ -247,6 +247,24 @@ describe('ImportPlaceSheet (S349) — resolved coordinates reach the plan item (
     h.unmount();
   });
 
+  it('#916 — a failed resolve leaves the same link retryable and a second try can succeed', async () => {
+    resolvePlaceLinkMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ name: 'Fushimi Inari', finalUrl: 'https://www.google.com/maps/place/Fushimi' });
+    const h = renderSheet();
+    act(() => setInput(q('import-place-url-input'), 'https://maps.app.goo.gl/xyz'));
+    act(() => q('import-place-lookup').click());
+    await flush();
+    expect(q('import-place-status').textContent).not.toContain('Found this place');
+
+    act(() => q('import-place-lookup').click()); // same link again
+    await flush();
+    expect(resolvePlaceLinkMock).toHaveBeenCalledTimes(2);
+    expect((q('import-place-name-input') as HTMLInputElement).value).toBe('Fushimi Inari');
+    expect(q('import-place-status').textContent).toContain('Found this place');
+    h.unmount();
+  });
+
   it('manual entry (no resolve) still omits lat/lng — never regresses to writing a phantom pin', () => {
     const h = renderSheet();
     act(() => setInput(q('import-place-name-input'), 'Hand-typed spot'));
