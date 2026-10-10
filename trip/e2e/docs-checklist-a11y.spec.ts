@@ -63,6 +63,7 @@ test.describe('S217 axe — /checklist partially checked with a note', () => {
 
     await page.getByTestId('docs-item-passport-validity').check();
     await page.getByTestId('docs-item-online-checkin').check();
+    await page.getByTestId('docs-details-toggle-travel-insurance').click();
     const note = page.getByTestId('docs-note-travel-insurance');
     await note.fill('Policy #A-4471');
     await note.blur();
