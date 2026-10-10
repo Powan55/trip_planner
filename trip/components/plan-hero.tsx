@@ -1,29 +1,18 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import PageHero from '@/components/page-hero';
-import { isDefaultTrip } from '@/core/trips';
 
 /**
- * PlanHero — wraps `PageHero variant="plan"` with a trip-aware subtitle (A-15/#102).
- * Mount-gated with the same two lines as `packing-header.tsx` and `recap-header.tsx`: SSR / first
- * paint renders the default-pack copy, so a client-only `isDefaultTrip()` read never causes a
- * hydration mismatch. All three route mastheads read identically on purpose.
+ * PlanHero — compact masthead so the selected day's composer lands in the first screen (#920).
+ * No subtitle: the planner heading below carries the same line, and it was the repeated intro
+ * that pushed the day workspace under the fold. The `!` classes beat PageHero's tier-3 padding,
+ * which is concatenated rather than merged.
  */
 export default function PlanHero() {
-  const [custom, setCustom] = useState(false);
-  useEffect(() => setCustom(!isDefaultTrip()), []);
-
   return (
     <PageHero
       variant="plan"
       title="Trip Planner"
-      eyebrow="Day by day"
-      subtitle={
-        custom
-          ? 'Add, edit, and reorder every stop of the journey.'
-          : 'All 32 days across Nepal and Japan — add, edit, and reorder every stop of the journey.'
-      }
+      className="!pt-[calc(4.5rem+var(--safe-top))] !pb-3 sm:!pt-[calc(5rem+var(--safe-top))] sm:!pb-4"
+      panelClassName="px-4 py-3 sm:px-6 sm:py-4"
     />
   );
 }

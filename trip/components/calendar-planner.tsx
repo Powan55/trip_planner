@@ -6,7 +6,6 @@ import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { m, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { SectionHeading } from '@/components/section-heading';
 import {
   Calendar, Plus, Trash2,
   MapPin, X, Check, ChevronLeft, ChevronRight, ChevronDown,
@@ -1318,7 +1317,7 @@ export default function CalendarPlanner() {
   );
 
   return (
-    <section id="itinerary" aria-labelledby="itinerary-heading" className="py-20 px-4 sm:px-6">
+    <section id="itinerary" aria-labelledby="itinerary-heading" className="py-4 px-4 sm:px-6 sm:py-6">
       <div className="max-w-[1200px] mx-auto">
         {/* The running head. STATIC here, not sticky, and that is a deliberate exception:
             /plan already pins two bands with measured offsets (the day strip at the navbar's 64px
@@ -1330,7 +1329,7 @@ export default function CalendarPlanner() {
             overflowing fields were pointer-only (#365). `group`, not `region` — axe's
             aria-allowed-role rejects `region` on a <header>. Inset ring — full-bleed. */}
         <header
-          className="head static mb-6 -mx-4 sm:-mx-6 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="head static mb-3 -mx-4 sm:-mx-6 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           tabIndex={0}
           role="group"
           aria-label="Day summary"
@@ -1359,14 +1358,9 @@ export default function CalendarPlanner() {
           </div>
         </header>
 
-        <SectionHeading
-          id="itinerary-heading"
-          className="mb-8"
-          title="Itinerary planner"
-          subtitle="Plan every day of the journey. Drag items to reorder or move between days."
-        />
-
-        <PlanDensity meta={dayStripMeta} selectedDate={selectedDate} />
+        {/* #920: heading is screen-reader only so the day workspace opens in the first screen;
+            the trip-wide density overview sits below the planner in a disclosure. */}
+        <h2 id="itinerary-heading" className="sr-only">Itinerary planner</h2>
 
         {/* search-within-plan: read-only over titles/notes/categories across
             every day. A cross-day pick jumps `selectedDate` and highlights the row via
@@ -1897,6 +1891,16 @@ export default function CalendarPlanner() {
           </div>
         </div>
       </div>
+
+      <details className="group mx-auto mt-6 max-w-[1200px]" data-testid="plan-overview">
+        <summary className="chip min-h-tap cursor-pointer list-none px-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+          Trip overview
+        </summary>
+        <div className="mt-4">
+          <PlanDensity meta={dayStripMeta} selectedDate={selectedDate} />
+        </div>
+      </details>
 
       {/* mobile map bottom-sheet peek (`<lg`). Reuses the rounded-t-2xl glass sheet
           idiom: a non-modal peek fixed to the bottom that the
