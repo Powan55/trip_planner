@@ -12,13 +12,6 @@ import {
   ExternalLink, Map as MapIcon, MoreHorizontal,
 } from 'lucide-react';
 import { DndContext, closestCenter, DragOverlay, type CollisionDetection } from '@dnd-kit/core';
-
-// The day container is also droppable; a keyboard drag whose centre lands nearer to it than to the
-// target row resolves to `day-*`, which handleDragEnd ignores, so the reorder silently dropped.
-const closestItem: CollisionDetection = (args) => {
-  const rows = args.droppableContainers.filter((c) => !String(c.id).startsWith('day-'));
-  return closestCenter({ ...args, droppableContainers: rows.length ? rows : args.droppableContainers });
-};
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import {
   TRIP_DATES, getCountryForDate, formatDate, formatDateLong,
@@ -70,6 +63,13 @@ import type { PlanSearchResult } from '@/lib/search-plan';
 import { getCachedForecastForDate, weatherTagForDay, type WeatherTag } from '@/lib/weather';
 import { haptic } from '@/lib/haptics';
 import { groupItemsByPhase, earliestTimedItem, PHASE_LABELS } from '@/lib/phase-of-day';
+
+// The day container is also droppable; a keyboard drag whose centre lands nearer to it than to the
+// target row resolves to `day-*`, which handleDragEnd ignores, so the reorder silently dropped.
+const closestItem: CollisionDetection = (args) => {
+  const rows = args.droppableContainers.filter((c) => !String(c.id).startsWith('day-'));
+  return closestCenter({ ...args, droppableContainers: rows.length ? rows : args.droppableContainers });
+};
 
 // split-view map pane, mounted as a dynamic(ssr:false) island gated on the
 // map-view toggle below. Because it is NOT in the initial render tree (showMap is
@@ -1380,7 +1380,7 @@ export default function CalendarPlanner() {
             pane — a box exactly as tall as the strip, so `sticky` was a no-op there. As a
             direct child of the planner container it now stays pinned under the navbar for
             the whole scroll, which is the point: the day you are editing is always visible.
-            `top-[var(--nav-h)]` is the fixed navbar's height; `h-[104px]` is declared, not
+            `top-[calc(var(--nav-h)+2px)]` is the fixed navbar's height plus its 2px border; `h-[104px]` is declared, not
             incidental: it is the strip's resting height and `h-[72px]` its compact height once the page
             scrolls (#776; hysteresis below stops flicker at the threshold). Nothing else parks on it
             now that the composer scrolls. Desktop keeps the month grid as its picker and never renders this. */}
@@ -1900,7 +1900,7 @@ export default function CalendarPlanner() {
       </div>
 
       <details className="group mx-auto mt-6 max-w-[1200px]" data-testid="plan-overview">
-        <summary className="chip min-h-tap cursor-pointer list-none px-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <summary className="chip min-h-tap cursor-pointer list-none px-4 outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
           <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
           Trip overview
         </summary>
