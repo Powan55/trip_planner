@@ -78,22 +78,26 @@ function Slots({ items }: { items: [label: string, value?: string | null][] }) {
         </span>
       )}
       {missing.length > 0 && (
-        <span className="empty-frame mt-1 flex flex-wrap items-baseline gap-x-2 px-1.5 py-1">
-          {missing.map(([label]) => <span key={label} className="pr pr--lo !tracking-normal normal-case">{label}</span>)}
-          <span className="font-machine text-t-sm text-ink-lo">Not yet assigned</span>
+        <span className="empty-frame mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 px-1.5 py-1">
+          {missing.map(([label]) => <span key={label} className="pr pr--lo min-w-0 !tracking-normal normal-case [overflow-wrap:anywhere]">{label}</span>)}
+          <span className="min-w-0 font-machine text-t-sm text-ink-lo [overflow-wrap:anywhere]">Not yet assigned</span>
         </span>
       )}
     </>
   );
 }
 
+// `.strip .s` fixes the code column at 54px; a wider face (Linux fallback fonts) overflows it, and the
+// 1fr middle has no floor, so let the code column grow and the middle shrink and wrap.
+const COLS = '![grid-template-columns:minmax(54px,auto)_minmax(0,1fr)_auto]';
+
 /** One flown segment — a BOOKED stop on the route: a filled node in the leg's ink. */
 function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
   return (
-    <li className="s !items-start" data-leg={legId}>
+    <li className={`s !items-start ${COLS}`} data-leg={legId}>
       <span className="num text-n-sm text-ink-hi">{leg.fromCode}</span>
 
-      <span className="min-w-0">
+      <span className="min-w-0 [overflow-wrap:anywhere]">
         <span className="nm break-words">{leg.flightNumber}</span>
         <span className="mt">
           {leg.fromName} → {leg.toName}
@@ -132,10 +136,10 @@ function LayoverRow({ layover }: { layover: Layover }) {
   // an inner span. The authored verdict renders as a TEXT mark, never colour-only.
   const v = layover.verdict ? VERDICT[layover.verdict] : null;
   return (
-    <li className="s" data-transit>
+    <li className={`s ${COLS}`} data-transit>
       <span className="num text-t-sm text-ink-lo">{layover.airportCode}</span>
       <span
-        className="min-w-0"
+        className="min-w-0 [overflow-wrap:anywhere]"
         role="separator"
         aria-label={
           `Layover ${layover.duration} at ${layover.airportName ?? layover.airportCode}` +
