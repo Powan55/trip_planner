@@ -51,8 +51,8 @@ git switch lax && git merge dev
 
 ## What CI runs
 
-Five jobs, in `.github/workflows/ci.yml`: Checks, Firestore rules, E2E, Visual
-regression and Release gate.
+Six jobs, in `.github/workflows/ci.yml`: Checks, Firestore rules, E2E, WebKit,
+Visual regression and Release gate.
 
 **Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
 every pull request into `dev` or `main`, and again on the push to `main` that
@@ -76,6 +76,9 @@ project id, so it cannot touch the live one.
 `npm run build`, then the behavioural Playwright suite against the built
 static export, grep-excluding the visual specs. It must pass.
 
+**WebKit** (Safari engine) is its own job, gated on Checks and pull requests only,
+the same as E2E.
+
 **Visual regression** is its own job, also gated on Checks and pull-requests
 only, and it is **not advisory**: it runs on `windows-latest` because the
 committed screenshot baselines are Windows-canonical (`-win32`), which makes
@@ -89,10 +92,13 @@ is installed. It fails if:
 
 - `trip/package.json`'s version already carries a `v<version>` tag, meaning it has
   been deployed before
+- the version is not above the newest `v*` tag
 - `trip/docs/RELEASES.md` has no `## v<version> ` entry
+- the preamble at the top of `trip/docs/RELEASES.md` does not name the newest
+  deployed tag
 - the pull request came from a branch other than `dev`
 
-The first two are the two things you were already told to do before shipping. See
+The version, entry and preamble are the steps you take before shipping. See
 "Versions and deploys".
 
 Pushing to your own branch gives you the fast half. The full suite runs when you
@@ -200,6 +206,10 @@ So before opening the pull request from `dev` into `main`, on `dev`:
 1. Bump `version` in `trip/package.json`.
 2. Add an entry at the top of `trip/docs/RELEASES.md` headed `## v<version> `,
    saying what changed.
+3. Point the preamble at the newest deployed tag. The top of `trip/docs/RELEASES.md`
+   must read ``The newest live app is `v<tag>` `` with `<tag>` the newest `v*` tag
+   (`git tag --sort=-v:refname | head -1`). The version you are shipping is not live
+   yet, so it does not go there.
 
 Patch for a fix, minor for a feature. The version must also go *up*: the check refuses
 anything that is not strictly above the newest `v*` tag, so even a revert bumps forward
@@ -211,6 +221,11 @@ After a successful deploy the workflow pushes the matching `v<version>` tag itse
 only then, which is why a deploy that failed can be re-run on the same version. It then
 publishes a GitHub Release on that tag, with the matching `trip/docs/RELEASES.md` entry as the notes
 verbatim — one file to write, not a changelog kept in sync with a second one.
+
+Then bring `main` back into `dev`. The release merge leaves a commit on `main` that
+`dev` does not have, so the next release pull request would pick up a conflict. Branch
+from `dev`, run `git merge origin/main`, and open a pull request into `dev`. `dev` is
+protected, so this goes through a pull request too.
 
 What changed here is *when* you find out. The version check used to run only on the
 push to `main`, so a pull request could go green, merge into the live branch, and
