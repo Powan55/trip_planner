@@ -656,7 +656,7 @@ export default function RecommendationSection({
           }
           aria-label="Back to top"
           data-testid="guide-back-to-top"
-          className="fixed bottom-5 right-4 sm:right-6 z-40 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="fixed bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+5.25rem)] md:bottom-5 right-4 sm:right-6 z-40 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ArrowUp className="w-4 h-4" aria-hidden="true" />
         </button>
