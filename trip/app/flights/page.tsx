@@ -6,7 +6,7 @@ import DefaultTripOnly from '@/components/default-trip-only';
 // itself is untouched — only WHERE it's mounted changed.
 // (Next 15): the ssr:false FlightsSection island lives in./sections (client
 // module); this Server Component page exports metadata./ skeleton kept.
-import { FlightsHeroSubtitle, FlightsSection } from './sections';
+import { FlightsHeroSubtitle, FlightsSection, WorldClockStrip } from './sections';
 
 export const metadata = {
   title: 'Flights · Nepal × Japan Journey',
@@ -18,13 +18,14 @@ export default function FlightsPage() {
     <main className="min-h-screen bg-surface">
       {/* PageHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
-      <PageHero
-        variant="flights"
-        title="Flights"
-        eyebrow="Bookings"
-        subtitle={<FlightsHeroSubtitle />}
-      />
       <DefaultTripOnly>
+        <PageHero
+          variant="flights"
+          title="Flights"
+          eyebrow="Bookings"
+          subtitle={<FlightsHeroSubtitle />}
+        />
+        <WorldClockStrip />
         <FlightsSection />
       </DefaultTripOnly>
     </main>

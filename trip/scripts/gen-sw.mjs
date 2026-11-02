@@ -187,7 +187,8 @@ async function eagerStaticAssets(htmlFiles, baseDir = OUT_DIR) {
 // THE REGRESSION, NAMED: a cold-offline `/map` degrades to the island boundary, and
 // map labels are blank on a cold-offline first open. The ENGINE comes back on the first
 // online /map visit — it is a same-origin, non-image, non-navigate GET, so it lands on
-// the last branch of the fetch listener and cacheFirst() writes it into PRECACHE.
+// the last branch of the fetch listener and cacheFirst() writes it into RUNTIME_CACHE,
+// which survives updates (#945).
 // So do the worker scripts under /maplibre/ and the GLYPHS it requests: the worker loads
 // same-origin from inside the SW scope, so the SW sees its fetches (offline not yet measured).
 //
@@ -877,8 +878,9 @@ async function buildManifest() {
 // auditable. The precache URL list and the cache name (a sha256 over each precached
 // file's path AND bytes — see step 3 in main(), which records why hashing the URL list
 // alone shipped stale shells) are baked in at build time; everything else is static SW logic.
-function buildServiceWorker({ precacheUrls, precacheHash, buildId }) {
+function buildServiceWorker({ precacheUrls, precacheHash, buildId, runtimeUrls, runtimeHash }) {
   const PRECACHE = `trip-precache-${precacheHash}`;
+  const RUNTIME_CACHE_NAME = `trip-runtime-${runtimeHash}`;
   const IMAGES_CACHE = 'trip-images-v1';
   const IMAGE_CACHE_LIMIT = 80;
   // The navigation fallback: the cached shell for the app root.
@@ -896,6 +898,15 @@ const IMAGE_CACHE_LIMIT = ${IMAGE_CACHE_LIMIT};
 const NAV_FALLBACK = ${JSON.stringify(NAV_FALLBACK)};
 const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 const BUILD_ID = ${JSON.stringify(buildId)};
+// Same-origin files this build ships but does not precache (lazy chunks, the map engine, its
+// worker, the glyphs). They are runtime-cached here instead of in PRECACHE so an update does
+// not wipe them. The name hashes the unhashed ones (maplibre worker, glyphs), so a maplibre
+// bump drops the cache whole; activate prunes it to this list, so it never outgrows one build.
+const RUNTIME_CACHE = ${JSON.stringify(RUNTIME_CACHE_NAME)};
+const RUNTIME_URLS = new Set(${JSON.stringify(runtimeUrls)});
+// Written last by install: lib/preflight.ts compares the cache against it to tell a complete
+// shell from a partial one.
+const PRECACHE_LIST = ${JSON.stringify(withBase('/__precache-urls.json'))};
 
 // --- install: precache the app shell -------------------------------------
 // NOTE: NO self.skipWaiting() here. An updated worker MUST stay
@@ -909,7 +920,6 @@ const BUILD_ID = ${JSON.stringify(buildId)};
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(PRECACHE);
       // ATOMIC install: every precache URL is same-origin, so a
       // healthy build MUST fetch each one OK. If ANY entry fails to fetch OK,
       // THROW so this waitUntil rejects -- the worker then never reaches the
@@ -926,7 +936,18 @@ self.addEventListener('install', (event) => {
       // committed to a DURABLE cache -- worse than the runtime case, since the
       // poison then survives restarts and the image fallback below would hand
       // that HTML back as the "cached image". isExpectedPrecacheBody rejects it.
-      await Promise.all(
+      //
+      // Pages and RSC payloads must also carry this build's id (#944): an edge still serving
+      // the previous build's HTML next to the new sw.js would otherwise pin route HTML whose
+      // chunk hashes no longer exist. Throwing keeps the old build serving; the next update
+      // check retries.
+      //
+      // A failed install deletes the cache it was filling (#945), or the preflight check
+      // and caches.match() would read the partial cache. Only one this install created: a
+      // byte-identical rebuild reuses the active worker's cache name.
+      const fresh = !(await caches.keys()).includes(PRECACHE);
+      const cache = await caches.open(PRECACHE);
+      const results = await Promise.allSettled(
         PRECACHE_URLS.map(async (url) => {
           const res = await fetch(url, { cache: 'no-cache' });
           if (!res || !res.ok) {
@@ -939,9 +960,18 @@ self.addEventListener('install', (event) => {
               'precache body rejected: ' + url + ' -> ' + (contentTypeOf(res) || 'no content type')
             );
           }
+          if (carriesBuildId(url) && !(await res.clone().text()).includes(BUILD_ID)) {
+            throw new Error('precache body from another build: ' + url);
+          }
           await cache.put(url, res.clone());
         })
       );
+      const failed = results.find((r) => r.status === 'rejected');
+      if (failed) {
+        if (fresh) await caches.delete(PRECACHE).catch(() => {});
+        throw failed.reason;
+      }
+      await cache.put(PRECACHE_LIST, precacheListResponse());
     })()
   );
 });
@@ -964,13 +994,19 @@ self.addEventListener('activate', (event) => {
       // is shared with every other Pages project on the account. Without the
       // prefix, accepting an update here wipes a sibling app's Cache Storage, and
       // that sibling only repopulates on ITS own next version bump.
-      const allowlist = new Set([PRECACHE, IMAGES_CACHE, FRANKFURTER_CACHE]);
+      const allowlist = new Set([PRECACHE, RUNTIME_CACHE, IMAGES_CACHE, FRANKFURTER_CACHE]);
       const keys = await caches.keys();
       await Promise.all(
         keys
           .filter((k) => k.startsWith('trip-') && !allowlist.has(k))
           .map((k) => caches.delete(k))
       );
+      try {
+        const runtime = await caches.open(RUNTIME_CACHE);
+        for (const req of await runtime.keys()) {
+          if (!RUNTIME_URLS.has(new URL(req.url).pathname)) await runtime.delete(req);
+        }
+      } catch (err) {}
       await self.clients.claim();
     })()
   );
@@ -1001,6 +1037,7 @@ async function repairPrecache() {
     if (reg.installing || reg.waiting) return;
     const cache = await caches.open(PRECACHE);
     const have = new Set((await cache.keys()).map((req) => new URL(req.url).pathname));
+    if (!have.has(PRECACHE_LIST)) await cache.put(PRECACHE_LIST, precacheListResponse());
     const missing = PRECACHE_URLS.filter((url) => !have.has(url));
     if (missing.length === 0) return;
     await Promise.all(
@@ -1010,9 +1047,7 @@ async function repairPrecache() {
           if (!res || !res.ok || !isExpectedPrecacheBody(url, res)) return;
           // Pages and RSC payloads carry the build id. A portal page has none, and one
           // from a newer deploy carries that deploy's (hashed chunks can be shared, ids not).
-          if (url.endsWith('/') || url.endsWith('.html') || url.endsWith('.txt')) {
-            if (!(await res.clone().text()).includes(BUILD_ID)) return;
-          }
+          if (carriesBuildId(url) && !(await res.clone().text()).includes(BUILD_ID)) return;
           await cache.put(url, res);
         } catch (err) {}
       })
@@ -1075,6 +1110,17 @@ function isExpectedPrecacheBody(url, res) {
   if (res.redirected) return false;
   if (url.endsWith('/') || url.endsWith('.html')) return true;
   return !contentTypeOf(res).startsWith('text/html');
+}
+
+// Route pages and RSC payloads embed the build id; gen-sw checks every precached one does.
+function carriesBuildId(url) {
+  return url.endsWith('/') || url.endsWith('.html') || url.endsWith('.txt');
+}
+
+function precacheListResponse() {
+  return new Response(JSON.stringify(PRECACHE_URLS), {
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 // LRU-ish cap on the runtime image cache: evict oldest (insertion order) on
@@ -1294,10 +1340,13 @@ self.addEventListener('fetch', (event) => {
   // an identical caches.match(request) sat here too, outside the try, so a rejecting
   // Cache Storage took down an asset the precache was holding, and the unnormalized
   // key missed every _rsc request that cacheFirst then had to look up again.
+  // Anything not on RUNTIME_URLS (RSC payloads, unknown paths) is build-specific and
+  // stays in PRECACHE, which the next activate drops.
+  const target = RUNTIME_URLS.has(url.pathname) ? RUNTIME_CACHE : PRECACHE;
   event.respondWith(
     (async () => {
       try {
-        return await cacheFirst(request, PRECACHE);
+        return await cacheFirst(request, target);
       } catch (err) {
         return Response.error();
       }
@@ -1399,10 +1448,29 @@ async function main() {
     })
   ).trim();
   if (!buildId) throw new Error('gen-sw: .next/BUILD_ID is empty.');
-  const sw = buildServiceWorker({ precacheUrls, precacheHash, buildId });
+  // Install refuses any page or payload without the build id, so one that lacks it here
+  // would fail every install on every device.
+  for (const rel of precacheFiles) {
+    if (/\.(html|txt)$/.test(rel) && !(await readFile(join(OUT_DIR, rel), 'utf8')).includes(buildId)) {
+      throw new Error(`gen-sw: ${rel} does not contain BUILD_ID ${buildId}.`);
+    }
+  }
+
+  const precacheSet = new Set(precacheFiles);
+  const runtimeFiles = allFiles
+    .filter((rel) => /^(_next\/static|maplibre|font)\//.test(rel) && !precacheSet.has(rel))
+    .sort();
+  const runtimeUrls = runtimeFiles.map((rel) => encodeURI(withBase('/' + rel)));
+  const r = createHash('sha256');
+  for (const rel of runtimeFiles) {
+    if (!rel.startsWith('_next/')) r.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
+  }
+  const runtimeHash = r.digest('hex').slice(0, 12);
+  const sw = buildServiceWorker({ precacheUrls, precacheHash, buildId, runtimeUrls, runtimeHash });
   await writeFile(join(OUT_DIR, 'sw.js'), sw, 'utf8');
   console.log(
-    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries)`
+    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries; ` +
+      `trip-runtime-${runtimeHash}, ${runtimeUrls.length} runtime URLs)`
   );
 
   // 5) Log a few sample URLs for the single-prefix proof.

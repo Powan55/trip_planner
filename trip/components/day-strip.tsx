@@ -76,6 +76,20 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
     centerChip(scrollerRef.current, selectedRef.current, prefersReducedMotion);
   }, [selectedDate, prefersReducedMotion]);
 
+  // Roving tabindex: one tab stop (the selected chip, or the first when the selection is
+  // outside the strip); arrows/Home/End move focus AND selection, as a tablist does.
+  const tabStop = dates.includes(selectedDate) ? selectedDate : dates[0];
+  const onChipKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const target =
+      e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? dates.length - 1 : null;
+    if (target === null) return;
+    e.preventDefault();
+    const next = Math.min(Math.max(target, 0), dates.length - 1);
+    if (next === i) return;
+    onSelect(dates[next]);
+    scrollerRef.current?.querySelectorAll('button')[next]?.focus();
+  };
+
   return (
     <div
       ref={scrollerRef}
@@ -89,7 +103,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
       // already honours reduced motion via behavior:'auto'.
       className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide pt-5 pb-1 snap-x snap-mandatory scroll-px-3 overscroll-x-contain"
     >
-      {dates.map((date) => {
+      {dates.map((date, i) => {
         const { weekday, dayNum, long } = parseDay(date);
         const m = metaByDate.get(date);
         const shade = dayShade(date);
@@ -106,6 +120,8 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             ref={isSelected ? selectedRef : undefined}
             type="button"
             onClick={() => onSelect(date)}
+            tabIndex={date === tabStop ? 0 : -1}
+            onKeyDown={(e) => onChipKeyDown(e, i)}
             // Keyboard focus only (`:focus-visible`) — a pointer/touch tap already lands its own
             // click and the chip's `snap-center` scroll-snap settles it, so re-centering here too
             // races that gesture: on touch, scrolling the strip mid-tap can make the browser treat

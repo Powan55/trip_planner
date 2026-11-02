@@ -31,6 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { type MapMarker, type MarkerCategory } from '@/lib/map-data';
+import { boundsOf } from '@/lib/map-initial-view';
 import { buildMapStyle, CATEGORY_COLOR, BRAND, OPENFREEMAP_TILEJSON } from '@/lib/map-style';
 import { useOnline } from '@/hooks/use-online';
 import { buildMapsDirectionsUrl } from '@/lib/maps-link';
@@ -118,10 +119,10 @@ const ITIN_SOURCE_ID = 'itinerary-route';
 const VISITED_SOURCE_ID = 'visited-footprint';
 
 // 🔴 NOT the default camera — mislabelled for a long time, corrected in.
-// This is only (a) the frame the Map is CONSTRUCTED with, i.e. what is on screen for the few
-// frames before the style loads, and (b) the frame that survives when the marker set is EMPTY.
-// The moment `mapReady` flips, the marker-fit effect below (deps: markers/mapReady/fitBounds,
-// and `fitBounds` defaults true) refits the camera to the visible markers and overwrites this.
+// This is only the frame the Map is CONSTRUCTED with when there are NO markers to frame
+// (otherwise it is constructed on the markers' own box), and the frame that survives while the
+// marker set stays EMPTY. The moment `mapReady` flips, the marker-fit effect below (deps:
+// markers/mapReady/fitBounds, and `fitBounds` defaults true) refits to the visible markers.
 // So widening these bounds to "reach" a place looks like a fix and changes nothing visible —
 // what a place needs in order to be reachable is a way to ADDRESS it, not a
 // wider startup box.
@@ -495,6 +496,12 @@ export interface TripMapProps {
    */
   fitBounds?: boolean;
   /**
+   * Frame these markers for the construct frame and the FIRST fit instead of all of `markers`,
+   * so a cold open fetches nearby tiles, not the zoom-2 world tiles. Later fits (filter change)
+   * use `markers` as before. Empty/absent ⇒ `markers`.
+   */
+  initialFocus?: MapMarker[];
+  /**
    * Surface the geolocate permission/error note to the host chrome (which owns
    * where the banner renders). Called with a message on error, `null` on success.
    */
@@ -569,6 +576,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     onMarkerClick,
     highlightId,
     fitBounds = true,
+    initialFocus,
     onGeoNote,
     onViewChange,
     onReady,
@@ -617,6 +625,10 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   onMarkerClickRef.current = onMarkerClick;
   const onGeoNoteRef = useRef(onGeoNote);
   onGeoNoteRef.current = onGeoNote;
+  // Read at construct time and by the first fit only; `firstFitRef` flips once a fit ran.
+  const startMarkersRef = useRef(markers);
+  startMarkersRef.current = initialFocus?.length ? initialFocus : markers;
+  const firstFitRef = useRef(true);
   const onViewChangeRef = useRef(onViewChange);
   onViewChangeRef.current = onViewChange;
   const onReadyRef = useRef(onReady);
@@ -768,8 +780,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         map = new maplibregl.Map({
           container: containerRef.current,
           style: buildMapStyle() as never,
-          bounds: ALL_BOUNDS,
-          fitBoundsOptions: { padding: 48 },
+          bounds: boundsOf(startMarkersRef.current) ?? ALL_BOUNDS,
+          fitBoundsOptions: { padding: 64, maxZoom: 12 },
           attributionControl: false, // added explicitly below (compact)
           maxZoom: 17,
           minZoom: 2,
@@ -1137,21 +1149,10 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     }
     if (markers.length === 0 || !fitBounds) return;
 
-    // Fit to the set (flyTo animation, or jumpTo under reduced-motion).
-    let minLng = Infinity,
-      minLat = Infinity,
-      maxLng = -Infinity,
-      maxLat = -Infinity;
-    for (const mk of markers) {
-      minLng = Math.min(minLng, mk.lng);
-      minLat = Math.min(minLat, mk.lat);
-      maxLng = Math.max(maxLng, mk.lng);
-      maxLat = Math.max(maxLat, mk.lat);
-    }
-    const bounds: LngLatBoundsLike = [
-      [minLng, minLat],
-      [maxLng, maxLat],
-    ];
+    // Fit to the set (flyTo animation, or jumpTo under reduced-motion). The first fit frames
+    // `initialFocus` (same box the map was constructed on, so it is a no-op move).
+    const bounds = boundsOf(firstFitRef.current ? startMarkersRef.current : markers)!;
+    firstFitRef.current = false;
     const animate = !prefersReducedMotion();
     map.fitBounds(bounds, {
       padding: 64,

@@ -18,7 +18,7 @@ import { getSyncCode, setSyncCode, nameHintFlag } from '@/core/storage/gateway';
 import { parseTripToken } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
-import { TRIP_START } from '@/lib/trip-data';
+import { TRIP_START, TRIP_END } from '@/lib/trip-data';
 import { getNow } from '@/lib/trip-now';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import LandingPage from '@/components/landing-page';
@@ -1192,8 +1192,8 @@ function CompactCountdown() {
 
   if (cd.isPast) {
     return (
-      <p className="text-t-body text-ink-hi text-center" role="status">
-        The journey has begun.
+      <p className="text-t-body text-ink-hi text-center">
+        {getNow() > TRIP_END ? 'The trip has ended.' : 'The journey has begun.'}
       </p>
     );
   }
@@ -1222,7 +1222,8 @@ function CompactCountdown() {
   const unitsLabel = units.map((u) => `${u.value} ${u.label}`).join(', ');
 
   return (
-    <div role="status" aria-label={`Departure in ${unitsLabel}`}>
+    // role="timer" is aria-live=off: the digits change each second and must not be re-read.
+    <div role="timer" aria-label={`Departure in ${unitsLabel}`}>
       <div
         className="grid gap-1.5"
         style={{ gridTemplateColumns: `repeat(${units.length}, minmax(0, 1fr))` }}

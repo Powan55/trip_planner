@@ -18,6 +18,7 @@ import { isConciergeAllowedForActiveTrip } from '@/lib/concierge-config';
 import { listKnownTrips } from '@/core/trips/registry';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { openPalette } from '@/lib/palette-open';
+import { followTripName } from '@/lib/trip-title';
 
 // the AI concierge trigger + panel. A separate chunk (Radix Dialog + the chat hook), lazy
 // client-only — it self-gates to `null` (dormant/guest) so most builds/sessions never even
@@ -50,6 +51,7 @@ export default function Navbar() {
     const active = getActiveTripId();
     return listKnownTrips().find((t) => t.id === active)?.name ?? 'My trip';
   }, []);
+  useEffect(() => (brand ? followTripName(brand) : undefined), [brand]);
   // The concierge speaks a hardcoded N×J boys-trip persona (Worker
   // SYSTEM_PROMPT), so it only belongs on the default pack. Same source + mount-safe
   // once-computed pattern as `brand`/`primaryItems` above (Navbar is ssr:false → no

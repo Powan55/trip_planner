@@ -26,13 +26,13 @@ export default function JapanPage() {
     <main data-leg="japan" className="min-h-screen bg-surface">
       {/* PageHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
-      <PageHero
-        variant="japan"
-        title="Japan"
-        eyebrow="Dec 19 – Jan 9"
-        subtitle="Winter Japan — Tokyo neon, Kyoto temples, photo spots, nightlife, and local etiquette."
-      />
       <DefaultTripOnly>
+        <PageHero
+          variant="japan"
+          title="Japan"
+          eyebrow="Dec 19 – Jan 9"
+          subtitle="Winter Japan — Tokyo neon, Kyoto temples, photo spots, nightlife, and local etiquette."
+        />
         <JapanSection />
         <MyPlacesSection legId="japan" />
         <PhotographyGuide country="Japan" />

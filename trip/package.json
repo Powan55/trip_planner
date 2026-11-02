@@ -1,7 +1,7 @@
 {
   "name": "app",
   "private": true,
-  "version": "7.7.0",
+  "version": "7.8.1",
   "engines": {
     "node": ">=22"
   },
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@eslint/compat": "2.1.1",
     "@next/bundle-analyzer": "16.3.6",
     "@playwright/test": "^1.63.0",
     "@types/node": "26.6.3",
@@ -38,6 +39,7 @@
     "autoprefixer": "10.6.1",
     "eslint": "10.13.0",
     "eslint-config-next": "16.3.8",
+    "espree": "11.2.0",
     "jsdom": "^30.0.1",
     "postcss": "8.5.28",
     "sharp": "^0.35.5",

@@ -21,7 +21,17 @@ import { withBasePath } from '@/lib/base-path';
  * (SSR always resolves the default pack), so there is no hydration mismatch; the same
  * post-mount storage-read pattern as `home-trip-strip.tsx`.
  */
-export default function DefaultTripOnly({ children }: { children: ReactNode }) {
+export default function DefaultTripOnly({
+  children,
+  quiet,
+  pending,
+}: {
+  children: ReactNode;
+  /** Render nothing (no card) on a custom trip; for Home's below-fold bands. */
+  quiet?: boolean;
+  /** Shown while quiet and unresolved, in place of `children`, so a custom trip never mounts them. */
+  pending?: ReactNode;
+}) {
   // null = not yet resolved (pre-mount / chunk in flight) — render children, matching SSR.
   const [isDefault, setIsDefault] = useState<boolean | null>(null);
   useEffect(() => {
@@ -34,6 +44,7 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  if (quiet) return isDefault === null ? <>{pending}</> : isDefault ? <>{children}</> : null;
   if (isDefault !== false) return <>{children}</>;
 
   // Switch the active trip back to the default pack, then full-reload so this guide (and every
@@ -50,15 +61,15 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
   return (
     <div
       data-testid="default-trip-only-empty-state"
-      className="mx-auto max-w-[1200px] px-4 py-16 text-center sm:px-6"
+      className="mx-auto max-w-[1200px] px-4 pb-16 pt-[calc(var(--nav-h)+4rem)] text-center sm:px-6"
     >
       {/* NOT ON THIS TRIP is a true statement about a real section and it points forward:
           the two ways out are named right underneath it. Nothing here is captioned as
           absent, and the copy sits at --t-body, never at the micro floor. */}
       <p className="pr pr--lo mb-3">Section · Not on this trip</p>
-      <p className="font-machine text-n-sm font-semibold uppercase tracking-[0.06em] text-[color:var(--text-hi)]">
+      <h1 className="font-machine text-n-sm font-semibold uppercase tracking-[0.06em] text-[color:var(--text-hi)]">
         This page belongs to the Nepal × Japan trip
-      </p>
+      </h1>
       <p className="empty mt-2">Your current trip doesn&apos;t use this section.</p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <button

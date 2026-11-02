@@ -11,7 +11,8 @@
 // NOTHING HERE TOUCHES THE NETWORK, and that is the requirement rather than a
 // side effect: this app is offline-first, so the screen that says a page failed
 // must not itself need a fetch to render. Icons and the button are bundled, the
-// copy is literal, and both exits are ordinary navigations.
+// copy is literal, and both exits are ordinary navigations. "Try again" checks for a waiting
+// service worker only when online, and reloads onto it if one exists (#946).
 //
 // Deliberately no framer-motion / reveal animation: a crash screen has nothing
 // to prove by moving, and skipping motion entirely is the simplest way to be
@@ -22,8 +23,10 @@
 // catches actual React render crashes and asks the person, with a calm message
 // and two ways out (Try again / Home).
 
+import { useState } from 'react';
 import { RefreshCw, Home as HomeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { applyWaitingUpdate } from '@/lib/apply-sw-update';
 import { withBasePath } from '@/lib/utils';
 
 export default function ErrorBoundary({
@@ -33,6 +36,7 @@ export default function ErrorBoundary({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [busy, setBusy] = useState(false);
   // A <main> because this REPLACES the failed page segment, and the root layout has no
   // landmark of its own — every route ships one. Without it the crash screen is the one
   // view in the app with no main landmark at all.
@@ -62,9 +66,25 @@ export default function ErrorBoundary({
           </p>
         )}
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button onClick={() => reset()} variant="default" className="flex-1">
+          <Button
+            onClick={async () => {
+              if (busy) return;
+              setBusy(true);
+              if (await applyWaitingUpdate()) {
+                window.location.reload();
+                return;
+              }
+              setBusy(false);
+              reset();
+            }}
+            // aria-disabled, not disabled: keeps focus on the button while the check runs.
+            aria-disabled={busy}
+            aria-busy={busy}
+            variant="default"
+            className="flex-1"
+          >
             <RefreshCw aria-hidden="true" />
-            Try again
+            {busy ? 'Checking…' : 'Try again'}
           </Button>
           <Button asChild variant="outline" className="flex-1">
             <a href={withBasePath('/')}>

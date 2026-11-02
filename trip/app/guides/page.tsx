@@ -71,14 +71,13 @@ const SCREEN = {
 export default function GuidesPage() {
   return (
     <main className="min-h-screen bg-surface">
-      <PageHero
-        variant="guides"
-        title="Guides"
-        eyebrow="Two countries, one trip"
-        subtitle="Pick a destination for photography spots, nightlife, local foods, and the on-the-ground essentials."
-      />
-
       <DefaultTripOnly>
+        <PageHero
+          variant="guides"
+          title="Guides"
+          eyebrow="Two countries, one trip"
+          subtitle="Pick a destination for photography spots, nightlife, local foods, and the on-the-ground essentials."
+        />
         <div className="mx-auto max-w-[1200px] px-4 pb-20 sm:px-6">
           <div className="grid gap-6 sm:grid-cols-2">
             {COUNTRIES.map((c, i) => (

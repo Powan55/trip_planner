@@ -438,6 +438,7 @@ function CurrencyRow({ currency, rate }: { currency: string; rate: CurrencyRateR
           ) : (
             <>
               1 USD, as of {d.asOf}
+              {currency === 'NPR' ? ', mid-market (not an ATM rate)' : ''}
               {d.stale ? (
                 <>
                   {' '}

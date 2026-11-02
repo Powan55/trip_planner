@@ -13,14 +13,17 @@ import { parseConversionQuery, convertCurrency } from '@/lib/currency-convert';
  *     malformed shape.
  *   - `convertCurrency` combines two fetchCurrencyRate results into a converted amount;
  *     USD is never fetched (rate 1, implicit).
- *   - D-189/S276: NPR short-circuits through fetchCurrencyRate's own UNSUPPORTED_CURRENCIES
- *     guard — a fresh NPR side with no cache resolves via the labeled static reference rate
- *     (`source:'reference'`, never `unavailable` anymore), WITHOUT this module issuing (or
- *     fetchCurrencyRate issuing) a doomed fetch for NPR.
+ *   - D-189/S276: NPR is derived from INR by fetchCurrencyRate; when that fails and nothing
+ *     is cached it resolves via the labeled static reference rate (`source:'reference'`,
+ *     never `unavailable`).
  *   - offline/cache-miss on the non-NPR side also degrades to `unavailable`, never throws.
  */
 
 const FRANKFURTER_JPY_FIXTURE = { amount: 1, base: 'USD', date: '2026-07-15', rates: { JPY: 155.32 } };
+
+const offline = async (): Promise<Response> => {
+  throw new Error('offline');
+};
 
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   return { ok, status, json: async () => body } as unknown as Response;
@@ -77,19 +80,15 @@ describe('convertCurrency (total; reuses fetchCurrencyRate, D-189-aware)', () =>
     if (result.status === 'ok') expect(result.converted).toBeCloseTo(100, 5);
   });
 
-  it('D-189/S276: NPR with no prior cache resolves via the labeled static reference rate, without a doomed fetch', async () => {
-    let called = false;
-    const fetchImpl = async () => {
-      called = true;
-      return jsonResponse(FRANKFURTER_JPY_FIXTURE);
-    };
-    const result = await convertCurrency({ amount: 100, from: 'USD', to: 'NPR' }, fetchImpl);
+  it('D-189/S276: NPR with no cache and no INR in the response resolves via the labeled static reference rate', async () => {
+    const result = await convertCurrency({ amount: 100, from: 'USD', to: 'NPR' }, async () =>
+      jsonResponse(FRANKFURTER_JPY_FIXTURE),
+    );
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.source).toBe('reference');
       expect(result.converted).toBeGreaterThan(0);
     }
-    expect(called).toBe(false);
   });
 
   it('NPR with a prior cached rate converts using the cached value, tagged stale + source live (pre-S276 cache shape)', async () => {
@@ -97,7 +96,7 @@ describe('convertCurrency (total; reuses fetchCurrencyRate, D-189-aware)', () =>
       'nepal_japan_currency_rate_cache',
       JSON.stringify({ NPR: { currency: 'NPR', rate: 138.1, asOf: '2026-07-01', stale: false, fetchedAt: 'x' } }),
     );
-    const result = await convertCurrency({ amount: 10, from: 'USD', to: 'NPR' });
+    const result = await convertCurrency({ amount: 10, from: 'USD', to: 'NPR' }, offline);
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.converted).toBeCloseTo(1381, 5);
@@ -113,7 +112,7 @@ describe('convertCurrency (total; reuses fetchCurrencyRate, D-189-aware)', () =>
       'nepal_japan_currency_rate_cache',
       JSON.stringify({ NPR: { currency: 'NPR', rate: 138.1, asOf: '2026-07-01', stale: false, fetchedAt: 'x' } }),
     );
-    const result = await convertCurrency({ amount: 1000, from: 'NPR', to: 'USD' });
+    const result = await convertCurrency({ amount: 1000, from: 'NPR', to: 'USD' }, offline);
     expect(result.status).toBe('ok');
     if (result.status === 'ok') expect(result.asOf).toBe('2026-07-01');
   });

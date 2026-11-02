@@ -6,6 +6,7 @@ import { BookOpen, Pencil, Sparkles } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
 import { formatDateLong } from '@/lib/trip-data';
 import { showUndoToast } from '@/lib/undo-toast';
+import { journalDraftStore } from '@/core/storage/gateway';
 import PhotoAttach from '@/components/photo-attach';
 import { JOURNAL_TEXT_MAX, MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
 
@@ -40,6 +41,39 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
 
 /** The three editable fields, as handed between a discarded draft and its undo. */
 export type JournalDraft = { text: string; mood: Mood | null; highlight: string };
+
+const DRAFT_SAVE_MS = 400;
+
+/** The open editor as last rendered, so the hide/unmount flush can read it without stale closures. */
+type LiveDraft = { editing: boolean; date: string; differs: boolean; draft: JournalDraft };
+
+/** Persisted drafts, keyed by day. Anything malformed reads as "no draft". */
+function readDrafts(): Record<string, unknown> {
+  const all = journalDraftStore.get<unknown>({});
+  return all && typeof all === 'object' && !Array.isArray(all) ? (all as Record<string, unknown>) : {};
+}
+
+function readDraft(date: string): JournalDraft | null {
+  const d = readDrafts()[date] as Partial<JournalDraft> | undefined;
+  if (!d || typeof d !== 'object') return null;
+  const text = typeof d.text === 'string' ? d.text.slice(0, JOURNAL_TEXT_MAX) : '';
+  const highlight = typeof d.highlight === 'string' ? d.highlight.slice(0, 120) : '';
+  const mood = MOODS.find((m) => m === d.mood) ?? null;
+  return text || highlight || mood ? { text, mood, highlight } : null;
+}
+
+/** `null` removes the day's draft. */
+function writeDraft(date: string, draft: JournalDraft | null) {
+  const { [date]: _prev, ...rest } = readDrafts();
+  void _prev;
+  const next = draft ? { ...rest, [date]: draft } : rest;
+  if (Object.keys(next).length) journalDraftStore.set(next);
+  else journalDraftStore.clear();
+}
+
+function persistDraft(l: LiveDraft) {
+  if (l.editing) writeDraft(l.date, l.differs ? l.draft : null);
+}
 
 export default function JournalCard({
   date,
@@ -104,6 +138,41 @@ export default function JournalCard({
     );
   };
 
+  // Unsaved text survives a tab switch or an evicted page: debounced write while typing, immediate
+  // write on hide/pagehide/unmount, restored on mount, dropped on Save/Cancel.
+  const live = useRef<LiveDraft>({ editing, date, differs: false, draft: { text: '', mood: null, highlight: '' } });
+  live.current = {
+    editing,
+    date: draftDateRef.current,
+    differs: editing && draftDiffers(draftDateRef.current),
+    draft: { text: draftText, mood: draftMood, highlight: draftHighlight },
+  };
+  // The unmount flush runs before the next render, so closing must mark the ref itself.
+  const dropDraft = () => {
+    live.current.editing = false;
+    writeDraft(draftDateRef.current, null);
+  };
+
+  useEffect(() => {
+    if (!editing) return;
+    const t = setTimeout(() => persistDraft(live.current), DRAFT_SAVE_MS);
+    return () => clearTimeout(t);
+  }, [editing, draftText, draftMood, draftHighlight]);
+
+  useEffect(() => {
+    const flush = () => persistDraft(live.current);
+    const onVisibility = () => {
+      if (document.hidden) flush();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, []);
+
   // Seed the draft from the current entry whenever we OPEN the editor (or the day changes under it).
   const openEditor = () => {
     const cur = getEntry(date);
@@ -131,6 +200,7 @@ export default function JournalCard({
       return;
     }
     const from = draftDateRef.current;
+    dropDraft(); // the toast's undo is the recovery path, so the saved draft must not outlive the close
     if (editing && draftDiffers(from)) {
       const draft = { text: draftText, mood: draftMood, highlight: draftHighlight };
       // Undo writes the draft to the day it was written for, rather than re-opening the editor —
@@ -144,6 +214,34 @@ export default function JournalCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
+  // Reopen an unsaved draft left by a tab switch or an evicted page (unless an undo is handing one in).
+  // Waits for hydration so a draft identical to the stored entry can be recognised and dropped.
+  const restoreTriedRef = useRef(false);
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (!hydrated || restoreTriedRef.current) return;
+    restoreTriedRef.current = true;
+    const saved = initialDraft ? null : readDraft(date);
+    if (!saved) return;
+    if (
+      saved.text === (entry?.text ?? '') &&
+      saved.mood === (entry?.mood ?? null) &&
+      saved.highlight === (entry?.highlight ?? '')
+    ) {
+      writeDraft(date, null);
+      return;
+    }
+    setDraftText(saved.text);
+    setDraftMood(saved.mood);
+    setDraftHighlight(saved.highlight);
+    returnFocusTo.current = entry ? 'edit' : 'write';
+    draftDateRef.current = date;
+    restoredRef.current = true; // the focus effect must not grab focus for a reload the user didn't ask for
+    setEditing(true);
+    // Once, when hydration lands: later edits are the user's, not storage's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
   const handleSave = () => {
     // `null` for mood/highlight explicitly clears; the core removes the entry if all content is empty.
     // Refused write: keep the editor and draft open; the quota toast explains.
@@ -152,6 +250,7 @@ export default function JournalCard({
       mood: draftMood,
       highlight: draftHighlight,
     })) return;
+    dropDraft();
     setEditing(false);
     onDone?.();
   };
@@ -174,6 +273,7 @@ export default function JournalCard({
         setEditing(true);
       });
     }
+    dropDraft();
     setEditing(false);
     onDone?.();
   };
@@ -186,7 +286,8 @@ export default function JournalCard({
       // Opening: focus the first field (the highlight input — a single unambiguous text target,
       // mirroring the expense dialog focusing its amount field; the mood group sits just above it
       // and remains a Shift+Tab away).
-      highlightInputRef.current?.focus();
+      if (restoredRef.current) restoredRef.current = false;
+      else highlightInputRef.current?.focus();
     } else if (wasEditing.current) {
       // Just closed via Save/Cancel: return focus to whichever trigger re-mounted.
       const target = returnFocusTo.current;

@@ -40,10 +40,10 @@ test('Tab-focusing a day chip not fully in view centers it in the strip, like se
     scrollerBoxBefore.x + scrollerBoxBefore.width,
   );
 
-  // Real keyboard Tab, one press, from the chip immediately before the target — the actual
-  // path a user's Tab key takes through the strip.
+  // Real keyboard ArrowRight from the chip immediately before the target. The strip is a
+  // roving-tabindex group (one Tab stop), so arrows are the in-strip path now, not Tab.
   await page.locator(`[data-testid="${prev}"]`).evaluate((el: HTMLElement) => el.focus());
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('ArrowRight');
   await expect(page.locator(`[data-testid="${target}"]`)).toBeFocused();
 
   const scrollerBox = (await scroller.boundingBox())!;

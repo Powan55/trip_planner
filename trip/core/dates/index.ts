@@ -32,6 +32,7 @@ export {
   type ZoneAbbrev,
   HOME_TIME_ZONE,
   formatHomeClock,
+  formatZoneClock,
   effectiveOffsetMin,
   parseTimeString,
   parseDurationText,

@@ -130,25 +130,28 @@ full pack reconciles to its prior pass count with 0 assertion changes.
 
 ---
 
-## 1a. The E2E build has to be dormant, no live Firebase (FU-25)
+## 1a. The E2E builds never reach a real Firebase project (FU-25)
 
 The whole `networkidle`→`domcontentloaded` migration rests on one environmental
-invariant: the E2E build is dormant. It runs with no `NEXT_PUBLIC_FIREBASE_*`
-secrets, so there is no live `onSnapshot` connection. A live Firestore listener
+invariant: no E2E build talks to a live backend. The behavioural suite is built with no
+`NEXT_PUBLIC_FIREBASE_*` env at all, so there is no live `onSnapshot` connection. (The
+`@firebase` suite is the one exception to "no env": it rebuilds with fake `demo-*` ids,
+which flips the configured gate without any request that can resolve.) A live Firestore listener
 holds an open streaming request, which would keep the network perpetually non-idle
 (the original `networkidle` timeout would just move to a different cause) and,
 worse, inject non-deterministic cross-tab sync into the persistence specs.
 
-This is already true by design and must stay so. `ci.yml`'s `e2e` job deliberately
-does not set the `NEXT_PUBLIC_FIREBASE_*` env. Its only build env is
-`NEXT_PUBLIC_CONCIERGE_URL`, a non-resolving `.test` origin, unlike `deploy.yml`'s
-production `build` job, which passes the Firebase secrets through.
+This is already true by design and must stay so. `ci.yml`'s `e2e` job never sets the
+real `NEXT_PUBLIC_FIREBASE_*` secrets. The first build's only env is
+`NEXT_PUBLIC_CONCIERGE_URL`, a non-resolving `.test` origin; the `@firebase` rebuild adds
+`demo-*` placeholders for the key, project and app ids. `deploy.yml`'s production `build`
+job is the only one that passes the real values through.
 S113E's fixtures identity flip made the pack depend on this dormancy (a guest-bypass
 build with no Firebase config). All local de-flake measurement in S114/S167 was taken
 the same way, on a served `out/` built with no `.env.local`.
 
-**Guarantee (do not regress):** `ci.yml`'s `e2e` job stays dormant. Never add the
-`NEXT_PUBLIC_FIREBASE_*` secrets to it. If a future slice needs the E2E pack to run
+**Guarantee (do not regress):** `ci.yml`'s `e2e` job never reaches a real project. Never
+add the real `NEXT_PUBLIC_FIREBASE_*` secrets to it; `demo-*` values only. If a future slice needs the E2E pack to run
 against live sync, it must first re-establish a deterministic settle signal that does
 not depend on the network going idle. The specs' readiness waits already do this at the
 per-nav level, but a live listener would still defeat any `networkidle` fallback.
@@ -170,8 +173,10 @@ retries: process.env.CI ? 2 : 0,
 - **Local = 0 retries** (unchanged). A bare local failure should surface
   immediately and honestly, not be papered over while developing.
 - A test that passes on retry is a flaky pass. The run is green, but the
-  flake is logged in the Playwright report (and, in CI, the report is uploaded on
-  failure and the visual diff always). Flaky is not the same as ignored; see section 4.
+  flake is listed in the e2e job's run summary ("Flaky e2e (passed only on retry)")
+  and raised as a warning annotation. The full report is only uploaded on failure.
+  Flaky is not the same as ignored: when a spec shows up there, run it with
+  `--repeat-each=20 --retries=0` to tell a flake from a bug. See section 4.
 
 Retries are the right tool because the flake is a low-frequency timing race that
 clears on a fresh attempt. It is deliberately a *small* budget (2), not a
@@ -194,10 +199,11 @@ Do not weaken it:
    for confirmed-environmental flakes.
 2. **Tag, don't delete.** Add a `@flaky` marker to the spec's title (e.g.
    `test('… @flaky', …)`). The assertion body stays byte-for-byte unchanged.
-3. **Split it out of the blocking run.** The blocking E2E steps already scope
-   with grep; add an exclusion and a separate non-blocking job:
-   - blocking step: `npm run test:e2e -- --grep-invert "@flaky"` (and keep the
-     existing `--grep-invert visual`, combined as needed).
+3. **Split it out of the blocking run.** No quarantine job exists today and no spec
+   carries `@flaky`; the first quarantine adds both. The blocking E2E steps already
+   scope with grep; add an exclusion and a separate non-blocking job:
+   - blocking step: `npm run test:e2e -- --grep-invert "@flaky|@visual"` (the
+     behavioural step already inverts `@visual`; extend that pattern).
    - non-blocking step/job: `npm run test:e2e -- --grep "@flaky"` with
      `continue-on-error: true`, so the quarantined spec still runs and reports on
      every CI run (visibility preserved) but cannot block a deploy.
@@ -240,7 +246,7 @@ source rather than retried.
 |---|---|---|---|
 | **D-093 CRUD-reload flake** (`persistence.spec.ts`), fixed at source in S114 (FU-15) | was: card `resolved to 0 elements` (pre-S113E), then `page.goto "networkidle"` timeout under load (post-S113E) | ~~`retries: 2`~~ → now deterministic: navigate `domcontentloaded` + wait `calendar-day-*` island mounted; 120/120 at `--retries=0` | Done. S113E killed the SW first-install reload; S114 replaced `networkidle` with a real readiness wait |
 | **`networkidle` nav flake**, all app-navigating specs, swept in S167 (FU-26) | `page.goto/reload … waiting until "networkidle"` timeout under load (SW precache never idles) | deterministic: `waitUntil:'domcontentloaded'` + a real readiness wait before the first assertion (drop-only where a settle already ran; added wait for `a11y-intrip`) | Done. Zero live `networkidle` nav calls remain in `e2e/` |
-| **E2E build must be dormant (FU-25)** | live `onSnapshot` keeps the network non-idle + injects non-determinism | `ci.yml`'s `e2e` job omits `NEXT_PUBLIC_FIREBASE_*` by design (unlike `deploy.yml`'s `build` job); measure on `out/` with no `.env.local` | Guarantee: never add Firebase secrets to `ci.yml`'s `e2e` job (section 1a) |
+| **E2E build must never reach a real project (FU-25)** | live `onSnapshot` keeps the network non-idle + injects non-determinism | `ci.yml`'s `e2e` job sets no real `NEXT_PUBLIC_FIREBASE_*` (only `demo-*` for the `@firebase` rebuild; unlike `deploy.yml`'s `build` job); measure on `out/` with no `.env.local` | Guarantee: never add real Firebase secrets to `ci.yml`'s `e2e` job (section 1a) |
 | **Any spec flaking beyond 2 retries** (confirmed environmental) | fails all attempts across runs, but env-signature not a regression | tag `@flaky`, split to non-blocking job (`continue-on-error`) | de-flake root cause, remove tag |
 | **Visual drift** (`visual.spec.ts`) | pixel diff against the `-win32` baselines | own job on `windows-latest`, blocking (no `continue-on-error`, since D-379) | done — see section 4 |
 | **A real regression** | assertion genuinely wrong / product broke | the gate stays red; no retry or quarantine applies | fix the product or the spec |

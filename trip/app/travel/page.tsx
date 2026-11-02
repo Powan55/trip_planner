@@ -20,6 +20,7 @@ import {
   TravelLegibilityToggle,
   TravelExitButton,
   TravelConcierge,
+  WorldClockStrip,
 } from './sections';
 
 export const metadata = {
@@ -44,6 +45,7 @@ export default function TravelPage() {
           <TravelExitButton />
         </div>
       </div>
+      <WorldClockStrip />
       {/* date picker (day-strip + preview/pre-trip banners) → hero → agenda. */}
       <TravelDatePicker />
       {/* thumb-zone contract: TM primary actions pin to this fixed bottom band —

@@ -252,6 +252,35 @@ describe('ServiceWorkerRegistrar — update-prompt wiring', () => {
   });
 });
 
+describe('ServiceWorkerRegistrar — #946 a dismissed toast comes back', () => {
+  it('re-prompts for the same waiting worker after a later update check', async () => {
+    const waiting = makeWorker();
+    const registration = makeRegistration(waiting);
+    const sw = makeServiceWorkerContainer({}, registration);
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
+
+    await mount();
+    expect(toast).toHaveBeenCalledTimes(1);
+    // User swiped it away; the app is resumed, not reloaded, so no updatefound fires.
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(registration.update).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(toast).mock.calls[1][1]).toMatchObject({ id: 'sw-update-available' });
+  });
+
+  it('does not prompt after a check when nothing is waiting', async () => {
+    const sw = makeServiceWorkerContainer({}, makeRegistration());
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: sw });
+    await mount();
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(toast).not.toHaveBeenCalled();
+  });
+});
+
 describe('ServiceWorkerRegistrar — #787 proactive update checks', () => {
   it('calls registration.update() on visible, hourly, and online chunk failure; cleans up', async () => {
     vi.useFakeTimers();
