@@ -55,19 +55,35 @@ function proximityText(c: FlightTiming['countdown']): string {
   return parts.join(' ') || 'under a minute';
 }
 
-// One labelled slot. Fixed — an empty value renders "Not yet assigned" inside the HOLLOW frame
-// (`.empty-frame`, a dashed box at the size the fact will be), so the 4-slot grid NEVER reflows
-// whether or not the fact exists. Gate/Confirmation are always empty — not in the data, never
-// fabricated.
-function Slot({ label, value }: { label: string; value?: string | null }) {
-  const empty = !value;
+// Booked facts (Terminal, Seat) get one labelled slot each; every fact that is not in the data
+// (Gate/Confirmation always) shares ONE hollow line reading "Not yet assigned" — never
+// fabricated, and no narrow cell to split a word in half at phone width.
+function Slot({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`min-w-0 px-1.5 py-1 rounded-r1 ${empty ? 'empty-frame' : 'border-hair border-[color:hsl(var(--border))]'}`}>
+    <div className="min-w-0 px-1.5 py-1 rounded-r1 border-hair border-[color:hsl(var(--border))]">
       <span className="pr pr--lo block break-words !tracking-normal">{label}</span>
-      <span className={`block break-words font-machine text-t-sm ${empty ? 'text-ink-lo' : 'text-ink-hi'}`}>
-        {value ?? 'Not yet assigned'}
-      </span>
+      <span className="block break-words font-machine text-t-sm text-ink-hi">{value}</span>
     </div>
+  );
+}
+
+function Slots({ items }: { items: [label: string, value?: string | null][] }) {
+  const filled = items.filter((i): i is [string, string] => !!i[1]);
+  const missing = items.filter((i) => !i[1]);
+  return (
+    <>
+      {filled.length > 0 && (
+        <span className="mt-2 grid grid-cols-1 gap-1 min-[440px]:grid-cols-2 min-[560px]:grid-cols-4">
+          {filled.map(([label, value]) => <Slot key={label} label={label} value={value} />)}
+        </span>
+      )}
+      {missing.length > 0 && (
+        <span className="empty-frame mt-1 flex flex-wrap items-baseline gap-x-2 px-1.5 py-1">
+          {missing.map(([label]) => <span key={label} className="pr pr--lo !tracking-normal normal-case">{label}</span>)}
+          <span className="font-machine text-t-sm text-ink-lo">Not yet assigned</span>
+        </span>
+      )}
+    </>
   );
 }
 
@@ -93,12 +109,14 @@ function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
 
         {/* Terminal/Seat from optional leg fields;
             Gate/Confirmation aren't in the booking → labelled-empty, never fabricated. */}
-        <span className="mt-2 grid grid-cols-1 gap-1 min-[360px]:grid-cols-2 min-[560px]:grid-cols-4">
-          <Slot label="Terminal" value={leg.fromTerminal} />
-          <Slot label="Gate" value={undefined} />
-          <Slot label="Seat" value={leg.seats && leg.seats.length > 0 ? leg.seats.join(' · ') : undefined} />
-          <Slot label="Confirmation" value={undefined} />
-        </span>
+        <Slots
+          items={[
+            ['Terminal', leg.fromTerminal],
+            ['Gate'],
+            ['Seat', leg.seats && leg.seats.length > 0 ? leg.seats.join(' · ') : undefined],
+            ['Confirmation'],
+          ]}
+        />
       </span>
 
       <span className="rt">
