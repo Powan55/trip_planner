@@ -188,7 +188,7 @@ test.describe('S252 · custom trip — nav gating', () => {
     await goto(page, '/');
 
     await openPalette(page);
-    for (const label of ['Nepal', 'Japan', 'Flights', 'Photography Guide', 'Nightlife & Bars']) {
+    for (const label of ['Nepal', 'Japan', 'Flights', 'Photography Guide', 'Nightlife & Bars', 'Safety', 'Travel Inspiration']) {
       await expect(page.getByRole('option', { name: new RegExp(`^${label}$`) })).toHaveCount(0);
     }
     // A non-gated companion is still present.

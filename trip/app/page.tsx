@@ -240,7 +240,7 @@ const CustomTripMyPlaces = dynamic(() => import('@/components/custom-trip-my-pla
 // call site.
 function GatedTravelInspiration() {
   return (
-    <DefaultTripOnly>
+    <DefaultTripOnly quiet pending={<SectionSkeleton height={INSPIRATION_H} />}>
       <TravelInspiration />
     </DefaultTripOnly>
   );
@@ -250,7 +250,7 @@ function GatedTravelInspiration() {
 // trip gets the honest empty state rather than someone else's country.
 function GatedHomeChapters() {
   return (
-    <DefaultTripOnly>
+    <DefaultTripOnly quiet pending={<SectionSkeleton height={CHAPTERS_H} />}>
       <HomeChapters />
     </DefaultTripOnly>
   );

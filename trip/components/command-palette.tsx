@@ -171,9 +171,11 @@ const ROW_ICON = 'h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]';
 const GROUP = 'p-0 [&_[cmdk-group-heading]]:px-gut [&_[cmdk-group-heading]]:py-2';
 
 // (Plan D10): routes that only exist for the default N×J trip — dropped from the
-// palette on a custom trip (Nepal/Japan/Flights, plus their #photography/#nightlife
-// sub-anchors which target /nepal/).
-const DEFAULT_TRIP_ONLY_ROUTES = new Set(['/nepal/', '/japan/', '/flights/']);
+// palette on a custom trip (Nepal/Japan/Flights/Safety, plus their #photography/#nightlife
+// sub-anchors which target /nepal/, and Home's #inspiration gallery).
+const DEFAULT_TRIP_ONLY_ROUTES = new Set(['/nepal/', '/japan/', '/flights/', '/safety/']);
+export const isDefaultTripOnlySection = (s: { route: string; hash?: string }) =>
+  DEFAULT_TRIP_ONLY_ROUTES.has(s.route) || s.hash === '#inspiration';
 
 /**
  * Deterministic matcher passed to cmdk's `filter`. cmdk's built-in command-score is
@@ -338,7 +340,7 @@ export default function CommandPalette() {
   const sections = React.useMemo(
     () =>
       mounted && !isDefaultTrip()
-        ? SECTIONS.filter((s) => !DEFAULT_TRIP_ONLY_ROUTES.has(s.route))
+        ? SECTIONS.filter((s) => !isDefaultTripOnlySection(s))
         : SECTIONS,
     [mounted],
   );
