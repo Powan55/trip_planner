@@ -322,6 +322,12 @@ export default function HeroSection() {
   // of `todayInTrip.country`: two independent answers to "which leg" is how the cap ends up
   // Nepal-warm over the Tokyo skyline for one render.
   const heroFrame = HERO_FRAME[heroSrc] ?? HERO_FRAME[HERO_DEFAULT];
+  // 4 cells (no month, no week) go 4-up on phones so Seconds is not orphaned on a second row.
+  const countdownCells = [
+    ...COUNTDOWN_DATE_UNITS.filter(({ key }) => timeLeft[key] > 0),
+    ...COUNTDOWN_CLOCK_UNITS,
+  ];
+  const fourUp = countdownCells.length === 4;
 
   return (
     // `flex-1 min-h-0` (NOT `min-h-[100svh]`): the hero is not the whole fold — the trip
@@ -649,7 +655,7 @@ export default function HeroSection() {
             className="mb-2 min-[420px]:mb-10"
           >
             <p className="pr mb-2 min-[420px]:mb-4">Countdown to day one</p>
-            <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-2 min-[420px]:mb-4">
+            <div className={`grid ${fourUp ? 'grid-cols-4 gap-2 min-[360px]:gap-3' : 'grid-cols-3 gap-3'} sm:flex sm:flex-wrap justify-center sm:gap-4 mb-2 min-[420px]:mb-4`}>
               {/* the cells lost `.animate-pulse-glow` — a 3s infinite box-shadow breathe
                   on all six. They already read as a group via.glass-card; the glow added
                   nothing but a permanent repaint.
@@ -671,10 +677,7 @@ export default function HeroSection() {
                   the floor tier, and the one live cell. Re-timing the type scale is the
                   root-size question (the app runs a 17px root) and it needs the overflow
                   matrix re-run at 360/390/414, which is its own slice. */}
-              {[
-                ...COUNTDOWN_DATE_UNITS.filter(({ key }) => timeLeft[key] > 0),
-                ...COUNTDOWN_CLOCK_UNITS,
-              ].map(({ key, label }) => {
+              {countdownCells.map(({ key, label }) => {
                 // The seconds cell is the only thing on this surface that is genuinely
                 // live, and it is marked as such three ways — a pink edge, the --glow-live
                 // ring, and gradient-filled digits — on top of a label that already says
@@ -684,7 +687,7 @@ export default function HeroSection() {
                 return (
                 <div
                   key={key}
-                  className={`countdown-cell glass-card px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px]${
+                  className={`countdown-cell glass-card ${fourUp ? 'px-0 min-[360px]:px-1' : 'px-3'} sm:px-5 py-3 sm:py-4 sm:min-w-[90px]${
                     live ? ' countdown-cell--live' : ''
                   }`}
                 >
@@ -738,7 +741,7 @@ export default function HeroSection() {
                   <CountUpNumber live={daysLeft} active={mounted} format={identity} />
                 </span>
               </CountdownRing>
-              <p className="text-sm text-ink-mid">until adventure begins</p>
+              <p className="text-sm text-ink-mid">days until adventure begins</p>
             </div>
           </m.div>
         ))}

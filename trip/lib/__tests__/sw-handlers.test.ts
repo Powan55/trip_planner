@@ -28,6 +28,10 @@ const OWN_CHUNK = '/_next/static/chunks/app-1234abcd.js';
 const PAYLOAD = '/plan/index.txt';
 const PRECACHE_URLS = ['/', '/404.html', '/plan/', '/travel/', '/images/hero/hero.avif', OWN_CHUNK, PAYLOAD];
 const BUILD_ID = 'BUILD_OWN';
+const RUNTIME_CACHE = 'trip-runtime-testhash';
+const ENGINE_CHUNK = '/_next/static/chunks/engine0000000000.js';
+const RUNTIME_URLS = [ENGINE_CHUNK, '/maplibre/maplibre-gl-worker.mjs'];
+const PRECACHE_LIST = '/__precache-urls.json';
 
 const genSwSrc = readFileSync(resolve(__dirname, '../../scripts/gen-sw.mjs'), 'utf8');
 
@@ -54,8 +58,10 @@ function extractWorkerSource(): string {
     'precacheUrls',
     'withBase',
     'buildId',
+    'RUNTIME_CACHE_NAME',
+    'runtimeUrls',
     'return `' + template + '`'
-  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p, BUILD_ID);
+  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p, BUILD_ID, RUNTIME_CACHE, RUNTIME_URLS);
 }
 
 const WORKER_SOURCE = extractWorkerSource();
@@ -495,7 +501,14 @@ describe('repair: a precache emptied under a live registration refills itself (#
     if (k.endsWith('.txt')) return new FakeResponse(txt, { contentType: 'text/x-component' });
     return new FakeResponse(html);
   };
-  const putKeys = (put: Array<{ key: string }>) => put.map((p) => p.key).sort();
+  const putKeys = (put: Array<{ key: string }>) =>
+    put.map((p) => p.key).filter((k) => k !== PRECACHE_LIST).sort();
+
+  it('writes the precache list the preflight check compares against', async () => {
+    const { caches, stores } = makeCaches({ [PRECACHE]: {} });
+    await runRepair(instantiate(caches, network(ownPage)));
+    expect(JSON.parse(stores.get(PRECACHE)!.get(PRECACHE_LIST)!.body)).toEqual(PRECACHE_URLS);
+  });
 
   it('refetches only the missing entries and leaves the rest alone', async () => {
     const { caches, put, stores } = makeCaches({
@@ -546,4 +559,71 @@ describe('repair: a precache emptied under a live registration refills itself (#
       expect(fetches).toBe(0);
     });
   }
+});
+
+describe('install: refuses a mixed-build edge and cleans up after itself (#944, #945)', () => {
+  const runInstall = (handlers: Handlers) =>
+    new Promise<unknown>((res) => {
+      handlers.install!({
+        waitUntil: (p: Promise<unknown>) => Promise.resolve(p).then(() => res('installed'), (err) => res(err)),
+      });
+    });
+  const network = (plan: string) => async (req: Keyish) => {
+    const k = keyOf(req);
+    if (k.endsWith('.js')) return new FakeResponse('CHUNK', { contentType: 'text/javascript' });
+    if (k.endsWith('.avif')) return new FakeResponse('HERO', { contentType: 'image/avif' });
+    if (k.endsWith('.txt')) return new FakeResponse(`0:{"b":"${BUILD_ID}"}`, { contentType: 'text/x-component' });
+    return new FakeResponse(k === '/plan/' ? plan : `"buildId":"${BUILD_ID}"`);
+  };
+
+  it('installs a consistent build and writes the precache list last', async () => {
+    const { caches, stores, put } = makeCaches({});
+    expect(await runInstall(instantiate(caches, network(`"buildId":"${BUILD_ID}"`)))).toBe('installed');
+    expect(put.at(-1)!.key).toBe(PRECACHE_LIST);
+    expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+  });
+
+  it('rejects route HTML from the previous build and deletes the half-filled cache', async () => {
+    const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { '/plan/': 'OLD' } });
+    const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
+    expect(result).toBeInstanceOf(Error);
+    expect(stores.has(PRECACHE)).toBe(false);
+    expect(stores.get('trip-precache-oldbuild')!.get('/plan/')!.body).toBe('OLD');
+  });
+
+  it('a failed install leaves an existing cache of the same name alone', async () => {
+    const { caches, deleted } = makeCaches({ [PRECACHE]: { '/': 'LIVE' } });
+    const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
+    expect(result).toBeInstanceOf(Error);
+    expect(deleted).toEqual([]);
+  });
+});
+
+describe('runtime cache: the map engine survives an update (#945)', () => {
+  it('writes a runtime-only asset to the runtime cache, not the per-build precache', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {} });
+    const handlers = instantiate(caches, async () => new FakeResponse('ENGINE', { contentType: 'text/javascript' }));
+    await runFetch(handlers, makeRequest(ENGINE_CHUNK));
+    await runFetch(handlers, makeRequest('/plan/__next._full.txt'));
+    expect(put).toEqual([
+      { cache: RUNTIME_CACHE, key: ENGINE_CHUNK },
+      { cache: PRECACHE, key: '/plan/__next._full.txt' },
+    ]);
+  });
+
+  it('activate keeps the runtime cache and prunes what this build no longer ships', async () => {
+    const { caches, deleted, stores } = makeCaches({
+      [PRECACHE]: {},
+      'trip-precache-oldbuild': {},
+      [RUNTIME_CACHE]: { [ENGINE_CHUNK]: 'ENGINE', '/_next/static/chunks/gone1111111111.js': 'OLD' },
+      'trip-runtime-oldmaplibre': { [ENGINE_CHUNK]: 'ENGINE_V5' },
+    });
+    const handlers = instantiate(caches, async () => new FakeResponse('x'));
+    await new Promise<void>((res, rej) => {
+      handlers.activate!({ waitUntil: (p: Promise<unknown>) => Promise.resolve(p).then(() => res(), rej) });
+    });
+    expect(deleted).toEqual(expect.arrayContaining(['trip-precache-oldbuild', 'trip-runtime-oldmaplibre']));
+    expect(deleted).not.toContain(RUNTIME_CACHE);
+    expect([...stores.get(RUNTIME_CACHE)!.keys()]).toEqual([ENGINE_CHUNK]);
+  });
 });

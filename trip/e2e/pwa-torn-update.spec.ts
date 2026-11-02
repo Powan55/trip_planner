@@ -195,7 +195,8 @@ test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects
       };
       // Instantiate the shipped source with controlled globals; capture the
       // install handler and run it with a fake waitUntil-capturing event.
-      function runInstall(mode: 'torn' | 'healthy' | 'portal') {
+      const buildId = /const BUILD_ID = "([^"]+)"/.exec(src)?.[1] ?? '';
+      function runInstall(mode: 'torn' | 'healthy' | 'portal' | 'stale') {
         const handlers: Record<string, (e: unknown) => void> = {};
         const committed: string[] = [];
         let firstUrl: string | null = null;
@@ -232,6 +233,8 @@ test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects
             clone() {
               return this;
             },
+            // 'stale': the edge still serves the previous build's pages (#944).
+            text: async () => `"buildId":"${mode === 'stale' ? 'previous-build' : buildId}"`,
           };
         };
         new Function('self', 'caches', 'fetch', 'Response', 'location', src)(
@@ -264,8 +267,12 @@ test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects
         runInstall('torn'),
         runInstall('healthy'),
         runInstall('portal'),
-      ]).then(([torn, healthy, portal]) => ({ torn, healthy, portal }));
+        runInstall('stale'),
+      ]).then(([torn, healthy, portal, stale]) => ({ torn, healthy, portal, stale }));
     }, swSource);
+
+    expect(result.stale.settled).toBe('rejected');
+    expect(result.stale.err).toContain('another build');
 
     // Torn build: one non-OK precache fetch → the install waitUntil REJECTS
     // (never activates → never deletes the old precache → last good build lives).

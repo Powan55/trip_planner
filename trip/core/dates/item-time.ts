@@ -120,9 +120,14 @@ export const HOME_TIME_ZONE = 'America/New_York';
  * clock — rather than a wrong one.
  */
 export function formatHomeClock(now: Date): string | null {
+  return formatZoneClock(now, HOME_TIME_ZONE);
+}
+
+/** "Sat 9:30 PM" in any IANA `timeZone`; `null` when this Intl build lacks the zone. */
+export function formatZoneClock(now: Date, timeZone: string): string | null {
   try {
     return new Intl.DateTimeFormat('en-US', {
-      timeZone: HOME_TIME_ZONE,
+      timeZone,
       weekday: 'short',
       hour: 'numeric',
       minute: '2-digit',

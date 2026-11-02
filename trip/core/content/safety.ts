@@ -80,11 +80,11 @@ const rawEmergencyContacts: EmergencyContact[] = [
     id: 'np-tourist-police',
     country: 'Nepal',
     service: 'Tourist Police (Kathmandu)',
-    number: '+977-1-4247041',
-    tel: '+97714247041',
-    sourceUrl: 'https://ntb.gov.np/',
+    number: '1144',
+    tel: '1144',
+    sourceUrl: 'https://tourismdepartment.gov.np/pages/tourist-police/',
     verified: false,
-    note: 'Confirm this number on the Nepal Tourism Board site before relying on it.',
+    note: 'Toll-free. Head office line: +977-01-5347041. Confirm both on the Department of Tourism page before relying on them.',
   },
   {
     id: 'np-us-embassy',
@@ -166,6 +166,18 @@ const rawHazardNotes: HazardNote[] = [
     country: 'Nepal',
     title: 'Aftershocks & Bandh (General Strikes)',
     body: "After any quake, move to open ground away from walls and buildings, and learn your accommodation's assembly point on arrival. Separately, a bandh (general strike) can halt road transport with little warning — ask your accommodation the evening before a travel day; a tourist-shuttle exemption typically applies.",
+  },
+  {
+    id: 'jp-nightlife-spiking',
+    country: 'Japan',
+    title: 'Nightlife: touts, drink spiking & overcharging',
+    body: "Drink spiking and tout-led overcharging are the main nightlife hazards in Kabukicho and Roppongi. Don't follow street touts into a venue, keep your drink in sight and don't accept one you didn't watch being poured, and check the price (cover charge, seating fee, drink menu) before you sit down.",
+  },
+  {
+    id: 'np-scams',
+    country: 'Nepal',
+    title: 'Common tourist scams',
+    body: 'Insist on the meter or agree a taxi fare before you get in. Expect to be asked for money after a "photo with a sadhu" — agree a price first or decline. Be wary of gem shops that promise resale profit abroad; do not buy.',
   },
 ];
 
@@ -329,6 +341,12 @@ const rawChecklist: ChecklistItem[] = [
     group: 'Before you go',
     label: 'Vaccinations / health certificates up to date',
     detail: 'Check current guidance for both destinations before departure.',
+  },
+  {
+    id: 'carry-passport-japan',
+    group: 'Carry with you',
+    label: 'Carry the original passport in Japan',
+    detail: 'Visitors must carry the original, not a photocopy, and clubs check photo ID at the door.',
   },
   {
     id: 'document-copies',

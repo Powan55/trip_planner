@@ -55,29 +55,49 @@ function proximityText(c: FlightTiming['countdown']): string {
   return parts.join(' ') || 'under a minute';
 }
 
-// One labelled slot. Fixed — an empty value renders "Not yet assigned" inside the HOLLOW frame
-// (`.empty-frame`, a dashed box at the size the fact will be), so the 4-slot grid NEVER reflows
-// whether or not the fact exists. Gate/Confirmation are always empty — not in the data, never
-// fabricated.
-function Slot({ label, value }: { label: string; value?: string | null }) {
-  const empty = !value;
+// Booked facts (Terminal, Seat) get one labelled slot each; every fact that is not in the data
+// (Gate/Confirmation always) shares ONE hollow line reading "Not yet assigned" — never
+// fabricated, and no narrow cell to split a word in half at phone width.
+function Slot({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`min-w-0 px-1.5 py-1 rounded-r1 ${empty ? 'empty-frame' : 'border-hair border-[color:hsl(var(--border))]'}`}>
+    <div className="min-w-0 px-1.5 py-1 rounded-r1 border-hair border-[color:hsl(var(--border))]">
       <span className="pr pr--lo block break-words !tracking-normal">{label}</span>
-      <span className={`block break-words font-machine text-t-sm ${empty ? 'text-ink-lo' : 'text-ink-hi'}`}>
-        {value ?? 'Not yet assigned'}
-      </span>
+      <span className="block break-words font-machine text-t-sm text-ink-hi">{value}</span>
     </div>
   );
 }
 
+function Slots({ items }: { items: [label: string, value?: string | null][] }) {
+  const filled = items.filter((i): i is [string, string] => !!i[1]);
+  const missing = items.filter((i) => !i[1]);
+  return (
+    <>
+      {filled.length > 0 && (
+        <span className="mt-2 grid grid-cols-1 gap-1 min-[440px]:grid-cols-2 min-[560px]:grid-cols-4">
+          {filled.map(([label, value]) => <Slot key={label} label={label} value={value} />)}
+        </span>
+      )}
+      {missing.length > 0 && (
+        <span className="empty-frame mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2 px-1.5 py-1">
+          {missing.map(([label]) => <span key={label} className="pr pr--lo min-w-0 !tracking-normal normal-case [overflow-wrap:anywhere]">{label}</span>)}
+          <span className="min-w-0 font-machine text-t-sm text-ink-lo [overflow-wrap:anywhere]">Not yet assigned</span>
+        </span>
+      )}
+    </>
+  );
+}
+
+// `.strip .s` fixes the code column at 54px; a wider face (Linux fallback fonts) overflows it, and the
+// 1fr middle has no floor, so let the code column grow and the middle shrink and wrap.
+const COLS = '![grid-template-columns:minmax(54px,auto)_minmax(0,1fr)_auto]';
+
 /** One flown segment — a BOOKED stop on the route: a filled node in the leg's ink. */
 function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
   return (
-    <li className="s !items-start" data-leg={legId}>
+    <li className={`s !items-start ${COLS}`} data-leg={legId}>
       <span className="num text-n-sm text-ink-hi">{leg.fromCode}</span>
 
-      <span className="min-w-0">
+      <span className="min-w-0 [overflow-wrap:anywhere]">
         <span className="nm break-words">{leg.flightNumber}</span>
         <span className="mt">
           {leg.fromName} → {leg.toName}
@@ -93,12 +113,14 @@ function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
 
         {/* Terminal/Seat from optional leg fields;
             Gate/Confirmation aren't in the booking → labelled-empty, never fabricated. */}
-        <span className="mt-2 grid grid-cols-1 gap-1 min-[360px]:grid-cols-2 min-[560px]:grid-cols-4">
-          <Slot label="Terminal" value={leg.fromTerminal} />
-          <Slot label="Gate" value={undefined} />
-          <Slot label="Seat" value={leg.seats && leg.seats.length > 0 ? leg.seats.join(' · ') : undefined} />
-          <Slot label="Confirmation" value={undefined} />
-        </span>
+        <Slots
+          items={[
+            ['Terminal', leg.fromTerminal],
+            ['Gate'],
+            ['Seat', leg.seats && leg.seats.length > 0 ? leg.seats.join(' · ') : undefined],
+            ['Confirmation'],
+          ]}
+        />
       </span>
 
       <span className="rt">
@@ -114,10 +136,10 @@ function LayoverRow({ layover }: { layover: Layover }) {
   // an inner span. The authored verdict renders as a TEXT mark, never colour-only.
   const v = layover.verdict ? VERDICT[layover.verdict] : null;
   return (
-    <li className="s" data-transit>
+    <li className={`s ${COLS}`} data-transit>
       <span className="num text-t-sm text-ink-lo">{layover.airportCode}</span>
       <span
-        className="min-w-0"
+        className="min-w-0 [overflow-wrap:anywhere]"
         role="separator"
         aria-label={
           `Layover ${layover.duration} at ${layover.airportName ?? layover.airportCode}` +

@@ -20,6 +20,13 @@ export const TravelDatePicker = dynamic(() => import('@/components/travel-date-p
   ),
 });
 
+// Home / Kathmandu / Tokyo wall clocks. Own ssr:false island so it stays off the initial chunk;
+// the placeholder is sized for the two rows the three clocks wrap to at 375px.
+export const WorldClockStrip = dynamic(() => import('@/components/world-clock-strip'), {
+  ssr: false,
+  loading: () => <div aria-hidden="true" className="mx-auto mt-2 min-h-[3.5rem] max-w-2xl" />,
+});
+
 // — outdoor high-legibility toggle. Tiny, but kept off the initial /travel chunk the same
 // way as the date picker to hold the route under its First Load JS budget.
 export const TravelLegibilityToggle = dynamic(() => import('@/components/travel-legibility-toggle'), {

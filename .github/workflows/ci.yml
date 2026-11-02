@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -211,7 +211,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -247,6 +247,14 @@ jobs:
       - name: Install the pinned firebase-tools toolchain
         working-directory: tools
         run: npm ci --ignore-scripts
+
+      # emulators:exec downloads the Firestore and Auth jars on first use. Keyed on the tools
+      # lockfile, so a firebase-tools bump fetches fresh jars; a cache miss just downloads as before.
+      - name: Cache the Firebase emulator jars
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('tools/package-lock.json') }}
 
       - name: Validate firestore.rules against the emulator
         run: |
@@ -302,7 +310,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -331,6 +339,7 @@ jobs:
       - name: Behavioural suite
         env:
           CI: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/pw-behavioural.json
         run: npm run test:e2e -- --grep-invert @visual
 
       # D-652. The build above has no firebase env, so isRemoteConfigured() is false and every
@@ -349,11 +358,31 @@ jobs:
         env:
           CI: '1'
           E2E_FIREBASE: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/pw-firebase.json
         run: npm run test:e2e -- --grep "@firebase"
+
+      # A test that failed and then passed on retry leaves the job green and no other trace.
+      # List those in the run summary so a flake is seen, not just survived.
+      - name: List tests that passed only on retry
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs"), out = new Set();
+            const walk = (s) => {
+              for (const p of s.specs || []) if (p.tests.some((t) => t.status === "flaky")) out.add(`- \`${p.file}:${p.line}\` ${p.title}`);
+              (s.suites || []).forEach(walk);
+            };
+            for (const f of process.argv.slice(1)) if (fs.existsSync(f)) walk(JSON.parse(fs.readFileSync(f, "utf8")));
+            fs.writeFileSync(process.env.RUNNER_TEMP + "/flaky.txt", [...out].map((l) => l + "\n").join(""));
+          ' "$RUNNER_TEMP"/pw-*.json
+          if [ -s "$RUNNER_TEMP/flaky.txt" ]; then
+            { echo "### Flaky e2e (passed only on retry)"; cat "$RUNNER_TEMP/flaky.txt"; } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::$(wc -l < "$RUNNER_TEMP/flaky.txt") e2e test(s) passed only on retry, see the run summary"
+          fi
 
       - name: Upload the Playwright report
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ github.run_id }}
           path: |
@@ -377,7 +406,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -402,7 +431,7 @@ jobs:
 
       - name: Upload the Playwright report
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-webkit-${{ github.run_id }}
           path: |
@@ -432,7 +461,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -464,7 +493,7 @@ jobs:
 
       - name: Upload the Playwright report
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-windows-visual-${{ github.run_id }}
           path: |

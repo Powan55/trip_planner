@@ -10,6 +10,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
+  checkInstalled,
   checkMapShell,
   checkStorage,
   evaluateClock,
@@ -58,6 +59,12 @@ const ENGINE = `var maplibregl=(function(){/*${'x'.repeat(300_000)}*/})()`;
 /** Carries the marker (CSS class strings) but is nowhere near engine-sized, like the ~31 KB trip-map chunk. */
 const TRIP_MAP_CHUNK = '.maplibregl-ctrl{display:none}';
 const NOT_ENGINE = 'export const x=1;';
+/** A precache the worker finished filling: its URL list, and every URL on it. */
+const SHELL: Record<string, FakeEntry> = {
+  'https://x/__precache-urls.json': { body: '["/","/plan/"]' },
+  'https://x/': { body: 'HOME' },
+  'https://x/plan/': { body: 'PLAN' },
+};
 
 // ── 1. Map shell ────────────────────────────────────────────────────────────────────────────
 
@@ -66,6 +73,7 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
     const check = await checkMapShell(
       fakeCacheStorage({
         'trip-precache-93f277c05d06': {
+          ...SHELL,
           'https://x/_next/static/chunks/a.js': { body: NOT_ENGINE, size: 1200 },
           'https://x/_next/static/chunks/b.js': { body: ENGINE, size: 1032412 },
         },
@@ -77,7 +85,7 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
 
   it('the passing copy claims the ENGINE and explicitly denies offline tiles (D-286)', async () => {
     const check = await checkMapShell(
-      fakeCacheStorage({ 'trip-precache-abc': { 'https://x/b.js': { body: ENGINE, size: 999 } } })
+      fakeCacheStorage({ 'trip-precache-abc': { ...SHELL, 'https://x/b.js': { body: ENGINE, size: 999 } } })
     );
     const copy = `${check.headline} ${check.detail}`.toLowerCase();
     expect(copy).toContain('pins and your route');
@@ -90,19 +98,20 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
 
   it('largest-first: the ~1 MB engine chunk is found in ONE cached read, not 124', async () => {
     const reads: string[] = [];
-    const contents: Record<string, FakeEntry> = { 'https://x/big.js': { body: ENGINE, size: 1032412 } };
+    const contents: Record<string, FakeEntry> = { ...SHELL, 'https://x/big.js': { body: ENGINE, size: 1032412 } };
     for (let i = 0; i < 20; i++) contents[`https://x/small${i}.js`] = { body: NOT_ENGINE, size: 900 };
     const check = await checkMapShell(
       fakeCacheStorage({ 'trip-precache-abc': contents }, (url) => reads.push(url))
     );
     expect(check.state).toBe('ok');
-    expect(reads).toEqual(['https://x/big.js']);
+    expect(reads.filter((u) => u.endsWith('.js'))).toEqual(['https://x/big.js']);
   });
 
   it('ATTENTION: a precache with no maplibre chunk says the engine is not saved yet, not a pass', async () => {
     const check = await checkMapShell(
       fakeCacheStorage({
         'trip-precache-abc': {
+          ...SHELL,
           'https://x/a.js': { body: NOT_ENGINE, size: 1200 },
           'https://x/index.html': { body: `<script>${ENGINE}</script>`, size: 4000 }, // not .js — ignored
         },
@@ -120,11 +129,34 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
   it('ATTENTION (#808): the small trip-map chunk carrying the marker is not the engine', async () => {
     const check = await checkMapShell(
       fakeCacheStorage({
-        'trip-precache-abc': { 'https://x/trip-map.js': { body: TRIP_MAP_CHUNK, size: 31000 } },
+        'trip-precache-abc': { ...SHELL, 'https://x/trip-map.js': { body: TRIP_MAP_CHUNK, size: 31000 } },
       })
     );
     expect(check.state).toBe('attention');
     expect(check.headline).toBe('Map engine not saved yet');
+  });
+
+  // #945: the engine now lives in the runtime cache, which survives updates.
+  it('PASS: the engine in trip-runtime-* next to a complete precache', async () => {
+    const check = await checkMapShell(
+      fakeCacheStorage({
+        'trip-precache-abc': SHELL,
+        'trip-runtime-def': { 'https://x/b.js': { body: ENGINE, size: 1032412 } },
+      })
+    );
+    expect(check.headline).toBe('Saved on this device');
+  });
+
+  // #945: a failed install or partial refill must not read as saved, whichever cache comes first.
+  it('FAIL: a precache missing entries from its own list is "not saved yet", engine or not', async () => {
+    const { 'https://x/plan/': _dropped, ...partial } = SHELL;
+    const check = await checkMapShell(
+      fakeCacheStorage({
+        'trip-precache-partial': { ...partial, 'https://x/b.js': { body: ENGINE, size: 1032412 } },
+        'trip-precache-nolist': { 'https://x/': { body: 'HOME' } },
+      })
+    );
+    expect(check.headline).toBe('Not saved yet');
   });
 
   it('FAIL: no trip-precache-* cache at all reports "not saved yet"', async () => {
@@ -334,5 +366,25 @@ describe('#20 · trip data (outbox, per D-193 — not Firestore hasPendingWrites
     expect(evaluateSync({ pending: 3, blocked: 0, lastAckAt: null })).toEqual(
       evaluateSync({ pending: 3, lastAckAt: null }),
     );
+  });
+});
+
+describe('checkInstalled (#950)', () => {
+  it('standalone → ok', () => {
+    expect(checkInstalled(true, true).state).toBe('ok');
+  });
+
+  it('a browser tab → attention; iOS gets the Share steps and the starts-empty caveat', () => {
+    const ios = checkInstalled(false, true);
+    expect(ios.state).toBe('attention');
+    expect(ios.detail).toContain('Add to Home Screen');
+    expect(ios.detail).toContain('starts empty');
+    expect(checkInstalled(false, false).detail).toContain('Install app');
+  });
+
+  it('an unanswerable browser is "couldn\'t check", never a pass', () => {
+    const check = checkInstalled(undefined, false);
+    expect(check.state).toBe('unknown');
+    expect(check.headline).toBe("Couldn't check");
   });
 });

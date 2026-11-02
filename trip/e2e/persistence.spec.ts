@@ -342,6 +342,7 @@ test.describe('D-018 delete-all-stays-empty (THE centerpiece)', () => {
     await page.mouse.wheel(0, -5000);
     await page.getByTestId('calendar-item-delete-s81-fx-1').click();
     await expect(page.getByTestId('calendar-item-s81-fx-1')).toHaveCount(0);
+    await page.waitForTimeout(450); // delete handler ignores repeats inside 400ms (double-tap guard)
     await page.getByTestId('calendar-item-delete-s81-fx-2').click();
     await expect(page.getByTestId('calendar-item-s81-fx-2')).toHaveCount(0);
 
