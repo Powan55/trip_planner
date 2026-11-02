@@ -75,11 +75,15 @@ describe('#20 · the night-before block on /checklist', () => {
     (globalThis as { caches?: unknown }).caches = {
       keys: async () => ['trip-images-v1', 'trip-precache-93f277c05d06'],
       open: async () => ({
-        keys: async () => [{ url: 'https://x/_next/static/chunks/c04c.js' } as Request],
-        match: async () => ({
+        keys: async () =>
+          [{ url: 'https://x/__precache-urls.json' }, { url: 'https://x/_next/static/chunks/c04c.js' }] as Request[],
+        match: async (req: Request) => ({
           headers: { get: () => '1032412' },
           // Engine-sized body (#808: the marker alone no longer counts; the real engine is ~591 KB).
-          text: async () => `var maplibregl=(function(){/*${'x'.repeat(300_000)}*/})()`,
+          text: async () =>
+            req.url.endsWith('.json')
+              ? '["/_next/static/chunks/c04c.js"]'
+              : `var maplibregl=(function(){/*${'x'.repeat(300_000)}*/})()`,
         }),
       }),
     };

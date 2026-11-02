@@ -115,10 +115,20 @@ export function ServiceWorkerRegistrar() {
         // older than 24h), so a long-lived installed PWA never sees a new build. Poll on
         // foreground + hourly, and when a lazy chunk 404s while online (stale shell after a
         // deploy). A found update flows through `updatefound` below -> the update toast.
+        // A worker already waiting fires no second updatefound, so a dismissed toast would
+        // never come back (#946). Re-read `waiting` after every check; the toast id dedupes.
+        const promptIfWaiting = () => {
+          if (registration.waiting && navigator.serviceWorker.controller && !clickedRefresh) {
+            promptUpdate(registration.waiting);
+          }
+        };
         const checkForUpdate = () => {
-          registration.update().catch(() => {
-            // Offline / transient failure — the next trigger retries.
-          });
+          registration
+            .update()
+            .catch(() => {
+              // Offline / transient failure — the next trigger retries.
+            })
+            .then(promptIfWaiting);
         };
         const onVisibility = () => {
           if (document.visibilityState === 'visible') checkForUpdate();
@@ -154,9 +164,7 @@ export function ServiceWorkerRegistrar() {
         // A worker already waiting at register time (e.g. user reopened the tab
         // after an update installed in the background) — prompt immediately,
         // but only if there's an active controller (first install => no prompt).
-        if (registration.waiting && navigator.serviceWorker.controller) {
-          promptUpdate(registration.waiting);
-        }
+        promptIfWaiting();
 
         registration.addEventListener('updatefound', () => {
           const installing = registration.installing;
