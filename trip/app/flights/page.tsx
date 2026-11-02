@@ -18,13 +18,13 @@ export default function FlightsPage() {
     <main className="min-h-screen bg-surface">
       {/* PageHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
-      <PageHero
-        variant="flights"
-        title="Flights"
-        eyebrow="Bookings"
-        subtitle={<FlightsHeroSubtitle />}
-      />
       <DefaultTripOnly>
+        <PageHero
+          variant="flights"
+          title="Flights"
+          eyebrow="Bookings"
+          subtitle={<FlightsHeroSubtitle />}
+        />
         <WorldClockStrip />
         <FlightsSection />
       </DefaultTripOnly>

@@ -45,6 +45,8 @@ import {
   isOwnAccountToken,
   OWN_ACCOUNT_TOKEN_COPY,
 } from '@/core/trips/registry';
+import { TRIP_DATES } from '@/core/dates';
+import { isDefaultTrip } from '@/core/trips';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
@@ -1395,7 +1397,9 @@ function CurrencyGroup() {
         </div>
       </fieldset>
 
-      {/* Exchange rates (manual override; seeded) */}
+      {/* Exchange rates (manual override; seeded). A custom trip is USD-only, so NPR/JPY rates
+          only show once a non-USD display currency is picked. */}
+      {(isDefaultTrip() || home !== 'USD') && (
       <fieldset className="border-hair border-border bg-surface-raised px-gut py-4">
         <legend className="pr pr--l px-1 text-ink-hi">Exchange rates</legend>
         <p className="mt-1 flex items-center gap-1.5 text-t-sm text-ink-mid">
@@ -1428,6 +1432,7 @@ function CurrencyGroup() {
           Reset to defaults
         </button>
       </fieldset>
+      )}
     </div>
   );
 }
@@ -1575,7 +1580,7 @@ function DataGroup() {
             label="Itinerary"
             description="Every planned activity across all days."
             title="Clear the whole itinerary?"
-            body="This removes every planned activity from all 32 days. On a shared trip it clears the itinerary for everyone. This cannot be undone."
+            body={`This removes every planned activity from ${TRIP_DATES.length === 1 ? 'the 1 day' : `all ${TRIP_DATES.length} days`}. On a shared trip it clears the itinerary for everyone. This cannot be undone.`}
             confirmLabel="Clear itinerary"
             onConfirm={clearItinerary}
           />
