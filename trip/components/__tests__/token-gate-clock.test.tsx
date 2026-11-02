@@ -6,11 +6,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
-import { TRIP_START } from '@/lib/trip-data';
+import { TRIP_START, TRIP_END } from '@/lib/trip-data';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const FAKE_NOW = new Date(TRIP_START.getTime() - ((2 * 60 + 3) * 60 + 4) * 1000);
+let FAKE_NOW = new Date(TRIP_START.getTime() - ((2 * 60 + 3) * 60 + 4) * 1000);
 
 vi.mock('@/lib/trip-now', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/trip-now')>();
@@ -49,18 +49,41 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
+function openAuthView(now: Date) {
+  FAKE_NOW = now;
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  act(() => root.render(<TokenGate />));
+  act(() => {
+    container
+      .querySelector('[data-testid="landing-cta-login"]')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
 describe('token-gate CompactCountdown', () => {
   it('counts down from getNow(), not the wall clock', () => {
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = createRoot(container);
-    act(() => root.render(<TokenGate />));
-    act(() => {
-      container
-        .querySelector('[data-testid="landing-cta-login"]')!
-        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    const status = container.querySelector('[aria-label^="Departure in"]');
-    expect(status?.getAttribute('aria-label')).toBe('Departure in 2 Hr, 3 Min, 4 Sec');
+    openAuthView(new Date(TRIP_START.getTime() - ((2 * 60 + 3) * 60 + 4) * 1000));
+    const timer = container.querySelector('[aria-label^="Departure in"]');
+    expect(timer?.getAttribute('aria-label')).toBe('Departure in 2 Hr, 3 Min, 4 Sec');
+  });
+
+  it('is a timer, not a live region: the ticking digits are never announced', () => {
+    openAuthView(new Date(TRIP_START.getTime() - 5000));
+    const timer = container.querySelector('[aria-label^="Departure in"]')!;
+    expect(timer.getAttribute('role')).toBe('timer');
+    expect(timer.closest('[role="status"], [aria-live]')).toBeNull();
+    expect(timer.querySelector('[role="status"], [aria-live]')).toBeNull();
+  });
+
+  it('says the journey has begun mid-trip and that it has ended afterwards', () => {
+    openAuthView(new Date(TRIP_START.getTime() + 86_400_000));
+    expect(container.textContent).toContain('The journey has begun.');
+    act(() => root.unmount());
+    container.remove();
+    openAuthView(new Date(TRIP_END.getTime() + 86_400_000));
+    expect(container.textContent).toContain('The trip has ended.');
+    expect(container.textContent).not.toContain('The journey has begun.');
   });
 });

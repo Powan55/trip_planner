@@ -35,8 +35,7 @@ import { useTripDay } from '@/hooks/use-trip-day';
  *
  * READ-ONLY over nothing new: this component reads `useJournal()` (already the app's own
  * reactive journal store) and writes only through `JournalCard`'s existing `saveEntry`/
- * `removeEntry` paths — no new persistence, no new localStorage key ( journal privacy
- * unchanged: still localStorage-only, still never synced).
+ * `removeEntry` paths. The only extra write is the card's own unsaved-draft slot.
  *
  * A11y: a section `h2`, one `h3` per entry row, visible focus rings, ≥44px
  * targets, static markup (no motion-only affordance) → reduced-motion-safe by construction.

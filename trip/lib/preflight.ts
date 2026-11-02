@@ -1,4 +1,4 @@
-// Night-before readiness ("ready to go?") — the four machine-checkable facts behind
+// Night-before readiness ("ready to go?") — the machine-checkable facts behind
 // `components/preflight-checks.tsx`, rendered on `/checklist` under the human-attested
 // day-zero list (issue #20). This module is the ADAPTER: it owns the I/O (Cache Storage,
 // StorageManager, the real `Date`, the `?today=` override) and keeps the verdict logic in
@@ -20,6 +20,7 @@ import { zoneAbbrevForOffset } from '@/core/dates/item-time';
 import { clockOverride } from '@/core/storage/gateway';
 import { getActiveTrip } from '@/core/trips';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { isIOS, isStandalone } from '@/lib/standalone';
 import { getNow, tripOffsetMinFor } from '@/lib/trip-now';
 
 /** `'ok'` = verified true. `'attention'` = verified NOT ready. `'unknown'` = we could not tell. */
@@ -395,15 +396,53 @@ export function evaluateSync(
   };
 }
 
+// ── 5. Installed to Home Screen ─────────────────────────────────────────────────────────────
 /**
- * The three environment checks (map shell, storage, clock) — everything except sync, which the
- * component reads reactively from `useSyncStatus()`. Client-only: on the server every API here
- * is absent, which is exactly the `'unknown'` path.
+ * Safari clears script-writable storage (IndexedDB, cache, service worker) after 7 days without
+ * interaction in a normal tab; installed Home Screen apps are exempt. `standalone` is `undefined`
+ * when the browser can't answer (no `matchMedia`, SSR), which renders as "couldn't check".
+ *
+ * The iOS copy says the installed app starts EMPTY (own storage container: no local photos,
+ * unsynced entries, sign-in or service worker) — the reason to install early and export first.
+ */
+export function checkInstalled(standalone: boolean | undefined, ios: boolean): PreflightCheck {
+  const base = { id: 'installed', label: 'Home Screen app' };
+  if (standalone === undefined) {
+    return {
+      ...base,
+      state: 'unknown',
+      headline: "Couldn't check",
+      detail: "This browser doesn't say whether the app is installed, so we can't confirm it.",
+    };
+  }
+  if (standalone) {
+    return {
+      ...base,
+      state: 'ok',
+      headline: 'Installed',
+      detail: 'Running from the Home Screen, so the browser will not clear the offline copy while the app sits unused.',
+    };
+  }
+  return {
+    ...base,
+    state: 'attention',
+    headline: 'Not installed',
+    detail: ios
+      ? 'Safari clears a site\'s saved data after 7 days without a visit; installed apps are exempt. Tap Share, then "Add to Home Screen". The installed app starts empty: export your trip in Settings first, then open it once online and sign in.'
+      : 'The browser can clear a site\'s saved data if it sits unused. Use the browser menu\'s "Install app" or "Add to Home screen", then open it once online.',
+  };
+}
+
+/**
+ * The environment checks (map shell, storage, installed, clock) — everything except sync, which
+ * the component reads reactively from `useSyncStatus()`. Client-only: on the server every API
+ * here is absent, which is exactly the `'unknown'` path.
  */
 export async function runEnvironmentChecks(): Promise<PreflightCheck[]> {
   const [mapShell, storage] = await Promise.all([
     checkMapShell(typeof caches === 'undefined' ? undefined : caches),
     checkStorage(typeof navigator === 'undefined' ? undefined : navigator.storage),
   ]);
-  return [mapShell, storage, ...readClockChecks()];
+  const canTell = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+  return [mapShell, storage, checkInstalled(canTell ? isStandalone() : undefined, isIOS()), ...readClockChecks()];
 }
