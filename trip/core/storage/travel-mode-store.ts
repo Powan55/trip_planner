@@ -8,11 +8,14 @@
  * app-wide First Load chunk, whereas only the non-shared Travel Mode surfaces use these accessors, so
  * splitting them out keeps the shared chunk byte-stable and the route budgets at the 106/107 kB line.
  */
-import { readString, writeString, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import { readString, writeString, removeKey, getActiveTripId, STORAGE_KEYS } from '@/core/storage/gateway';
 
 /**
  * Travel Mode gateway flag + arrival-toast "seen" marker (key 19). The 3-state presence string on
- * `STORAGE_KEYS.travelMode`: ABSENT → `'seen'` → `'active'`, where `'active'` also counts as seen.
+ * `STORAGE_KEYS.travelMode`: ABSENT → `'seen:<tripId>'` → `'active:<tripId>'`, where active also counts as
+ * seen. The trip id scopes both to the trip that wrote them: another trip reads as unseen and inactive,
+ * so a relaunch or the arrival toast never leaks across a trip switch. Bare legacy `'seen'` / `'active'`
+ * (pre-scoping) match every trip.
  *
  * - `isActive()` drives the PWA-relaunch re-enter (`components/travel-mode-relaunch.tsx`).
  * - `hasSeen()` (key-presence) suppresses the arrival toast forever once entered OR dismissed.
@@ -25,21 +28,22 @@ import { readString, writeString, removeKey, STORAGE_KEYS } from '@/core/storage
  */
 export const travelModeGate = {
   isActive(): boolean {
-    return readString('local', STORAGE_KEYS.travelMode) === 'active';
+    const v = readString('local', STORAGE_KEYS.travelMode);
+    return v === 'active' || v === `active:${getActiveTripId()}`;
   },
   hasSeen(): boolean {
-    return readString('local', STORAGE_KEYS.travelMode) !== null;
+    const v = readString('local', STORAGE_KEYS.travelMode);
+    const id = getActiveTripId();
+    return v !== null && (!v.includes(':') || v === `seen:${id}` || v === `active:${id}`);
   },
   enter(): void {
-    writeString('local', STORAGE_KEYS.travelMode, 'active');
+    writeString('local', STORAGE_KEYS.travelMode, `active:${getActiveTripId()}`);
   },
   exit(): void {
-    writeString('local', STORAGE_KEYS.travelMode, 'seen');
+    writeString('local', STORAGE_KEYS.travelMode, `seen:${getActiveTripId()}`);
   },
   markSeen(): void {
-    if (readString('local', STORAGE_KEYS.travelMode) === null) {
-      writeString('local', STORAGE_KEYS.travelMode, 'seen');
-    }
+    if (!travelModeGate.hasSeen()) writeString('local', STORAGE_KEYS.travelMode, `seen:${getActiveTripId()}`);
   },
 } as const;
 

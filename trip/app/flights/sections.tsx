@@ -11,6 +11,13 @@ export const FlightsSection = dynamic(() => import('@/components/flights-section
   loading: () => <SectionSkeleton height="clamp(30rem, 80vh, 46rem)" />,
 });
 
+// Home / Kathmandu / Tokyo wall clocks. Own ssr:false island so it stays off the initial chunk;
+// the placeholder is sized for the two rows the three clocks wrap to at 375px.
+export const WorldClockStrip = dynamic(() => import('@/components/world-clock-strip'), {
+  ssr: false,
+  loading: () => <div aria-hidden="true" className="mx-auto mt-2 min-h-[3.5rem] max-w-2xl" />,
+});
+
 // The literal default copy: SSR always resolves the default pack (core/storage/gateway.ts), so
 // pre-mount / on the default trip this stays the exact visually-baselined string.
 const DEFAULT_FLIGHTS_SUBTITLE =

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { isTravelRoute } from '@/lib/travel-route';
 import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
+import { getTodayInTrip } from '@/lib/trip-now';
 
 /**
  * — PWA relaunch re-enter. On app BOOT, if the `travelMode` gateway flag is `'active'`,
@@ -27,7 +28,10 @@ import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
  * Boot-ONCE (empty deps): the effect runs on the initial mount of the persistent provider tree —
  * i.e. once per full page load / relaunch, never on client-side navigations. Guards:
  * - already on `/travel` (deep link or a relaunch that landed there) → nothing to do;
- * - flag not `'active'` → the normal case, no-op.
+ * - flag not `'active'` for the ACTIVE trip → the normal case, no-op;
+ * - the clock is outside the trip window (`getTodayInTrip()` null) → Travel Mode has nothing to show;
+ * - the launch URL carries a query (`?trip=` / `?title=` join handshake, share links) → leave it
+ * alone, `replace('/travel/')` would strip it before its reader runs.
  * Clears any stale return route so the exit X after a relaunch re-enter falls back to `/`.
  * Renders null — a behavioral island, mounted beside FirstRunTour in the itinerary provider.
  */
@@ -38,6 +42,8 @@ export default function TravelModeRelaunch() {
   useEffect(() => {
     if (isTravelRoute(pathname)) return;
     if (!travelModeGate.isActive()) return;
+    if (getTodayInTrip() === null) return;
+    if (window.location.search !== '') return;
     travelReturn.clear();
     router.replace('/travel/');
     // Boot-once: intentionally no deps — this must run on the initial load only.
