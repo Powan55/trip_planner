@@ -575,6 +575,12 @@ export const STORAGE_KEYS = {
    * reloading forever.
    */
   defaultShareReload: 'nepal_japan_default_share_reload',
+  /**
+   * localStorage — JSON `{ [date]: { text, mood, highlight } }`, the unsaved journal editor draft
+   * (journal-draft, key 53). TRIP-SCOPED beside key 12. On this device only: no sync path reads it
+   * and the backup leaves it out. Cleared on Save or Cancel. Shape owned by `components/journal-card.tsx`.
+   */
+  journalDraft: 'nepal_japan_journal_draft',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -812,7 +818,8 @@ export type TripScopedSlot =
   | 'expensesCorrupt'
   | 'backupPromptLeg'
   | 'conciergeChat'
-  | 'journalSync';
+  | 'journalSync'
+  | 'journalDraft';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -842,6 +849,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'backupPromptLeg',
   'conciergeChat',
   'journalSync',
+  'journalDraft',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1282,6 +1290,19 @@ export const journalStore = {
   },
   set<T>(entries: T): boolean {
     return writeJson('local', keyFor('journal'), entries);
+  },
+} as const;
+
+/** Unsaved journal draft slot (key 53): byte transport like `journalStore`; the card owns the shape. */
+export const journalDraftStore = {
+  get<T>(fallback: T): T {
+    return readJson<T>('local', keyFor('journalDraft'), fallback);
+  },
+  set<T>(drafts: T): boolean {
+    return writeJson('local', keyFor('journalDraft'), drafts);
+  },
+  clear(): void {
+    removeKey('local', keyFor('journalDraft'));
   },
 } as const;
 

@@ -314,7 +314,9 @@ type _ExhaustiveBackupDomains = [TripScopedSlot] extends
     // D-536 — the concierge thread stays on the device that had it.
     | 'conciergeChat'
     // D-596 — the journal's per-entry sync stamps: sync machinery, like syncOutbox.
-    | 'journalSync',
+    | 'journalSync'
+    // key 53 — an unsaved editor draft, device-local like the concierge thread.
+    | 'journalDraft',
   ]
   ? true
   : never;
