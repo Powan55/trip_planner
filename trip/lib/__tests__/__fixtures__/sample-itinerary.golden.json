@@ -186,11 +186,11 @@
     "items": [
       {
         "id": "n4-1",
-        "title": "Morning aarti at Pashupatinath Temple",
+        "title": "Morning at Pashupatinath Temple",
         "category": "cultural",
         "time": "07:00",
         "duration": "2.5h",
-        "notes": "Sacred Hindu temple on the Bagmati; cremation ghats and ritual — photograph with sensitivity (non-Hindus cannot enter the main shrine)",
+        "notes": "Sacred Hindu temple on the Bagmati; cremation ghats and ritual — photograph with sensitivity (non-Hindus cannot enter the main shrine). The aarti is held in the evening, so this is a morning visit to the ghats and grounds",
         "location": "Pashupatinath",
         "sourceId": "na3"
       },
@@ -251,7 +251,7 @@
         "time": "21:45",
         "duration": "3.25h",
         "notes": "Saturday is Kathmandu's best club night — high-capacity dance club a short cab from the casino. Verify hours/cover before going.",
-        "location": "Durbarmarg, Kathmandu",
+        "location": "Thamel, Kathmandu",
         "sourceId": "nightlife-nl24"
       }
     ]
@@ -573,7 +573,7 @@
         "category": "nightlife",
         "time": "20:30",
         "duration": "3h",
-        "notes": "The last Nepal night — Thursday is Fahrenheit's/LOD's night. Verify hours/cover before going.",
+        "notes": "The last Nepal night — Fahrenheit's listed best nights are Fri-Sat, so a Thursday may be quiet; check tonight's event before going.",
         "location": "Durbarmarg, Kathmandu",
         "sourceId": "nightlife-nl4"
       }
@@ -1114,8 +1114,8 @@
         "title": "Kyoto → Tokyo by Shinkansen",
         "category": "transportation",
         "time": "12:30",
-        "duration": "4h",
-        "notes": "Tokaido Shinkansen from Kyoto Station to Tokyo/Shinagawa; book seats ahead — this is New Year travel season. Right-side seats for a Mt Fuji glimpse past Shizuoka",
+        "duration": "2h 15m",
+        "notes": "Tokaido Shinkansen (Nozomi, about 2h15m) from Kyoto Station to Tokyo/Shinagawa; book seats ahead — this is New Year travel season. Heading to Tokyo, Mt Fuji is on the left: ask for seat E (window, two-seat side), or seat D in the Green car",
         "location": "Kyoto → Tokyo"
       },
       {
@@ -1124,7 +1124,7 @@
         "category": "hotel",
         "time": "16:30",
         "duration": "1h",
-        "notes": "Not yet booked at itinerary-writing time — target the Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku or Shinjuku-sanchome) for easy walking access to nightlife; one room, same hotel (see the to-book list)",
+        "notes": "Booked — Kabukicho/Shinjuku, one room, same hotel for the whole Tokyo stay (see Bookings); easy walking access to nightlife",
         "location": "Shinjuku, Tokyo"
       },
       {
@@ -1309,7 +1309,7 @@
         "category": "nightlife",
         "time": "21:00",
         "duration": "3.5h",
-        "notes": "Prioritize rap/hip-hop events if available — try Harlem (Shibuya, the hip-hop institution since 1997) or Club Camelot (3 floors, hip-hop/R&B, young crowd); arrive 23:30-01:00 for peak sets, ¥1,000-3,500 door with drinks (verify before going). Roppongi is the international backup. Cap the night with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
+        "notes": "Prioritize rap/hip-hop events if available — try Harlem (Shibuya, the hip-hop institution since 1997) or TK Shibuya (Shibuya's largest single-floor club, hip-hop/Top 40); arrive 23:30-01:00 for peak sets, ¥1,000-3,500 door with drinks (verify before going). Roppongi is the international backup. Cap the night with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
         "location": "Shibuya/Roppongi, Tokyo"
       }
     ]
@@ -1343,7 +1343,7 @@
         "category": "nightlife",
         "time": "21:30",
         "duration": "2h 15m",
-        "notes": "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.",
+        "notes": "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: WOMB New Year's Countdown to 2027 (Dec 31 2026, techno/house, big). Last year's prices were ¥6,000 advance / ¥8,000 on the day, 22:30-04:30; no 2026 listing yet, so check womb.co.jp. Tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown projection. Verify lineups/tickets before relying on any of these.",
         "location": "Shinjuku/Shibuya/Roppongi, Tokyo"
       },
       {
@@ -1531,7 +1531,7 @@
         "category": "sightseeing",
         "time": "10:00",
         "duration": "4h",
-        "notes": "The Harry Potter studio-tour attraction — a major themed day out; alternative is the Ghibli Museum or an anime cafe/pop-up day if tickets are unavailable",
+        "notes": "The Harry Potter studio-tour attraction — a major themed day out; alternative is an anime cafe/pop-up day if tickets are unavailable (the Ghibli Museum is closed Tuesdays, and Jan 5 is a Tuesday)",
         "location": "Toshimaen, Nerima, Tokyo"
       },
       {
@@ -1601,7 +1601,7 @@
         "category": "nightlife",
         "time": "20:30",
         "duration": "3.5h",
-        "notes": "Choose the venue closest to wherever the best event is tonight — Harlem/Camelot (Shibuya), WARP (Shinjuku) or V2/Jumanji 55 (Roppongi) are the standing options. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
+        "notes": "Choose the venue closest to wherever the best event is tonight — Harlem/TK Shibuya (Shibuya), WARP (Shinjuku) or V2/Jumanji 55 (Roppongi) are the standing options. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
         "location": "Shibuya/Roppongi/Shinjuku, Tokyo"
       }
     ]
@@ -1644,7 +1644,7 @@
         "category": "nightlife",
         "time": "21:00",
         "duration": "4h",
-        "notes": "The last big scheduled night — Shinjuku, Shibuya or Roppongi, whichever has the best event; Harlem/Camelot (Shibuya) or WARP (Shinjuku) are the standing picks. Cap it with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
+        "notes": "The last big scheduled night — Shinjuku, Shibuya or Roppongi, whichever has the best event; Harlem/TK Shibuya (Shibuya) or WARP (Shinjuku) are the standing picks. Cap it with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
         "location": "Shinjuku/Shibuya/Roppongi, Tokyo"
       }
     ]
@@ -1678,7 +1678,7 @@
         "category": "nightlife",
         "time": "21:00",
         "duration": "4h",
-        "notes": "The group's \"party 95% of nights\" preference gets one more full night — Shinjuku, Shibuya or Roppongi, whichever still has the best energy; Harlem/Camelot (Shibuya) or WARP (Shinjuku) if undecided. Cap it with Ichiran or Nagi ramen (both 24h). Jan 9 is not an early flight, so there's no need to hold back. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
+        "notes": "The group's \"party 95% of nights\" preference gets one more full night — Shinjuku, Shibuya or Roppongi, whichever still has the best energy; Harlem/TK Shibuya (Shibuya) or WARP (Shinjuku) if undecided. Cap it with Ichiran or Nagi ramen (both 24h). Jan 9 is not an early flight, so there's no need to hold back. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
         "location": "Shinjuku/Shibuya/Roppongi, Tokyo"
       }
     ]
@@ -1693,8 +1693,8 @@
         "title": "Slow final breakfast & checkout",
         "category": "free",
         "time": "09:00",
-        "duration": "1.5h",
-        "notes": "Unhurried last morning after the final night out; check out of the Shinjuku hotel late morning",
+        "duration": "1h",
+        "notes": "Unhurried last morning after the final night out; hotel check-out is 10:00, so pack first",
         "location": "Shinjuku, Tokyo"
       },
       {
