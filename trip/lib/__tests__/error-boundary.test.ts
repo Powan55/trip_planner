@@ -50,7 +50,7 @@ describe('app/error.tsx — native error boundary fallback', () => {
     r.unmount();
   });
 
-  it('clicking "Try again" calls the reset() Next passes in', () => {
+  it('clicking "Try again" calls the reset() Next passes in', async () => {
     const reset = vi.fn();
     const r = render(new Error('boom'), reset);
 
@@ -59,12 +59,48 @@ describe('app/error.tsx — native error boundary fallback', () => {
     expect(tryAgain).toBeTruthy();
 
     expect(reset).not.toHaveBeenCalled();
-    act(() => {
+    await act(async () => {
       tryAgain!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(reset).toHaveBeenCalledTimes(1);
 
     r.unmount();
+  });
+
+  // #946: the cache-first shell would serve the same broken page again, so a waiting
+  // worker has to take over before the reload.
+  it('"Try again" applies a waiting service worker and reloads instead of resetting', async () => {
+    const listeners: Array<() => void> = [];
+    const waiting = { postMessage: vi.fn(() => listeners.forEach((cb) => cb())) };
+    const reg = { waiting, update: vi.fn(() => Promise.resolve()) };
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        getRegistration: async () => reg,
+        addEventListener: (_t: string, cb: () => void) => listeners.push(cb),
+      },
+    });
+    const originalLocation = window.location;
+    const reload = vi.fn();
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...originalLocation, reload } });
+    try {
+      const reset = vi.fn();
+      const r = render(new Error('boom'), reset);
+      const tryAgain = Array.from(r.container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Try again')
+      );
+      await act(async () => {
+        tryAgain!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      expect(reg.update).toHaveBeenCalled();
+      expect(waiting.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(reset).not.toHaveBeenCalled();
+      r.unmount();
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+      Reflect.deleteProperty(navigator, 'serviceWorker');
+    }
   });
 
   it('renders a Home link back to "/"', () => {

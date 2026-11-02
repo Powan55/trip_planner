@@ -18,6 +18,9 @@
 //   #9184C9  --border-ui           the panel rule
 //   #FFFFFF  --text-hi
 //   #CFC6E0  --text-mid
+import { useState } from 'react';
+import { applyWaitingUpdate } from '@/lib/apply-sw-update';
+
 const FIELD = '#0A0818';
 const ACCENT = '#3ED8FF';
 const LIP = '#1C97CC';
@@ -31,6 +34,7 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [busy, setBusy] = useState(false);
   return (
     <html lang="en">
       <body
@@ -78,7 +82,13 @@ export default function GlobalError({
             stored on this device, not lost.
           </p>
           <button
-            onClick={() => {
+            aria-disabled={busy}
+            aria-busy={busy}
+            onClick={async () => {
+              if (busy) return;
+              setBusy(true);
+              // Take a waiting worker first, or the reload is served the same cached shell.
+              await applyWaitingUpdate();
               // Reset first (Next's own recovery); a full reload backs it up
               // in case the crash left module state broken.
               try {
@@ -107,7 +117,7 @@ export default function GlobalError({
               cursor: 'pointer',
             }}
           >
-            Reload
+            {busy ? 'Reloading…' : 'Reload'}
           </button>
         </div>
       </body>
