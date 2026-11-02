@@ -97,27 +97,21 @@ export function parseFrankfurter(
 // ── The client (impure: fetch + localStorage I/O, but TOTAL — never throws) ─────────────────
 
 /**
- * Currencies CONFIRMED, live, NOT to exist in Frankfurter's ECB-sourced rate table (checked
- * 2026-07-16 against the real API from this codebase — see the): `NPR` returns a
- * plain HTTP 404 (`{"message":"not found"}`) — Nepalese Rupee isn't one of the ECB reference
- * currencies Frankfurter mirrors. `JPY` IS present and works.
- *
- * A non-2xx `fetch()` response logs a browser-level "Failed to load resource" console entry
- * that NO application code can suppress (it comes from the network stack, not the page) — so a
- * known-always-404 symbol must never be fetched at all, or every Nepal-leg day would print a
- * console error on every load. `fetchCurrencyRate` short-circuits to the SAME honest
- * cached/`unavailable` outcome a failed fetch would have produced, without ever issuing the
- * doomed request.
+ * Frankfurter's ECB table has no `NPR` (plain HTTP 404, checked 2026-07-16), and a non-2xx
+ * response logs a console error no application code can suppress, so NPR is never requested.
+ * Nepal's rupee is pegged at 1.6 NPR per INR and Frankfurter does carry `INR`, so the rate is
+ * USD→INR × 1.6, mid-market. `JPY` and every other symbol are fetched as themselves.
  */
-const UNSUPPORTED_CURRENCIES = new Set(['NPR']);
+const PEGGED: Record<string, { base: string; perBase: number }> = {
+  NPR: { base: 'INR', perBase: 1.6 },
+};
 
 /**
- * hand-set static reference rates for currencies Frankfurter doesn't carry, so the
- * Essentials currency panel isn't dead for the whole Nepal leg (10/10 days were `unavailable`
- * before this). NOT a live feed — free-tools-only stays intact, no paid FX API added, no
- * fetch issued (see `UNSUPPORTED_CURRENCIES`'s doc comment for why NPR must never be requested).
- * `fetchCurrencyRate` flags every value from here `source: 'reference'` so the UI can render it
- * distinctly ("≈ reference rate") and NEVER present it as a live quote.
+ * Hand-set static reference rates: the OFFLINE FALLBACK for a pegged currency when the live
+ * `base` fetch fails and nothing is cached, so the Essentials currency panel isn't dead for the
+ * whole Nepal leg. NOT a live feed. `fetchCurrencyRate` flags every value from here
+ * `source: 'reference'` so the UI can render it distinctly ("≈ reference rate") and NEVER
+ * present it as a live quote.
  *
  * `rate`/`asOf` are a hand-set calibration knob, not derived from anything live. The peg to INR
  * holds the NPR/INR cross steady; it does NOT hold NPR/USD steady, and the previous note here
@@ -137,13 +131,11 @@ const STATIC_REFERENCE_RATES: Record<string, { rate: number; asOf: string }> = {
 
 /**
  * Load the live USD→`currency` rate. Total + never-throws:
- * 0. A currency Frankfurter is confirmed not to carry (`UNSUPPORTED_CURRENCIES`) → skip the
- * fetch entirely. A cached live-ish value still wins if present (stale:true); else fall
- * back to a hand-set `STATIC_REFERENCE_RATES` entry (`source:'reference'`) if one exists;
- * else `unavailable`.
- * 1. Fetch OK + parses + carries the symbol → write-through the fresh value, return `ok`.
+ * 1. Fetch OK + parses + carries the symbol (for a `PEGGED` currency, its base × the peg) →
+ * write-through the fresh value, return `ok`.
  * 2. Fetch fails / non-200 / unparsable / symbol unexpectedly absent → return the cached
- * last-good value if any (stale:true), else `unavailable`.
+ * last-good value if any (stale:true); else a hand-set `STATIC_REFERENCE_RATES` entry
+ * (`source:'reference'`) if one exists; else `unavailable`.
  *
  * `fetchImpl` is injectable so unit tests drive the fetch deterministically; production passes
  * the global `fetch`.
@@ -153,8 +145,7 @@ export async function fetchCurrencyRate(
   fetchImpl: typeof fetch = fetch,
 ): Promise<CurrencyRateResult> {
   // Frankfurter's base is always USD, so USD→USD is an identity — never worth a network call
-  // (and never worth a cache read/write either). Checked BEFORE `UNSUPPORTED_CURRENCIES` since
-  // that branch still does a cache lookup.
+  // (and never worth a cache read/write either).
   if (currency === 'USD') {
     return {
       status: 'ok',
@@ -168,7 +159,29 @@ export async function fetchCurrencyRate(
       },
     };
   }
-  if (UNSUPPORTED_CURRENCIES.has(currency)) {
+  const peg = PEGGED[currency];
+  const symbol = peg?.base ?? currency;
+  try {
+    const url = `${FRANKFURTER_URL}?base=USD&symbols=${encodeURIComponent(symbol)}`;
+    // Signal built PER CALL — an AbortSignal.timeout is single-use, so a module-scope one would
+    // already be expired by the second load. It also cancels the socket and stays attached to the
+    // response body, so the `await res.json()` below is bounded by the same ceiling.
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(RATE_TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`Frankfurter HTTP ${res.status}`);
+    const json = await res.json();
+    const parsed = parseFrankfurter(json, symbol);
+    if (!parsed) throw new Error('Frankfurter body missing the requested symbol');
+    const value: CurrencyRateNow = {
+      currency,
+      rate: peg ? Math.round(parsed.rate * peg.perBase * 100) / 100 : parsed.rate,
+      asOf: parsed.asOf,
+      stale: false,
+      fetchedAt: new Date().toISOString(),
+      source: 'live',
+    };
+    writeCacheEntry(currency, value);
+    return { status: 'ok', data: value };
+  } catch {
     const cached = readCache(currency);
     if (cached) return { status: 'ok', data: { ...cached, stale: true } };
     const reference = STATIC_REFERENCE_RATES[currency];
@@ -185,31 +198,6 @@ export async function fetchCurrencyRate(
         },
       };
     }
-    return { status: 'unavailable', currency };
-  }
-  try {
-    const url = `${FRANKFURTER_URL}?base=USD&symbols=${encodeURIComponent(currency)}`;
-    // Signal built PER CALL — an AbortSignal.timeout is single-use, so a module-scope one would
-    // already be expired by the second load. It also cancels the socket and stays attached to the
-    // response body, so the `await res.json()` below is bounded by the same ceiling.
-    const res = await fetchImpl(url, { signal: AbortSignal.timeout(RATE_TIMEOUT_MS) });
-    if (!res.ok) throw new Error(`Frankfurter HTTP ${res.status}`);
-    const json = await res.json();
-    const parsed = parseFrankfurter(json, currency);
-    if (!parsed) throw new Error('Frankfurter body missing the requested symbol');
-    const value: CurrencyRateNow = {
-      currency,
-      rate: parsed.rate,
-      asOf: parsed.asOf,
-      stale: false,
-      fetchedAt: new Date().toISOString(),
-      source: 'live',
-    };
-    writeCacheEntry(currency, value);
-    return { status: 'ok', data: value };
-  } catch {
-    const cached = readCache(currency);
-    if (cached) return { status: 'ok', data: { ...cached, stale: true } };
     return { status: 'unavailable', currency };
   }
 }
