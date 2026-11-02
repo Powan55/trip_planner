@@ -407,7 +407,7 @@ describe('StoragePersistence — reactive write-failure toast (S279)', () => {
     r.unmount();
   });
 
-  it('throttles to ONE toast per session even if the event fires multiple times (no per-write stacking)', async () => {
+  it('every refusal re-fires under ONE fixed toast id (sonner replaces, never stacks, and re-shows after dismissal)', async () => {
     vi.resetModules();
     const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
@@ -418,7 +418,8 @@ describe('StoragePersistence — reactive write-failure toast (S279)', () => {
     window.dispatchEvent(new CustomEvent('trip:quota-exceeded'));
     await r.settle();
     const toasts = h.toastCalls.filter((c) => c.message.includes("Couldn't save"));
-    expect(toasts.length).toBe(1);
+    expect(toasts.length).toBe(3);
+    expect(new Set(toasts.map((c) => c.options?.id))).toEqual(new Set(['quota-exceeded']));
     r.unmount();
   });
 

@@ -51,8 +51,9 @@ export { ITINERARY_CHANGED_EVENT };
 export interface ItineraryStore {
   plans: DayPlan[];
   hydrated: boolean;
-  addItem(date: string, item: ItineraryItem): void;
-  updateItem(date: string, itemId: string, patch: Partial<ItineraryItem>): void;
+  /** False when the local write was refused (storage full). */
+  addItem(date: string, item: ItineraryItem): boolean;
+  updateItem(date: string, itemId: string, patch: Partial<ItineraryItem>): boolean;
   removeItem(date: string, itemId: string): void;
   restoreItem(date: string, item: ItineraryItem): void;
   clearDay(date: string): void;
@@ -180,7 +181,7 @@ export function useItinerary(): ItineraryStore {
       // boundary — no-op when no name is set — then, when sync is on, stamp
       // rev=1/hlc via the pure core helper. Both ride on the same MERGED item; the
       // core applies the composed stamper, so the pure append stays pure.
-      commit((current) =>
+      return commit((current) =>
         itinerary.addItem(current, date, item, (i) => {
           const attributed = stampCreated(i, getUserName);
           return syncEnabled()
@@ -197,7 +198,7 @@ export function useItinerary(): ItineraryStore {
       // A content edit stamps updatedBy/updatedAt and, when sync is on (gated),
       // bumps rev + advances hlc from the item's PREVIOUS hlc. The core stamps the
       // MERGED item via the injected stamper; no-op attribution when no name is set.
-      commit((current) => {
+      return commit((current) => {
         const prev = current.find((d) => d.date === date)?.items?.find((x) => x.id === itemId);
         return itinerary.updateItem(current, date, itemId, patch, (i) => {
           // stampUpdated → stampDone → stampSyncUpdated
@@ -419,7 +420,7 @@ export function useItinerary(): ItineraryStore {
     (itemId: string, fromDate: string, toDate: string): string | undefined => {
       let landedId: string | undefined;
       if (!syncEnabled()) {
-        commit((current) => {
+        const ok = commit((current) => {
           const next = itinerary.moveItem(current, itemId, fromDate, toDate, (i) =>
             stampUpdated(i, getUserName),
           );
@@ -427,10 +428,10 @@ export function useItinerary(): ItineraryStore {
           if (next !== current) landedId = itemId;
           return next;
         });
-        return landedId;
+        return ok ? landedId : undefined;
       }
       // Sync on: tombstone-source + fresh-id-target, one atomic commit against freshest state.
-      commit((current) => {
+      const ok = commit((current) => {
         if (fromDate === toDate) return current; // same-day: no-op (matches core moveItem)
         const source = current.find((p) => p.date === fromDate);
         const original = (source?.items ?? []).find((i) => i.id === itemId);
@@ -450,7 +451,7 @@ export function useItinerary(): ItineraryStore {
           stampSyncCreated(stampCreated(i, getUserName), realClock.now().getTime(), syncActor()),
         );
       });
-      return landedId;
+      return ok ? landedId : undefined;
     },
     [commit],
   );

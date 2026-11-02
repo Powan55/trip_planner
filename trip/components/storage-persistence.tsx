@@ -62,35 +62,16 @@ import { getActiveTrip } from '@/core/trips';
 // and until #757 importing the constant from preflight put that module's `maplibregl` marker into the root
 // layout's chunk. See the header of lib/storage-quota.ts; e2e/pwa.spec.ts:651 is the proof.
 import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
+import { isIOS, isStandalone } from '@/lib/standalone';
 
 // Per-page-load guard for the quota toast. Deliberately a module-level flag, not sessionStorage:
 // it only needs to survive one estimate() check per mount, and a fresh module instance already
 // resets it on every real navigation/reload — no need to route it through the gateway.
 let quotaWarnedThisLoad = false;
 
-// Per-page-load guard for the REACTIVE write-failure toast. Same shape/rationale as
-// `quotaWarnedThisLoad` above — a throttle so a burst of rejected writes (e.g. several
-// keystrokes each triggering a save) shows at most ONE toast per session, not one per failure.
-let quotaExceededToastedThisLoad = false;
-
 // Poll cadence for the leg-change backup nudge (#5 below). A leg changes at most once a day, so
 // this is a plain low-frequency poll rather than hero-section's 1s countdown tick.
 const LEG_CHECK_INTERVAL_MS = 60_000;
-
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  const displayModeStandalone =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(display-mode: standalone)').matches;
-  // iOS Safari's non-standard flag — no display-mode media query support there.
-  const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return !!displayModeStandalone || iosStandalone;
-}
-
-function isIOS(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
 
 export function StoragePersistence() {
   const router = useRouter();
@@ -157,7 +138,7 @@ export function StoragePersistence() {
     // reload, so a traveler who signs in still gets the hint on the very next mount.
     if (getActiveTraveler() && !isStandalone() && !installHintStore.hasBeenDismissed()) {
       const description = isIOS()
-        ? 'Tap Share, then "Add to Home Screen" — installed apps are protected from Safari clearing their data.'
+        ? 'Tap Share, then "Add to Home Screen" — installed apps are protected from Safari clearing their data. The installed app starts empty: export your trip in Settings first, then open it once online and sign in.'
         : "Install this app to your Home Screen so your trip data can't be cleared.";
       const id = toast('Install this app to your Home Screen', {
         description,
@@ -177,9 +158,9 @@ export function StoragePersistence() {
 
     // ── 4. Reactive write-failure toast (; complements #2's proactive estimate() warning) ──
     const onQuotaExceeded = () => {
-      if (quotaExceededToastedThisLoad) return;
-      quotaExceededToastedThisLoad = true;
+      // Fixed id: a burst replaces one toast, and a later refusal after dismissal shows again.
       toast("Couldn't save — device storage is full", {
+        id: 'quota-exceeded',
         description: 'Export your trip from Settings → Data and free up space.',
         duration: 10000,
         action: {

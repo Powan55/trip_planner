@@ -276,8 +276,14 @@ function fakeStore(landedId?: string) {
   };
   return {
     calls,
-    addItem: rec('addItem'),
-    updateItem: rec('updateItem'),
+    addItem: (...args: unknown[]) => {
+      calls.push({ fn: 'addItem', args });
+      return true;
+    },
+    updateItem: (...args: unknown[]) => {
+      calls.push({ fn: 'updateItem', args });
+      return true;
+    },
     removeItem: rec('removeItem'),
     moveItem: (...args: unknown[]) => {
       calls.push({ fn: 'moveItem', args });

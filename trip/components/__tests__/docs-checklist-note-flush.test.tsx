@@ -111,6 +111,26 @@ describe('docs checklist note — flush on hide/unmount, not just blur', () => {
     expect(onNote).not.toHaveBeenCalled();
   });
 
+  it('keeps the draft through a Details collapse/expand and flags it in the summary', async () => {
+    await mount();
+    const region = document.querySelector<HTMLElement>('[data-testid="docs-details-passport"]')!;
+    const toggle = document.querySelector<HTMLButtonElement>('[data-testid="docs-details-toggle-passport"]')!;
+    const click = () => act(async () => toggle.click());
+    expect(region.hidden).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+    await click();
+    expect(region.hidden).toBe(false);
+    await act(async () => type('AB123'));
+    expect(toggle.getAttribute('aria-label')).toContain('note');
+    expect(toggle.textContent).toBe('1');
+
+    await click();
+    expect(region.hidden).toBe(true);
+    await click();
+    expect(input().value).toBe('AB123');
+  });
+
   it('does not commit when the draft is unchanged', async () => {
     await mount();
     // Focus without changing anything, then hide the tab.

@@ -206,10 +206,8 @@ test.describe('S351B · redirect-loop regression (signed-out visitor, stale acti
     //
     // WHICH HOST ACTUALLY BITES, so nobody trusts coverage that is not here: today this catches a
     // wall regression through `api.open-meteo.com` ALONE. The pre-trip default day is the Nepal
-    // leg, so the currency is NPR, and `lib/currency-rate.ts` short-circuits on
-    // `UNSUPPORTED_CURRENCIES` and returns 'unavailable' BEFORE issuing any request — a mounted
-    // card would never call Frankfurter on this date. The host stays in the list because it costs
-    // nothing and goes live again the moment the default day, the leg, or that set changes.
+    // leg, so the currency is NPR. `lib/currency-rate.ts` now derives NPR from a Frankfurter INR
+    // fetch, so a mounted card WOULD call Frankfurter on this date and this list covers both hosts.
     // Asserted AFTER the dialog check on purpose: an empty list is only meaningful once we know the
     // visitor really did land on /travel and really is walled, otherwise it would pass for the
     // boring reason that we never got there. The failure message carries the offending URLs,

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { FileCheck2, PlaneTakeoff, ShieldCheck } from 'lucide-react';
+import { ChevronDown, FileCheck2, PlaneTakeoff, ShieldCheck } from 'lucide-react';
+import { usePhotos } from '@/hooks/use-photos';
 import { useDocs } from '@/hooks/use-docs';
 import { isTabRetiring } from '@/hooks/use-cross-tab-reload';
 import type { DocSection, DocItem } from '@/core/docs/model';
@@ -61,6 +62,12 @@ function DocRow({
 }) {
   // Local draft so typing is smooth; the store is the source of truth on blur / external change.
   const [draft, setDraft] = useState(item.note ?? '');
+  const photoCount = usePhotos().photosFor({ kind: 'docs', itemId: item.id }).length;
+  const [open, setOpen] = useState(false);
+  // "N" photos plus a "note" marker, so a collapsed row still shows it holds something.
+  const detailsSummary = [draft.trim() !== '' && 'note', photoCount > 0 && `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`]
+    .filter(Boolean)
+    .join(', ');
   const focusedRef = useRef(false);
   // Keep the draft in step with an external update (a peer's synced note) UNLESS we're editing.
   useEffect(() => {
@@ -104,10 +111,11 @@ function DocRow({
 
   return (
     <li className="border-b-hair border-border last:border-b-0">
+      <div className="flex items-center">
       <label
         htmlFor={`docs-item-${item.id}`}
         data-mark={item.checked ? undefined : 'hollow'}
-        className="r cursor-pointer !border-b-0 outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring"
+        className="r min-w-0 flex-1 cursor-pointer [--lead:2rem] !border-b-0 outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring"
       >
         <span className="tm flex items-center justify-center pt-0">
           <input
@@ -135,7 +143,26 @@ function DocRow({
           {item.checked ? 'filed' : 'not yet'}
         </span>
       </label>
-      <div className="px-gut pb-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={`docs-details-${item.id}`}
+        aria-label={`Details for ${item.label}${detailsSummary ? `: ${detailsSummary}` : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        data-testid={`docs-details-toggle-${item.id}`}
+        className="flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-0.5 rounded-r1 px-1 text-ink-mid outline-none transition-colors hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {detailsSummary && (
+          <span className="num text-n-sm" aria-hidden="true">
+            {photoCount + (draft.trim() !== '' ? 1 : 0)}
+          </span>
+        )}
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+      </div>
+      {/* Notes, photo and privacy copy sit behind this disclosure so the empty list stays
+          scannable. The region is hidden, not unmounted, so a draft survives collapse. */}
+      <div className="px-gut pb-2" hidden={!open} id={`docs-details-${item.id}`} data-testid={`docs-details-${item.id}`}>
         <label htmlFor={`docs-note-${item.id}`} className="sr-only">
           Note for {item.label}
         </label>

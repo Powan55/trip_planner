@@ -190,6 +190,26 @@ describe('useJournal (S104)', () => {
     h.unmount();
   });
 
+  it('a refused write reports false, keeps the old entry, and the editor can retry', async () => {
+    const h = renderJournal();
+    await h.run((s) => s.saveEntry('2026-12-09', { text: 'old' }));
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
+      if (key === KEY) throw new DOMException('quota', 'QuotaExceededError');
+    });
+    let ok: boolean | undefined;
+    await h.run((s) => {
+      ok = s.saveEntry('2026-12-09', { text: 'new' });
+    });
+    expect(ok).toBe(false);
+    expect(JSON.parse(window.localStorage.getItem(KEY) as string)[0].text).toBe('old');
+    await h.run((s) => {
+      ok = s.removeEntry('2026-12-09');
+    });
+    expect(ok).toBe(false);
+    expect(JSON.parse(window.localStorage.getItem(KEY) as string)).toHaveLength(1);
+    h.unmount();
+  });
+
   it('a corrupt (non-array) persisted slot degrades to [] on hydrate, never throws', async () => {
     window.localStorage.setItem(KEY, '{not json');
     const h = renderJournal();

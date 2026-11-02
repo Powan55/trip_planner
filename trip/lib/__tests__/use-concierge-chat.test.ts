@@ -344,6 +344,19 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
+  it('#915 — a retryable 503 from the membership lookup says try again, not sign in', async () => {
+    const h = renderConciergeChat(
+      vi.fn(async () =>
+        jsonResponse({ error: 'membership check unavailable, try again', retryable: true }, 503),
+      ) as unknown as typeof fetch,
+    );
+    await h.send('hello');
+    expect(h.status).toBe('error');
+    expect(h.error).toBe('The concierge is having trouble right now. Try again in a moment.');
+    expect(h.error).not.toContain('Sign in');
+    h.unmount();
+  });
+
   it('#13 — the copy follows the status CLASS: too-long, auth, rate-limit, and everything else differ', async () => {
     const at = async (status: number) => {
       const h = renderConciergeChat(

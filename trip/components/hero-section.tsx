@@ -299,13 +299,9 @@ export default function HeroSection() {
   // clock read whose `?today=` override only resolves CLIENT-side, so the server and the first
   // paint must both render the default, or hydration mismatches.
   //
-  // WHAT THIS COSTS, STATED HONESTLY. Every Japan-leg pageview still renders `hero.jpg` with
-  // `priority` on the server, Next emits the preload for it, and the browser fetches it — then
-  // mount swaps the src and that raster is NEVER PAINTED. Roughly 242 KiB (the 1920w AVIF)
-  // downloaded and thrown away, once per cold load, for the 14 days of the Japan leg. It is
-  // unavoidable with a client-only clock: the server cannot know which leg you are on, and the
-  // alternative — dropping `priority` — would cost the LCP on all 351 other days. Do not "fix"
-  // this by removing the mount gate; that trades a wasted fetch for a hydration mismatch.
+  // Home preloads the default responsive AVIF before this client-only island mounts.
+  // Japan-leg loads can still fetch that default before the client clock selects Tokyo.
+  // OptimizedImage's priority sets eager/high fetching; it does not emit a Next preload.
   //
   // `todayInTrip` is refreshed on the same 1s tick as the countdown, so a leg change mid-session
   // swaps the photo on its own.

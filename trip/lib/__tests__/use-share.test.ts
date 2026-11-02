@@ -155,6 +155,21 @@ describe('useShare (S220)', () => {
     b.unmount();
   });
 
+  it('a refused write reports false and stores nothing, so the caller keeps the shared link', async () => {
+    const h = renderShare();
+    await h.run(() => {});
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key) => {
+      if (key === KEY) throw new DOMException('quota', 'QuotaExceededError');
+    });
+    let ok: boolean | undefined;
+    await h.run((s) => {
+      ok = s.addShare({ url: 'https://a.co' });
+    });
+    expect(ok).toBe(false);
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    h.unmount();
+  });
+
   it('a corrupt persisted slot degrades to [] on hydrate, never throws', async () => {
     window.localStorage.setItem(KEY, '{not json');
     const h = renderShare();

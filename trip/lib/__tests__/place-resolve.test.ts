@@ -94,6 +94,13 @@ describe('resolvePlaceLink (S284) — never throws, degrades to null', () => {
     expect(hints!.lat).toBe(34.9671);
   });
 
+  it('#916 — returns null on a 502/503 so the caller can retry the same link', async () => {
+    for (const status of [502, 503]) {
+      const fetchImpl = (async () => jsonRes({ error: 'could not resolve' }, false, status)) as unknown as typeof fetch;
+      expect(await resolvePlaceLink(URL, { fetchImpl, origin: ORIGIN })).toBeNull();
+    }
+  });
+
   it('returns null on a non-200 response (manual fallback)', async () => {
     const fetchImpl = (async () => jsonRes({}, false, 404)) as unknown as typeof fetch;
     expect(await resolvePlaceLink(URL, { fetchImpl, origin: ORIGIN })).toBeNull();

@@ -49,6 +49,25 @@ test.describe('S325 · /flights honest + deep-linked', () => {
     }
   });
 
+  test('flight dates and slot labels fit at 320px without clipping', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 800 });
+    const cards = page.locator('[data-testid^="flight-card-"]');
+    await expect(cards).toHaveCount(4);
+    await page.evaluate(() => document.fonts.ready);
+    const overflowing = await cards.evaluateAll((elements) =>
+      elements.flatMap((card) => [card, ...card.querySelectorAll('span')])
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.width > 0 && (rect.left < 0 || rect.right > window.innerWidth + 1 ||
+            (element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1));
+        })
+        .map((element) => element.textContent),
+    );
+    expect(overflowing).toEqual([]);
+    await expect(cards.first().getByText('Confirmation', { exact: true }).first()).toBeVisible();
+    await expect(cards.first().getByText(/^Depart .+Wed Dec 9$/).last()).toBeVisible();
+  });
+
   test('each journey shows an external "Check live status" deep-link rail from booking-data', async ({ page }) => {
     await expect(page.getByText('Check live status').first()).toBeVisible();
 

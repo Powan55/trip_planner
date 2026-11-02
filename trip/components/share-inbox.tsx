@@ -81,8 +81,9 @@ export default function ShareInbox() {
 
     const key = `${title ?? ''}\u0000${text ?? ''}\u0000${url ?? ''}`;
     if (!sessionSeen.has(key)) {
+      // Refused write: leave the params in the URL so a reload can retry once there is room.
+      if (!addShare({ title, text, url })) return;
       sessionSeen.add(key);
-      addShare({ title, text, url });
     }
     // Strip the query so a reload / back-forward cache restore cannot re-add the same share.
     try {

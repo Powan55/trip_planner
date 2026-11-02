@@ -362,14 +362,15 @@ export default function AddToItineraryDialog({
         const original = existingPlacements.find((p) => p.item.id === editingPlacementId);
         if (original && original.date !== selectedDate) {
           const landedId = moveItem(editingPlacementId, original.date, selectedDate);
-          if (landedId) updateItem(selectedDate, landedId, patch);
+          if (!landedId) return; // refused write: stay open, the quota toast explains
+          updateItem(selectedDate, landedId, patch);
           toast.success(`Moved “${title}” to ${formatDate(selectedDate)}`);
         } else {
-          updateItem(selectedDate, editingPlacementId, patch);
+          if (!updateItem(selectedDate, editingPlacementId, patch)) return;
           toast.success(`Updated “${title}” on ${formatDate(selectedDate)}`);
         }
       } else {
-        addItem(selectedDate, { ...patch, id: generateItemId() });
+        if (!addItem(selectedDate, { ...patch, id: generateItemId() })) return;
         toast.success(`Added “${title}” to ${formatDate(selectedDate)}`);
         launchChip(title);
       }
@@ -397,15 +398,16 @@ export default function AddToItineraryDialog({
       const original = existingPlacements.find((p) => p.item.id === editingPlacementId);
       if (original && original.date !== selectedDate) {
         const landedId = moveItem(editingPlacementId, original.date, selectedDate);
-        if (landedId) updateItem(selectedDate, landedId, patch);
+        if (!landedId) return; // refused write: stay open, the quota toast explains
+        updateItem(selectedDate, landedId, patch);
         toast.success(`Moved “${draft.title}” to ${formatDate(selectedDate)}`);
       } else {
-        updateItem(selectedDate, editingPlacementId, patch);
+        if (!updateItem(selectedDate, editingPlacementId, patch)) return;
         toast.success(`Updated “${draft.title}” on ${formatDate(selectedDate)}`);
       }
     } else {
       // Add a brand-new placement.
-      addItem(selectedDate, { ...patch, id: generateItemId() });
+      if (!addItem(selectedDate, { ...patch, id: generateItemId() })) return;
       toast.success(`Added “${draft.title}” to ${formatDate(selectedDate)}`);
       launchChip(draft.title);
     }

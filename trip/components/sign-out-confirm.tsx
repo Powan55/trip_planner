@@ -6,7 +6,8 @@ import { signOut } from '@/lib/token-auth';
 import { downloadTripBackup } from '@/lib/trip-backup';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { defaultBlobStore } from '@/core/photos/blob-store';
-import { getSyncCode, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import { sanitizePhotos } from '@/core/photos/model';
+import { getSyncCode, readJson, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import { unsyncedEditCount } from '@/core/trips/registry';
 import { flushAllDomains } from '@/hooks/use-domain-sync';
 import UserTokenShowOnce from '@/components/user-token-show-once';
@@ -38,7 +39,8 @@ import {
  * stored photo blob (IndexedDB, app-scoped) via `defaultBlobStore.clear()`, and the three
  * lifetime-scoped keys (`lifetimeVisits`, `visitConfirmations`, `passportStamps`) that
  * `wipeAllTripData()` leaves behind, before signing out (D-503). Strictly more destructive than a
- * plain sign-out, which leaves photos and that travel history alone.
+ * plain sign-out, which keeps blobs but removes their indexes, making photos inaccessible;
+ * travel history stays accessible.
  *
  * Reload after teardown (Ruling 3): the local domain stores (`hooks/create-reactive-store.ts`) only
  * re-read on their own event or a cross-tab `storage` event, which never fires in the tab that made
@@ -56,6 +58,19 @@ import {
  * device needs to claim a username later, so confirming first shows the key (`UserTokenShowOnce`)
  * and the teardown runs from its confirm. A password session signs out in one step.
  */
+function indexedPhotoCount(): number {
+  const keys = new Set<string>([STORAGE_KEYS.photos]);
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith('trip:') && key.endsWith(':photos')) keys.add(key);
+    }
+  } catch {
+    // Storage may be blocked. The default index read still degrades safely.
+  }
+  return [...keys].reduce((count, key) => count + sanitizePhotos(readJson<unknown>('local', key, null)).length, 0);
+}
+
 export default function SignOutConfirm({
   testId,
   forgetDevice = false,
@@ -73,6 +88,7 @@ export default function SignOutConfirm({
   /** `true` only once confirmed; unknown counts as anonymous, the safe side for both uses below. */
   const [passwordSession, setPasswordSession] = useState(false);
   const [unsynced, setUnsynced] = useState(0);
+  const [photos, setPhotos] = useState(0);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [flushing, setFlushing] = useState(false);
@@ -155,6 +171,7 @@ export default function SignOutConfirm({
         setStep('confirm');
         setCode(getSyncCode());
         setUnsynced(unsyncedEditCount());
+        setPhotos(indexedPhotoCount());
         setPasswordSession(false);
         if (isRemoteConfigured()) {
           void import('@/lib/firebase-remote')
@@ -181,11 +198,19 @@ export default function SignOutConfirm({
               ? 'Signing out erases this key from this device, and nothing can re-issue it. Save it now — until you set up a username and password, it is the only way back into your account.'
               : keyNeeded
                 ? forgetDevice
-                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). It erases your key too, so you'll get one last look at it next. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
+                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). It erases your key too, so you'll get one last look at it next. The plan comes back only if it was synced elsewhere first. Photos never sync; export a backup before continuing; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device, and your key along with it. You'll get one last look at the key next — it's the only way back into your account, and the plan itself won't come back unless it's synced to another device."
                 : forgetDevice
-                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). Your username and password still log you back in. The plan and these photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
+                  ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history (the places you've recorded visiting, and their passport stamps). Your username and password still log you back in. The plan comes back only if it was synced elsewhere first. Photos never sync; export a backup before continuing; the travel history is kept only here, so it is gone for good."
                   : "This removes this trip's data from this device. Your username and password still log you back in, but the plan itself won't come back unless it's synced to another device."}
+            {step !== 'key' && (
+              <span className="mt-2 block" data-testid={`${testId}-photos`}>
+                {forgetDevice
+                  ? `${photos} indexed local photo${photos === 1 ? '' : 's'} across all trips will become inaccessible, and all photo files on this device will be permanently deleted.`
+                  : `${photos} indexed local photo${photos === 1 ? '' : 's'} across all trips will become inaccessible. Signing back in cannot restore them, even though their files remain on this device.`}
+                {' '}Photos never sync. Back up each trip with photos before continuing; this backup button exports only the current trip.
+              </span>
+            )}
             {step !== 'key' && unsynced > 0 && (
               <span className="mt-2 block font-semibold text-[color:var(--text-hi)]" data-testid={`${testId}-unsynced`}>
                 {unsynced} {unsynced === 1 ? 'change' : 'changes'} on this device{' '}

@@ -980,6 +980,36 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(await live.get('ph-seed-0')).not.toBeNull();
     expect(await live.get('ph-seed-1')).toBeNull();
     expect(await live.get('ph-seed-2')).toBeNull();
+    // #913: the overwritten original is put back, not just kept present
+    expect(await bytesOf(await live.get('ph-seed-0'))).toEqual(Array(16).fill(98));
+  });
+
+  it('#912: one invalid meta row rejects the photo set; live index and bytes survive', async () => {
+    const live = makeInMemoryBlobStore();
+    await live.putWithId('ph-a', blobOf(11));
+    await live.putWithId('ph-b', blobOf(22));
+    savePhotos([photoMeta('ph-a'), photoMeta('ph-b')]);
+    const liveIndex = localStorage.getItem(STORAGE_KEYS.photos);
+    const dataUrl = 'data:image/jpeg;base64,AAAA';
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: { favorites: ['a'] },
+      photos: {
+        meta: [photoMeta('ph-a'), { ...photoMeta('ph-b'), owner: null }],
+        blobs: { 'ph-a': dataUrl, 'ph-b': dataUrl },
+      },
+    };
+    const res = await importTripBackup(new Blob([JSON.stringify(env)]), live);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.dropped).toEqual(['photos']);
+    expect(localStorage.getItem(STORAGE_KEYS.photos)).toBe(liveIndex);
+    expect(await bytesOf(await live.get('ph-a'))).toEqual(Array(16).fill(11));
+    expect(await bytesOf(await live.get('ph-b'))).toEqual(Array(16).fill(22));
   });
 });
 

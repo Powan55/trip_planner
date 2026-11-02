@@ -2,14 +2,16 @@
 
 import { AnimatePresence, m } from 'framer-motion';
 import { Wifi, WifiOff } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useBackOnline, useOnline } from '@/hooks/use-online';
+import { isTravelRoute } from '@/lib/travel-route';
 
 /**
  * App-wide offline indicator.
  *
  * A calm, transient pill announcing when the browser has lost network
  * connectivity — mounted once at the root layout (`app/layout.tsx`) so it is
- * visible on every route. Keyed on `useOnline()` (navigator.onLine +
+ * visible outside Travel Mode, where the sync strip shows connectivity. Keyed on `useOnline()` (navigator.onLine +
  * online/offline events); shows NOTHING while online, including on the
  * server and first client paint (the hook defaults to `true`) — no
  * SSR/hydration mismatch. No dismiss control: it is a live status, not a
@@ -46,6 +48,7 @@ import { useBackOnline, useOnline } from '@/hooks/use-online';
 export function OfflineBanner() {
   const online = useOnline();
   const backOnline = useBackOnline();
+  const travel = isTravelRoute(usePathname());
 
   return (
     <div
@@ -56,8 +59,13 @@ export function OfflineBanner() {
       aria-label={online ? undefined : 'You are offline'}
       data-testid="offline-banner-region"
     >
+      {travel && (
+        <span className="sr-only">
+          {!online ? 'Your device has lost its network connection. The app keeps working from cached data.' : backOnline ? 'Back online' : null}
+        </span>
+      )}
       <AnimatePresence>
-      {online ? null : (
+      {online || travel ? null : (
         <m.div
           key="offline"
           initial={{ opacity: 0, y: -8 }}
@@ -82,7 +90,7 @@ export function OfflineBanner() {
           </div>
         </m.div>
       )}
-      {online && backOnline ? (
+      {online && backOnline && !travel ? (
         <m.div
           key="online"
           initial={{ opacity: 0, y: -8 }}

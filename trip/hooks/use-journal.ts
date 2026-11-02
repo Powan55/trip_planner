@@ -39,8 +39,9 @@ export interface JournalStore {
   hydrated: boolean;
   getEntry(date: string): JournalEntry | null;
   /** Upsert the entry for `date` with a patch (mood/highlight `null` clears; empty content removes). */
-  saveEntry(date: string, patch: JournalPatch): void;
-  removeEntry(date: string): void;
+  /** False when not hydrated or the write was refused; nothing is pushed then. */
+  saveEntry(date: string, patch: JournalPatch): boolean;
+  removeEntry(date: string): boolean;
   /** Clear ALL journal entries on THIS device. Pushes nothing, so the account copy and the
    * author's other devices keep theirs. False when the write was refused. */
   clearAll(): boolean;
@@ -96,18 +97,21 @@ export function useJournal(): JournalStore {
   const saveEntry = useCallback(
     (date: string, patch: JournalPatch) => {
       // timestamp injected HERE.
-      if (!hydrated) return;
-      commit((current) => upsertEntryCore(current, date, patch, new Date().toISOString()));
+      if (!hydrated) return false;
+      // A refused write must not push: the stamp would carry the OLD local text over a newer remote entry.
+      if (!commit((current) => upsertEntryCore(current, date, patch, new Date().toISOString()))) return false;
       pushLater(date);
+      return true;
     },
     [commit, hydrated],
   );
 
   const removeEntry = useCallback(
     (date: string) => {
-      if (!hydrated) return;
-      commit((current) => removeEntryCore(current, date));
+      if (!hydrated) return false;
+      if (!commit((current) => removeEntryCore(current, date))) return false;
       pushLater(date);
+      return true;
     },
     [commit, hydrated],
   );

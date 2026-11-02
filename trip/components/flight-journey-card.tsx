@@ -78,7 +78,7 @@ function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
       <span className="num text-n-sm text-ink-hi">{leg.fromCode}</span>
 
       <span className="min-w-0">
-        <span className="nm">{leg.flightNumber}</span>
+        <span className="nm break-words">{leg.flightNumber}</span>
         <span className="mt">
           {leg.fromName} → {leg.toName}
         </span>
@@ -86,14 +86,14 @@ function LegRow({ leg, legId }: { leg: FlightLeg; legId: string }) {
         {/* Depart / Arrive / cabin — VERBATIM labels. The weekday+date is already IN
             the label ("Thu Dec 10"); we do NOT compute a +1d badge (that would be parsing). */}
         <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-machine text-t-sm">
-          <span className="text-ink-hi whitespace-nowrap"><span className="text-ink-lo">Depart </span>{leg.departLabel}</span>
-          <span className="text-ink-hi whitespace-nowrap"><span className="text-ink-lo">Arrive </span>{leg.arriveLabel}</span>
+          <span className="min-w-0 text-ink-hi"><span className="text-ink-lo">Depart </span>{leg.departLabel}</span>
+          <span className="min-w-0 text-ink-hi"><span className="text-ink-lo">Arrive </span>{leg.arriveLabel}</span>
           <span className="text-ink-mid">{leg.cabin}{leg.cabinCode ? ` · ${leg.cabinCode}` : ''}</span>
         </span>
 
-        {/* Fixed 4-slot grid (no reflow). Terminal/Seat from optional leg fields;
+        {/* Terminal/Seat from optional leg fields;
             Gate/Confirmation aren't in the booking → labelled-empty, never fabricated. */}
-        <span className="mt-2 grid grid-cols-2 gap-1 min-[560px]:grid-cols-4">
+        <span className="mt-2 grid grid-cols-1 gap-1 min-[360px]:grid-cols-2 min-[560px]:grid-cols-4">
           <Slot label="Terminal" value={leg.fromTerminal} />
           <Slot label="Gate" value={undefined} />
           <Slot label="Seat" value={leg.seats && leg.seats.length > 0 ? leg.seats.join(' · ') : undefined} />

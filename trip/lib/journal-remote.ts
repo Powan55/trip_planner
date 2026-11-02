@@ -108,9 +108,10 @@ function adopt(rows: [string, Row][], meta: Record<string, Meta>): void {
     else entries = e ? entries.map((x, j) => (j === i ? e : x)) : entries.filter((_, j) => j !== i);
     meta[date] = metaOf(row);
   }
+  if (rows.length === 0) return writeMeta(meta);
+  // Entries first: stamps written over a refused save would mark the remote text as adopted.
+  if (!saveJournal(entries)) return;
   writeMeta(meta);
-  if (rows.length === 0) return;
-  saveJournal(entries);
   window.dispatchEvent(new CustomEvent(JOURNAL_CHANGED_EVENT));
 }
 

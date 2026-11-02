@@ -12,6 +12,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import SignOutConfirm from '@/components/sign-out-confirm';
+import { defaultBlobStore } from '@/core/photos/blob-store';
 
 // jsdom has no IndexedDB; "Forget this device" clears the blob store before anything else.
 vi.mock('@/core/photos/blob-store', async (importOriginal) => {
@@ -403,5 +404,46 @@ describe('SignOutConfirm — unsynced-edit warning', () => {
     );
     await mount();
     expect(at('t-unsynced')!.textContent).toBe('2 changes on this device haven\'t synced yet and will be lost.');
+  });
+});
+
+
+describe('SignOutConfirm — local photos (#904)', () => {
+  const meta = (id: string) => ({ id, owner: { kind: 'journal', date: '2026-12-11' } });
+
+  it('counts every swept index, including trips absent from the registry, and refreshes on open', async () => {
+    window.localStorage.setItem('nepal_japan_photos', JSON.stringify([meta('a')]));
+    window.localStorage.setItem('trip:orphan:photos', JSON.stringify([meta('b'), meta('c')]));
+    window.localStorage.setItem('trip:broken:photos', '{');
+    window.localStorage.setItem('trip:other:photos', JSON.stringify([{}, meta('d')]));
+    await mount();
+    expect(at('t-photos')!.textContent).toContain('4 indexed local photos across all trips');
+    expect(at('t-photos')!.textContent).toContain('Signing back in cannot restore them');
+    expect(at('t-photos')!.textContent).toContain('only the current trip');
+    await click('t-cancel');
+    window.localStorage.setItem('nepal_japan_photos', '[]');
+    await click('t');
+    expect(at('t-photos')!.textContent).toContain('3 indexed local photos');
+  });
+
+  it.each([false, true])('removes indexes but deletes blobs only for Forget (%s)', async (forgetDevice) => {
+    window.localStorage.setItem('nepal_japan_photos', JSON.stringify([meta('a')]));
+    window.localStorage.setItem('trip:orphan:photos', JSON.stringify([meta('b')]));
+    expect(await defaultBlobStore.putWithId('a', new Blob(['photo']))).toEqual({ ok: true, id: 'a' });
+    await mount({ forgetDevice });
+    expect(at('t-photos')!.textContent).toContain('2 indexed local photos');
+    expect(at('t-photos')!.textContent).toContain(forgetDevice ? 'permanently deleted' : 'files remain');
+    await click('t-confirm');
+    expect(window.localStorage.getItem('nepal_japan_photos')).toBeNull();
+    expect(window.localStorage.getItem('trip:orphan:photos')).toBeNull();
+    expect(await defaultBlobStore.get('a')).toEqual(forgetDevice ? null : expect.any(Blob));
+    await defaultBlobStore.clear();
+  });
+
+  it('handles an empty index without claiming photos sync back', async () => {
+    await mount({ forgetDevice: true });
+    expect(at('t-photos')!.textContent).toContain('0 indexed local photos');
+    expect(at('t-dialog')!.textContent).not.toContain('plan and these photos come back');
+    expect(at('t-photos')!.textContent).toContain('Photos never sync');
   });
 });

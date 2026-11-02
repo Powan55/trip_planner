@@ -59,7 +59,7 @@ export interface MyPlacesStore {
   places: MyPlace[];
   hydrated: boolean;
   /** Add an imported place (id + addedAt injected here unless the caller supplied them). Newest-first, capped at 200. */
-  addPlace(input: NewPlaceInput): void;
+  addPlace(input: NewPlaceInput): boolean;
   /** Remove a place by id (a tombstone under sync, a physical drop when local-only). */
   removePlace(id: string): void;
   /**
@@ -121,12 +121,11 @@ export function useMyPlaces(): MyPlacesStore {
         ...(input.note ? { note: input.note } : {}),
       };
       if (!syncEnabled()) {
-        commit((current) => addPlace(current, place));
-        return;
+        return commit((current) => addPlace(current, place));
       }
       const now = realClock.now().getTime();
       const name = actor();
-      commit((current) => {
+      return commit((current) => {
         // Advance from ANY prior row with this id — including a TOMBSTONE. That is what makes
         // undo-of-delete work: `hlcSendOrLocal` guarantees the new stamp is STRICTLY greater than
         // the tombstone's, so the restored row wins the merge. A fresh id has no prior and starts

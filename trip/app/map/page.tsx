@@ -24,7 +24,7 @@ export default function MapPage() {
       <PageHero
         variant="map"
         // Phones (#771): collapse the band to a one-line title so the map canvas is above the fold.
-        className="max-sm:!min-h-0 max-sm:[&_.photo-header__body]:!pb-3 max-sm:[&_.photo-header__body_p]:hidden"
+        className="max-sm:!min-h-0 max-sm:[&_.photo-header\_\_body]:!pb-3 max-sm:[&_.photo-header\_\_body_p]:hidden"
         title="Trip Map"
         eyebrow="Explore"
         // Visually baselined (e2e/visual.spec.ts "map page hero", 3 viewports, Windows-rendered,

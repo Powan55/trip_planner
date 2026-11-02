@@ -11,6 +11,7 @@ import {
   MapPinned,
   PlaneTakeoff,
   RefreshCw,
+  Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSyncStatus } from '@/hooks/use-sync-status';
@@ -94,6 +95,7 @@ const STATE_WORD: Record<PreflightState, string> = {
 const ROW_ICON: Record<string, typeof MapPinned> = {
   'map-shell': MapPinned,
   storage: HardDrive,
+  installed: Smartphone,
   clock: Clock,
   'simulated-clock': Clock,
   sync: Database,
@@ -130,6 +132,7 @@ function CheckRow({ check }: { check: PreflightCheck }) {
 const LOADING_ROWS: Array<{ id: string; label: string }> = [
   { id: 'map-shell', label: 'Map shell' },
   { id: 'storage', label: 'Storage room' },
+  { id: 'installed', label: 'Home Screen app' },
   { id: 'clock', label: 'Clock & time zone' },
   { id: 'sync', label: 'Your changes' },
 ];
