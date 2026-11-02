@@ -262,9 +262,9 @@ undo the deploy. It means go and look. The only alert is GitHub's failure email 
 merged, so check the run yourself after every freeze-window release.
 
 Rehearse the break-glass order once before the freeze (re-run a failed job, then the admin
-merge path, then a forward fix), so nobody meets it for the first time on the road. Known
-gap: the `rules-check` job downloads the Firestore emulator jars at run time, so a
-network blip there blocks a release. Caching them is a `ci.yml` change and is not done yet.
+merge path, then a forward fix), so nobody meets it for the first time on the road. The
+`rules-check` job caches the Firestore emulator jars, but a cold cache (first run after
+a `firebase-tools` bump) still downloads them, so a network blip there can block a release.
 
 ### Before the trip
 
