@@ -46,9 +46,10 @@ describe('#20 · the night-before block on /checklist', () => {
     const c = await mount();
     expect(row(c, 'map-shell')?.dataset.state).toBe('unknown');
     expect(row(c, 'storage')?.dataset.state).toBe('unknown');
+    expect(row(c, 'installed')?.dataset.state).toBe('unknown'); // jsdom has no matchMedia
     expect(row(c, 'map-shell')?.textContent).toContain("Couldn't check");
     expect(c.querySelector('[data-testid="preflight-tally"]')?.textContent).toContain(
-      "2 couldn't be checked"
+      "3 couldn't be checked"
     );
   });
 

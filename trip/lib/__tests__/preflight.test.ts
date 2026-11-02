@@ -10,6 +10,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
+  checkInstalled,
   checkMapShell,
   checkStorage,
   evaluateClock,
@@ -334,5 +335,25 @@ describe('#20 · trip data (outbox, per D-193 — not Firestore hasPendingWrites
     expect(evaluateSync({ pending: 3, blocked: 0, lastAckAt: null })).toEqual(
       evaluateSync({ pending: 3, lastAckAt: null }),
     );
+  });
+});
+
+describe('checkInstalled (#950)', () => {
+  it('standalone → ok', () => {
+    expect(checkInstalled(true, true).state).toBe('ok');
+  });
+
+  it('a browser tab → attention; iOS gets the Share steps and the starts-empty caveat', () => {
+    const ios = checkInstalled(false, true);
+    expect(ios.state).toBe('attention');
+    expect(ios.detail).toContain('Add to Home Screen');
+    expect(ios.detail).toContain('starts empty');
+    expect(checkInstalled(false, false).detail).toContain('Install app');
+  });
+
+  it('an unanswerable browser is "couldn\'t check", never a pass', () => {
+    const check = checkInstalled(undefined, false);
+    expect(check.state).toBe('unknown');
+    expect(check.headline).toBe("Couldn't check");
   });
 });
