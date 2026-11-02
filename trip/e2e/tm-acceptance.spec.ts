@@ -132,7 +132,7 @@ test.describe('TM-2 · exit restores the prior route, no history trap', () => {
     await page.waitForURL('**/nepal/**');
     await expect(page.getByTestId('navbar')).toBeVisible();
     const flag = await page.evaluate((k) => localStorage.getItem(k), TRAVEL_KEY);
-    expect(flag).toBe('seen'); // exit downgrades 'active' → 'seen' (D-194)
+    expect(flag).toBe('seen:nepal-japan-2026'); // exit downgrades 'active' → 'seen' (D-194)
   });
 
   test('after EXIT, browser Back does NOT bounce back into /travel (replace-on-exit, D-194)', async ({ page }) => {
@@ -153,7 +153,7 @@ test.describe('TM-3 · travelMode flag + picked ?date survive reload', () => {
     await page.goto('/', { waitUntil: 'load' });
     await navBtn(page).click();
     await expect(root(page)).toBeVisible();
-    expect(await page.evaluate((k) => localStorage.getItem(k), TRAVEL_KEY)).toBe('active');
+    expect(await page.evaluate((k) => localStorage.getItem(k), TRAVEL_KEY)).toBe('active:nepal-japan-2026');
 
     // Pick a specific in-window day → ?date in the URL.
     await page.getByTestId('day-strip-2026-12-12').click();
@@ -163,7 +163,7 @@ test.describe('TM-3 · travelMode flag + picked ?date survive reload', () => {
     await page.reload({ waitUntil: 'load' });
     await expect(root(page)).toBeVisible();
     await expect(page.getByTestId('day-strip-2026-12-12')).toHaveAttribute('aria-pressed', 'true');
-    expect(await page.evaluate((k) => localStorage.getItem(k), TRAVEL_KEY)).toBe('active');
+    expect(await page.evaluate((k) => localStorage.getItem(k), TRAVEL_KEY)).toBe('active:nepal-japan-2026');
   });
 });
 
