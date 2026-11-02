@@ -43,6 +43,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { isDefaultTrip } from '@/core/trips';
 import { cityCoord } from '@/lib/city-coords';
 import { legLabel } from '@/lib/leg-label';
+import { currentLegMarkers } from '@/lib/map-initial-view';
 import { visitedCountryFootprints } from '@/lib/visited-footprint';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useOnline } from '@/hooks/use-online';
@@ -344,6 +345,8 @@ export default function MapSection() {
     if (savedOnly && savedCount > 0) list = list.filter((mk) => favorites.includes(mk.id));
     return list;
   }, [curated, filter, savedOnly, savedCount, favorites]);
+
+  const initialFocus = useMemo(() => currentLegMarkers(visibleMarkers), [visibleMarkers]);
 
   // Issue #31 — the visited wash. Read ONCE per mount, deliberately: #30's autocount writes the
   // visit record on boot, before this island's chunk has loaded, and nothing else on `/map` can
@@ -1463,6 +1466,7 @@ export default function MapSection() {
         <TripMap
           ref={tripMapRef}
           markers={visibleMarkers}
+          initialFocus={initialFocus}
           routeStops={stops}
           onGeoNote={setGeoNote}
           onViewChange={(v) =>
