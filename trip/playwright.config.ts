@@ -75,7 +75,12 @@ export default defineConfig({
   // stay as a small backstop for genuinely-new environmental noise. See
   // docs/ci-flake-policy.md. Local = 0 (a bare failure surfaces immediately).
   retries: process.env.CI ? 2 : 0,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // json only when CI names a file for it (PLAYWRIGHT_JSON_OUTPUT_NAME); bare, it would print to stdout.
+  reporter: [
+    ['list'],
+    ['html', { open: 'never' }],
+    ...(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME ? [['json'] as ['json']] : []),
+  ],
 
   use: {
     baseURL: BASE_URL,

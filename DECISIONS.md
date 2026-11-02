@@ -6264,3 +6264,21 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Removal cannot hold against a member who wants the person back. Invites are owner-only to mint, but `addsMembersOnly()` takes any uid, and a removed person can show up under a new anonymous uid, so a tombstone on the old uid blocks nothing that matters. It would add a trip-doc field and a `get()` on every add, touch the open-roster reading (D-540), and need a rules publish, which is inert until #263.
 
 **Trade-off.** An owner who removes someone cannot stop a member re-adding them. Remove the member who re-adds, or move the trip to a new id. Revisit if rules enforcement becomes real (#263) and a stricter add path is wanted.
+
+### D-710 · Amends D-349, extends D-672 · (issues #944, #945, 2026-11-01) · Runtime-cached assets get their own cache, and install refuses another build's pages
+
+**Decision.** Same-origin files the build ships but does not precache (lazy chunks, the maplibre engine and worker, the glyph PBFs) are listed in `sw.js` as `RUNTIME_URLS` and runtime-cached into `trip-runtime-<hash>` instead of the per-build precache. Activate keeps that cache and prunes it to the current list. The hash covers the unhashed files (maplibre worker, glyphs), so a maplibre bump drops the cache whole. Install now applies repair's `BUILD_ID` check to every page and `.txt` payload and throws on a mismatch; gen-sw fails the build if any precached page lacks the id. A failed install deletes the cache it created. Install writes `/__precache-urls.json` into the precache last (repair writes it too), and the preflight map row reads every `trip-*` cache for the engine and passes only when some precache holds every URL on that list.
+
+**Amends a LOCKED decision, pending owner confirmation.** D-349 is LOCKED and says the engine is backfilled "into the same cache the checks read", the precache. That clause moves: the engine is backfilled into `trip-runtime-*`, and the preflight reads every `trip-*` cache. The rest of D-349 (engine and glyphs withheld from install, the `/map` cold-offline boundary) is unchanged.
+
+**Why.** Activate deleted the old precache and the engine with it, so every update undid the "Saved on this device" check. A torn deploy could also commit the previous build's HTML next to new chunks, and a failed install's partial cache was read as saved.
+
+**Not done.** Devices that cached the engine before this ships lose it on the first update, as before. The nav backfill still writes unverified route HTML into the precache.
+
+### D-711 · (issue #946, 2026-11-01) · The error screens can apply a waiting update
+
+**Decision.** The registrar re-reads `registration.waiting` after every update check and shows the update toast again (same id). `app/global-error.tsx` Reload and `app/error.tsx` Try again call `applyWaitingUpdate()` (`lib/apply-sw-update.ts`) first: it runs a capped `update()` when online (skipped offline), then posts `SKIP_WAITING` to a waiting worker, online or not, and waits up to 3 s for `controllerchange`. Try again then reloads if a worker was applied, otherwise resets as before. Rendering still needs no network.
+
+**Why.** A dismissed toast never returned, and a crashed root layout took the registrar (the only `SKIP_WAITING` sender) with it, so Reload kept serving the same cached shell.
+
+**Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.

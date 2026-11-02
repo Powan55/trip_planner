@@ -236,7 +236,7 @@ export default function PlaceDetailSheet({
                   >
                     <OptimizedImage
                       src={place.image}
-                      alt={place.name}
+                      alt=""
                       fill
                       sizes="(min-width: 640px) 440px, 100vw"
                       className="object-cover"

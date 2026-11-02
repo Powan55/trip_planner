@@ -114,36 +114,54 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
     expect(localStorage.getItem('nepal_japan_currency_rate_cache')).toBeNull();
   });
 
-  it('NPR (confirmed unsupported by Frankfurter, live-checked): short-circuits to a labeled static reference rate WITHOUT ever calling fetch', async () => {
-    let called = false;
-    const fetchImpl = async () => {
-      called = true;
-      return jsonResponse(FRANKFURTER_JPY_FIXTURE);
+  it('NPR (#951): derived as USD→INR × 1.6 — asks Frankfurter for INR only, never NPR, and caches under NPR', async () => {
+    const urls: string[] = [];
+    const fetchImpl = async (url: unknown) => {
+      urls.push(String(url));
+      return jsonResponse({ amount: 1, base: 'USD', date: '2026-11-01', rates: { INR: 94.95 } });
     };
-    const result = await fetchCurrencyRate('NPR', fetchImpl);
+    const result = await fetchCurrencyRate('NPR', fetchImpl as unknown as typeof fetch);
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.data.rate).toBe(151.92);
+      expect(result.data.asOf).toBe('2026-11-01');
+      expect(result.data.source).toBe('live');
+      expect(result.data.stale).toBe(false);
+    }
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain('symbols=INR');
+    expect(urls[0]).not.toContain('NPR');
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.currencyRateCache)!).NPR.rate).toBe(151.92);
+  });
+
+  it('NPR: fetch fails and nothing cached → labeled static reference rate, never `unavailable` (S276/P6)', async () => {
+    const offline = async () => {
+      throw new Error('offline');
+    };
+    const result = await fetchCurrencyRate('NPR', offline);
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.data.source).toBe('reference');
-      expect(result.data.rate).toBeGreaterThan(0);
+      expect(result.data.rate).toBe(152.7);
       expect(result.data.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(result.data.stale).toBe(false);
     }
-    // Never fires the doomed request — avoids the un-suppressible browser-level "Failed to
-    // load resource" console entry a real 404 response would log on every Nepal-leg render.
-    expect(called).toBe(false);
   });
 
-  it('NPR: no cache and no fetch → still `ok` with the reference rate, never `unavailable` (S276/P6)', async () => {
-    const result = await fetchCurrencyRate('NPR');
+  it('NPR: a response without INR also falls back to the reference rate', async () => {
+    const result = await fetchCurrencyRate('NPR', async () => jsonResponse(FRANKFURTER_JPY_FIXTURE));
     expect(result.status).toBe('ok');
+    if (result.status === 'ok') expect(result.data.source).toBe('reference');
   });
 
-  it('NPR: a prior cached value (from before it was known-unsupported) still surfaces, stale', async () => {
+  it('NPR: fetch fails with a prior cached value → the cache wins over the reference, stale', async () => {
     const seeded: Record<string, CurrencyRateNow> = {
       NPR: { currency: 'NPR', rate: 138.1, asOf: '2026-07-01', stale: false, fetchedAt: 'x' },
     };
     localStorage.setItem('nepal_japan_currency_rate_cache', JSON.stringify(seeded));
-    const result = await fetchCurrencyRate('NPR');
+    const result = await fetchCurrencyRate('NPR', async () => {
+      throw new Error('offline');
+    });
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
       expect(result.data.rate).toBe(138.1);

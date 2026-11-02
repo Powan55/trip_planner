@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { STORAGE_KEYS } from '@/core/storage/gateway';
+import { STORAGE_KEYS, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
 import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
 
 /**
@@ -24,11 +24,11 @@ describe('travel-mode-store (S190, keys 19/20)', () => {
       expect(travelModeGate.hasSeen()).toBe(false);
     });
 
-    it('enter() arms active AND counts as seen; writes the literal "active"', () => {
+    it('enter() arms active AND counts as seen; writes "active:<tripId>"', () => {
       travelModeGate.enter();
       expect(travelModeGate.isActive()).toBe(true);
       expect(travelModeGate.hasSeen()).toBe(true);
-      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe('active');
+      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe(`active:${DEFAULT_TRIP_ID}`);
     });
 
     it('exit() downgrades active → seen: no longer active, still seen', () => {
@@ -36,21 +36,21 @@ describe('travel-mode-store (S190, keys 19/20)', () => {
       travelModeGate.exit();
       expect(travelModeGate.isActive()).toBe(false);
       expect(travelModeGate.hasSeen()).toBe(true);
-      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe('seen');
+      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe(`seen:${DEFAULT_TRIP_ID}`);
     });
 
     it('markSeen() from absent marks seen (toast dismiss), never active', () => {
       travelModeGate.markSeen();
       expect(travelModeGate.hasSeen()).toBe(true);
       expect(travelModeGate.isActive()).toBe(false);
-      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe('seen');
+      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe(`seen:${DEFAULT_TRIP_ID}`);
     });
 
     it('markSeen() NEVER clobbers an active flag', () => {
       travelModeGate.enter(); // 'active'
       travelModeGate.markSeen(); // must be a no-op — active still wins
       expect(travelModeGate.isActive()).toBe(true);
-      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe('active');
+      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe(`active:${DEFAULT_TRIP_ID}`);
     });
 
     it('once seen (dismissed), it stays seen across reads (exactly-once toast contract)', () => {
@@ -58,6 +58,36 @@ describe('travel-mode-store (S190, keys 19/20)', () => {
       expect(travelModeGate.hasSeen()).toBe(true);
       // A second dismiss is idempotent.
       travelModeGate.markSeen();
+      expect(travelModeGate.hasSeen()).toBe(true);
+    });
+  });
+
+  describe('#971 — scoped to the trip that wrote it', () => {
+    it('active on trip A reads inactive AND unseen on trip B (no cross-trip relaunch or silenced toast)', () => {
+      localStorage.setItem(STORAGE_KEYS.travelMode, 'active:trip-a');
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'trip-b');
+      expect(travelModeGate.isActive()).toBe(false);
+      expect(travelModeGate.hasSeen()).toBe(false);
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'trip-a');
+      expect(travelModeGate.isActive()).toBe(true);
+      expect(travelModeGate.hasSeen()).toBe(true);
+    });
+
+    it('a dismissed toast on trip A does not suppress the toast on trip B; markSeen then writes B', () => {
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'trip-a');
+      travelModeGate.markSeen();
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'trip-b');
+      expect(travelModeGate.hasSeen()).toBe(false);
+      travelModeGate.markSeen();
+      expect(localStorage.getItem(STORAGE_KEYS.travelMode)).toBe('seen:trip-b');
+    });
+
+    it('legacy bare values from before scoping still count for any trip', () => {
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'trip-b');
+      localStorage.setItem(STORAGE_KEYS.travelMode, 'active');
+      expect(travelModeGate.isActive()).toBe(true);
+      localStorage.setItem(STORAGE_KEYS.travelMode, 'seen');
+      expect(travelModeGate.isActive()).toBe(false);
       expect(travelModeGate.hasSeen()).toBe(true);
     });
   });

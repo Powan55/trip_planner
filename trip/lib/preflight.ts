@@ -1,4 +1,4 @@
-// Night-before readiness ("ready to go?") — the four machine-checkable facts behind
+// Night-before readiness ("ready to go?") — the machine-checkable facts behind
 // `components/preflight-checks.tsx`, rendered on `/checklist` under the human-attested
 // day-zero list (issue #20). This module is the ADAPTER: it owns the I/O (Cache Storage,
 // StorageManager, the real `Date`, the `?today=` override) and keeps the verdict logic in
@@ -20,6 +20,7 @@ import { zoneAbbrevForOffset } from '@/core/dates/item-time';
 import { clockOverride } from '@/core/storage/gateway';
 import { getActiveTrip } from '@/core/trips';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { isIOS, isStandalone } from '@/lib/standalone';
 import { getNow, tripOffsetMinFor } from '@/lib/trip-now';
 
 /** `'ok'` = verified true. `'attention'` = verified NOT ready. `'unknown'` = we could not tell. */
@@ -52,6 +53,8 @@ import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
 
 /** The service worker's content-hashed precache (`scripts/gen-sw.mjs`). */
 const PRECACHE_PREFIX = 'trip-precache-';
+/** The URL list the worker writes into its precache once install has filled it. */
+const PRECACHE_LIST_SUFFIX = '/__precache-urls.json';
 
 /**
  * The marker `gen-sw.mjs`'s own `isMaplibreChunk()` uses to find the map engine by CONTENT.
@@ -121,7 +124,7 @@ function formatBytes(bytes: number): string {
  * tiles come from `tiles.openfreemap.org`, which is cross-origin, and the SW's first fetch-handler
  * line passes cross-origin through untouched, so tiles are never cached. Offline PMTiles was
  * closed NO-GO (D-173 → D-197: 180 MB–3.7 GB against a 100 MB cap). The maplibre ENGINE is not
- * precached either (V6-14): it is RUNTIME-cached into the precache on the first ONLINE `/map`
+ * precached either (V6-14): it is RUNTIME-cached into `trip-runtime-*` on the first ONLINE `/map`
  * visit, and once it is there it buys pins and the route line on a navy canvas — no street
  * imagery. Say that and no more.
  *
@@ -144,8 +147,33 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
     };
   }
   try {
-    const precacheName = (await cacheStorage.keys()).find((n) => n.startsWith(PRECACHE_PREFIX));
-    if (!precacheName) {
+    // Search every cache of ours: the engine lives in trip-runtime-*, and a precache only counts
+    // when it holds every URL on the list its worker wrote at install (#945).
+    let shellComplete = false;
+    const entries: { res: Response; size: number }[] = [];
+    for (const name of await cacheStorage.keys()) {
+      if (!name.startsWith('trip-')) continue;
+      const cache = await cacheStorage.open(name);
+      const reqs = await cache.keys();
+      if (!shellComplete && name.startsWith(PRECACHE_PREFIX)) {
+        const listReq = reqs.find((r) => r.url.endsWith(PRECACHE_LIST_SUFFIX));
+        const list = listReq && (await cache.match(listReq));
+        if (list) {
+          const have = new Set(reqs.map((r) => new URL(r.url).pathname));
+          shellComplete = (JSON.parse(await list.text()) as string[]).every((u) => have.has(u));
+        }
+      }
+      for (const req of reqs) {
+        if (!req.url.endsWith('.js')) continue;
+        const res = await cache.match(req);
+        // KNOWN CEILING: `content-length` is only a HINT for ordering — an entry without one
+        // sorts last (size 0) and is STILL read, so a header-less cache costs speed, never
+        // correctness. Worst case is one text read per cached `.js` entry (~124 today, ~3 MB),
+        // paid once on mount of a screen the traveler opened deliberately.
+        if (res) entries.push({ res, size: Number(res.headers.get('content-length')) || 0 });
+      }
+    }
+    if (!shellComplete) {
       return {
         ...base,
         state: 'attention',
@@ -153,17 +181,6 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
         detail:
           "The offline copy of the app hasn't been stored on this device. Open the app once more while you still have a connection, then check again.",
       };
-    }
-    const cache = await cacheStorage.open(precacheName);
-    const entries: { res: Response; size: number }[] = [];
-    for (const req of await cache.keys()) {
-      if (!req.url.endsWith('.js')) continue;
-      const res = await cache.match(req);
-      // KNOWN CEILING: `content-length` is only a HINT for ordering — an entry without one
-      // sorts last (size 0) and is STILL read, so a header-less cache costs speed, never
-      // correctness. Worst case is one text read per cached `.js` entry (~124 today, ~3 MB),
-      // paid once on mount of a screen the traveler opened deliberately.
-      if (res) entries.push({ res, size: Number(res.headers.get('content-length')) || 0 });
     }
     entries.sort((a, b) => b.size - a.size);
     for (const { res } of entries) {
@@ -395,15 +412,53 @@ export function evaluateSync(
   };
 }
 
+// ── 5. Installed to Home Screen ─────────────────────────────────────────────────────────────
 /**
- * The three environment checks (map shell, storage, clock) — everything except sync, which the
- * component reads reactively from `useSyncStatus()`. Client-only: on the server every API here
- * is absent, which is exactly the `'unknown'` path.
+ * Safari clears script-writable storage (IndexedDB, cache, service worker) after 7 days without
+ * interaction in a normal tab; installed Home Screen apps are exempt. `standalone` is `undefined`
+ * when the browser can't answer (no `matchMedia`, SSR), which renders as "couldn't check".
+ *
+ * The iOS copy says the installed app starts EMPTY (own storage container: no local photos,
+ * unsynced entries, sign-in or service worker) — the reason to install early and export first.
+ */
+export function checkInstalled(standalone: boolean | undefined, ios: boolean): PreflightCheck {
+  const base = { id: 'installed', label: 'Home Screen app' };
+  if (standalone === undefined) {
+    return {
+      ...base,
+      state: 'unknown',
+      headline: "Couldn't check",
+      detail: "This browser doesn't say whether the app is installed, so we can't confirm it.",
+    };
+  }
+  if (standalone) {
+    return {
+      ...base,
+      state: 'ok',
+      headline: 'Installed',
+      detail: 'Running from the Home Screen, so the browser will not clear the offline copy while the app sits unused.',
+    };
+  }
+  return {
+    ...base,
+    state: 'attention',
+    headline: 'Not installed',
+    detail: ios
+      ? 'Safari clears a site\'s saved data after 7 days without a visit; installed apps are exempt. Tap Share, then "Add to Home Screen". The installed app starts empty: export your trip in Settings first, then open it once online and sign in.'
+      : 'The browser can clear a site\'s saved data if it sits unused. Use the browser menu\'s "Install app" or "Add to Home screen", then open it once online.',
+  };
+}
+
+/**
+ * The environment checks (map shell, storage, installed, clock) — everything except sync, which
+ * the component reads reactively from `useSyncStatus()`. Client-only: on the server every API
+ * here is absent, which is exactly the `'unknown'` path.
  */
 export async function runEnvironmentChecks(): Promise<PreflightCheck[]> {
   const [mapShell, storage] = await Promise.all([
     checkMapShell(typeof caches === 'undefined' ? undefined : caches),
     checkStorage(typeof navigator === 'undefined' ? undefined : navigator.storage),
   ]);
-  return [mapShell, storage, ...readClockChecks()];
+  const canTell = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+  return [mapShell, storage, checkInstalled(canTell ? isStandalone() : undefined, isIOS()), ...readClockChecks()];
 }

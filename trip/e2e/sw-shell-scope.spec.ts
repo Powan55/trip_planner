@@ -222,9 +222,17 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     const status = await page.evaluate(async (url: string) => (await fetch(url)).status, subject);
     expect(status).toBe(200);
 
-    // …and the handler backfilled it (fire-and-forget, so poll rather than assume).
+    // …and the handler backfilled it (fire-and-forget, so poll rather than assume) into the
+    // runtime cache, which survives the next update (#945).
     await expect
-      .poll(async () => (await precachedStatic(page)).includes(subject), { timeout: 15_000 })
+      .poll(
+        async () =>
+          page.evaluate(async (url: string) => {
+            const name = (await caches.keys()).find((n) => n.startsWith('trip-runtime-'));
+            return !!name && !!(await (await caches.open(name)).match(url));
+          }, subject),
+        { timeout: 15_000 },
+      )
       .toBe(true);
 
     // And it now resolves OFFLINE, which is the whole claim.

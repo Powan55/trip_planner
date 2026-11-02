@@ -63,9 +63,9 @@ describe('safety content — valid data parses', () => {
     ]);
   });
 
-  // #255 — one Japan earthquake note, one Nepal aftershock/bandh note.
-  it('HAZARD_NOTES: one note per country, both parse', () => {
-    expect(HAZARD_NOTES.length).toBe(2);
+  // #255 — Japan earthquake + Nepal aftershock/bandh notes; #939 added a nightlife and a scam note.
+  it('HAZARD_NOTES: both countries covered, all parse', () => {
+    expect(HAZARD_NOTES.length).toBe(4);
     expect(HAZARD_NOTES.some((n) => n.country === 'Japan')).toBe(true);
     expect(HAZARD_NOTES.some((n) => n.country === 'Nepal')).toBe(true);
     for (const n of HAZARD_NOTES) {
@@ -84,6 +84,14 @@ describe('safety content — valid data parses', () => {
     expect(nepalVisa?.detail).toMatch(/26 Nov 2026/);
     expect(nepalVisa?.detail).toMatch(/15 days/);
     expect(japanEntry?.detail).toMatch(/QR/);
+  });
+
+  // #936/#939 — tourist police dials the toll-free 1144; Japan needs the original passport on you.
+  it('Nepal tourist police is 1144; checklist has the Japan passport-carry row', () => {
+    const tp = EMERGENCY_CONTACTS.find((c) => c.id === 'np-tourist-police');
+    expect(tp?.tel).toBe('1144');
+    expect(tp?.sourceUrl).toBe('https://tourismdepartment.gov.np/pages/tourist-police/');
+    expect(DOCUMENT_CHECKLIST.some((i) => i.id === 'carry-passport-japan')).toBe(true);
   });
 
   it('DOCUMENT_CHECKLIST: every item parses and belongs to a known group', () => {
