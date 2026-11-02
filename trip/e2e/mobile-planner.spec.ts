@@ -276,6 +276,37 @@ test.describe('S131 · swipe-to-delete (routes through the S127 delete→undo ha
     await expect(page.getByTestId('calendar-item-s131-a')).toHaveCount(0);
   });
 
+  test('double-clicking Delete removes one item and focus moves to the next row', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await gotoPlan(page);
+    await seedFixture(page, [
+      { id: 's131-a', title: 'Swipe Alpha' },
+      { id: 's131-b', title: 'Swipe Bravo' },
+      { id: 's131-c', title: 'Swipe Charlie' },
+    ]);
+    await page.getByTestId(`day-strip-${FIXTURE_DAY}`).click();
+    await expect(page.getByTestId('calendar-item-s131-a')).toBeVisible();
+
+    await page.getByTestId('calendar-item-delete-s131-a').dblclick();
+    await expect(page.getByTestId('calendar-item-s131-a')).toHaveCount(0);
+    await expect(page.getByTestId('calendar-item-s131-b')).toBeVisible();
+    await expect(page.getByTestId('calendar-item-s131-c')).toBeVisible();
+  });
+
+  test('Enter on Delete moves focus to the next row Delete', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await gotoPlan(page);
+    await seedFixture(page, [
+      { id: 's131-a', title: 'Swipe Alpha' },
+      { id: 's131-b', title: 'Swipe Bravo' },
+    ]);
+    await page.getByTestId(`day-strip-${FIXTURE_DAY}`).click();
+    await page.getByTestId('calendar-item-delete-s131-a').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('calendar-item-s131-a')).toHaveCount(0);
+    await expect(page.getByTestId('calendar-item-delete-s131-b')).toBeFocused();
+  });
+
   test('keyboard reorder still works (dnd drag not hijacked by the swipe)', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await gotoPlan(page);

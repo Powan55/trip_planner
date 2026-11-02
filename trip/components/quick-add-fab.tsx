@@ -120,6 +120,11 @@ export default function QuickAddFab() {
   if (isTravelRoute(pathname) || isPlannerRoute(pathname) || isNonAddRoute(pathname)) return null;
 
   return (
+    <>
+    {/* Keyboard focus scrolls to the scroll-padding edge; the global one only clears the tab bar,
+        so a right-edge control focused mid-list landed under this button (WCAG 2.4.11). Reserve
+        the FAB band (1rem gap + 3.5rem button + 1rem breathing room) only while it is mounted. */}
+    <style>{'@media (max-width:767.98px){html:root{scroll-padding-bottom:calc(var(--tab-bar-h,64px) + env(safe-area-inset-bottom) + 5.5rem)}}'}</style>
     <button
       type="button"
       data-testid="quick-add-fab"
@@ -143,5 +148,6 @@ export default function QuickAddFab() {
     >
       <Plus className="h-6 w-6" aria-hidden="true" />
     </button>
+    </>
   );
 }
