@@ -782,6 +782,8 @@ export default function CalendarPlanner() {
   );
   const [mapExpanded, setMapExpanded] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const dayHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const lastDeleteAtRef = useRef(0);
 
   // pin-pick. The editor asks for a coordinate; the MAP PANE (which lives out here,
   // not in the portal) collects it. While `pickingPin` the editor is visually hidden but
@@ -967,12 +969,28 @@ export default function CalendarPlanner() {
   };
 
   const handleDeleteItem = (item: ItineraryItem) => {
+    // A double tap's second hit lands on the row that reflowed under the first, so an id guard
+    // can't catch it. A short window covers pointer, swipe and Enter key-repeat alike.
+    const now = Date.now();
+    if (now - lastDeleteAtRef.current < 400) return;
+    lastDeleteAtRef.current = now;
     // Capture the full item in the closure BEFORE removing, so Undo can restore it.
     // removeItem is unchanged (tombstone under sync, physical under dormant); restoreItem
     // mirrors it (fresh-id under sync, same-id under dormant).
     const day = selectedDate;
+    const at = allItemIds.indexOf(item.id);
+    const neighbourId = allItemIds[at + 1] ?? allItemIds[at - 1];
     removeItem(day, item.id);
     showUndoToast(`Deleted “${item.title}”`, () => restoreItem(day, item));
+    // The focused Delete button just unmounted; hand focus to the next/previous row's Delete,
+    // else the day heading, instead of letting it fall to <body>.
+    requestAnimationFrame(() => {
+      const next = neighbourId
+        ? listRef.current?.querySelector<HTMLElement>(`[data-testid="calendar-item-delete-${neighbourId}"]`)
+        : null;
+      if (next) next.focus({ preventScroll: true });
+      else dayHeadingRef.current?.focus();
+    });
   };
 
   // clear-whole-day: capture the day's LIVE items BEFORE clearing (so Undo can restore the
@@ -1552,7 +1570,7 @@ export default function CalendarPlanner() {
             <div className="flex items-center justify-between gap-1 mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 hover:bg-white/5 text-ink-mid disabled:text-ink-lo disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
-                <h3 className="font-sans text-n-sm font-semibold text-ink-hi sm:text-n-md">{formatDateLong(selectedDate)}</h3>
+                <h3 ref={dayHeadingRef} tabIndex={-1} className="font-sans text-n-sm font-semibold text-ink-hi outline-none sm:text-n-md">{formatDateLong(selectedDate)}</h3>
                 <p className="pr pr--lo mt-0.5">
                   <span
                     aria-hidden="true"
