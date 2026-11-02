@@ -40,7 +40,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
           <div className="fig bg-surface-raised motion-reduce:[&_img]:!transform-none">
             <OptimizedImage
               src={destination.image}
-              alt={destination.name}
+              alt=""
               fill
               sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
