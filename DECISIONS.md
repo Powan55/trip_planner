@@ -6308,6 +6308,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Those three are the only currencies the budget has rates for (`rates.{NPR,JPY}`). Another currency needs new synced rate fields and a wider `CurrencyCode`, so it is a separate change.
 
 **Not done.** More currencies, and per-day cities for multi-destination trips: every day still uses `destinations[0]`.
+
 ### D-741 · (issue #980, 2026-11-02) · The worker no longer caches the Frankfurter rate
 
 **Decision.** The stale-while-revalidate route for `api.frankfurter.dev` is gone; the host is plain cross-origin passthrough again. `trip-frankfurter-v1` is no longer allowlisted, so the next activate deletes it. Retires D-190.
