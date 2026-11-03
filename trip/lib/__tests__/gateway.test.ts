@@ -12,6 +12,10 @@ import {
   uiPrefs,
   clockOverride,
   favoritesStore,
+  journalStore,
+  packingStore,
+  photosStore,
+  shareInboxStore,
   tourStore,
   legibilityPrefs,
   mapWakeLockPrefs,
@@ -133,6 +137,36 @@ describe('storage gateway (D-097)', () => {
       window.localStorage.setItem('j', '5');
       const ABSENT = Symbol('absent');
       expect(readJson<unknown>('local', 'j', ABSENT)).toBe(5);
+    });
+
+    it('keeps the first unreadable copy of a device-only slot before the next save overwrites it (#985)', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      window.localStorage.setItem(STORAGE_KEYS.journal, '[{"date":"2026-12-10","text":"day one"');
+      expect(journalStore.get([])).toEqual([]);
+      journalStore.set([{ date: '2026-12-11', text: 'new' }]);
+      window.localStorage.setItem(STORAGE_KEYS.journal, 'second bad copy');
+      journalStore.get([]);
+      for (const store of [packingStore, photosStore, shareInboxStore, favoritesStore]) store.get([]);
+      window.localStorage.setItem(STORAGE_KEYS.favorites, '5');
+      favoritesStore.get([]);
+
+      expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.localRescue)!)).toEqual({
+        journal: '[{"date":"2026-12-10","text":"day one"',
+        favorites: '5',
+      });
+    });
+
+    it('rescues under the active custom trip and leaves an unreadable rescue slot alone (#985)', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      window.localStorage.setItem(STORAGE_KEYS.activeTrip, 'trip-x');
+      window.localStorage.setItem('trip:trip-x:packing', '{bad');
+      packingStore.get([]);
+      expect(JSON.parse(window.localStorage.getItem('trip:trip-x:localRescue')!)).toEqual({ packing: '{bad' });
+
+      window.localStorage.setItem('trip:trip-x:localRescue', 'mangled');
+      window.localStorage.setItem('trip:trip-x:photos', '{bad');
+      photosStore.get([]);
+      expect(window.localStorage.getItem('trip:trip-x:localRescue')).toBe('mangled');
     });
 
     it('weatherCache survives a slot someone else wrote as JSON null (the never-throw contract)', () => {

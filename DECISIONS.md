@@ -6283,6 +6283,22 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
 
+### D-725 · (issue #985, 2026-11-02) · Unreadable device-only data is copied before the next save
+
+**Decision.** The journal, packing, photo index, share inbox and favorites stores read through `readDeviceOnlyJson` in the gateway. When the stored bytes fail to parse, or parse to a scalar the store refuses, the raw string is copied into the new trip-scoped slot `localRescue` (key 54: `nepal_japan_local_rescue` on the default pack, `trip:{id}:localRescue` on a custom trip) as `{ [slot]: raw }` before the fallback is returned. Write-once per slot, like the itinerary quarantine; a rescue slot that is itself unreadable is left alone. Not capped, unlike the itinerary's 4096 chars, because a truncated journal is not a copy. Not in the backup; sign-out and a local forget wipe it.
+
+**Why.** These slots have no remote copy, so the save after a failed read overwrote the only one.
+
+**Not done.** No UI reads the rescue slot; recovery is by hand. Day anchors and the concierge thread are not covered.
+
+### D-726 · (issue #983, 2026-11-02) · Another device's forget keeps this device's own data
+
+**Decision.** `importRemoteTrips` still drops the row, but skips the #518 wipe when `hasDeviceOnlyData(id)` is true: a non-empty packing list, share inbox, favorites, day anchors, concierge thread, journal draft, either quarantine slot or `localRescue`, or any journal entry without a sync stamp (an unreadable journal counts). Empty `[]`/`{}` slots do not count. A local forget still wipes everything.
+
+**Why.** Dropping only the row would bring back #518 for trips that hold nothing but synced data. Extending the #843 guard keeps the wipe for those and keeps anything no remote can restore.
+
+**Not done.** The kept data has no row, so it is reachable only by re-joining the trip; sign-out clears it.
+
 ### D-720 · (issues #982, #978, 2026-11-02) · A refused outbox write is kept in memory
 
 **Decision.** When the outbox slot write is refused (full quota), `core/sync/outbox.ts` keeps the slot it tried to write in a per-tab map and merges it into every slot read. `outboxDirty`, the flush, the badge and the first-snapshot merge in every domain see the chunk for the rest of the page load, and the next slot write that lands carries it to disk. A slot whose `version` is a number above 1 is never overwritten or removed; edits made under it go to the same in-memory map. `markOutboxDirty` is gone; its last caller left with #728.
@@ -6290,6 +6306,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The enqueue ignored `writeJson`'s result, so the vault held the edit with no write-ahead record, and the first snapshot after a resubscribe applied over it. A newer build's slot was rewritten as v1, dropping its dirty set.
 
 **Not done.** The memory copy does not survive a reload, so an edit that never reached the server or the disk is still lost then. Rolling back the vault write instead would need the reactive store to see the push's enqueue result.
+
 ### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
 
 **Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
