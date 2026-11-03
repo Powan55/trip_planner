@@ -6282,3 +6282,13 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** A dismissed toast never returned, and a crashed root layout took the registrar (the only `SKIP_WAITING` sender) with it, so Reload kept serving the same cached shell.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
+
+### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
+
+**Decision.** `sanitizeEntry` and `upsertEntry` (`core/journal/model.ts`) spread the source entry before normalising the declared fields, so keys this build doesn't declare survive a local read, an edit and a save. `lib/journal-remote.ts` builds the pushed row from the whole local entry (minus `date`) and strips `hlc` from an incoming row before it becomes a local entry. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
+
+**Why.** Same class as #138 and #519. An older tab or phone editing a day rebuilt the entry from known fields and wrote it over the whole server row, erasing what a newer build had added. A photo row with an unknown owner kind was dropped on read and the next save made the drop permanent.
+
+**Differs from expenses.** Expenses keep unknown keys only on the remote read (`keepUnknownKeys`) and strip them locally for the zero-egress rule (D-159). Journal and photo local storage goes through `core/journal/storage.ts` and `core/photos/storage.ts`, which this change doesn't touch, so retention is unconditional in the model instead of an option.
+
+**Not done.** The outbox slot version is a separate change. Unknown keys have no size cap beyond Firestore's document limit.

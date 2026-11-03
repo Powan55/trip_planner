@@ -99,12 +99,16 @@ export function sanitizeEntry(value: unknown): JournalEntry | null {
   // Non-empty content is required, else the entry is not persistable (a blank day = no entry).
   if (isEmptyContent({ text, mood, highlight })) return null;
 
+  // Keys this build doesn't declare ride along, so a newer build's fields survive our edit (#986).
   const entry: JournalEntry = {
+    ...(value as JournalEntry),
     date: v.date,
     text,
     createdAt: typeof v.createdAt === 'string' ? v.createdAt : '',
     updatedAt: typeof v.updatedAt === 'string' ? v.updatedAt : '',
   };
+  delete entry.mood;
+  delete entry.highlight;
   if (mood !== null) entry.mood = mood;
   if (highlight !== null) entry.highlight = highlight;
 
@@ -169,11 +173,14 @@ export function upsertEntry(
   }
 
   const merged: JournalEntry = {
+    ...existing,
     date,
     text: nextText,
     createdAt: existing?.createdAt ?? nowIso,
     updatedAt: nowIso,
   };
+  delete merged.mood;
+  delete merged.highlight;
   if (nextMood !== null) merged.mood = nextMood;
   if (nextHighlight !== null) merged.highlight = nextHighlight;
 

@@ -216,3 +216,15 @@ describe('removeEntry', () => {
     expect(() => removeEntry(null as unknown as JournalEntry[], '2026-12-14')).not.toThrow();
   });
 });
+
+describe('unknown keys survive sanitize and an edit (#986)', () => {
+  const row = { date: '2026-12-14', text: 'hi', createdAt: 'c', updatedAt: 'u', weather: { c: 12 } };
+  it('sanitizeEntry keeps a key this build does not declare', () => {
+    expect(sanitizeEntry(row)).toMatchObject({ weather: { c: 12 } });
+  });
+  it('upsertEntry keeps it through an edit, and still clears mood on null', () => {
+    const out = upsertEntry([{ ...row, mood: 'good' } as never], '2026-12-14', { text: 'edited', mood: null }, 'now');
+    expect(out[0]).toMatchObject({ text: 'edited', weather: { c: 12 } });
+    expect(out[0]).not.toHaveProperty('mood');
+  });
+});

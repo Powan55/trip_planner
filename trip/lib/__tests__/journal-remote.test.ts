@@ -281,3 +281,18 @@ describe('journal account sync', () => {
     expect(docs.size).toBe(0);
   });
 });
+
+describe('unknown row keys (#986)', () => {
+  it('an older device editing a day keeps a field a newer build wrote on the server', async () => {
+    asDevice('A');
+    await edit('first');
+    const rows = docs.get(PATH)!.data.entries as Record<string, Data>;
+    rows[DAY].weather = 'rain';
+    asDevice('B');
+    await sync();
+    at(2_000_000);
+    await edit('B edit');
+    expect((docs.get(PATH)!.data.entries as Record<string, Data>)[DAY]).toMatchObject({ text: 'B edit', weather: 'rain' });
+    expect(getEntry(loadJournal(), DAY)).not.toHaveProperty('hlc');
+  });
+});

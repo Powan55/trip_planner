@@ -76,8 +76,8 @@ const readRows = (data: unknown) => stampedMap<Row>((data as { entries?: unknown
 function rowFor(date: string, hlc: string): Row {
   const e = getEntry(loadJournal(), date);
   if (!e) return { hlc, deletedAt: readMeta()[date]?.deletedAt ?? realClock.now().toISOString() };
-  const row: Row = { hlc, text: e.text.slice(0, JOURNAL_TEXT_MAX), createdAt: e.createdAt, updatedAt: e.updatedAt };
-  if (e.mood) row.mood = e.mood;
+  const { date: _date, ...rest } = e;
+  const row: Row = { ...rest, hlc, text: e.text.slice(0, JOURNAL_TEXT_MAX) };
   if (e.highlight) row.highlight = e.highlight.slice(0, HIGHLIGHT_MAX);
   return row;
 }
@@ -87,8 +87,9 @@ function rowToEntry(date: string, row: Row, local: JournalEntry | undefined): Jo
   const text = typeof row.text === 'string' ? row.text.slice(0, JOURNAL_TEXT_MAX) : '';
   // A capped copy of a longer local entry (our own push, echoed back) keeps the full local text.
   const capped = text.length === JOURNAL_TEXT_MAX && !!local && local.text.length > text.length && local.text.startsWith(text);
+  const { hlc: _hlc, ...fields } = row;
   return sanitizeEntry({
-    ...row,
+    ...fields,
     date,
     text: capped ? local!.text : text,
     highlight: typeof row.highlight === 'string' ? row.highlight.slice(0, HIGHLIGHT_MAX) : undefined,
