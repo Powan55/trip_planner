@@ -25,8 +25,12 @@
  */
 
 import { z } from 'zod';
+
 import type { TripConfig } from '@/core/trips/model';
 import { compareHlc, parse, seedHlcFromLegacy } from '@/core/sync/hlc';
+
+// Preserve Zod 3's numeric read contract; field sanitizers handle infinities.
+const readNumber = z.number().or(z.literal([Infinity, -Infinity]));
 
 /** Hard cap on stored places; overflow drops the oldest. */
 export const PLACES_CAP = 200;
@@ -71,11 +75,11 @@ const myPlaceSchema = z
     legId: z.string().min(1),
     sourceUrl: z.string().optional(),
     resolvedUrl: z.string().optional(),
-    lat: z.number().optional(),
-    lng: z.number().optional(),
+    lat: readNumber.optional(),
+    lng: readNumber.optional(),
     note: z.string().optional(),
     addedAt: z.string().min(1),
-    rev: z.number().optional(),
+    rev: readNumber.optional(),
     hlc: z.string().optional(),
     deleted: z.boolean().optional(),
   })

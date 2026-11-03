@@ -3,6 +3,8 @@
 // no longer applies — it fed the array through the legacy schema validator, which
 // choked on the plugin objects with a circular-JSON crash. Spread the array directly.
 import nextConfig from "eslint-config-next/core-web-vitals";
+import { fixupConfigRules } from "@eslint/compat";
+import * as espree from "espree";
 
 // Firebase is reachable ONLY through a dynamic `import()`, behind the configured/auth gate.
 // A single static import puts the SDK in the initial bundle of every route that transitively
@@ -53,7 +55,14 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
-  ...nextConfig,
+  ...fixupConfigRules(nextConfig),
+  {
+    files: ["**/*.{js,jsx,mjs,cjs}"],
+    languageOptions: {
+      parser: espree,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
   {
     rules: {
       // Escaping every ' and " in JSX copy is pure churn — React renders them

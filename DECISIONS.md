@@ -6298,6 +6298,15 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Dropping only the row would bring back #518 for trips that hold nothing but synced data. Extending the #843 guard keeps the wipe for those and keeps anything no remote can restore.
 
 **Not done.** The kept data has no row, so it is reachable only by re-joining the trip; sign-out clears it.
+### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
+
+**Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
+
+**Why.** Same class as #138 and #519. An older tab or phone editing a day rebuilt the entry from known fields and wrote it over the whole server row, erasing what a newer build had added. A photo row with an unknown owner kind was dropped on read and the next save made the drop permanent.
+
+**Same shape as expenses.** The local journal path stays a strict allowlist (D-159, D-374): a backup restore or a legacy slot carrying a photo ref cannot reach Firestore, and text and highlight keep their length caps. Unknown keys are read only from the server row inside the push transaction, and never the declared fields, so clearing a mood or highlight still sticks. A tombstone, or a push over one, carries nothing. The local slot never holds the unknown keys; the server row is where they live. Photo rows are device-local, so that half keeps unknown owner kinds and keys in the model.
+
+**Not done.** The outbox slot version is a separate change. Unknown keys have no size cap beyond Firestore's document limit.
 
 ### D-738 · (issue #981, 2026-11-02) · Gallery images revalidate after 7 days; the trim is serialised
 
@@ -6306,3 +6315,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Image filenames are not content-hashed, so a re-encode or credit fix at the same path never reached returning devices; overlapping trims worked from stale key snapshots.
 
 **Not done.** Hashed filenames. The precache-first order for hero rasters is unchanged.
+
+### D-741 · (issue #980, 2026-11-02) · The worker no longer caches the Frankfurter rate
+
+**Decision.** The stale-while-revalidate route for `api.frankfurter.dev` is gone; the host is plain cross-origin passthrough again. `trip-frankfurter-v1` is no longer allowlisted, so the next activate deletes it. Retires D-190.
+
+**Why.** The worker answered the rate request from cache as a 200, so `fetchCurrencyRate` took its success branch: the previous fetch looked fresh, never flagged stale, and online the row always lagged one fetch behind. Network-first with a cache fallback would still hand a cached 200 to the client when the network dies with `navigator.onLine` true, so the stale flag would stay wrong. With the route gone a dead network rejects and the localStorage fallback in `lib/currency-rate.ts` marks the value stale.
+
+**Changes if:** the rate needs a cache layer the client's localStorage cannot give.
