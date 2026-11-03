@@ -113,6 +113,7 @@ export const CATEGORY_STYLES: Record<
 };
 
 const MARKERS_SOURCE_ID = 'markers';
+const CLUSTER_MAX_ZOOM = 13;
 const ITIN_SOURCE_ID = 'itinerary-route';
 // Issue #31 — the visited footprint wash. Its source and layers are added FIRST in the `load`
 // handler so every marker, route line and label paints on top of it.
@@ -261,6 +262,10 @@ function MarkerPopupContent({
       <p className="text-t-sm text-ink-mid leading-relaxed mt-1.5">
         {marker.description}
       </p>
+      <div
+        data-testid="map-popup-actions"
+        className="sticky -bottom-3 z-10 bg-[rgb(var(--surface))] pb-3 shadow-[0_-6px_6px_-6px_rgb(0_0_0/0.6)]"
+      >
       <a
         href={buildMapsDirectionsUrl(marker.lat, marker.lng)}
         target="_blank"
@@ -329,6 +334,7 @@ function MarkerPopupContent({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -719,7 +725,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       const map = mapRef.current;
       const maplibregl = mapLibreRef.current;
       if (!map || !maplibregl) return;
-      const zoom = Math.max(map.getZoom(), 12);
+      const zoom = Math.max(map.getZoom(), CLUSTER_MAX_ZOOM + 1);
       if (prefersReducedMotion()) {
         // easeTo(duration:0) is an instant jump that ALSO honours `offset` (jumpTo
         // does not), so the marker lands below-centre and the popup opens in-shell.
@@ -885,7 +891,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           data: markersToGeoJSON(markersRef.current) as never,
           cluster: true,
           clusterRadius: 50,
-          clusterMaxZoom: 8,
+          clusterMaxZoom: CLUSTER_MAX_ZOOM,
         });
 
         // Cluster bubbles.
@@ -932,6 +938,15 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             'text-halo-color': BRAND.navy900,
             'text-halo-width': 1,
           },
+        });
+
+        // Invisible 44px hit target under the 20px pin; layer clicks query a single pixel.
+        map!.addLayer({
+          id: 'unclustered-hit',
+          type: 'circle',
+          source: MARKERS_SOURCE_ID,
+          filter: ['!', ['has', 'point_count']],
+          paint: { 'circle-radius': 22, 'circle-opacity': 0 },
         });
 
         // Unclustered points — category-colored.
@@ -1012,7 +1027,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         // Cursor affordances.
         // in pick mode the crosshair wins over the browse pointer, so hovering a
         // marker while placing a pin doesn't promise a click that no longer browses.
-        for (const id of ['clusters', 'unclustered']) {
+        for (const id of ['clusters', 'unclustered-hit']) {
           map!.on('mouseenter', id, () => {
             map!.getCanvas().style.cursor = pickModeRef.current ? 'crosshair' : 'pointer';
           });
@@ -1043,7 +1058,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         });
 
         // Unclustered point click → open a rich popup (+ notify the host).
-        map!.on('click', 'unclustered', (e) => {
+        map!.on('click', 'unclustered-hit', (e) => {
           if (pickModeRef.current) return; // a pick click places a pin, never browses
           const f = e.features?.[0] as MapGeoJSONFeature | undefined;
           const id = f?.properties?.id as string | undefined;
