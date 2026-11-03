@@ -74,7 +74,7 @@ vi.mock('@/lib/firebase-remote', () => ({ getRemote: () => getRemote() }));
 import { pushJournalEntry, retainJournalSync } from '@/lib/journal-remote';
 import { loadJournal, saveJournal } from '@/core/journal/storage';
 import { JOURNAL_TEXT_MAX, getEntry, upsertEntry, removeEntry } from '@/core/journal/model';
-import { STORAGE_KEYS, identityStore, setActiveTripId, setSyncCode } from '@/core/storage/gateway';
+import { STORAGE_KEYS, identityStore, keyFor, setActiveTripId, setSyncCode } from '@/core/storage/gateway';
 import { signOut } from '@/lib/token-auth';
 import { exportTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { makeInMemoryBlobStore } from '@/core/photos/blob-store';
@@ -283,16 +283,39 @@ describe('journal account sync', () => {
 });
 
 describe('unknown row keys (#986)', () => {
+  const row = () => (docs.get(PATH)!.data.entries as Record<string, Data>)[DAY];
+
   it('an older device editing a day keeps a field a newer build wrote on the server', async () => {
     asDevice('A');
     await edit('first');
-    const rows = docs.get(PATH)!.data.entries as Record<string, Data>;
-    rows[DAY].weather = 'rain';
+    row().weather = 'rain';
+    asDevice('B');
+    await sync();
+    expect(getEntry(loadJournal(), DAY)).not.toHaveProperty('weather');
+    at(2_000_000);
+    await edit('B edit');
+    expect(row()).toMatchObject({ text: 'B edit', weather: 'rain' });
+  });
+
+  it('a mood cleared locally stays cleared even though the server row still has one', async () => {
+    asDevice('A');
+    await edit('first');
     asDevice('B');
     await sync();
     at(2_000_000);
-    await edit('B edit');
-    expect((docs.get(PATH)!.data.entries as Record<string, Data>)[DAY]).toMatchObject({ text: 'B edit', weather: 'rain' });
-    expect(getEntry(loadJournal(), DAY)).not.toHaveProperty('hlc');
+    saveJournal(upsertEntry(loadJournal(), DAY, { mood: null }, new Date().toISOString()));
+    await pushJournalEntry(DAY);
+    expect(row()).not.toHaveProperty('mood');
+  });
+
+  it('a backup-restored entry carrying a photo ref is pushed without it', async () => {
+    asDevice('A');
+    localStorage.setItem(
+      keyFor('journal'),
+      JSON.stringify([{ date: DAY, text: 'restored', createdAt: 'c', updatedAt: 'u', photoIds: ['ph-x'] }]),
+    );
+    await pushJournalEntry(DAY);
+    expect(row()).toMatchObject({ text: 'restored' });
+    expect(row()).not.toHaveProperty('photoIds');
   });
 });

@@ -6285,10 +6285,10 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 ### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
 
-**Decision.** `sanitizeEntry` and `upsertEntry` (`core/journal/model.ts`) spread the source entry before normalising the declared fields, so keys this build doesn't declare survive a local read, an edit and a save. `lib/journal-remote.ts` builds the pushed row from the whole local entry (minus `date`) and strips `hlc` from an incoming row before it becomes a local entry. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
+**Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
 
 **Why.** Same class as #138 and #519. An older tab or phone editing a day rebuilt the entry from known fields and wrote it over the whole server row, erasing what a newer build had added. A photo row with an unknown owner kind was dropped on read and the next save made the drop permanent.
 
-**Differs from expenses.** Expenses keep unknown keys only on the remote read (`keepUnknownKeys`) and strip them locally for the zero-egress rule (D-159). Journal and photo local storage goes through `core/journal/storage.ts` and `core/photos/storage.ts`, which this change doesn't touch, so retention is unconditional in the model instead of an option.
+**Same shape as expenses.** The local journal path stays a strict allowlist (D-159, D-374): a backup restore or a legacy slot carrying a photo ref cannot reach Firestore, and text and highlight keep their length caps. Unknown keys are read only from the server row inside the push transaction, and never the declared fields, so clearing a mood or highlight still sticks. A tombstone, or a push over one, carries nothing. The local slot never holds the unknown keys; the server row is where they live. Photo rows are device-local, so that half keeps unknown owner kinds and keys in the model.
 
 **Not done.** The outbox slot version is a separate change. Unknown keys have no size cap beyond Firestore's document limit.

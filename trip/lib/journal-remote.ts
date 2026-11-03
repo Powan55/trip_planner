@@ -76,8 +76,8 @@ const readRows = (data: unknown) => stampedMap<Row>((data as { entries?: unknown
 function rowFor(date: string, hlc: string): Row {
   const e = getEntry(loadJournal(), date);
   if (!e) return { hlc, deletedAt: readMeta()[date]?.deletedAt ?? realClock.now().toISOString() };
-  const { date: _date, ...rest } = e;
-  const row: Row = { ...rest, hlc, text: e.text.slice(0, JOURNAL_TEXT_MAX) };
+  const row: Row = { hlc, text: e.text.slice(0, JOURNAL_TEXT_MAX), createdAt: e.createdAt, updatedAt: e.updatedAt };
+  if (e.mood) row.mood = e.mood;
   if (e.highlight) row.highlight = e.highlight.slice(0, HIGHLIGHT_MAX);
   return row;
 }
@@ -87,9 +87,8 @@ function rowToEntry(date: string, row: Row, local: JournalEntry | undefined): Jo
   const text = typeof row.text === 'string' ? row.text.slice(0, JOURNAL_TEXT_MAX) : '';
   // A capped copy of a longer local entry (our own push, echoed back) keeps the full local text.
   const capped = text.length === JOURNAL_TEXT_MAX && !!local && local.text.length > text.length && local.text.startsWith(text);
-  const { hlc: _hlc, ...fields } = row;
   return sanitizeEntry({
-    ...fields,
+    ...row,
     date,
     text: capped ? local!.text : text,
     highlight: typeof row.highlight === 'string' ? row.highlight.slice(0, HIGHLIGHT_MAX) : undefined,
@@ -162,7 +161,11 @@ async function push(t: Target, date: string, explicit: boolean): Promise<void> {
       if (!sameTarget(t) || readMeta()[date]?.hlc !== sent) return null;
       const remote = snap.exists() ? readRows(snap.data())[date] : undefined;
       if (!explicit && remote && newer(remote.hlc, sent)) return { row: remote, ours: false };
-      const next = { ...local, hlc: explicit ? stamp(remote && newer(remote.hlc, sent) ? remote.hlc : sent) : sent };
+      // Keys a newer build wrote on the server ride along (#986); declared fields never come from it.
+      const { hlc: _h, deletedAt: _d, text: _t, mood: _m, highlight: _hl, createdAt: _c, updatedAt: _u, ...extra } =
+        remote ?? ({} as Row);
+      const carry = local.deletedAt === undefined && remote?.deletedAt === undefined ? extra : {};
+      const next = { ...carry, ...local, hlc: explicit ? stamp(remote && newer(remote.hlc, sent) ? remote.hlc : sent) : sent };
       if (snap.exists()) tx.update(ref, { [`entries.${date}`]: next });
       else tx.set(ref, { entries: { [date]: next } });
       return { row: next, ours: true };
