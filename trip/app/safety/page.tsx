@@ -8,6 +8,7 @@
 import PageHeader from '@/components/page-header';
 import DefaultTripOnly from '@/components/default-trip-only';
 import PrintButton from '@/components/print-button';
+import GuideCards from '@/components/guide-cards';
 import { SafetyKit } from './sections';
 
 export const metadata = {
@@ -39,6 +40,7 @@ export default function SafetyPage() {
         <div className="mx-auto flex w-full max-w-4xl justify-end px-gut pb-4 print:hidden">
           <PrintButton label="Print safety sheet" />
         </div>
+        <GuideCards id="safety-setup" />
         <SafetyKit />
       </DefaultTripOnly>
     </main>

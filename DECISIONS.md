@@ -6283,6 +6283,13 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
 
+### D-720 · (issues #982, #978, 2026-11-02) · A refused outbox write is kept in memory
+
+**Decision.** When the outbox slot write is refused (full quota), `core/sync/outbox.ts` keeps the slot it tried to write in a per-tab map and merges it into every slot read. `outboxDirty`, the flush, the badge and the first-snapshot merge in every domain see the chunk for the rest of the page load, and the next slot write that lands carries it to disk. A slot whose `version` is a number above 1 is never overwritten or removed; edits made under it go to the same in-memory map. `markOutboxDirty` is gone; its last caller left with #728.
+
+**Why.** The enqueue ignored `writeJson`'s result, so the vault held the edit with no write-ahead record, and the first snapshot after a resubscribe applied over it. A newer build's slot was rewritten as v1, dropping its dirty set.
+
+**Not done.** The memory copy does not survive a reload, so an edit that never reached the server or the disk is still lost then. Rolling back the vault write instead would need the reactive store to see the push's enqueue result.
 ### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
 
 **Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
@@ -6300,6 +6307,14 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Image filenames are not content-hashed, so a re-encode or credit fix at the same path never reached returning devices; overlapping trims worked from stale key snapshots.
 
 **Not done.** Hashed filenames. The precache-first order for hero rasters is unchanged.
+
+### D-770 · (issue #970, 2026-11-03) · Config-less trips hide their placeholder dates; create picks a local currency
+
+**Decision.** A trip with no config still resolves to the one-day 2099-12-31 placeholder (D-342), but nothing shows that date. `TRIP_DATES_PENDING` turns the date label into "Trip details not loaded yet", the hero drops its countdown, the live stat cell reads "Dates not set", the gate countdown shows the label, and Travel Mode skips its pre-trip Day 1 default. The create form gets a local currency picker limited to `CURRENCIES` (USD, NPR, JPY), written to the existing optional `config.currency`.
+
+**Why.** Those three are the only currencies the budget has rates for (`rates.{NPR,JPY}`). Another currency needs new synced rate fields and a wider `CurrencyCode`, so it is a separate change.
+
+**Not done.** More currencies, and per-day cities for multi-destination trips: every day still uses `destinations[0]`.
 
 ### D-741 · (issue #980, 2026-11-02) · The worker no longer caches the Frankfurter rate
 

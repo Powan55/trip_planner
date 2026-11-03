@@ -16,7 +16,7 @@
 // - `?date=` absent + pre-trip (`now` < trip start) → Day 1 default + `daysUntilStart`.
 // - `?date=` absent + off-trip and NOT pre-trip (post-trip) → `date: null`, not an error; the
 // caller falls back to the existing off-trip UI.
-import { TRIP_DATES, TRIP_START } from '@/core/dates';
+import { TRIP_DATES, TRIP_DATES_PENDING, TRIP_START } from '@/core/dates';
 import { daysToGo } from '@/lib/home-stats';
 
 export interface TravelDateResolution {
@@ -65,7 +65,7 @@ export function resolveTravelDate(opts: {
     return { date: todayDate, ...NOT_PREVIEW, outOfRange: false };
   }
 
-  if (now.getTime() < TRIP_START.getTime()) {
+  if (!TRIP_DATES_PENDING && now.getTime() < TRIP_START.getTime()) {
     return {
       date: TRIP_DATES[0],
       ...NOT_PREVIEW,

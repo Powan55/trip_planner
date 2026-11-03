@@ -39,7 +39,7 @@ import {
   setDefaultTripShareId,
   wasTripCreatedHere,
 } from '@/core/storage/gateway';
-import { markOutboxDirty, outboxDirty } from '@/core/sync/outbox';
+import { outboxDirty } from '@/core/sync/outbox';
 
 let reloads = 0;
 const realLocation = window.location;
@@ -78,7 +78,7 @@ const fillPack = () => {
   put('docsChecklist', []);
   put('myPlaces', []);
   put('expenses', [{ id: 'e1', leg: 'japan', category: 'food', amount: 1, createdAt: '2026-12-01T00:00:00Z' }]);
-  markOutboxDirty('itinerary', ['2026-12-10']);
+  put('syncOutbox', { version: 1, dirty: { itinerary: ['2026-12-10'] } });
 };
 const SLOTS = ['itinerary', 'budget', 'docsChecklist', 'myPlaces', 'expenses'] as const;
 const DOMAINS = ['itinerary', 'budget', 'docs', 'places', 'expenses'] as const;

@@ -406,3 +406,19 @@ describe('the marker vocabulary is self-consistent with the seed', () => {
     expect(bad, `the place-type strip left a hole mid-alias — these can never match:\n${bad.join('\n')}`).toEqual([]);
   });
 });
+
+describe('named stops that used to fall back to an area pin', () => {
+  const cases: Array<[string, string]> = [
+    ['Universal Studios Japan — Super Nintendo World', 'jp-usj'],
+    ['Umeda Sky Building Floating Garden Observatory', 'jp-umeda-sky'],
+    ['Shinsekai & Spa World flex day', 'jp-spa-world'],
+    ['Den Den Town / Nipponbashi anime shopping', 'jp-den-den-town'],
+    ['Ikebukuro & Sunshine City anime day', 'jp-sunshine-city'],
+    ['Patan Museum', 'np-patan-museum'],
+    ['Godavari Botanical Garden', 'np-godavari-botanical'],
+    ['Casino Royale', 'np-casino-royale'],
+  ];
+  it.each(cases)('%s plots on its own marker', (title, id) => {
+    expect(matchMarker({ id: 'x', title, category: 'sightseeing' })?.id).toBe(id);
+  });
+});
