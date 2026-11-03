@@ -1,5 +1,6 @@
 import PageHero from '@/components/page-hero';
 import DefaultTripOnly from '@/components/default-trip-only';
+import GuideCards from '@/components/guide-cards';
 
 // NEPAL: recommendations · photography (Nepal) · nightlife (Nepal)
 // · foods/etiquette/featured (Nepal). Section ids (#nepal/#photography/
@@ -38,6 +39,7 @@ export default function NepalPage() {
         <MyPlacesSection legId="nepal" />
         <PhotographyGuide country="Nepal" />
         <NightlifeSection country="Nepal" />
+        <GuideCards country="Nepal" id="nepal-setup" />
         <CountryEssentials country="Nepal" />
       </DefaultTripOnly>
     </main>

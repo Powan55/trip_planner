@@ -1,5 +1,6 @@
 import PageHero from '@/components/page-hero';
 import DefaultTripOnly from '@/components/default-trip-only';
+import GuideCards from '@/components/guide-cards';
 
 // JAPAN: mirror of /nepal/ with country="Japan". Section ids
 // (#japan/#photography/#nightlife/#essentials) are kept for sub-anchors + the
@@ -37,6 +38,7 @@ export default function JapanPage() {
         <MyPlacesSection legId="japan" />
         <PhotographyGuide country="Japan" />
         <NightlifeSection country="Japan" />
+        <GuideCards country="Japan" id="japan-setup" />
         <CountryEssentials country="Japan" />
       </DefaultTripOnly>
     </main>
