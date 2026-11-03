@@ -6306,6 +6306,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The enqueue ignored `writeJson`'s result, so the vault held the edit with no write-ahead record, and the first snapshot after a resubscribe applied over it. A newer build's slot was rewritten as v1, dropping its dirty set.
 
 **Not done.** The memory copy does not survive a reload, so an edit that never reached the server or the disk is still lost then. Rolling back the vault write instead would need the reactive store to see the push's enqueue result.
+
 ### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
 
 **Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
