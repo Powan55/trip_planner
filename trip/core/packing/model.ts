@@ -42,7 +42,7 @@ export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   { id: 'universal-passport-copies', label: 'Passport + printed/digital copies', category: 'universal', checked: false },
   { id: 'universal-travel-insurance', label: 'Travel insurance documents', category: 'universal', checked: false },
   { id: 'universal-phone-charger', label: 'Phone charger + cable', category: 'universal', checked: false },
-  { id: 'universal-power-adapter', label: 'Universal power adapter', category: 'universal', checked: false },
+  { id: 'universal-power-adapter', label: 'Plug adapters — Nepal 230 V type C/D/M, Japan 100 V type A/B', category: 'universal', checked: false },
   { id: 'universal-water-bottle', label: 'Reusable water bottle', category: 'universal', checked: false },
   { id: 'universal-first-aid', label: 'First-aid kit + basic medications', category: 'universal', checked: false },
   { id: 'universal-sunglasses', label: 'Sunglasses', category: 'universal', checked: false },
