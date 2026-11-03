@@ -319,7 +319,7 @@ export default function TripsHub() {
       .map((d) => d.trim())
       .filter((d) => d.length > 0);
     if (destinations.length === 0) {
-      setCreateError('Add at least one destination — it names the place each day is spent in.');
+      setCreateError('Add at least one destination.');
       return;
     }
     setCreateError(null);
@@ -693,8 +693,12 @@ export default function TripsHub() {
                 placeholder="e.g. Kochi, Munnar, Alleppey"
                 required
                 autoComplete="off"
+                aria-describedby="trips-hub-create-destinations-hint"
                 className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
+              <p id="trips-hub-create-destinations-hint" className="text-t-sm text-ink-lo">
+                The first destination is used as every day&rsquo;s city.
+              </p>
             </div>
 
             <div className="flex flex-col gap-1">

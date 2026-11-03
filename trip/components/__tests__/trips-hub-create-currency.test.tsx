@@ -79,3 +79,12 @@ describe('trips hub create: local currency (#970)', () => {
     expect(created()?.config?.currency).toBe('NPR');
   });
 });
+
+describe('trips hub create: destinations hint (#970)', () => {
+  it('ties the single-city hint to the destinations input', async () => {
+    await createTrip();
+    const input = at<HTMLInputElement>('trips-hub-create-destinations');
+    const hint = document.getElementById(input.getAttribute('aria-describedby')!);
+    expect(hint?.textContent).toBe('The first destination is used as every day’s city.');
+  });
+});
