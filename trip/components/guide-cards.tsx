@@ -40,6 +40,23 @@ export default function GuideCards({
                   ))}
                 </dl>
               )}
+              {card.links && (
+                <ul className="mt-2 flex flex-wrap gap-x-4" aria-label={`${card.title}: official links`}>
+                  {card.links.map((l) => (
+                    <li key={l.href}>
+                      <a
+                        href={l.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-tap items-center rounded-r1 text-t-sm text-[color:hsl(var(--accent))] underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {l.label}
+                        <span className="sr-only"> (opens in a new tab)</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </span>
           </li>
         ))}
