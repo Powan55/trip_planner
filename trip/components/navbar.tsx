@@ -212,7 +212,7 @@ export default function Navbar() {
                     data-testid={`navbar-link-${item.label.toLowerCase()}`}
                     aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
-                    className={`relative flex min-h-tap items-center gap-1.5 rounded-r1 px-2 py-2 lg:px-3 font-sans text-t-sm font-semibold transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    className={`relative flex min-h-tap items-center gap-1.5 rounded-r1 px-2 py-2 xl:px-3 font-sans text-t-sm font-semibold transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive
                         ? 'text-[color:var(--text-hi)]'
                         : 'text-[color:var(--text-lo)] hover:text-[color:var(--text-hi)] hover:bg-white/5'
@@ -249,7 +249,7 @@ export default function Navbar() {
                     onClick={() => setMoreOpen((v) => !v)}
                     aria-expanded={moreOpen}
                     aria-controls="navbar-more-menu"
-                    className="flex min-h-tap items-center gap-1 rounded-r1 px-2 py-2 lg:px-3 font-sans text-t-sm font-semibold text-[color:var(--text-lo)] transition-colors duration-200 outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="flex min-h-tap items-center gap-1 rounded-r1 px-2 py-2 xl:px-3 font-sans text-t-sm font-semibold text-[color:var(--text-lo)] transition-colors duration-200 outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     More
                     <ChevronDown
