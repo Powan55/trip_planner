@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
 import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
+import { TRIP_DATES_PENDING } from '@/core/dates';
 import { dayShade } from '@/lib/city-palette';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
 import { daysToGo } from '@/lib/home-stats';
 import { getNow, getTodayInTrip, getTripDayDate, type TripToday } from '@/lib/trip-now';
-import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
+import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN, HERO_SIZES } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
 import { isPostTrip } from '@/core/recap/model';
 import { getKnownTrip } from '@/core/trips/registry';
@@ -389,7 +390,7 @@ export default function HeroSection() {
               alt=""
               fill
               priority
-              sizes="100vw"
+              sizes={HERO_SIZES}
               className="object-cover"
               onError={() => setHeroImgError(true)}
             />
@@ -649,7 +650,7 @@ export default function HeroSection() {
               <p className="pr pr--l pr--lo">{TRIP_DATE_LABEL}</p>
             </div>
           </m.div>
-        ) : (
+        ) : TRIP_DATES_PENDING ? null : (
           <m.div
             variants={reveal}
             className="mb-2 min-[420px]:mb-10"

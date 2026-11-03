@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { TRIP_DATE_LABEL, formatDateLong, getCountryForDate } from '@/core/dates';
+import { TRIP_DATE_LABEL, TRIP_DATES_PENDING, formatDateLong, getCountryForDate } from '@/core/dates';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import { resolveTravelDate } from '@/lib/travel-date';
@@ -150,7 +150,9 @@ export default function TravelDatePicker() {
           </h2>
         </div>
         <p className="empty px-gut py-3">
-          The trip runs {TRIP_DATE_LABEL}. Nothing is filed outside it.
+          {TRIP_DATES_PENDING
+            ? `${TRIP_DATE_LABEL}.`
+            : `The trip runs ${TRIP_DATE_LABEL}. Nothing is filed outside it.`}
         </p>
         <div className="px-gut pb-3">
           <button
