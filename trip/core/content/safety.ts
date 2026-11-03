@@ -183,6 +183,50 @@ const rawHazardNotes: HazardNote[] = [
 
 export const HAZARD_NOTES = z.array(hazardNoteSchema).parse(rawHazardNotes);
 
+// ── Set-up-before-you-fly guide cards ───────────────────────────────────────────────────────
+// No prices, validity periods or supported-model lists on purpose: they change and sources
+// disagree, so the cards name the official provider and send the traveler to its own page.
+
+export const guideCardSchema = z
+  .object({
+    id: z.string().min(1),
+    country: z.enum(['Nepal', 'Japan']),
+    title: z.string().min(1),
+    body: z.string().min(1),
+    options: z.array(z.object({ label: z.string().min(1), text: z.string().min(1) }).strict()).optional(),
+  })
+  .strict();
+
+export type GuideCard = z.infer<typeof guideCardSchema>;
+
+const rawGuideCards: GuideCard[] = [
+  {
+    id: 'np-sim',
+    country: 'Nepal',
+    title: 'Phone data in Nepal',
+    body: "A tourist SIM is sold at the airport and needs your original passport. eSIMs are sold online. Prices change, so check the carrier's own page rather than trusting a figure.",
+  },
+  {
+    id: 'jp-safety-tips',
+    country: 'Japan',
+    title: 'Japan Safety Tips app',
+    body: 'A free app that pushes earthquake early warnings, tsunami and volcano alerts in several languages. It works in Japan only, so install it before you fly.',
+  },
+  {
+    id: 'jp-ic-card',
+    country: 'Japan',
+    title: 'Suica or PASMO: which phone?',
+    body: "IC cards are the easiest way to pay for daily transit. What works depends on your phone. Validity periods and supported iPhone models differ between sources, so check Apple's and JR East's own pages for your model.",
+    options: [
+      { label: 'iPhone', text: "Add Suica or PASMO to Apple Wallet, or use JR East's Welcome Suica app." },
+      { label: 'Android', text: "Most Android phones sold outside Japan can't use mobile Suica. Get a physical card instead." },
+      { label: 'Not sure', text: "If you can't confirm your phone supports it, a physical card is the safe choice." },
+    ],
+  },
+];
+
+export const GUIDE_CARDS = z.array(guideCardSchema).parse(rawGuideCards);
+
 // ── Phrasebook (Nepali + Japanese: native script AND romanization) ─────────────────────────
 //
 // #2 added the NATIVE SCRIPT to every row. Two fields per language, both required:
