@@ -1,6 +1,8 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import PhraseCard from '@/components/phrase-card';
 import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
 import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core/content/safety';
 import { useWakeLock } from '@/lib/use-wake-lock';
@@ -26,6 +28,15 @@ export default function TravelSafetyKit() {
   // Always-on while this page is mounted, same as TravelEssentialsCard — feature-detected,
   // visibility-aware, releases on unmount, never throws (see lib/use-wake-lock.ts).
   useWakeLock(true);
+
+  const [card, setCard] = useState<{ phrase: Phrase; lang: 'ne' | 'ja' } | null>(null);
+  const [cardOpen, setCardOpen] = useState(false);
+  const cardTriggerRef = useRef<HTMLElement | null>(null);
+  const showCard = (phrase: Phrase, lang: 'ne' | 'ja', trigger: HTMLElement) => {
+    cardTriggerRef.current = trigger;
+    setCard({ phrase, lang });
+    setCardOpen(true);
+  };
 
   // Country the trip clock is in goes first; no match (before/after trip, custom 'main' leg) → Nepal first.
   const order: Array<'Nepal' | 'Japan'> = (getTodayInTrip()?.country.toLowerCase() === 'japan' ? ['Japan', 'Nepal'] : ['Nepal', 'Japan']);
@@ -150,7 +161,7 @@ export default function TravelSafetyKit() {
                   </thead>
                   <tbody>
                     {phrases.map((p) => (
-                      <PhraseRow key={p.id} phrase={p} />
+                      <PhraseRow key={p.id} phrase={p} onShow={showCard} />
                     ))}
                   </tbody>
                 </table>
@@ -192,6 +203,14 @@ export default function TravelSafetyKit() {
           ))}
         </div>
       </section>
+
+      <PhraseCard
+        open={cardOpen}
+        phrase={card?.phrase ?? null}
+        lang={card?.lang ?? 'ne'}
+        onClose={() => setCardOpen(false)}
+        onExitComplete={() => cardTriggerRef.current?.focus?.()}
+      />
     </div>
   );
 }
@@ -249,12 +268,14 @@ function HazardRow({ note }: { note: HazardNote }) {
   );
 }
 
-function PhraseRow({ phrase }: { phrase: Phrase }) {
+type ShowCard = (phrase: Phrase, lang: 'ne' | 'ja', trigger: HTMLElement) => void;
+
+function PhraseRow({ phrase, onShow }: { phrase: Phrase; onShow: ShowCard }) {
   return (
     <tr data-testid={`safety-phrase-${phrase.id}`} className="border-b-hair border-border last:border-0">
       <td className="px-2 py-2 align-top text-t-body text-ink-hi sm:px-gut">{phrase.english}</td>
-      <ScriptCell lang="ne" script={phrase.nepaliScript} roman={phrase.nepali} />
-      <ScriptCell lang="ja" script={phrase.japaneseScript} roman={phrase.japanese} />
+      <ScriptCell lang="ne" script={phrase.nepaliScript} roman={phrase.nepali} label={`Show "${phrase.english}" in Nepali full screen`} onShow={(el) => onShow(phrase, 'ne', el)} />
+      <ScriptCell lang="ja" script={phrase.japaneseScript} roman={phrase.japanese} label={`Show "${phrase.english}" in Japanese full screen`} onShow={(el) => onShow(phrase, 'ja', el)} />
     </tr>
   );
 }
@@ -272,13 +293,20 @@ function PhraseRow({ phrase }: { phrase: Phrase }) {
  * Both lines sit on the solid text tiers on the dark field, so both clear AA at rest
  * (issue #27 replaced the old `white/70` alpha; --text-mid is 8.85:1 at its worst step).
  */
-function ScriptCell({ lang, script, roman }: { lang: 'ne' | 'ja'; script: string; roman: string }) {
+function ScriptCell({ lang, script, roman, label, onShow }: { lang: 'ne' | 'ja'; script: string; roman: string; label: string; onShow: (trigger: HTMLElement) => void }) {
   return (
     <td className="px-2 py-2 align-top sm:px-gut">
-      <span lang={lang} className="block text-t-lead leading-snug text-ink-hi">
-        {script}
-      </span>
-      <span className="mt-0.5 block text-t-sm text-ink-mid">{roman}</span>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={(e) => onShow(e.currentTarget)}
+        className="-mx-1 block min-h-[44px] w-full rounded-r1 px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span lang={lang} className="block text-t-lead leading-snug text-ink-hi">
+          {script}
+        </span>
+        <span className="mt-0.5 block text-t-sm text-ink-mid">{roman}</span>
+      </button>
     </td>
   );
 }
