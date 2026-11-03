@@ -58,4 +58,34 @@ describe('IceCard', () => {
     await click(q('[data-testid="ice-clear"]'));
     expect(localStorage.getItem(STORAGE_KEYS.ice)).toBeNull();
   });
+
+  it('announces the first delete tap and disarms on blur', async () => {
+    localStorage.setItem(STORAGE_KEYS.ice, JSON.stringify({ bloodType: 'O neg' }));
+    await act(async () => root.render(createElement('div')));
+    await act(async () => root.render(createElement(IceCard)));
+    await click(q('[data-testid="ice-edit"]'));
+    const status = q('[data-testid="ice-clear-status"]')!;
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.textContent).toBe('');
+
+    const del = q<HTMLButtonElement>('[data-testid="ice-clear"]')!;
+    await click(del);
+    expect(status.textContent).toBe('Tap again to delete the card');
+
+    await act(async () => {
+      del.focus();
+      del.blur();
+    });
+    expect(status.textContent).toBe('');
+    expect(del.textContent).toBe('Delete card');
+  });
+
+  it('renders a phone value without digits as plain text, not a dead tel link', async () => {
+    localStorage.setItem(STORAGE_KEYS.ice, JSON.stringify({ contactPhone: 'ask the hotel', insurancePhone: '555-0100' }));
+    await act(async () => root.render(createElement('div')));
+    await act(async () => root.render(createElement(IceCard)));
+    const links = [...document.querySelectorAll('[data-testid="ice-view"] a')];
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['tel:5550100']);
+    expect(q('[data-testid="ice-view"]')!.textContent).toContain('ask the hotel');
+  });
 });

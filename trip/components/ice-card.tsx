@@ -91,7 +91,7 @@ export default function IceCard() {
               <div key={f.key}>
                 <dt className="pr pr--lo">{f.label}</dt>
                 <dd className="mt-1 whitespace-pre-line break-words text-2xl font-semibold leading-snug text-ink-hi">
-                  {'tel' in f ? (
+                  {'tel' in f && /\d/.test(value) ? (
                     <a href={telHref(value)} className="underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       {value}
                     </a>
@@ -177,6 +177,7 @@ export default function IceCard() {
               <button
                 type="button"
                 onClick={onClear}
+                onBlur={() => setConfirmClear(false)}
                 data-testid="ice-clear"
                 className="btn btn--2 w-full max-w-none min-h-tap px-4"
               >
@@ -184,6 +185,9 @@ export default function IceCard() {
                 {confirmClear ? 'Tap again to delete the card' : 'Delete card'}
               </button>
             )}
+            <span role="status" className="sr-only" data-testid="ice-clear-status">
+              {confirmClear ? 'Tap again to delete the card' : ''}
+            </span>
           </div>
         </form>
       </Sheet>

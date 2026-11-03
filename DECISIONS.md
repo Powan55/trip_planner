@@ -6350,3 +6350,5 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Medical and contact details are the one kind of data where a sync leak or a backup file left in a shared inbox does harm that an app cannot undo. The issue's optional "include in backup" toggle is not built: the card is small enough to retype, and a toggle is a way to put it in a file by accident.
 
 **Changes if:** the owner wants the card to follow a person across trips or devices, which needs an account-scoped slot and a decision on where it may be stored.
+
+**Known gap.** `readJson` accepts arrays for object fallbacks (follow-up issue).
