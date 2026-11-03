@@ -288,7 +288,21 @@ describe('activate: the cache sweep is scoped to this app', () => {
     // Current set survives.
     expect(deleted).not.toContain(PRECACHE);
     expect(deleted).not.toContain(IMAGES_CACHE);
-    expect(deleted).not.toContain(FRANKFURTER_CACHE);
+    // Retired with the Frankfurter handler (#980): a returning client drops it.
+    expect(deleted).toContain(FRANKFURTER_CACHE);
+  });
+});
+
+describe('fx rate: the worker leaves api.frankfurter.dev to the page (#980)', () => {
+  // A cached 200 reads as a fresh fetch to fetchCurrencyRate; passing through lets a
+  // dead network reject so the client's localStorage fallback marks the rate stale.
+  const fx = () => makeRequest('https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY');
+
+  it('passes the request through even with a cached copy present', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {}, [FRANKFURTER_CACHE]: { [fx().url]: 'OLD_RATE' } });
+    const handlers = instantiate(caches, async () => new FakeResponse('NEW_RATE'));
+    expect(await runFetch(handlers, fx())).toBeUndefined();
+    expect(put).toEqual([]);
   });
 });
 

@@ -318,6 +318,7 @@ export default function PassportStamps() {
                     alt=""
                     width={54}
                     height={40}
+                    sizes="54px"
                     className="h-full w-full object-cover"
                   />
                 </span>

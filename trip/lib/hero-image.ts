@@ -12,7 +12,9 @@
 
 /** Default hero — the Himalaya peak. Nepal leg, plus every day outside the trip window. */
 export const HERO_DEFAULT = '/images/hero/hero.jpg';
-/** Japan leg hero — the Shinjuku skyline with Fuji behind it. */
+/** Hero `sizes`; 85vw keeps a 3x phone on the 1024w file instead of jumping to 1920w. The preload must match. */
+export const HERO_SIZES = '(max-width: 640px) 85vw, 100vw';
+/** Japan leg hero— the Shinjuku skyline with Fuji behind it. */
 export const HERO_JAPAN = '/images/hero/hero-japan.jpg';
 
 /**
