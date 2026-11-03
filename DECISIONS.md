@@ -6285,7 +6285,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Why.** These slots have no remote copy, so the save after a failed read overwrote the only one.
 
-**Not done.** No UI reads the rescue slot; recovery is by hand. Day anchors and the concierge thread are not covered.
+**Not done.** No UI reads the rescue slot; recovery is by hand. Day anchors and the concierge thread are not covered. A second corruption of a slot already rescued once is not covered (write-once), and the copy can push the next save over quota on a nearly full disk. (#1025) A slot that parses but whose entries the domain sanitizer drops entirely is now rescued too: the six `get` calls take the sanitizer and the gateway copies when stored content sanitizes to nothing.
 
 ### D-726 · (issue #983, 2026-11-02) · Another device's forget keeps this device's own data
 
