@@ -5,7 +5,14 @@ import Link from 'next/link';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import { useTripDay, isAfterTrip } from '@/hooks/use-trip-day';
-import { offsetForCountry, getCountryForDate, getCityForDate, TRIP_DATES } from '@/core/dates';
+import {
+  offsetForCountry,
+  getCountryForDate,
+  getCityForDate,
+  TRIP_DATES,
+  TRIP_DATE_LABEL,
+  TRIP_DATES_PENDING,
+} from '@/core/dates';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { describeItemTime } from '@/lib/item-time-display';
 import { deriveTravelHero, type TravelHeroState } from '@/lib/travel-hero';
@@ -82,7 +89,9 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
         <p className="empty px-gut py-3" data-testid="travel-hero-offtrip">
           {postTrip
             ? 'Travel Mode is done for this trip. Your plan and journal are still in the planner.'
-            : 'Travel Mode lights up during your trip (Dec 9 \u2013 Jan 9).'}
+            : TRIP_DATES_PENDING
+              ? `${TRIP_DATE_LABEL}.`
+              : `Travel Mode lights up during your trip (${TRIP_DATE_LABEL}).`}
         </p>
       </section>
     );

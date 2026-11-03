@@ -10,7 +10,7 @@ import {
   TRIP_DAYS_MAX,
   type TripConfigBlock,
 } from '@/core/trips/registry';
-import { customTripConfig, buildDayShells, VIBES, vibeFor, DEFAULT_VIBE } from '@/core/trips/custom';
+import { customTripConfig, buildDayShells, isPlaceholderSpan, VIBES, vibeFor, DEFAULT_VIBE } from '@/core/trips/custom';
 import { getTripConfig, isDefaultTrip, TRIP_PACKS, DEFAULT_TRIP_ID } from '@/core/trips';
 import { NEPAL_JAPAN_2026 } from '@/core/trips/packs/nepal-japan-2026';
 import { setActiveTripId } from '@/core/storage/gateway';
@@ -424,5 +424,49 @@ describe('budget LEGS derivation — default parity + custom pack (Plan D3)', ()
     expect(model.LEGS).toEqual(['main']);
     expect(model.legCurrency('main')).toBe('USD');
     expect(model.DEFAULT_BUDGET.legBudgets).toEqual({ main: 0 });
+  });
+
+  it('CUSTOM pack: the config currency becomes the leg currency (#970)', async () => {
+    setActiveTripId('custom-jpy');
+    setTripConfig('custom-jpy', { ...GOOD, currency: 'JPY' });
+    vi.resetModules();
+    const model = await import('@/core/budget/model');
+    expect(model.legCurrency('main')).toBe('JPY');
+  });
+});
+
+describe('a config-less trip never shows its 2099 placeholder (#970)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('isPlaceholderSpan is true only for the placeholder', () => {
+    expect(isPlaceholderSpan(customTripConfig({ id: 'x', name: 'X', joinedAt: 1 })!)).toBe(true);
+    expect(isPlaceholderSpan(customTripConfig({ id: 'c', name: 'C', joinedAt: 1, config: GOOD })!)).toBe(false);
+    expect(isPlaceholderSpan(NEPAL_JAPAN_2026)).toBe(false);
+  });
+
+  it('label, travel pre-trip default and stat cell read "not set", not 2099', async () => {
+    upsertKnownTrip('joined-no-config-0123456789', 'Some Trip');
+    setActiveTripId('joined-no-config-0123456789');
+    vi.resetModules();
+    const dates = await import('@/core/dates');
+    expect(dates.TRIP_DATES_PENDING).toBe(true);
+    expect(dates.TRIP_DATE_LABEL).toBe('Trip details not loaded yet');
+    const { resolveTravelDate } = await import('@/lib/travel-date');
+    const now = new Date('2026-11-03T12:00:00');
+    expect(resolveTravelDate({ dateParam: null, todayDate: null, now }).date).toBeNull();
+    const { liveCell } = await import('@/components/home-stat-row');
+    expect(liveCell(now, 1)).toEqual({ testId: 'home-stat-live', value: '—', caption: 'Dates not set' });
+  });
+
+  it('a configured trip keeps its real label', async () => {
+    setTripConfig('custom-1', GOOD);
+    setActiveTripId('custom-1');
+    vi.resetModules();
+    const dates = await import('@/core/dates');
+    expect(dates.TRIP_DATES_PENDING).toBe(false);
+    expect(dates.TRIP_DATE_LABEL).toBe('March 1, 2027 – March 5, 2027');
   });
 });
