@@ -12,6 +12,7 @@ import {
   uiPrefs,
   clockOverride,
   favoritesStore,
+  iceStore,
   journalStore,
   packingStore,
   photosStore,
@@ -193,6 +194,22 @@ describe('storage gateway (D-097)', () => {
       window.localStorage.setItem(STORAGE_KEYS.favorites, stale);
       expect(favoritesStore.get<unknown>([], onlyStrings)).toEqual([{ id: 'old-shape' }]);
       expect(window.localStorage.getItem(STORAGE_KEYS.localRescue)).toBeNull();
+    });
+
+    it('rescues a stored value whose array/object shape is the opposite of the fallback (#1031)', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      window.localStorage.setItem(STORAGE_KEYS.favorites, '{"a":1}');
+      expect(favoritesStore.get<string[]>([])).toEqual([]);
+      expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.localRescue)!)).toEqual({ favorites: '{"a":1}' });
+
+      window.localStorage.removeItem(STORAGE_KEYS.localRescue);
+      window.localStorage.setItem(STORAGE_KEYS.ice, '["x"]');
+      expect(iceStore.get<Record<string, string>>({})).toEqual({});
+      expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.localRescue)!)).toEqual({ ice: '["x"]' });
+
+      window.localStorage.setItem('k', '[1]');
+      expect(readJson<unknown>('local', 'k', null)).toEqual([1]);
     });
 
     it('weatherCache survives a slot someone else wrote as JSON null (the never-throw contract)', () => {
