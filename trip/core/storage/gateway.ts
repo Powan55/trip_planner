@@ -581,6 +581,13 @@ export const STORAGE_KEYS = {
    * and the backup leaves it out. Cleared on Save or Cancel. Shape owned by `components/journal-card.tsx`.
    */
   journalDraft: 'nepal_japan_journal_draft',
+  /**
+   * localStorage — JSON `{ [slot]: raw }`, the first unreadable copy of each device-only slot
+   * (local-rescue, key 54; D-725). TRIP-SCOPED. Written once per slot by `readDeviceOnlyJson`,
+   * never overwritten, so the next save cannot destroy the only copy. Not backed up; sign-out
+   * and forgetting the trip wipe it like the other quarantine slots.
+   */
+  localRescue: 'nepal_japan_local_rescue',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -819,7 +826,8 @@ export type TripScopedSlot =
   | 'backupPromptLeg'
   | 'conciergeChat'
   | 'journalSync'
-  | 'journalDraft';
+  | 'journalDraft'
+  | 'localRescue';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -850,6 +858,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'conciergeChat',
   'journalSync',
   'journalDraft',
+  'localRescue',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1074,19 +1083,49 @@ export function hasKey(store: Store, key: string): boolean {
  * `lib/trip-backup.ts`'s export, which must tell an absent slot from a stored one) still get the
  * raw parsed value.
  */
-export function readJson<T>(store: Store, key: string, fallback: T): T {
+export function readJson<T>(store: Store, key: string, fallback: T, onReject?: (raw: string) => void): T {
   const raw = readString(store, key);
   if (raw === null) return fallback;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
+    onReject?.(raw);
     return fallback;
   }
   if (typeof fallback === 'object' && fallback !== null && (parsed === null || typeof parsed !== 'object')) {
+    onReject?.(raw);
     return fallback;
   }
   return parsed as T;
+}
+
+type DeviceOnlySlot = 'journal' | 'packing' | 'photos' | 'shareInbox' | 'favorites';
+
+/**
+ * `readJson` for a slot no remote copy can restore (#985, D-725). Stored bytes the read refuses are
+ * copied into `localRescue` before the fallback goes back, because the caller's next save
+ * overwrites them. Write-once per slot like the itinerary quarantine; an unreadable rescue slot is
+ * left alone rather than replaced. Not capped: these slots are small, and a truncated journal
+ * would not be a copy.
+ */
+function readDeviceOnlyJson<T>(slot: DeviceOnlySlot, fallback: T): T {
+  return readJson<T>('local', keyFor(slot), fallback, (raw) => {
+    const key = keyFor('localRescue');
+    const stored = readString('local', key);
+    let kept: Record<string, unknown> = {};
+    if (stored !== null) {
+      try {
+        kept = JSON.parse(stored);
+      } catch {
+        return;
+      }
+      if (typeof kept !== 'object' || kept === null || Array.isArray(kept) || kept[slot] !== undefined) return;
+    }
+    if (writeJson('local', key, { ...kept, [slot]: raw })) {
+      console.warn('[storage] unreadable', slot, 'data preserved at', key);
+    }
+  });
 }
 
 /** `JSON.stringify` + write a slot. No-op / never-throw exactly like `writeString`. */
@@ -1286,7 +1325,7 @@ export const expensesStore = {
  */
 export const journalStore = {
   get<T>(fallback: T): T {
-    return readJson<T>('local', keyFor('journal'), fallback);
+    return readDeviceOnlyJson<T>('journal', fallback);
   },
   set<T>(entries: T): boolean {
     return writeJson('local', keyFor('journal'), entries);
@@ -1445,7 +1484,7 @@ export const celebrationLedger = {
  */
 export const favoritesStore = {
   get<T>(fallback: T): T {
-    return readJson<T>('local', keyFor('favorites'), fallback);
+    return readDeviceOnlyJson<T>('favorites', fallback);
   },
   set<T>(ids: T): boolean {
     return writeJson('local', keyFor('favorites'), ids);
@@ -1465,7 +1504,7 @@ export const favoritesStore = {
  */
 export const photosStore = {
   get<T>(fallback: T): T {
-    return readJson<T>('local', keyFor('photos'), fallback);
+    return readDeviceOnlyJson<T>('photos', fallback);
   },
   set<T>(metas: T): boolean {
     return writeJson('local', keyFor('photos'), metas);
@@ -1538,7 +1577,7 @@ export const mapWakeLockPrefs = {
  */
 export const packingStore = {
   get<T>(fallback: T): T {
-    return readJson<T>('local', keyFor('packing'), fallback);
+    return readDeviceOnlyJson<T>('packing', fallback);
   },
   set<T>(items: T): boolean {
     return writeJson('local', keyFor('packing'), items);
@@ -1579,7 +1618,7 @@ export const dayAnchorStore = {
  */
 export const shareInboxStore = {
   get<T>(fallback: T): T {
-    return readJson<T>('local', keyFor('shareInbox'), fallback);
+    return readDeviceOnlyJson<T>('shareInbox', fallback);
   },
   set<T>(items: T): boolean {
     return writeJson('local', keyFor('shareInbox'), items);

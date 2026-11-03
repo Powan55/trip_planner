@@ -6282,3 +6282,19 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** A dismissed toast never returned, and a crashed root layout took the registrar (the only `SKIP_WAITING` sender) with it, so Reload kept serving the same cached shell.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
+
+### D-725 · (issue #985, 2026-11-02) · Unreadable device-only data is copied before the next save
+
+**Decision.** The journal, packing, photo index, share inbox and favorites stores read through `readDeviceOnlyJson` in the gateway. When the stored bytes fail to parse, or parse to a scalar the store refuses, the raw string is copied into the new trip-scoped slot `localRescue` (key 54: `nepal_japan_local_rescue` on the default pack, `trip:{id}:localRescue` on a custom trip) as `{ [slot]: raw }` before the fallback is returned. Write-once per slot, like the itinerary quarantine; a rescue slot that is itself unreadable is left alone. Not capped, unlike the itinerary's 4096 chars, because a truncated journal is not a copy. Not in the backup; sign-out and a local forget wipe it.
+
+**Why.** These slots have no remote copy, so the save after a failed read overwrote the only one.
+
+**Not done.** No UI reads the rescue slot; recovery is by hand. Day anchors and the concierge thread are not covered.
+
+### D-726 · (issue #983, 2026-11-02) · Another device's forget keeps this device's own data
+
+**Decision.** `importRemoteTrips` still drops the row, but skips the #518 wipe when `hasDeviceOnlyData(id)` is true: a non-empty packing list, share inbox, favorites, day anchors, concierge thread, journal draft, either quarantine slot or `localRescue`, or any journal entry without a sync stamp (an unreadable journal counts). Empty `[]`/`{}` slots do not count. A local forget still wipes everything.
+
+**Why.** Dropping only the row would bring back #518 for trips that hold nothing but synced data. Extending the #843 guard keeps the wipe for those and keeps anything no remote can restore.
+
+**Not done.** The kept data has no row, so it is reachable only by re-joining the trip; sign-out clears it.
