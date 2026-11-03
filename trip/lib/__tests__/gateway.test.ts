@@ -169,6 +169,32 @@ describe('storage gateway (D-097)', () => {
       expect(window.localStorage.getItem('trip:trip-x:localRescue')).toBe('mangled');
     });
 
+    it('rescues a slot that parses but sanitizes to nothing, and survives a refused rescue write (#1025)', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const onlyStrings = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+      const stale = '[{"id":"old-shape"}]';
+
+      window.localStorage.setItem(STORAGE_KEYS.favorites, stale);
+      expect(favoritesStore.get<unknown>([], onlyStrings)).toEqual([{ id: 'old-shape' }]);
+      expect(JSON.parse(window.localStorage.getItem(STORAGE_KEYS.localRescue)!)).toEqual({ favorites: stale });
+
+      window.localStorage.removeItem(STORAGE_KEYS.localRescue);
+      window.localStorage.setItem(STORAGE_KEYS.favorites, '["a"]');
+      favoritesStore.get<unknown>([], onlyStrings);
+      window.localStorage.setItem(STORAGE_KEYS.favorites, '[]');
+      favoritesStore.get<unknown>([], onlyStrings);
+      expect(window.localStorage.getItem(STORAGE_KEYS.localRescue)).toBeNull();
+
+      const real = Storage.prototype.setItem;
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+        if (k === STORAGE_KEYS.localRescue) throw new DOMException('full', 'QuotaExceededError');
+        return real.call(this, k, v);
+      });
+      window.localStorage.setItem(STORAGE_KEYS.favorites, stale);
+      expect(favoritesStore.get<unknown>([], onlyStrings)).toEqual([{ id: 'old-shape' }]);
+      expect(window.localStorage.getItem(STORAGE_KEYS.localRescue)).toBeNull();
+    });
+
     it('weatherCache survives a slot someone else wrote as JSON null (the never-throw contract)', () => {
       window.localStorage.setItem(STORAGE_KEYS.weatherCache, 'null');
       expect(() => weatherCache.get('Kathmandu')).not.toThrow();

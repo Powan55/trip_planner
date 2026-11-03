@@ -17,7 +17,7 @@ import { sanitizeEntries, type JournalEntry } from '@/core/journal/model';
 
 /** Load + sanitize the persisted journal list (empty list when absent / SSR / corrupt). */
 export function loadJournal(): JournalEntry[] {
-  const raw = journalStore.get<unknown>([]);
+  const raw = journalStore.get<unknown>([], sanitizeEntries);
   return sanitizeEntries(raw);
 }
 

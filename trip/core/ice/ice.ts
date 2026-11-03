@@ -27,7 +27,7 @@ export function sanitizeIce(raw: unknown): IceCard {
 }
 
 export function loadIce(): IceCard {
-  return sanitizeIce(iceStore.get<unknown>({}));
+  return sanitizeIce(iceStore.get<unknown>({}, sanitizeIce));
 }
 
 export function saveIce(card: IceCard): boolean {
