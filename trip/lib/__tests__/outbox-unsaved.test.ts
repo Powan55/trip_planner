@@ -79,6 +79,21 @@ describe('a refused outbox write (#982)', () => {
   });
 });
 
+describe('a refused write in one tab, an accepted one in another (#1026)', () => {
+  it("the refused tab's ack does not clear the other tab's newer edit", async () => {
+    let release!: () => void;
+    const held: ChunkSync<State> = { ...cs, pushChunk: () => new Promise<void>((r) => (release = r)) };
+    const quota = fillQuotaFor(KEY);
+    const inFlight = m.withOutbox(held)({}, { d1: 1 });
+    quota.mockRestore();
+    // the other tab lands its own first enqueue of d1
+    localStorage.setItem(KEY, JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 1 } } }));
+    release();
+    await inFlight;
+    expect(m.outboxDirty('itinerary')).toEqual(['d1']);
+  });
+});
+
 describe('a slot from a newer build (#982)', () => {
   it('is left on disk and the new edit stays dirty in memory', async () => {
     const future = JSON.stringify({ version: 2, dirty: { itinerary: ['d9'] }, extra: true });
