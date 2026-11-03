@@ -216,3 +216,15 @@ describe('removeEntry', () => {
     expect(() => removeEntry(null as unknown as JournalEntry[], '2026-12-14')).not.toThrow();
   });
 });
+
+describe('the LOCAL path stays a strict allowlist (D-159, #986)', () => {
+  const rogue = { date: '2026-12-14', text: 'hi', createdAt: 'c', updatedAt: 'u', photoIds: ['ph-x'] };
+  it('sanitizeEntry and sanitizeEntries drop undeclared keys', () => {
+    expect(sanitizeEntry(rogue)).not.toHaveProperty('photoIds');
+    expect(sanitizeEntries([rogue])[0]).not.toHaveProperty('photoIds');
+  });
+  it('upsertEntry never carries one through an edit', () => {
+    const out = upsertEntry([rogue as never], '2026-12-14', { text: 'edited' }, 'now');
+    expect(out[0]).not.toHaveProperty('photoIds');
+  });
+});
