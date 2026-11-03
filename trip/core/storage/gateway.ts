@@ -588,6 +588,13 @@ export const STORAGE_KEYS = {
    * and forgetting the trip wipe it like the other quarantine slots.
    */
   localRescue: 'nepal_japan_local_rescue',
+  /**
+   * localStorage — JSON object of short strings, the emergency (ICE) card (ice, key 55; D-790).
+   * TRIP-SCOPED, DEVICE-ONLY: medical and contact details. No sync domain, share link, backup or
+   * concierge payload reads it. Wiped on sign-out and local forget, kept through a remote forget.
+   * Shape owned by `core/ice/ice.ts`.
+   */
+  ice: 'nepal_japan_ice',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -827,7 +834,8 @@ export type TripScopedSlot =
   | 'conciergeChat'
   | 'journalSync'
   | 'journalDraft'
-  | 'localRescue';
+  | 'localRescue'
+  | 'ice';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -859,6 +867,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'journalSync',
   'journalDraft',
   'localRescue',
+  'ice',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1100,7 +1109,7 @@ export function readJson<T>(store: Store, key: string, fallback: T, onReject?: (
   return parsed as T;
 }
 
-type DeviceOnlySlot = 'journal' | 'packing' | 'photos' | 'shareInbox' | 'favorites';
+type DeviceOnlySlot = 'journal' | 'packing' | 'photos' | 'shareInbox' | 'favorites' | 'ice';
 
 /**
  * `readJson` for a slot no remote copy can restore (#985, D-725). Stored bytes the read refuses are
@@ -1342,6 +1351,19 @@ export const journalDraftStore = {
   },
   clear(): void {
     removeKey('local', keyFor('journalDraft'));
+  },
+} as const;
+
+/** Emergency card slot (key 55): byte transport; `core/ice/ice.ts` owns the shape. */
+export const iceStore = {
+  get<T>(fallback: T): T {
+    return readDeviceOnlyJson<T>('ice', fallback);
+  },
+  set<T>(card: T): boolean {
+    return writeJson('local', keyFor('ice'), card);
+  },
+  clear(): void {
+    removeKey('local', keyFor('ice'));
   },
 } as const;
 

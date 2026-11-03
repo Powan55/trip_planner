@@ -595,6 +595,7 @@ const DEVICE_ONLY_SLOTS = [
   'itineraryCorrupt',
   'expensesCorrupt',
   'localRescue',
+  'ice',
 ] as const satisfies readonly TripScopedSlot[];
 
 function holdsContent(raw: string | null): boolean {

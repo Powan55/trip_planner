@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import PhraseCard from '@/components/phrase-card';
 import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
@@ -47,6 +48,11 @@ export default function TravelSafetyKit() {
 
   return (
     <div data-testid="safety-kit" className="mx-auto w-full max-w-4xl pb-20">
+      <div className="px-gut pb-6 print:hidden">
+        <Link href="/profile/" data-testid="safety-ice-link" className="btn btn--2 no-underline">
+          Your emergency card
+        </Link>
+      </div>
       {/* ── 1. Emergency & embassy contacts ─────────────────────────────────────────────── */}
       <section aria-labelledby="safety-emergency-heading" className="mb-14">
         <div className="sec px-gut">
