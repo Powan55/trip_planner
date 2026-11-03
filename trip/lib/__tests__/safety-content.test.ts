@@ -86,6 +86,17 @@ describe('safety content — valid data parses', () => {
     expect(japanEntry?.detail).toMatch(/QR/);
   });
 
+  // #969 — corrected passport, visa fee and vaccine facts.
+  it('DOCUMENT_CHECKLIST: passport, Nepal visa fee and vaccine rows carry the corrected facts (#969)', () => {
+    const detail = (id: string) => DOCUMENT_CHECKLIST.find((i) => i.id === id)?.detail;
+    expect(detail('passport-validity')).toMatch(/Nepal requires six months/);
+    expect(detail('passport-validity')).toMatch(/Japan only needs .* length of your stay/);
+    expect(detail('nepal-visa')).toMatch(/USD 30/);
+    expect(detail('nepal-visa')).toMatch(/immigration\.gov\.np/);
+    expect(detail('vaccinations')).toMatch(/Hepatitis A and typhoid/);
+    expect(detail('vaccinations')).toMatch(/4-6 weeks/);
+  });
+
   // #936/#939 — tourist police dials the toll-free 1144; Japan needs the original passport on you.
   it('Nepal tourist police is 1144; checklist has the Japan passport-carry row', () => {
     const tp = EMERGENCY_CONTACTS.find((c) => c.id === 'np-tourist-police');

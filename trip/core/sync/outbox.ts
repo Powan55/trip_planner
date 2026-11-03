@@ -183,7 +183,7 @@ function chunkSeq(slot: OutboxSlot, domain: SyncDomain, chunk: string): number {
 }
 
 /** A slot that does not reach disk is kept in `unsaved` instead (#982). */
-function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSlot['seq']): void {
+function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSlot['seq']): boolean {
   // Prune empty domain arrays. A fully-clean outbox with NO ack timestamp yet REMOVES the key (so
   // "slot cleared" is literal and the byte footprint is zero) — but once ANY ack has ever been
   // recorded, the key persists (holding `{dirty:{}, lastAckAt}`) so the sync-status badge's
@@ -211,6 +211,7 @@ function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string
   if (ok) unsaved.delete(memKey);
   else unsaved.set(memKey, slot);
   notifyChanged();
+  return ok;
 }
 
 /** The dirty chunk keys currently recorded for a domain (a copy; empty when none). Read by the
@@ -335,7 +336,12 @@ function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<s
     counters[c] = (counters[c] ?? 0) + 1;
   }
   fresh.dirty[domain] = [...set];
-  saveSlot(packId, fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters });
+  if (!saveSlot(packId, fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters })) {
+    // A memory-only counter must not equal the integer another tab lands for the same chunk, or this
+    // tab's ack would clear that tab's newer edit (#1026). Below it, withUnsaved's max keeps the
+    // disk value. `counters` is the object saveSlot kept.
+    for (const c of chunks) counters[c] -= Math.random();
+  }
   return counters;
 }
 

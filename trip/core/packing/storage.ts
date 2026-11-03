@@ -36,7 +36,7 @@ export function loadPacking(): PackingItem[] {
   // "never persisted" apart from "the traveler deleted every row" — a stored `[]` is a real value
   // and must survive the reload, or the trash button silently undoes itself.
   if (!hasKey('local', keyFor('packing'))) return [...seed];
-  const raw = packingStore.get<unknown>(seed);
+  const raw = packingStore.get<unknown>(seed, (v) => sanitizeItems(v, []));
   if (Array.isArray(raw) && raw.length === 0) return [];
   return sanitizeItems(raw, seed);
 }

@@ -588,6 +588,13 @@ export const STORAGE_KEYS = {
    * and forgetting the trip wipe it like the other quarantine slots.
    */
   localRescue: 'nepal_japan_local_rescue',
+  /**
+   * localStorage — JSON object of short strings, the emergency (ICE) card (ice, key 55; D-790).
+   * TRIP-SCOPED, DEVICE-ONLY: medical and contact details. No sync domain, share link, backup or
+   * concierge payload reads it. Wiped on sign-out and local forget, kept through a remote forget.
+   * Shape owned by `core/ice/ice.ts`.
+   */
+  ice: 'nepal_japan_ice',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -827,7 +834,8 @@ export type TripScopedSlot =
   | 'conciergeChat'
   | 'journalSync'
   | 'journalDraft'
-  | 'localRescue';
+  | 'localRescue'
+  | 'ice';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -859,6 +867,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'journalSync',
   'journalDraft',
   'localRescue',
+  'ice',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1100,7 +1109,7 @@ export function readJson<T>(store: Store, key: string, fallback: T, onReject?: (
   return parsed as T;
 }
 
-type DeviceOnlySlot = 'journal' | 'packing' | 'photos' | 'shareInbox' | 'favorites';
+type DeviceOnlySlot = 'journal' | 'packing' | 'photos' | 'shareInbox' | 'favorites' | 'ice';
 
 /**
  * `readJson` for a slot no remote copy can restore (#985, D-725). Stored bytes the read refuses are
@@ -1109,8 +1118,8 @@ type DeviceOnlySlot = 'journal' | 'packing' | 'photos' | 'shareInbox' | 'favorit
  * left alone rather than replaced. Not capped: these slots are small, and a truncated journal
  * would not be a copy.
  */
-function readDeviceOnlyJson<T>(slot: DeviceOnlySlot, fallback: T): T {
-  return readJson<T>('local', keyFor(slot), fallback, (raw) => {
+function readDeviceOnlyJson<T>(slot: DeviceOnlySlot, fallback: T, sanitize?: (parsed: unknown) => unknown): T {
+  const rescue = (raw: string) => {
     const key = keyFor('localRescue');
     const stored = readString('local', key);
     let kept: Record<string, unknown> = {};
@@ -1125,8 +1134,19 @@ function readDeviceOnlyJson<T>(slot: DeviceOnlySlot, fallback: T): T {
     if (writeJson('local', key, { ...kept, [slot]: raw })) {
       console.warn('[storage] unreadable', slot, 'data preserved at', key);
     }
-  });
+  };
+  const value = readJson<T>('local', keyFor(slot), fallback, rescue);
+  // The caller's sanitizer is what drops a wrongly shaped entry, and the gateway can't see that:
+  // a stored value with content that sanitizes to nothing is about to be overwritten like any other.
+  if (sanitize && hasContent(value) && !hasContent(sanitize(value))) {
+    const raw = readString('local', keyFor(slot));
+    if (raw !== null) rescue(raw);
+  }
+  return value;
 }
+
+const hasContent = (v: unknown) =>
+  typeof v === 'object' && v !== null && (Array.isArray(v) ? v.length > 0 : Object.keys(v).length > 0);
 
 /** `JSON.stringify` + write a slot. No-op / never-throw exactly like `writeString`. */
 export function writeJson<T>(store: Store, key: string, value: T): boolean {
@@ -1324,8 +1344,8 @@ export const expensesStore = {
  * whole list as JSON. Never throws (inherits `readJson`/`writeJson`).
  */
 export const journalStore = {
-  get<T>(fallback: T): T {
-    return readDeviceOnlyJson<T>('journal', fallback);
+  get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
+    return readDeviceOnlyJson<T>('journal', fallback, sanitize);
   },
   set<T>(entries: T): boolean {
     return writeJson('local', keyFor('journal'), entries);
@@ -1342,6 +1362,19 @@ export const journalDraftStore = {
   },
   clear(): void {
     removeKey('local', keyFor('journalDraft'));
+  },
+} as const;
+
+/** Emergency card slot (key 55): byte transport; `core/ice/ice.ts` owns the shape. */
+export const iceStore = {
+  get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
+    return readDeviceOnlyJson<T>('ice', fallback, sanitize);
+  },
+  set<T>(card: T): boolean {
+    return writeJson('local', keyFor('ice'), card);
+  },
+  clear(): void {
+    removeKey('local', keyFor('ice'));
   },
 } as const;
 
@@ -1483,8 +1516,8 @@ export const celebrationLedger = {
  * list as JSON. Never throws (inherits `readJson`/`writeJson`).
  */
 export const favoritesStore = {
-  get<T>(fallback: T): T {
-    return readDeviceOnlyJson<T>('favorites', fallback);
+  get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
+    return readDeviceOnlyJson<T>('favorites', fallback, sanitize);
   },
   set<T>(ids: T): boolean {
     return writeJson('local', keyFor('favorites'), ids);
@@ -1503,8 +1536,8 @@ export const favoritesStore = {
  * `set(metas)` writes the whole list as JSON. Never throws (inherits `readJson`/`writeJson`).
  */
 export const photosStore = {
-  get<T>(fallback: T): T {
-    return readDeviceOnlyJson<T>('photos', fallback);
+  get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
+    return readDeviceOnlyJson<T>('photos', fallback, sanitize);
   },
   set<T>(metas: T): boolean {
     return writeJson('local', keyFor('photos'), metas);
@@ -1576,8 +1609,8 @@ export const mapWakeLockPrefs = {
  * throws (inherits `readJson`/`writeJson`).
  */
 export const packingStore = {
-  get<T>(fallback: T): T {
-    return readDeviceOnlyJson<T>('packing', fallback);
+  get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
+    return readDeviceOnlyJson<T>('packing', fallback, sanitize);
   },
   set<T>(items: T): boolean {
     return writeJson('local', keyFor('packing'), items);
@@ -1617,8 +1650,8 @@ export const dayAnchorStore = {
  * `readJson`/`writeJson`).
  */
 export const shareInboxStore = {
-  get<T>(fallback: T): T {
-    return readDeviceOnlyJson<T>('shareInbox', fallback);
+  get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
+    return readDeviceOnlyJson<T>('shareInbox', fallback, sanitize);
   },
   set<T>(items: T): boolean {
     return writeJson('local', keyFor('shareInbox'), items);

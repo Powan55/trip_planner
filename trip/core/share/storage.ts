@@ -16,7 +16,7 @@ import { sanitizeItems, type ShareItem } from '@/core/share/model';
 
 /** Load + sanitize the persisted inbox (empty when absent/SSR/corrupt). Newest-first, capped. */
 export function loadShareInbox(): ShareItem[] {
-  return sanitizeItems(shareInboxStore.get<unknown>([]));
+  return sanitizeItems(shareInboxStore.get<unknown>([], sanitizeItems));
 }
 
 /** Sanitize + persist the whole inbox as JSON. Never throws; false when the write was refused. */

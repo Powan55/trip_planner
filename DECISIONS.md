@@ -5609,7 +5609,9 @@ The original length is kept because it is diagnostic in its own right: it is how
 
 **Changes if:** the `?trip=` handshake is rewired to set the share id instead of switching packs, which would make the link and the code the same thing.
 
-### D-546 · (issue #485, 2026-09-21) · Prototype-safe maps at the settlement and budget-merge boundary
+### D-781 · (issue #485, 2026-09-21) · Prototype-safe maps at the settlement and budget-merge boundary
+_Renumbered from D-546; the id collided with the share-link entry._
+
 
 **Decision.** `core/budget/settlement.ts` and `core/sync/merge-budget.ts` build their accumulator maps with `Object.create(null)` and read with `Object.prototype.hasOwnProperty.call`. A participant or field path named `constructor`, `toString` or `__proto__` behaves like any other key. `core/sync/hlc.ts` `parse` returns the oldest stamp for a non-string input rather than throwing.
 
@@ -5946,7 +5948,9 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 
 **Status.** Repo only until the rules are actually published (#263). rules-check 7e now expects these adds to be denied.
 
-### D-606 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
+### D-780 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
+_Renumbered from a second D-606; the id collided with the basemap entry._
+
 
 **Decision.** A day's plans render in time order on every surface that lists them: the planner's day detail (`lib/phase-of-day.ts`'s `groupItemsByPhase`, which now sorts before it classifies), the Today panel, the Travel-Mode agenda card, the printed itinerary, and the numbered day route on the `/plan` and `/travel` maps (`buildItineraryStops` passes `chrono: true`). One key throughout: `sortItemsByTime`, so timed items ascend by absolute INSTANT, untimed items sink to a single trailing run preserving their own relative order, and equal instants keep their stored order. `groupItemsByPhase` therefore takes the day's date and place offset — an instant-accurate sort cannot be done without them, and there is no second time-math path.
 
@@ -6241,14 +6245,6 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
 
-### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
-
-**Decision.** `setTripMemberRole` in `lib/trips-remote.ts` writes `members.{uid}` as `'owner'` or `'member'` through the same field-path write as add and remove. The members list in Settings shows an owner a **Make owner** button on each member row and a **Step down** button on their own row, each behind a confirm. Step down is offered only while the roster names a second owner. `firestore.rules` is unchanged: it already let an owner write any well-formed roster (`isOwner()`), refuses one that names no owner (`rosterIsWellFormed`), and refuses a member's role write (D-642); `scripts/rules-check.mjs` now pins the promote, step-down and hand-back writes.
-
-**Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
-
-**Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
-
 ### D-708 · Extends D-642, D-662 · (issue #859, 2026-10-05) · A member can leave a gated trip by removing its own roster key
 
 **Decision.** `leavesRoster()` in `firestore.rules` lets a member write an update whose only affected key is `members` and whose only change is removing the writer's own uid: nothing else removed, added or re-roled. An owner leaves through `isOwner()` as before, so `rosterIsWellFormed()` still refuses a roster left with no owner and the last owner cannot walk away. `leaveTrip` in `lib/trips-remote.ts` makes that write, and Settings shows **Leave this trip** (behind a confirm) to a member, or to an owner while a second owner exists; the card then says the device has left. Leaving does not forget the trip locally; that stays on the Trips page. `scripts/rules-check.mjs` pins the leave, the two refused extras and the read denial afterwards.
@@ -6289,7 +6285,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Why.** These slots have no remote copy, so the save after a failed read overwrote the only one.
 
-**Not done.** No UI reads the rescue slot; recovery is by hand. Day anchors and the concierge thread are not covered.
+**Not done.** No UI reads the rescue slot; recovery is by hand. Day anchors and the concierge thread are not covered. A second corruption of a slot already rescued once is not covered (write-once), and the copy can push the next save over quota on a nearly full disk. (#1025) A slot that parses but whose entries the domain sanitizer drops entirely is now rescued too: the six `get` calls take the sanitizer and the gateway copies when stored content sanitizes to nothing.
 
 ### D-726 · (issue #983, 2026-11-02) · Another device's forget keeps this device's own data
 
@@ -6348,3 +6344,14 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Pages ETags are deploy time plus size so no 304 is possible, and every device paid ~1.9 MB per deploy (#979).
 
 **Changes if:** the worker gains a header-dependent read on precache entries (copied entries keep the old response headers), or a build step changes `out/` after gen-sw.
+### D-790 · (issue #987, 2026-11-03) · The emergency card is a device-only slot (key 55)
+
+**Decision.** `ice` (localStorage `nepal_japan_ice`, `trip:{id}:ice` off the default pack) holds the emergency card: blood type, allergies, medications, insurance and its 24h number, home contact, hotel in local script. Trip-scoped, written through `iceStore` and read through `readDeviceOnlyJson`, so an unreadable copy is rescued into `localRescue` before a save can replace it. Shape and limits live in `core/ice/ice.ts`; the editor is `components/ice-card.tsx` on `/profile`, linked from `/safety`, and the card holds the screen wake lock while it has content.
+
+**Never leaves the device.** No sync domain, share link, backup (listed in the `trip-backup.ts` exclusion type) or concierge payload reads it. Sign-out and a local forget wipe it through `TRIP_SCOPED_SLOTS`; a remote forget keeps it, because `DEVICE_ONLY_SLOTS` counts it as data no remote copy could restore.
+
+**Why.** Medical and contact details are the one kind of data where a sync leak or a backup file left in a shared inbox does harm that an app cannot undo. The issue's optional "include in backup" toggle is not built: the card is small enough to retype, and a toggle is a way to put it in a file by accident.
+
+**Changes if:** the owner wants the card to follow a person across trips or devices, which needs an account-scoped slot and a decision on where it may be stored.
+
+**Known gap.** `readJson` accepts arrays for object fallbacks (follow-up issue).
