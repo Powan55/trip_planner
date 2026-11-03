@@ -49,6 +49,16 @@ describe('DEFAULT_TEMPLATE', () => {
   });
 });
 
+describe('DEFAULT_TEMPLATE corrected facts (#969)', () => {
+  it('names the plug types, the visa fee and the Japan passport rule', () => {
+    const label = (id: string) => DEFAULT_TEMPLATE.find((d) => d.id === id)!.label;
+    expect(label('chargers-adapters')).toMatch(/230 V type C\/D\/M.*100 V type A\/B/);
+    expect(label('chargers-adapters')).not.toMatch(/Type-A\/C/);
+    expect(label('nepal-visa')).toMatch(/USD 30/);
+    expect(label('passport-validity')).toMatch(/Japan only for your stay/);
+  });
+});
+
 describe('UNIVERSAL_TEMPLATE (A-15/#102, D-355)', () => {
   it('is DEFAULT_TEMPLATE minus nepal-visa/japan-entry — 16 items, derived not hand-duplicated', () => {
     expect(UNIVERSAL_TEMPLATE).toHaveLength(16);
