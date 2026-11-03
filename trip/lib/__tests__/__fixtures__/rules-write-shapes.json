@@ -1,0 +1,561 @@
+[
+  {
+    "name": "days/{date} (pushDayMerged)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$TRIP/days/2026-12-09",
+        "data": {
+          "date": "2026-12-09",
+          "city": "New York",
+          "country": "nepal",
+          "countryLabel": "USA",
+          "items": [
+            {
+              "id": "n1-1",
+              "title": "Depart Syracuse (SYR) — Regional connection to New York (JFK)",
+              "category": "transportation",
+              "time": "05:30",
+              "duration": "1h 32m",
+              "notes": "SYR → JFK Terminal 4 · Regional connection · arrive 7:02am · Economy. Keep passport & onward boarding passes handy",
+              "location": "Syracuse Hancock Intl (SYR) → New York JFK (T4)",
+              "tzOffsetMin": -300
+            },
+            {
+              "id": "n1-2",
+              "title": "Layover at New York (JFK) Terminal 4",
+              "category": "transportation",
+              "time": "07:02",
+              "duration": "4h 53m",
+              "notes": "Connection to the long-haul; grab a meal before the flight to Delhi",
+              "location": "New York JFK — Terminal 4",
+              "tzOffsetMin": -300
+            },
+            {
+              "id": "n1-3",
+              "title": "Fly JFK → Delhi (DEL) — Long-haul to Delhi",
+              "category": "transportation",
+              "time": "11:55",
+              "duration": "14h 55m",
+              "notes": "JFK T4 → DEL Terminal 3 · Long-haul to Delhi · arrives 1:20pm Dec 10 · Economy. Long-haul — set watch ahead, hydrate, sleep on board",
+              "location": "New York JFK (T4) → Delhi (DEL T3)",
+              "tzOffsetMin": -300
+            },
+            {
+              "id": "item-f973",
+              "title": "Pashupatinath",
+              "category": "sightseeing",
+              "time": "09:30",
+              "createdBy": "Powan",
+              "updatedBy": "Powan",
+              "updatedAt": "2026-12-09T03:00:00.000Z",
+              "rev": 1,
+              "hlc": "001796785200000:000000:Powan"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "expenses/{leg} (pushChunkMerged)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$TRIP/expenses/nepal",
+        "data": {
+          "leg": "nepal",
+          "items": [
+            {
+              "id": "exp-f973",
+              "leg": "nepal",
+              "category": "food",
+              "amount": 1200,
+              "createdAt": "2026-12-09T03:00:00.000Z",
+              "date": "2026-12-09",
+              "note": "Dal bhat",
+              "createdBy": "Powan",
+              "updatedBy": "Powan",
+              "rev": 1,
+              "hlc": "001796785200000:000000:Powan"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "budget/model (pushBudgetMerged)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$TRIP/budget/model",
+        "data": {
+          "version": 1,
+          "fields": {
+            "homeCurrency": {
+              "v": "JPY",
+              "hlc": "001796785200000:000000:Powan"
+            },
+            "rates.NPR": {
+              "v": 152.7,
+              "hlc": "000000000000000:000000:"
+            },
+            "rates.JPY": {
+              "v": 159.2,
+              "hlc": "000000000000000:000000:"
+            },
+            "legBudgets.nepal": {
+              "v": 150000,
+              "hlc": "001796785200000:000000:Powan"
+            },
+            "legBudgets.japan": {
+              "v": 0,
+              "hlc": "000000000000000:000000:"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "docs/checklist (pushChecklistMerged)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$TRIP/docs/checklist",
+        "data": {
+          "version": 1,
+          "items": [
+            {
+              "id": "airport-transfer",
+              "section": "dayzero",
+              "label": "Airport transfer / pickup booked",
+              "checked": false
+            },
+            {
+              "id": "boarding-passes-offline",
+              "section": "dayzero",
+              "label": "Boarding passes saved offline",
+              "checked": false
+            },
+            {
+              "id": "cards-cash",
+              "section": "critical",
+              "label": "Payment cards + emergency cash (USD / NPR / JPY)",
+              "checked": false
+            },
+            {
+              "id": "chargers-adapters",
+              "section": "dayzero",
+              "label": "Chargers, cables & Type-A/C power adapters",
+              "checked": false
+            },
+            {
+              "id": "document-copies",
+              "section": "critical",
+              "label": "Photocopies + cloud scans of every document",
+              "checked": false
+            },
+            {
+              "id": "emergency-contacts",
+              "section": "critical",
+              "label": "Emergency contacts & embassy details sheet",
+              "checked": false
+            },
+            {
+              "id": "esim-data",
+              "section": "dayzero",
+              "label": "eSIM / data plan activated",
+              "checked": false
+            },
+            {
+              "id": "flight-tickets",
+              "section": "critical",
+              "label": "Flight e-tickets (Kathmandu & Japan legs) saved offline",
+              "checked": false
+            },
+            {
+              "id": "home-utilities",
+              "section": "dayzero",
+              "label": "Home power, water & gas shut off",
+              "checked": false
+            },
+            {
+              "id": "japan-entry",
+              "section": "critical",
+              "label": "Japan entry — Visit Japan Web done, QR saved offline",
+              "checked": false
+            },
+            {
+              "id": "license-idp",
+              "section": "critical",
+              "label": "Driver's license + International Driving Permit",
+              "checked": false
+            },
+            {
+              "id": "luggage-weighed",
+              "section": "dayzero",
+              "label": "Luggage weighed against airline limits",
+              "checked": false
+            },
+            {
+              "id": "medications-packed",
+              "section": "dayzero",
+              "label": "Prescription meds + basics packed",
+              "checked": false
+            },
+            {
+              "id": "nepal-visa",
+              "section": "critical",
+              "label": "Nepal visa sorted — visa on arrival at KTM, or the online form from 26 Nov 2026 (its receipt is valid 15 days)",
+              "checked": false
+            },
+            {
+              "id": "online-checkin",
+              "section": "dayzero",
+              "label": "Online check-in completed",
+              "checked": false
+            },
+            {
+              "id": "travel-insurance",
+              "section": "critical",
+              "label": "Travel insurance policy + 24h assistance number",
+              "checked": false
+            },
+            {
+              "id": "vaccination-cert",
+              "section": "critical",
+              "label": "Vaccination / health certificates",
+              "checked": false
+            },
+            {
+              "id": "passport-validity",
+              "section": "critical",
+              "label": "Passport valid 6+ months beyond Jan 2027",
+              "checked": true,
+              "updatedBy": "Powan",
+              "rev": 2,
+              "hlc": "001796785200000:000000:Powan"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "places/list (pushPlacesMerged)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$TRIP/places/list",
+        "data": {
+          "version": 1,
+          "items": [
+            {
+              "id": "place-f973",
+              "name": "Boudhanath Stupa",
+              "legId": "nepal",
+              "addedAt": "2026-12-09T03:00:00.000Z",
+              "lat": 27.7215,
+              "lng": 85.362,
+              "rev": 1,
+              "hlc": "001796785200000:000000:Powan"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "meta/info with config (pushTripMeta)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "set",
+        "path": "trips/$TRIP/meta/info",
+        "data": {
+          "name": "Nepal x Japan",
+          "updatedAt": 1796785200000,
+          "config": {
+            "start": "2026-12-09",
+            "end": "2027-01-09",
+            "destinations": [
+              "Kathmandu",
+              "Tokyo"
+            ],
+            "vibe": "city",
+            "updatedAt": 1796785200000,
+            "currency": "NPR"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "meta/info rename, merge (pushTripMeta)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "set",
+        "path": "trips/$TRIP/meta/info",
+        "data": {
+          "name": "Nepal + Japan",
+          "updatedAt": 1796785200000
+        },
+        "merge": true
+      }
+    ]
+  },
+  {
+    "name": "presence/{deviceId} heartbeat (startPresence)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "set",
+        "path": "trips/$TRIP/presence/dev-f973",
+        "data": {
+          "name": "Powan",
+          "lastSeen": {
+            "$sentinel": "serverTimestamp"
+          }
+        },
+        "merge": true
+      }
+    ]
+  },
+  {
+    "name": "trip doc: member adds a member (addTripMember)",
+    "as": "member",
+    "writes": [
+      {
+        "op": "update",
+        "path": "trips/$TRIP",
+        "data": {
+          "members.$OTHER": "member"
+        }
+      }
+    ]
+  },
+  {
+    "name": "trip doc create (createTripDoc)",
+    "as": "creator",
+    "writes": [
+      {
+        "op": "set",
+        "path": "trips/$NEW_TRIP",
+        "data": {
+          "schemaVersion": 1,
+          "createdAt": {
+            "$sentinel": "serverTimestamp"
+          },
+          "seededFrom": "create",
+          "members": {
+            "$UID": "owner"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invites/{token} mint (createInvite)",
+    "as": "owner",
+    "writes": [
+      {
+        "op": "set",
+        "path": "trips/$TRIP/invites/$INVITE",
+        "data": {
+          "createdBy": "$UID",
+          "createdAt": {
+            "$sentinel": "serverTimestamp"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invite redeem batch (redeemInvite)",
+    "as": "joiner",
+    "writes": [
+      {
+        "op": "batch",
+        "path": "",
+        "writes": [
+          {
+            "op": "update",
+            "path": "trips/$TRIP/invites/$INVITE",
+            "data": {
+              "redeemedBy": "$UID",
+              "redeemedAt": {
+                "$sentinel": "serverTimestamp"
+              }
+            }
+          },
+          {
+            "op": "update",
+            "path": "trips/$TRIP",
+            "data": {
+              "members.$UID": "member",
+              "joinInvite": "$INVITE"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "profile/identity (pushAccountIdentity)",
+    "as": "account",
+    "writes": [
+      {
+        "op": "set",
+        "path": "trips/$ACCT/profile/identity",
+        "data": {
+          "version": 1,
+          "name": "Powan"
+        }
+      }
+    ]
+  },
+  {
+    "name": "profile/identity heal (healAccountIdentity)",
+    "as": "account",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$ACCT/profile/identity",
+        "data": {
+          "version": 1,
+          "name": "Powan"
+        }
+      }
+    ]
+  },
+  {
+    "name": "profile/tripList (pushTripList)",
+    "as": "account",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$ACCT/profile/tripList",
+        "data": {
+          "version": 1,
+          "trips": [
+            {
+              "id": "$TRIP",
+              "name": "Nepal x Japan",
+              "joinedAt": 1796785200000,
+              "updatedAt": 1796785200000,
+              "config": {
+                "start": "2026-12-09",
+                "end": "2027-01-09",
+                "destinations": [
+                  "Kathmandu",
+                  "Tokyo"
+                ],
+                "vibe": "city",
+                "updatedAt": 1796785200000,
+                "currency": "NPR"
+              }
+            }
+          ],
+          "removed": [
+            {
+              "id": "f973f973-0000-4000-8000-0000000000aa",
+              "removedAt": 1796785200000
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "profile/prefs set, update, union (account-prefs-remote)",
+    "as": "account",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$ACCT/profile/prefs",
+        "data": {
+          "homeCurrency": {
+            "v": "JPY",
+            "hlc": "001796785200000:000001:$UID"
+          }
+        }
+      },
+      {
+        "op": "tx.update",
+        "path": "trips/$ACCT/profile/prefs",
+        "data": {
+          "homeCurrency": {
+            "v": "USD",
+            "hlc": "001796785200000:000003:$UID"
+          }
+        }
+      },
+      {
+        "op": "tx.update",
+        "path": "trips/$ACCT/profile/prefs",
+        "data": {
+          "priorNames": {
+            "v": [
+              "Powan"
+            ],
+            "hlc": "001796785200000:000000:$UID"
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "profile/journal_{tripId} create, edit, delete (pushJournalEntry)",
+    "as": "account",
+    "writes": [
+      {
+        "op": "tx.set",
+        "path": "trips/$ACCT/profile/journal_$TRIP",
+        "data": {
+          "entries": {
+            "2026-12-09": {
+              "hlc": "001796785200000:000001:dev-f973",
+              "text": "Landed in Kathmandu.",
+              "createdAt": "2026-12-09T03:00:00.000Z",
+              "updatedAt": "2026-12-09T03:00:00.000Z",
+              "mood": "great",
+              "highlight": "Pashupati"
+            }
+          }
+        }
+      },
+      {
+        "op": "tx.update",
+        "path": "trips/$ACCT/profile/journal_$TRIP",
+        "data": {
+          "entries.2026-12-09": {
+            "hlc": "001796785200000:000003:dev-f973",
+            "text": "Landed in Kathmandu. Ate momo.",
+            "createdAt": "2026-12-09T03:00:00.000Z",
+            "updatedAt": "2026-12-09T03:00:00.000Z",
+            "mood": "great",
+            "highlight": "Pashupati"
+          }
+        }
+      },
+      {
+        "op": "tx.update",
+        "path": "trips/$ACCT/profile/journal_$TRIP",
+        "data": {
+          "entries.2026-12-09": {
+            "hlc": "001796785200000:000005:dev-f973",
+            "deletedAt": "2026-12-09T03:00:00.000Z"
+          }
+        }
+      }
+    ]
+  }
+]

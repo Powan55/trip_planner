@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { TRIP_START } from '@/lib/trip-data';
+import { TRIP_DATES_PENDING } from '@/core/dates';
 import { computeCountdown } from '@/lib/countdown';
 import { getNow, getTodayInTrip, getTripDayDate } from '@/lib/trip-now';
 import { tripShape, daysToGo } from '@/lib/home-stats';
@@ -90,6 +91,9 @@ export function liveCell(now: Date, days: number): StatCell {
   const today = getTodayInTrip();
   if (today) {
     return { testId: 'home-stat-live', value: String(today.dayNumber), caption: 'Day on trip' };
+  }
+  if (TRIP_DATES_PENDING) {
+    return { testId: 'home-stat-live', value: '—', caption: 'Dates not set' };
   }
   if (computeCountdown(TRIP_START, now).isPast) {
     return { testId: 'home-stat-live', value: String(days), caption: 'Days travelled' };
