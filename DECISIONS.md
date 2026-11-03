@@ -6282,3 +6282,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** A dismissed toast never returned, and a crashed root layout took the registrar (the only `SKIP_WAITING` sender) with it, so Reload kept serving the same cached shell.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
+
+### D-720 · (issues #982, #978, 2026-11-02) · A refused outbox write is kept in memory
+
+**Decision.** When the outbox slot write is refused (full quota), `core/sync/outbox.ts` keeps the slot it tried to write in a per-tab map and merges it into every slot read. `outboxDirty`, the flush, the badge and the first-snapshot merge in every domain see the chunk for the rest of the page load, and the next slot write that lands carries it to disk. A slot whose `version` is a number above 1 is never overwritten or removed; edits made under it go to the same in-memory map. `markOutboxDirty` is gone; its last caller left with #728.
+
+**Why.** The enqueue ignored `writeJson`'s result, so the vault held the edit with no write-ahead record, and the first snapshot after a resubscribe applied over it. A newer build's slot was rewritten as v1, dropping its dirty set.
+
+**Not done.** The memory copy does not survive a reload, so an edit that never reached the server or the disk is still lost then. Rolling back the vault write instead would need the reactive store to see the push's enqueue result.
