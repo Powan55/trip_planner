@@ -218,7 +218,7 @@ export default function Navbar() {
                         : 'text-[color:var(--text-lo)] hover:text-[color:var(--text-hi)] hover:bg-white/5'
                     }`}
                   >
-                    <item.icon className="w-4 h-4" />
+                    <item.icon className="hidden w-4 h-4 lg:block" aria-hidden="true" />
                     {item.label}
                     {/* The live field takes a 4px accent RULE, not a fill — a rule is
                         unlimited and spends nothing, which leaves the screen's one accent
