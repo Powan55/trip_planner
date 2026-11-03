@@ -1086,6 +1086,9 @@ export function readJson<T>(store: Store, key: string, fallback: T): T {
   if (typeof fallback === 'object' && fallback !== null && (parsed === null || typeof parsed !== 'object')) {
     return fallback;
   }
+  if (Array.isArray(parsed) !== Array.isArray(fallback)) {
+    return fallback;
+  }
   return parsed as T;
 }
 
