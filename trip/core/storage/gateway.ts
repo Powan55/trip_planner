@@ -1106,6 +1106,9 @@ export function readJson<T>(store: Store, key: string, fallback: T, onReject?: (
     onReject?.(raw);
     return fallback;
   }
+  if (Array.isArray(parsed) !== Array.isArray(fallback)) {
+    return fallback;
+  }
   return parsed as T;
 }
 
