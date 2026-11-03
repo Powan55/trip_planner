@@ -79,7 +79,7 @@ class FakeResponse {
 
   constructor(
     body: string,
-    init: { ok?: boolean; status?: number; type?: string; contentType?: string } = {}
+    init: { ok?: boolean; status?: number; type?: string; contentType?: string; date?: string } = {}
   ) {
     this.body = body;
     this.ok = init.ok ?? true;
@@ -87,7 +87,10 @@ class FakeResponse {
     this.type = init.type ?? 'basic';
     this.redirected = false;
     const contentType = init.contentType ?? 'text/html';
-    this.headers = { get: (n) => (n.toLowerCase() === 'content-type' ? contentType : null) };
+    this.headers = {
+      get: (n) =>
+        n.toLowerCase() === 'content-type' ? contentType : n.toLowerCase() === 'date' ? (init.date ?? null) : null,
+    };
   }
 
   clone(): FakeResponse {
@@ -225,13 +228,17 @@ function makeRequest(path: string, over: Partial<Record<string, string>> = {}) {
 function runFetch(handlers: Handlers, request: ReturnType<typeof makeRequest>) {
   return new Promise<FakeResponse | undefined>((resolve, reject) => {
     let responded = false;
+    const background: Promise<unknown>[] = [];
     const event = {
       request,
+      waitUntil: (p: Promise<unknown>) => {
+        background.push(p);
+      },
       respondWith: (p: Promise<FakeResponse>) => {
         responded = true;
         Promise.resolve(p).then(
           // flush a macrotask so fire-and-forget cache writes settle
-          (res) => setTimeout(() => resolve(res), 0),
+          (res) => Promise.all(background).then(() => setTimeout(() => resolve(res), 0)),
           reject
         );
       },
@@ -435,6 +442,61 @@ describe('images: the content-hashed precache wins over the durable runtime cach
     const handlers = instantiate(caches, async () => new FakeResponse('NETWORK', { contentType: 'image/avif' }));
     const res = await runFetch(handlers, makeRequest('/images/gallery/kyoto.avif', { destination: 'image' }));
     expect(res?.body).toBe('GALLERY');
+  });
+
+  const gallery = () => makeRequest('/images/gallery/kyoto.avif', { destination: 'image' });
+  const stale = new Date(Date.now() - 30 * 86400_000).toUTCString();
+  const fresh = new Date().toUTCString();
+
+  function seeded(date: string) {
+    const made = makeCaches({ [PRECACHE]: {}, [IMAGES_CACHE]: {} });
+    made.stores
+      .get(IMAGES_CACHE)!
+      .set('/images/gallery/kyoto.avif', new FakeResponse('OLD', { contentType: 'image/avif', date }));
+    return made;
+  }
+
+  it('serves a stale gallery image at once and refreshes it in the background', async () => {
+    const { caches, stores } = seeded(stale);
+    const handlers = instantiate(caches, async () => new FakeResponse('NEW', { contentType: 'image/avif' }));
+    const res = await runFetch(handlers, gallery());
+    expect(res?.body).toBe('OLD');
+    expect(stores.get(IMAGES_CACHE)!.get('/images/gallery/kyoto.avif')?.body).toBe('NEW');
+  });
+
+  it('does not refetch a fresh gallery image', async () => {
+    const { caches } = seeded(fresh);
+    let fetches = 0;
+    const handlers = instantiate(caches, async () => {
+      fetches++;
+      return new FakeResponse('NEW', { contentType: 'image/avif' });
+    });
+    expect((await runFetch(handlers, gallery()))?.body).toBe('OLD');
+    expect(fetches).toBe(0);
+  });
+
+  it('offline, a stale gallery image still serves and stays cached', async () => {
+    const { caches, stores } = seeded(stale);
+    const handlers = instantiate(caches, async () => {
+      throw new TypeError('offline');
+    });
+    expect((await runFetch(handlers, gallery()))?.body).toBe('OLD');
+    expect(stores.get(IMAGES_CACHE)!.get('/images/gallery/kyoto.avif')?.body).toBe('OLD');
+  });
+
+  it('overlapping misses trim to exactly the cap, oldest first', async () => {
+    const full: Record<string, string> = {};
+    for (let i = 0; i < 80; i++) full[`/images/gallery/old${i}.avif`] = 'x';
+    const { caches, stores } = makeCaches({ [PRECACHE]: {}, [IMAGES_CACHE]: full });
+    const handlers = instantiate(caches, async () => new FakeResponse('N', { contentType: 'image/avif' }));
+    await Promise.all(
+      [0, 1, 2].map((i) => runFetch(handlers, makeRequest(`/images/gallery/new${i}.avif`, { destination: 'image' })))
+    );
+    const keys = [...stores.get(IMAGES_CACHE)!.keys()];
+    expect(keys).toHaveLength(80);
+    expect(keys).not.toContain('/images/gallery/old2.avif');
+    expect(keys).toContain('/images/gallery/old3.avif');
+    expect(keys).toContain('/images/gallery/new2.avif');
   });
 });
 
