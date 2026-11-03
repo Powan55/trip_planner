@@ -80,3 +80,16 @@ describe('Vault schema drift guard', () => {
     expect(missing).toEqual([]);
   });
 });
+
+describe('Vault numeric read compatibility', () => {
+  it.each([Infinity, -Infinity])('keeps an item while removing infinite ranged fields (%s)', (value) => {
+    const item = { id: 'pin', title: 'Temple', category: 'sightseeing', futureField: true };
+    const result = itineraryItemSchema.safeParse({ ...item, lat: value, lng: value, tzOffsetMin: value });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toEqual({ ...item, lat: undefined, lng: undefined, tzOffsetMin: undefined });
+  });
+
+  it.each([NaN, 'invalid', null])('rejects invalid numeric types (%s)', (value) => {
+    expect(itineraryItemSchema.safeParse({ id: 'pin', title: 'Temple', category: 'sightseeing', lat: value }).success).toBe(false);
+  });
+});

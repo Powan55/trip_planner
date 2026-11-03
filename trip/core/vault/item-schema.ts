@@ -22,6 +22,9 @@
  */
 import { z } from 'zod';
 
+// Preserve Zod 3's numeric read contract; field sanitizers handle infinities.
+const readNumber = z.number().or(z.literal([Infinity, -Infinity]));
+
 /**
  * A numeric field that is only meaningful inside a physical range: out of range (or infinite)
  * degrades to ABSENT rather than failing the item, because dropping a whole plan over one bad
@@ -35,8 +38,7 @@ import { z } from 'zod';
  * ships a half-populated `CityCoord` into that fetch.
  */
 const ranged = (min: number, max: number) =>
-  z
-    .number()
+  readNumber
     .optional()
     .transform((v) => (v !== undefined && Number.isFinite(v) && v >= min && v <= max ? v : undefined));
 
@@ -49,11 +51,11 @@ export const itineraryItemSchema = z
     time: z.string().optional(),
     duration: z.string().optional(),
     // Structured time model. Declared-surface style like
-    // `done`. Deliberately PLAIN `z.number().optional()` — NO `.int().min().max()` on the read
+    // `done`. Deliberately PLAIN `readNumber.optional()` — NO `.int().min().max()` on the read
     // path: an out-of-range value from a buggy client must degrade to "untimed" at
     // `effectiveStartMinutes` (the ONE runtime range check), never quarantine a whole vault.
-    startMinutes: z.number().optional(),
-    durationMinutes: z.number().optional(),
+    startMinutes: readNumber.optional(),
+    durationMinutes: readNumber.optional(),
     notes: z.string().optional(),
     location: z.string().optional(),
     sourceId: z.string().optional(),
@@ -69,7 +71,7 @@ export const itineraryItemSchema = z
     // `.passthrough()` retained, so the lenient-read rule is preserved and every
     // pre-v4 item (fields absent) stays valid. A v4 blob read by an old build hits the
     // forward-version lenient branch and is never quarantined.
-    rev: z.number().optional(),
+    rev: readNumber.optional(),
     hlc: z.string().optional(),
     deleted: z.boolean().optional(),
     // done-tracking. NO
