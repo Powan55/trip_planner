@@ -798,7 +798,7 @@ access to fall back to, and every other case still shows the wall.
 | `tour-skip` | the header "X" close `<button aria-label="Skip tour">` | The dialog's sole Skip control (focused on open); calls `markTourSeen()` and closes at any step. |
 | `tour-progress` | the "Step N of 5" `<p aria-live="polite">` | Announces step changes to assistive tech; the accessible source of the step count (the dot row below is `aria-hidden`). |
 | `tour-desc` | the current stop's blurb `<p>` | `aria-describedby` target. |
-| `tour-back` | the "Back" `<button>` | `disabled` on step 1. |
+| `tour-back` | the "Back" `<button>` | Not rendered on step 1. |
 | `tour-next` | the "Next" / "Let's go" `<button>` | On the last step this also calls `markTourSeen()` and closes (finishing the tour is equivalent to Skip for the exactly-once guarantee). |
 
 The stop title (`<h2>`, `aria-labelledby` target) renders the destination label ("Today" /

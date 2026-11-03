@@ -18,6 +18,7 @@ import QuickAddInput from '@/components/quick-add-input';
 import WeatherCard from '@/components/weather-card';
 import JournalCard from '@/components/journal-card';
 import TripAgenda from '@/components/trip-agenda';
+import TonightsStay from '@/components/tonights-stay';
 import { fetchWeather, type WeatherResult } from '@/lib/weather';
 import { getActiveTripCityCoord } from '@/core/trips/registry';
 import { describeItemTime } from '@/lib/item-time-display';
@@ -190,6 +191,8 @@ export default function TodayPanel() {
             </p>
           )}
         </header>
+
+        <TonightsStay date={todayInTrip.date} className="mb-6" />
 
         {/* Weather + golden-hour for today's city — sits above the agenda. */}
         <div className="mb-6">

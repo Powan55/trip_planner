@@ -1124,14 +1124,40 @@ function precacheListResponse() {
 }
 
 // LRU-ish cap on the runtime image cache: evict oldest (insertion order) on
-// overflow. Cache API keys() returns entries in insertion order.
-async function trimImageCache() {
-  const cache = await caches.open(IMAGES_CACHE);
-  const keys = await cache.keys();
-  if (keys.length <= IMAGE_CACHE_LIMIT) return;
-  const overflow = keys.length - IMAGE_CACHE_LIMIT;
-  for (let i = 0; i < overflow; i++) {
-    await cache.delete(keys[i]);
+// overflow. Cache API keys() returns entries in insertion order. Runs one at a time:
+// overlapping trims each read their own key snapshot and evicted more than the overflow.
+let imageTrim = Promise.resolve();
+function trimImageCache() {
+  imageTrim = imageTrim
+    .then(async () => {
+      const cache = await caches.open(IMAGES_CACHE);
+      const keys = await cache.keys();
+      const overflow = keys.length - IMAGE_CACHE_LIMIT;
+      for (let i = 0; i < overflow; i++) {
+        await cache.delete(keys[i]);
+      }
+    })
+    .catch(() => {});
+  return imageTrim;
+}
+
+// Runtime-cached images are served as-is until this old, then refreshed in the background.
+const IMAGE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+function isStaleImage(res) {
+  const stored = Date.parse(res.headers?.get?.('Date'));
+  return !(Date.now() - stored < IMAGE_MAX_AGE_MS);
+}
+
+async function refreshImage(request) {
+  try {
+    const res = await fetch(request, { cache: 'no-cache' });
+    if (res && res.ok && res.type === 'basic' && isImageResponse(res)) {
+      const cache = await caches.open(IMAGES_CACHE);
+      await cache.put(request, res.clone());
+      await trimImageCache();
+    }
+  } catch (err) {
+    // Offline: keep the cached copy.
   }
 }
 
@@ -1260,7 +1286,10 @@ self.addEventListener('fetch', (event) => {
         const fresh = await cacheMatch(request, { cacheName: PRECACHE });
         if (fresh) return fresh;
         const cached = await cacheMatch(request, { cacheName: IMAGES_CACHE });
-        if (cached) return cached;
+        if (cached) {
+          if (isStaleImage(cached)) event.waitUntil(refreshImage(request));
+          return cached;
+        }
         let res;
         try {
           res = await fetch(request);
