@@ -1359,7 +1359,7 @@ export default function CalendarPlanner() {
             overflowing fields were pointer-only (#365). `group`, not `region` — axe's
             aria-allowed-role rejects `region` on a <header>. Inset ring — full-bleed. */}
         <header
-          className="head static mb-3 -mx-4 sm:-mx-6 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="head static mb-3 -mx-4 sm:-mx-6 max-sm:hidden outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           tabIndex={0}
           role="group"
           aria-label="Day summary"
@@ -1391,11 +1391,6 @@ export default function CalendarPlanner() {
         {/* #920: heading is screen-reader only so the day workspace opens in the first screen;
             the trip-wide density overview sits below the planner in a disclosure. */}
         <h2 id="itinerary-heading" className="sr-only">Itinerary planner</h2>
-
-        {/* search-within-plan: read-only over titles/notes/categories across
-            every day. A cross-day pick jumps `selectedDate` and highlights the row via
-            `focusItem`. */}
-        <PlanSearch plans={plans} onSelect={handleSearchSelect} />
 
         {/* ── ROW 1: the sticky date strip (`<lg`) ────────────────────────────────
             Lifted out of the left grid cell to get here. `position:sticky` only sticks
@@ -1442,11 +1437,16 @@ export default function CalendarPlanner() {
             disclosure. The controls are declared ONCE and the SAME nodes are either laid
             out inline (`sm:`) or dropped into the panel — duplicating them per breakpoint
             would double every testid and break Playwright's strict mode. */}
+        {/* Search shares the toolbar's row below `sm` (the two buttons go icon-only) so the day
+            workspace clears the tab bar on a phone (#960). Read-only over titles/notes/categories
+            across every day; a cross-day pick jumps `selectedDate` and highlights the row. */}
+        <div className="flex items-start gap-2 max-sm:mb-3 sm:block">
+        <PlanSearch plans={plans} onSelect={handleSearchSelect} />
         <div
           role="group"
           aria-label="Plan tools"
           data-testid="calendar-toolbar"
-          className="relative mb-6 flex min-h-tap flex-wrap items-center justify-center gap-2"
+          className="relative flex min-h-tap shrink-0 items-center justify-center gap-2 sm:mb-6 sm:flex-wrap"
         >
           {/* split map/list toggle. OFF by default → the maplibre island stays
               interaction-lazy. On → the selected day's stops + polyline render on
@@ -1463,7 +1463,7 @@ export default function CalendarPlanner() {
             }`}
           >
             <MapIcon className="w-4 h-4" aria-hidden="true" />
-            {showMap ? 'Hide map' : 'Show map'}
+            <span className="max-sm:sr-only">{showMap ? 'Hide map' : 'Show map'}</span>
           </button>
 
           <button
@@ -1475,7 +1475,7 @@ export default function CalendarPlanner() {
             className="chip min-h-tap min-w-tap px-3 transition-colors hover:bg-white/5 hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:hidden"
           >
             <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
-            More
+            <span className="sr-only">More</span>
           </button>
 
           <div
@@ -1549,6 +1549,7 @@ export default function CalendarPlanner() {
             )}
           </div>
         </div>
+        </div>
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
           {/* Left: the day selector — extracted the mobile day-strip block + desktop
@@ -1572,7 +1573,7 @@ export default function CalendarPlanner() {
           {/* Right: Day Detail with DnD */}
           <div className="min-w-0 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] p-4 sm:p-6" data-leg={currentPlan.country} style={{ ['--now' as string]: dayShade(selectedDate).color }}>
             {/* Day Header */}
-            <div className="flex items-center justify-between gap-1 mb-5">
+            <div className="flex items-center justify-between gap-1 mb-3 sm:mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 hover:bg-white/5 text-ink-mid disabled:text-ink-lo disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
                 <h3 ref={dayHeadingRef} tabIndex={-1} className="font-sans text-n-sm font-semibold text-ink-hi outline-none sm:text-n-md">{formatDateLong(selectedDate)}</h3>
@@ -1612,7 +1613,7 @@ export default function CalendarPlanner() {
                     </span>
                   )}
                   {daySun && (
-                    <span data-testid="calendar-day-sun" className="chip">
+                    <span data-testid="calendar-day-sun" className="chip max-sm:[@media(max-height:699px)]:hidden">
                       <Sunrise className="w-3 h-3" aria-hidden="true" />
                       <span>Sunrise {formatTimeAmPm(daySun.sunriseMin)}</span>
                       <Sunset className="w-3 h-3" aria-hidden="true" />
@@ -1698,7 +1699,7 @@ export default function CalendarPlanner() {
                   here, deliberately) so no width can ever clip it mid-word. */}
               <p
                 data-testid="calendar-quick-add-hint"
-                className="mt-1 text-t-sm leading-snug text-ink-mid"
+                className="mt-1 text-t-sm leading-snug text-ink-mid max-sm:[@media(max-height:699px)]:hidden"
               >
                 Tip: start with a time — “7pm dinner”
               </p>

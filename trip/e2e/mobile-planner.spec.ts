@@ -149,6 +149,22 @@ test.describe('S131 · ItemEditor bottom-sheet', () => {
   });
 });
 
+test.describe('#960 · the first itinerary item shows above the tab bar', () => {
+  for (const [width, height] of [[360, 640], [390, 844]] as const) {
+    test(`${width}x${height}`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await gotoPlan(page);
+      const row = page.locator('[data-testid^="calendar-row-swipe-"]').first();
+      await expect(row).toBeAttached();
+      const rowBox = await row.boundingBox();
+      const tab = await page.getByTestId('tab-bar').boundingBox();
+      expect(rowBox).not.toBeNull();
+      expect(tab).not.toBeNull();
+      expect(rowBox!.y).toBeLessThan(tab!.y);
+    });
+  }
+});
+
 test.describe('S357B · the quick-add time hint is legible at 390px', () => {
   /**
    * S357A cut the "try 7pm dinner" hint out of the composer placeholder because at 390px it

@@ -513,7 +513,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
           className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-2.5 font-sans text-t-label font-semibold text-ink-hi outline-none transition-colors hover:bg-[rgb(var(--surface-overlay))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5"
         >
           <MessageSquare className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Concierge</span>
+          <span className="hidden xl:inline">Concierge</span>
         </button>
       </SheetTrigger>
       {/* `p-0` and the per-band padding below are what let the rows run edge to edge; `pr-16` on

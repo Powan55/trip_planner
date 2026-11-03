@@ -11,8 +11,8 @@ export default function PlanHero() {
     <PageHero
       variant="plan"
       title="Trip Planner"
-      className="!pt-[calc(4.5rem+var(--safe-top))] !pb-3 sm:!pt-[calc(5rem+var(--safe-top))] sm:!pb-4"
-      panelClassName="px-4 py-3 sm:px-6 sm:py-4"
+      className="!pt-0 !pb-1 sm:!pt-[calc(5rem+var(--safe-top))] sm:!pb-4 max-sm:[@media(max-height:699px)]:sr-only"
+      panelClassName="max-sm:!border-0 max-sm:!bg-transparent max-sm:!px-0 max-sm:!py-1 sm:px-6 sm:py-4"
     />
   );
 }

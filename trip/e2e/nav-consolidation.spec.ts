@@ -79,6 +79,17 @@ test('navbar actions fit at phone, tablet, and desktop widths', async ({ page })
   expect(errors).toEqual([]);
 });
 
+test('#962: at 768 the brand stays on one line and Travel Mode keeps its label', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await goto(page, '/');
+  await page.evaluate(() => document.fonts.ready);
+  const brand = await page.getByTestId('navbar-brand').boundingBox();
+  expect(brand!.height).toBeLessThan(30);
+  await expect(page.getByTestId('navbar-travel-mode')).toContainText('Travel Mode');
+  await expect(page.getByTestId('concierge-trigger').locator('span')).toBeHidden();
+  await expect(page.getByTestId('concierge-trigger')).toHaveAccessibleName('Open trip concierge chat');
+});
+
 // Mirrors interaction.spec.ts's `goto`: ride through the one-off first-load SW reload.
 async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: 'load' });
