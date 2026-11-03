@@ -6298,6 +6298,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Dropping only the row would bring back #518 for trips that hold nothing but synced data. Extending the #843 guard keeps the wipe for those and keeps anything no remote can restore.
 
 **Not done.** The kept data has no row, so it is reachable only by re-joining the trip; sign-out clears it.
+
 ### D-738 · (issue #981, 2026-11-02) · Gallery images revalidate after 7 days; the trim is serialised
 
 **Decision.** A hit in `trip-images-v1` older than 7 days (by its `Date` header, missing counts as old) is still served at once, then refetched with `cache: no-cache` under `waitUntil` and replaced. `trimImageCache()` runs one at a time off a promise chain, so each pass reads current keys. Amends D-086(b): still cache-first, no longer forever.
