@@ -63,7 +63,7 @@ function HighlightCard({ highlight, plate }: { highlight: InspirationHighlight; 
             src={highlight.image}
             alt={highlight.alt}
             fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 85vw"
             className="object-cover"
             fallback={
               // The plate's own empty frame: the shape stays at full size rather than

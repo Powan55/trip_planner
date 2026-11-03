@@ -11,7 +11,7 @@ import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
 import { daysToGo } from '@/lib/home-stats';
 import { getNow, getTodayInTrip, getTripDayDate, type TripToday } from '@/lib/trip-now';
-import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
+import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN, HERO_SIZES } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
 import { isPostTrip } from '@/core/recap/model';
 import { getKnownTrip } from '@/core/trips/registry';
@@ -389,7 +389,7 @@ export default function HeroSection() {
               alt=""
               fill
               priority
-              sizes="100vw"
+              sizes={HERO_SIZES}
               className="object-cover"
               onError={() => setHeroImgError(true)}
             />
