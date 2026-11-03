@@ -5609,7 +5609,9 @@ The original length is kept because it is diagnostic in its own right: it is how
 
 **Changes if:** the `?trip=` handshake is rewired to set the share id instead of switching packs, which would make the link and the code the same thing.
 
-### D-546 · (issue #485, 2026-09-21) · Prototype-safe maps at the settlement and budget-merge boundary
+### D-781 · (issue #485, 2026-09-21) · Prototype-safe maps at the settlement and budget-merge boundary
+_Renumbered from D-546; the id collided with the share-link entry._
+
 
 **Decision.** `core/budget/settlement.ts` and `core/sync/merge-budget.ts` build their accumulator maps with `Object.create(null)` and read with `Object.prototype.hasOwnProperty.call`. A participant or field path named `constructor`, `toString` or `__proto__` behaves like any other key. `core/sync/hlc.ts` `parse` returns the oldest stamp for a non-string input rather than throwing.
 
@@ -5946,7 +5948,9 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 
 **Status.** Repo only until the rules are actually published (#263). rules-check 7e now expects these adds to be denied.
 
-### D-606 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
+### D-780 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
+_Renumbered from a second D-606; the id collided with the basemap entry._
+
 
 **Decision.** A day's plans render in time order on every surface that lists them: the planner's day detail (`lib/phase-of-day.ts`'s `groupItemsByPhase`, which now sorts before it classifies), the Today panel, the Travel-Mode agenda card, the printed itinerary, and the numbered day route on the `/plan` and `/travel` maps (`buildItineraryStops` passes `chrono: true`). One key throughout: `sortItemsByTime`, so timed items ascend by absolute INSTANT, untimed items sink to a single trailing run preserving their own relative order, and equal instants keep their stored order. `groupItemsByPhase` therefore takes the day's date and place offset — an instant-accurate sort cannot be done without them, and there is no second time-math path.
 
@@ -6232,14 +6236,6 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** A synced restore tombstones every live row, including items peers added after the file was made, and the only warning was generic. The age is the one fact in the file that tells the user how much they are about to lose.
 
 **Not done here.** The seed guard from the same issue shipped earlier.
-
-### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
-
-**Decision.** `setTripMemberRole` in `lib/trips-remote.ts` writes `members.{uid}` as `'owner'` or `'member'` through the same field-path write as add and remove. The members list in Settings shows an owner a **Make owner** button on each member row and a **Step down** button on their own row, each behind a confirm. Step down is offered only while the roster names a second owner. `firestore.rules` is unchanged: it already let an owner write any well-formed roster (`isOwner()`), refuses one that names no owner (`rosterIsWellFormed`), and refuses a member's role write (D-642); `scripts/rules-check.mjs` now pins the promote, step-down and hand-back writes.
-
-**Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
-
-**Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
 
 ### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
 
