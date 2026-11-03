@@ -6344,6 +6344,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Pages ETags are deploy time plus size so no 304 is possible, and every device paid ~1.9 MB per deploy (#979).
 
 **Changes if:** the worker gains a header-dependent read on precache entries (copied entries keep the old response headers), or a build step changes `out/` after gen-sw.
+
 ### D-790 · (issue #987, 2026-11-03) · The emergency card is a device-only slot (key 55)
 
 **Decision.** `ice` (localStorage `nepal_japan_ice`, `trip:{id}:ice` off the default pack) holds the emergency card: blood type, allergies, medications, insurance and its 24h number, home contact, hotel in local script. Trip-scoped, written through `iceStore` and read through `readDeviceOnlyJson`, so an unreadable copy is rescued into `localRescue` before a save can replace it. Shape and limits live in `core/ice/ice.ts`; the editor is `components/ice-card.tsx` on `/profile`, linked from `/safety`, and the card holds the screen wake lock while it has content.
