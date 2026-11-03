@@ -49,19 +49,21 @@ async function flush() {
 }
 
 describe('registered overlays leave the sheet beneath open (#865)', () => {
-  it('keeps tour focus trapped when Back becomes disabled (#866)', async () => {
+  it('keeps tour focus trapped when Back is hidden on step 1 (#866, #961)', async () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
     act(() => root.render(createElement(FirstRunTour)));
     await flush();
     const next = document.querySelector<HTMLButtonElement>('[data-testid="tour-next"]')!;
-    const back = document.querySelector<HTMLButtonElement>('[data-testid="tour-back"]')!;
     const skip = document.querySelector<HTMLButtonElement>('[data-testid="tour-skip"]')!;
+    expect(document.querySelector('[data-testid="tour-back"]')).toBeNull();
     act(() => next.click());
+    const back = document.querySelector<HTMLButtonElement>('[data-testid="tour-back"]')!;
+    expect(back).not.toBeNull();
     back.focus();
     act(() => back.click());
-    expect(back.disabled).toBe(true);
+    expect(document.querySelector('[data-testid="tour-back"]')).toBeNull();
     expect(document.activeElement).toBe(next);
     expect(document.body.dataset.dialogOpen).toBe('1');
     // jsdom has no layout; expose the visible controls to the real Tab trap.

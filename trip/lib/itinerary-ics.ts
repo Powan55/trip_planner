@@ -39,6 +39,7 @@ import {
 
 const DEFAULT_DURATION_MIN = 60;
 const ICS_LINE_END = '\r\n';
+const REMINDER_TRIGGER = '-PT30M';
 
 function pad(n: number, width = 2): string {
   return String(n).padStart(width, '0');
@@ -112,6 +113,9 @@ function eventLines(day: DayPlan, item: ItineraryItem, dtstamp: string): string[
   lines.push(`SUMMARY:${icsEscapeText(item.title)}`);
   if (item.notes) lines.push(`DESCRIPTION:${icsEscapeText(item.notes)}`);
   if (item.location) lines.push(`LOCATION:${icsEscapeText(item.location)}`);
+  if (!(startMin === undefined || spansDays)) {
+    lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `TRIGGER:${REMINDER_TRIGGER}`, `DESCRIPTION:${icsEscapeText(item.title)}`, 'END:VALARM');
+  }
   lines.push('END:VEVENT');
   return lines;
 }

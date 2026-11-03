@@ -85,6 +85,19 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
     }
   });
 
+  it('#980 — offline, a 200 answered from the service worker cache is not trusted: cached value comes back stale', async () => {
+    await fetchCurrencyRate('JPY', async () => jsonResponse(FRANKFURTER_JPY_FIXTURE));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(FRANKFURTER_JPY_FIXTURE));
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      const result = await fetchCurrencyRate('JPY', fetchMock as unknown as typeof fetch);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(result.status === 'ok' && result.data.stale).toBe(true);
+    } finally {
+      onLine.mockRestore();
+    }
+  });
+
   it('absent: no cache + failed fetch → unavailable, never throws', async () => {
     const result = await fetchCurrencyRate('JPY', async () => {
       throw new Error('offline');

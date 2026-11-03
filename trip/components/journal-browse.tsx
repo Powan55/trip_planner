@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, Camera, ImageOff, Pencil, Search, Sparkles, X } from 'lucide-react';
+import { Camera, ImageOff, Pencil, Search, Sparkles, X } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
 import type { Mood, JournalEntry } from '@/core/journal/model';
 import { formatDateLong } from '@/lib/trip-data';
@@ -139,11 +139,7 @@ export default function JournalBrowse() {
       className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
     >
       <header className="mb-6">
-        <p className="pr mb-2 flex items-center gap-1.5">
-          <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-          Every day, in your words
-        </p>
-        <h2 id="journal-browse-heading" className="text-display-lg text-ink-hi">
+        <h2 id="journal-browse-heading" className="sr-only">
           All journal entries
         </h2>
       </header>

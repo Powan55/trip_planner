@@ -94,6 +94,11 @@ describe('safety content — valid data parses', () => {
     expect(DOCUMENT_CHECKLIST.some((i) => i.id === 'carry-passport-japan')).toBe(true);
   });
 
+  it('HAZARD_NOTES: Japan nightlife spiking/touts and Nepal scams notes exist (#939)', () => {
+    expect(HAZARD_NOTES.find((n) => n.id === 'jp-nightlife-spiking')?.body).toMatch(/drink/i);
+    expect(HAZARD_NOTES.find((n) => n.id === 'np-scams')?.country).toBe('Nepal');
+  });
+
   it('DOCUMENT_CHECKLIST: every item parses and belongs to a known group', () => {
     expect(DOCUMENT_CHECKLIST.length).toBeGreaterThan(0);
     for (const item of DOCUMENT_CHECKLIST) {
