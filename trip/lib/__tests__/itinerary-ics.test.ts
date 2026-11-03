@@ -48,6 +48,17 @@ describe('itineraryToIcs', () => {
     expect(props.get('SUMMARY')).toBe('Visit temple');
   });
 
+  it('#956 — a timed item gets a 30-minute display VALARM; an all-day item gets none', () => {
+    const ics = itineraryToIcs([
+      day({ items: [item({ id: 'a1', title: 'Fly, home', startMinutes: 9 * 60 }), item({ id: 'a2' })] }),
+    ]);
+    const [, timed, allDay] = ics.split('BEGIN:VEVENT');
+    expect(timed).toContain(
+      '\r\nBEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT30M\r\nDESCRIPTION:Fly\\, home\r\nEND:VALARM\r\nEND:VEVENT',
+    );
+    expect(allDay).not.toContain('VALARM');
+  });
+
   it('#469 — a per-item tzOffsetMin override wins over the day country offset', () => {
     const ics = itineraryToIcs([
       day({

@@ -162,6 +162,9 @@ export async function fetchCurrencyRate(
   const peg = PEGGED[currency];
   const symbol = peg?.base ?? currency;
   try {
+    // The service worker answers this host from its own cache as a 200 when offline, which would
+    // pass for a fresh fetch. Offline, skip the request so the localStorage fallback marks it stale.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('offline');
     const url = `${FRANKFURTER_URL}?base=USD&symbols=${encodeURIComponent(symbol)}`;
     // Signal built PER CALL — an AbortSignal.timeout is single-use, so a module-scope one would
     // already be expired by the second load. It also cancels the socket and stays attached to the

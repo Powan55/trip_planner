@@ -81,6 +81,33 @@ describe('useCrossTabReload', () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  describe('bfcache restore', () => {
+    const show = (persisted: boolean) =>
+      window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted }));
+    afterEach(() => localStorage.clear());
+
+    it('reloads when the active trip changed while frozen', async () => {
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'x');
+      const { isTabRetiring } = await mount();
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'y');
+      show(true);
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(isTabRetiring()).toBe(true);
+    });
+
+    it('does not reload when nothing changed, a token rename, or not persisted', async () => {
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'x');
+      localStorage.setItem(STORAGE_KEYS.token, 'a');
+      await mount();
+      show(true);
+      localStorage.setItem(STORAGE_KEYS.token, 'b');
+      show(true);
+      localStorage.setItem(STORAGE_KEYS.activeTrip, 'y');
+      show(false);
+      expect(reload).not.toHaveBeenCalled();
+    });
+  });
+
   it('a dirty draft is not committed on the pagehide that follows a cross-tab trip switch', async () => {
     const { useCrossTabReload } = await import('@/hooks/use-cross-tab-reload');
     const { useDraftOnBlur } = await import('@/hooks/use-draft-on-blur');

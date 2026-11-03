@@ -48,7 +48,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { installHintStore, backupPromptStore } from '@/core/storage/gateway';
+import { installHintStore, backupPromptStore, tourStore } from '@/core/storage/gateway';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { legLabel } from '@/lib/leg-label';
@@ -136,10 +136,12 @@ export function StoragePersistence() {
     // cleared" has nothing to say to a visitor with no trip data anyway. `!!getActiveTraveler()`
     // is the same "gate passed" read first-run-tour.tsx uses; every sign-in path ends in a full
     // reload, so a traveler who signs in still gets the hint on the very next mount.
-    if (getActiveTraveler() && !isStandalone() && !installHintStore.hasBeenDismissed()) {
+    // Held until the first-run tour is done (#961): first-run-tour.tsx dispatches `trip:tour-done`
+    // from finish(), so both never stack on a fresh sign-in.
+    const showInstallHint = () => {
       const description = isIOS()
         ? 'Tap Share, then "Add to Home Screen" — installed apps are protected from Safari clearing their data. The installed app starts empty: export your trip in Settings first, then open it once online and sign in.'
-        : "Install this app to your Home Screen so your trip data can't be cleared.";
+        : "Installed apps are protected from the browser clearing your trip data.";
       const id = toast('Install this app to your Home Screen', {
         description,
         duration: Infinity,
@@ -154,6 +156,15 @@ export function StoragePersistence() {
         // path. onDismiss also fires on a swipe gesture, which must NOT be treated as consent
         // (#249): a swipe just closes this toast; the hint can still show on a later visit.
       });
+    };
+    let waitingForTour = false;
+    if (getActiveTraveler() && !isStandalone() && !installHintStore.hasBeenDismissed()) {
+      if (tourStore.hasSeenTour()) {
+        showInstallHint();
+      } else {
+        waitingForTour = true;
+        window.addEventListener('trip:tour-done', showInstallHint, { once: true });
+      }
     }
 
     // ── 4. Reactive write-failure toast (; complements #2's proactive estimate() warning) ──
@@ -214,6 +225,7 @@ export function StoragePersistence() {
 
     return () => {
       window.removeEventListener('trip:quota-exceeded', onQuotaExceeded);
+      if (waitingForTour) window.removeEventListener('trip:tour-done', showInstallHint);
       clearInterval(legTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
