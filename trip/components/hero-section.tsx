@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
 import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
+import { TRIP_DATES_PENDING } from '@/core/dates';
 import { dayShade } from '@/lib/city-palette';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
@@ -649,7 +650,7 @@ export default function HeroSection() {
               <p className="pr pr--l pr--lo">{TRIP_DATE_LABEL}</p>
             </div>
           </m.div>
-        ) : (
+        ) : TRIP_DATES_PENDING ? null : (
           <m.div
             variants={reveal}
             className="mb-2 min-[420px]:mb-10"

@@ -14,6 +14,7 @@ export {
   JAPAN_END,
   TRIP_DATES,
   TRIP_DATE_LABEL,
+  TRIP_DATES_PENDING,
   getCountryForDate,
   formatDate,
   formatDateLong,

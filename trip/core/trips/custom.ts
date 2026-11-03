@@ -158,6 +158,10 @@ const PLACEHOLDER_CITY = 'Somewhere';
  */
 const PLACEHOLDER_DATE = '2099-12-31';
 
+export function isPlaceholderSpan(trip: { start: string; end: string }): boolean {
+  return trip.start === PLACEHOLDER_DATE && trip.end === PLACEHOLDER_DATE;
+}
+
 /**
  * A minimal single-day, single-leg `TripConfig` for a KNOWN trip (a registered `TripMeta`) that
  * has no user-authored config yet. Its itinerary Vault fallback (`buildDayShells`, below) then

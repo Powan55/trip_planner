@@ -6290,3 +6290,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Image filenames are not content-hashed, so a re-encode or credit fix at the same path never reached returning devices; overlapping trims worked from stale key snapshots.
 
 **Not done.** Hashed filenames. The precache-first order for hero rasters is unchanged.
+
+### D-770 · (issue #970, 2026-11-03) · Config-less trips hide their placeholder dates; create picks a local currency
+
+**Decision.** A trip with no config still resolves to the one-day 2099-12-31 placeholder (D-342), but nothing shows that date. `TRIP_DATES_PENDING` turns the date label into "Trip details not loaded yet", the hero drops its countdown, the live stat cell reads "Dates not set", the gate countdown shows the label, and Travel Mode skips its pre-trip Day 1 default. The create form gets a local currency picker limited to `CURRENCIES` (USD, NPR, JPY), written to the existing optional `config.currency`.
+
+**Why.** Those three are the only currencies the budget has rates for (`rates.{NPR,JPY}`). Another currency needs new synced rate fields and a wider `CurrencyCode`, so it is a separate change.
+
+**Not done.** More currencies, and per-day cities for multi-destination trips: every day still uses `destinations[0]`.
