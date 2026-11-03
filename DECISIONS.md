@@ -6283,6 +6283,16 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
 
+### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
+
+**Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
+
+**Why.** Same class as #138 and #519. An older tab or phone editing a day rebuilt the entry from known fields and wrote it over the whole server row, erasing what a newer build had added. A photo row with an unknown owner kind was dropped on read and the next save made the drop permanent.
+
+**Same shape as expenses.** The local journal path stays a strict allowlist (D-159, D-374): a backup restore or a legacy slot carrying a photo ref cannot reach Firestore, and text and highlight keep their length caps. Unknown keys are read only from the server row inside the push transaction, and never the declared fields, so clearing a mood or highlight still sticks. A tombstone, or a push over one, carries nothing. The local slot never holds the unknown keys; the server row is where they live. Photo rows are device-local, so that half keeps unknown owner kinds and keys in the model.
+
+**Not done.** The outbox slot version is a separate change. Unknown keys have no size cap beyond Firestore's document limit.
+
 ### D-738 · (issue #981, 2026-11-02) · Gallery images revalidate after 7 days; the trim is serialised
 
 **Decision.** A hit in `trip-images-v1` older than 7 days (by its `Date` header, missing counts as old) is still served at once, then refetched with `cache: no-cache` under `waitUntil` and replaced. `trimImageCache()` runs one at a time off a promise chain, so each pass reads current keys. Amends D-086(b): still cache-first, no longer forever.

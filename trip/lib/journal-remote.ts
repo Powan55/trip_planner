@@ -161,7 +161,11 @@ async function push(t: Target, date: string, explicit: boolean): Promise<void> {
       if (!sameTarget(t) || readMeta()[date]?.hlc !== sent) return null;
       const remote = snap.exists() ? readRows(snap.data())[date] : undefined;
       if (!explicit && remote && newer(remote.hlc, sent)) return { row: remote, ours: false };
-      const next = { ...local, hlc: explicit ? stamp(remote && newer(remote.hlc, sent) ? remote.hlc : sent) : sent };
+      // Keys a newer build wrote on the server ride along (#986); declared fields never come from it.
+      const { hlc: _h, deletedAt: _d, text: _t, mood: _m, highlight: _hl, createdAt: _c, updatedAt: _u, ...extra } =
+        remote ?? ({} as Row);
+      const carry = local.deletedAt === undefined && remote?.deletedAt === undefined ? extra : {};
+      const next = { ...carry, ...local, hlc: explicit ? stamp(remote && newer(remote.hlc, sent) ? remote.hlc : sent) : sent };
       if (snap.exists()) tx.update(ref, { [`entries.${date}`]: next });
       else tx.set(ref, { entries: { [date]: next } });
       return { row: next, ours: true };
