@@ -984,9 +984,8 @@ self.addEventListener('activate', (event) => {
       // that is not in the current set — the active precache PLUS the two runtime
       // caches. This drops the previous build's trip-precache-* (atomic activation)
       // AND garbage-collects renamed runtime caches (e.g. a bumped trip-images-v1 ->
-      // v2, or a retired frankfurter cache) that a prefix-only filter would have
-      // leaked forever. FRANKFURTER_CACHE is declared lower in this file; it is only
-      // read here at activate time (well after module eval), so no TDZ issue.
+      // v2, or the retired trip-frankfurter-v1) that a prefix-only filter would have
+      // leaked forever.
       //
       // The OWNERSHIP predicate is load-bearing and is not a duplicate of the
       // allowlist: caches.keys() is scoped to the ORIGIN, not to this worker's
@@ -994,7 +993,7 @@ self.addEventListener('activate', (event) => {
       // is shared with every other Pages project on the account. Without the
       // prefix, accepting an update here wipes a sibling app's Cache Storage, and
       // that sibling only repopulates on ITS own next version bump.
-      const allowlist = new Set([PRECACHE, RUNTIME_CACHE, IMAGES_CACHE, FRANKFURTER_CACHE]);
+      const allowlist = new Set([PRECACHE, RUNTIME_CACHE, IMAGES_CACHE]);
       const keys = await caches.keys();
       await Promise.all(
         keys
@@ -1225,37 +1224,10 @@ async function cacheFirst(request, cacheName) {
   return res;
 }
 
-// stale-while-revalidate for Frankfurter (api.frankfurter.dev, the Travel Mode Essentials
-// currency rate, lib/currency-rate.ts) — ONE deliberate, hand-added exception (: gen-sw.mjs
-// is hand-maintained) to the cross-origin passthrough just below. Serves the cached response
-// immediately when present (instant, offline-safe) while refreshing it in the background;
-// falls through to a plain network fetch on a cold cache. This is a network-layer NICETY only —
-// \`lib/currency-rate.ts\`'s own localStorage cache is the dormant-safe guarantee
-// (an offline "as of <date>" line even with this SW cache empty); this just avoids a redundant
-// round-trip when a good one is already sitting in the Cache API. No other cross-origin host is
-// touched here — Firebase/gstatic/font hosts still hit the untouched-passthrough line below.
-const FRANKFURTER_CACHE = 'trip-frankfurter-v1';
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  const network = fetch(request)
-    .then((res) => {
-      if (res && res.ok) cache.put(request, res.clone());
-      return res;
-    })
-    .catch(() => undefined);
-  return cached || (await network) || Response.error();
-}
-
 // --- fetch routing -------------------------------------------------------
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-
-  if (request.method === 'GET' && url.hostname === 'api.frankfurter.dev') {
-    event.respondWith(staleWhileRevalidate(request, FRANKFURTER_CACHE));
-    return;
-  }
 
   // FIRST LINE: cross-origin -> return untouched. This protects
   // Firebase (firestore/identitytoolkit), gstatic, font hosts — the SW must

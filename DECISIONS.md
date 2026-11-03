@@ -6300,3 +6300,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Image filenames are not content-hashed, so a re-encode or credit fix at the same path never reached returning devices; overlapping trims worked from stale key snapshots.
 
 **Not done.** Hashed filenames. The precache-first order for hero rasters is unchanged.
+
+### D-741 · (issue #980, 2026-11-02) · The worker no longer caches the Frankfurter rate
+
+**Decision.** The stale-while-revalidate route for `api.frankfurter.dev` is gone; the host is plain cross-origin passthrough again. `trip-frankfurter-v1` is no longer allowlisted, so the next activate deletes it. Retires D-190.
+
+**Why.** The worker answered the rate request from cache as a 200, so `fetchCurrencyRate` took its success branch: the previous fetch looked fresh, never flagged stale, and online the row always lagged one fetch behind. Network-first with a cache fallback would still hand a cached 200 to the client when the network dies with `navigator.onLine` true, so the stale flag would stay wrong. With the route gone a dead network rejects and the localStorage fallback in `lib/currency-rate.ts` marks the value stale.
+
+**Changes if:** the rate needs a cache layer the client's localStorage cannot give.

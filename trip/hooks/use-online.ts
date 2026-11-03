@@ -81,11 +81,6 @@ function setReachable(next: boolean) {
 // negative) — neither says anything about reachability. Cross-origin requests are
 // returned untouched by the worker, and a captive portal's interception of one fails
 // CORS, which surfaces as a rejection.
-//
-// KNOWN CEILING: api.frankfurter.dev is the worker's one stale-while-revalidate
-// exception, so a cached rate can resolve cross-origin without touching the network.
-// One host, one request per rate read; not worth teaching this module the worker's
-// routing table.
 function isCrossOrigin(input: RequestInfo | URL): boolean {
   try {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
