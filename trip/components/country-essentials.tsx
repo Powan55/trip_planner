@@ -42,7 +42,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
               src={destination.image}
               alt=""
               fill
-              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 85vw"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               onError={() => setImgError(true)}
             />
