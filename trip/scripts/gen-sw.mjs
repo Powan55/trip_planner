@@ -956,7 +956,7 @@ self.addEventListener('install', (event) => {
       // byte-identical rebuild reuses the active worker's cache name.
       const names = await caches.keys();
       const fresh = !names.includes(PRECACHE);
-      const previous = names.filter((k) => k.startsWith('trip-precache-'));
+      const previous = names.filter((k) => k.startsWith('trip-precache-') && k !== PRECACHE);
       const cache = await caches.open(PRECACHE);
       const results = await Promise.allSettled(
         PRECACHE_URLS.map(async (url) => {

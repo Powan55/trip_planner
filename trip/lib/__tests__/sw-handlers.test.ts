@@ -732,7 +732,19 @@ describe('install: refuses a mixed-build edge and cleans up after itself (#944, 
       expect(fetched).toContain(OWN_CHUNK);
     });
 
-    it('a failed fetch still rejects the install and leaves the old precache intact', async () => {
+    it('a rejecting cache lookup falls back to the network for every entry', async () => {
+      const { caches, stores } = makeCaches(
+        { 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } },
+        { rejectMatch: true }
+      );
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
+      expect(fetched).toContain(HERO);
+      expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+    });
+
+    it('a BUILD_ID mismatch rejects the install and leaves the old precache intact', async () => {
       const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } });
       const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
       expect(result).toBeInstanceOf(Error);
