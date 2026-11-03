@@ -174,6 +174,7 @@ export default function FirstRunTour() {
   function finish() {
     tourStore.markTourSeen();
     setOpen(false);
+    window.dispatchEvent(new Event('trip:tour-done'));
   }
 
   function handleNext() {

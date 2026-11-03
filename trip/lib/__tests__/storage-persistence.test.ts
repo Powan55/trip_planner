@@ -83,7 +83,7 @@ vi.mock('@/core/trips', async (importOriginal) => {
 });
 
 import { StoragePersistence } from '@/components/storage-persistence';
-import { installHintStore, backupPromptStore, identityStore, STORAGE_KEYS } from '@/core/storage/gateway';
+import { installHintStore, backupPromptStore, identityStore, tourStore, STORAGE_KEYS } from '@/core/storage/gateway';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -145,9 +145,10 @@ function stubStorageManager(opts: {
  * Seeds the identity slot the install hint now gates on (#352). `resolveToken` takes any
  * non-empty trimmed name, so the token alone is a signed-in traveler.
  */
-function signInTraveler(name = 'Alina') {
+function signInTraveler(name = 'Alina', tourSeen = true) {
   identityStore.setToken(name);
   identityStore.setName(name);
+  if (tourSeen) tourStore.markTourSeen();
 }
 
 /** Stubs matchMedia + navigator.standalone for the install-hint standalone check. */
@@ -316,6 +317,30 @@ describe('StoragePersistence — install-to-Home hint', () => {
     await signedIn.settle();
     expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(true);
     signedIn.unmount();
+  });
+
+  // #961 — the tour dialog and this never-clearing toast landed together on first run.
+  it('holds the hint while the tour is unseen, then shows it once the tour finishes (#961)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    signInTraveler('Alina', false);
+    const r = render(createElement(StoragePersistence));
+    await r.settle();
+    expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(false);
+
+    window.dispatchEvent(new Event('trip:tour-done'));
+    expect(h.toastCalls.filter((c) => c.message.includes('Install this app')).length).toBe(1);
+    window.dispatchEvent(new Event('trip:tour-done'));
+    expect(h.toastCalls.filter((c) => c.message.includes('Install this app')).length).toBe(1);
+    r.unmount();
+  });
+
+  it('does not show a held hint after unmount (#961)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    signInTraveler('Alina', false);
+    const r = render(createElement(StoragePersistence));
+    r.unmount();
+    window.dispatchEvent(new Event('trip:tour-done'));
+    expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(false);
   });
 
   it('does NOT show the hint when already standalone', async () => {
