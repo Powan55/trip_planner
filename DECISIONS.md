@@ -6340,3 +6340,15 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The worker answered the rate request from cache as a 200, so `fetchCurrencyRate` took its success branch: the previous fetch looked fresh, never flagged stale, and online the row always lagged one fetch behind. Network-first with a cache fallback would still hand a cached 200 to the client when the network dies with `navigator.onLine` true, so the stale flag would stay wrong. With the route gone a dead network rejects and the localStorage fallback in `lib/currency-rate.ts` marks the value stale.
 
 **Changes if:** the rate needs a cache layer the client's localStorage cannot give.
+
+### D-790 · (issue #987, 2026-11-03) · The emergency card is a device-only slot (key 55)
+
+**Decision.** `ice` (localStorage `nepal_japan_ice`, `trip:{id}:ice` off the default pack) holds the emergency card: blood type, allergies, medications, insurance and its 24h number, home contact, hotel in local script. Trip-scoped, written through `iceStore` and read through `readDeviceOnlyJson`, so an unreadable copy is rescued into `localRescue` before a save can replace it. Shape and limits live in `core/ice/ice.ts`; the editor is `components/ice-card.tsx` on `/profile`, linked from `/safety`, and the card holds the screen wake lock while it has content.
+
+**Never leaves the device.** No sync domain, share link, backup (listed in the `trip-backup.ts` exclusion type) or concierge payload reads it. Sign-out and a local forget wipe it through `TRIP_SCOPED_SLOTS`; a remote forget keeps it, because `DEVICE_ONLY_SLOTS` counts it as data no remote copy could restore.
+
+**Why.** Medical and contact details are the one kind of data where a sync leak or a backup file left in a shared inbox does harm that an app cannot undo. The issue's optional "include in backup" toggle is not built: the card is small enough to retype, and a toggle is a way to put it in a file by accident.
+
+**Changes if:** the owner wants the card to follow a person across trips or devices, which needs an account-scoped slot and a decision on where it may be stored.
+
+**Known gap.** `readJson` accepts arrays for object fallbacks (follow-up issue).

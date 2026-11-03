@@ -318,7 +318,9 @@ type _ExhaustiveBackupDomains = [TripScopedSlot] extends
     // key 53 — an unsaved editor draft, device-local like the concierge thread.
     | 'journalDraft'
     // D-725 — raw unreadable bytes, a quarantine slot like itineraryCorrupt.
-    | 'localRescue',
+    | 'localRescue'
+    // D-790 — medical and contact details never leave the device, backup file included.
+    | 'ice',
   ]
   ? true
   : never;
