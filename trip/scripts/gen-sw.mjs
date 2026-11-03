@@ -961,7 +961,11 @@ self.addEventListener('install', (event) => {
       const results = await Promise.allSettled(
         PRECACHE_URLS.map(async (url) => {
           const kept = await reusablePrecacheEntry(url, previous);
-          if (kept) return cache.put(url, kept);
+          if (kept) {
+            try {
+              return await cache.put(url, kept);
+            } catch (err) {}
+          }
           const res = await fetch(url, { cache: 'no-cache' });
           if (!res || !res.ok) {
             throw new Error(
@@ -1137,7 +1141,7 @@ async function reusablePrecacheEntry(url, cacheNames) {
   for (const cacheName of cacheNames) {
     try {
       const hit = await caches.match(url, { cacheName });
-      if (!hit) continue;
+      if (!hit || !hit.ok || hit.redirected || !isExpectedPrecacheBody(url, hit)) continue;
       const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await hit.clone().arrayBuffer()));
       const hex = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
       if (hex.startsWith(revision)) return hit;

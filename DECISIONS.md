@@ -6340,3 +6340,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The worker answered the rate request from cache as a 200, so `fetchCurrencyRate` took its success branch: the previous fetch looked fresh, never flagged stale, and online the row always lagged one fetch behind. Network-first with a cache fallback would still hand a cached 200 to the client when the network dies with `navigator.onLine` true, so the stale flag would stay wrong. With the route gone a dead network rejects and the localStorage fallback in `lib/currency-rate.ts` marks the value stale.
 
 **Changes if:** the rate needs a cache layer the client's localStorage cannot give.
+
+### D-795 · (amends D-226, D-086(a); issue #979, 2026-11-03) · Install copies byte-identical precache entries forward
+
+**Decision.** gen-sw writes `PRECACHE_REVISIONS` (sha256, first 32 hex) for every precached file except `.html`/`.txt`. Before fetching each URL, install looks in existing `trip-precache-*` caches, hashes the stored bytes, and copies the entry only on a match. Pages and payloads are always fetched and checked against the build id. Any miss or error falls back to the normal fetch. Install stays atomic, the content-hashed cache name is unchanged, activate cleanup is unchanged.
+
+**Why.** Pages ETags are deploy time plus size so no 304 is possible, and every device paid ~1.9 MB per deploy (#979).
+
+**Changes if:** the worker gains a header-dependent read on precache entries (copied entries keep the old response headers), or a build step changes `out/` after gen-sw.

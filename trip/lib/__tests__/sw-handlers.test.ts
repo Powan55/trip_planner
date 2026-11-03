@@ -148,7 +148,10 @@ function makeCaches(
   const stores = new Map<string, Map<string, FakeResponse>>();
   for (const [name, entries] of Object.entries(initial)) {
     const store = new Map<string, FakeResponse>();
-    for (const [k, body] of Object.entries(entries)) store.set(keyOf(k), new FakeResponse(body));
+    for (const [k, body] of Object.entries(entries)) {
+      const page = k.endsWith('/') || k.endsWith('.html');
+      store.set(keyOf(k), new FakeResponse(body, { contentType: page ? 'text/html' : 'application/octet-stream' }));
+    }
     stores.set(name, store);
   }
   const deleted: string[] = [];
@@ -206,7 +209,8 @@ interface Handlers {
 function instantiate(
   caches: FakeCacheStorage,
   fetchImpl: (req: Keyish) => Promise<FakeResponse>,
-  registration: { waiting?: unknown; installing?: unknown } = {}
+  registration: { waiting?: unknown; installing?: unknown } = {},
+  cryptoImpl: unknown = globalThis.crypto
 ): Handlers {
   const handlers: Handlers = {};
   const self = {
@@ -218,12 +222,13 @@ function instantiate(
     skipWaiting: () => {},
     registration: { installing: null, waiting: null, update: async () => {}, ...registration },
   };
-  new Function('self', 'caches', 'fetch', 'Response', 'location', WORKER_SOURCE)(
+  new Function('self', 'caches', 'fetch', 'Response', 'location', 'crypto', WORKER_SOURCE)(
     self,
     caches,
     fetchImpl,
     FakeResponse,
-    { origin: ORIGIN, href: ORIGIN + '/' }
+    { origin: ORIGIN, href: ORIGIN + '/' },
+    cryptoImpl
   );
   return handlers;
 }
@@ -742,6 +747,26 @@ describe('install: refuses a mixed-build edge and cleans up after itself (#944, 
       expect(fetched).toContain(OWN_CHUNK);
       expect(fetched).toContain(HERO);
       expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+    });
+
+    it('a throwing digest falls back to the network for every entry', async () => {
+      const old = { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' };
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': old });
+      const { fetched, impl } = counting(ok);
+      const broken = { subtle: { digest: async () => { throw new Error('no subtle'); } } };
+      expect(await runInstall(instantiate(caches, impl, {}, broken))).toBe('installed');
+      expect(fetched.sort()).toEqual([...PRECACHE_URLS].sort());
+      for (const url of [OWN_CHUNK, HERO]) {
+        expect(stores.get(PRECACHE)!.get(url)).not.toBe(stores.get('trip-precache-oldbuild')!.get(url));
+      }
+    });
+
+    it('does not copy a stored entry the install guards would refuse', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': {} });
+      stores.get('trip-precache-oldbuild')!.set(OWN_CHUNK, new FakeResponse('CHUNK', { contentType: 'text/html' }));
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
     });
 
     it('a BUILD_ID mismatch rejects the install and leaves the old precache intact', async () => {
