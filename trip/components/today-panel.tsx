@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
-import { MapPin, ArrowRight } from 'lucide-react';
+import { MapPin, ArrowRight, Sunrise, Sunset } from 'lucide-react';
 import {
   formatDateLong,
   type ItineraryItem,
 } from '@/lib/trip-data';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
-import { offsetForCountry } from '@/core/dates';
+import { formatTimeAmPm, offsetForCountry } from '@/core/dates';
+import { daySunTimes, endsAfterSunset } from '@/lib/sun-times';
 import { dayShade } from '@/lib/city-palette';
 import { nextUp } from '@/lib/whats-next';
 import { sortItemsByTime } from '@/lib/sort-items-by-time';
@@ -131,6 +132,8 @@ export default function TodayPanel() {
   // Not a `useMemo`: this sits after the hydration early-return above, where a hook would break
   // the call-order rule. A 32-day trip's single day is a handful of rows, so the sort is free.
   const items = sortItemsByTime(dayPlan.items, todayInTrip.date, offsetForCountry(todayInTrip.country));
+  const sun = daySunTimes(todayInTrip.date, dayPlan.city, dayPlan.country);
+  const afterDark = sun ? items.filter((it) => it.done !== true && endsAfterSunset(it, sun.sunsetMin)) : [];
   const doneCount = items.filter((it) => it.done === true).length;
   // The next upcoming, not-done, timed item by the resolved place-clock (pure `nextUp`,
   // /). `null` when everything is done/past or nothing is timed → the rail shows "all
@@ -193,6 +196,28 @@ export default function TodayPanel() {
         </header>
 
         <TonightsStay date={todayInTrip.date} className="mb-6" />
+
+        {sun && (
+          <div data-testid="today-sun" className="mb-6 text-t-sm text-ink-mid">
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="inline-flex items-center gap-1">
+                <Sunrise className="h-3.5 w-3.5" aria-hidden="true" />
+                Sunrise {formatTimeAmPm(sun.sunriseMin)}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Sunset className="h-3.5 w-3.5" aria-hidden="true" />
+                Sunset {formatTimeAmPm(sun.sunsetMin)}
+              </span>
+            </p>
+            {afterDark.length > 0 && (
+              <ul data-testid="today-after-dark" className="mt-1 text-amber-300">
+                {afterDark.map((it) => (
+                  <li key={it.id}>{it.title} ends after sunset</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Weather + golden-hour for today's city — sits above the agenda. */}
         <div className="mb-6">
