@@ -3,7 +3,7 @@
 // newer build must not be rewritten as v1.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { ChunkSync } from '@/core/sync/outbox';
-import { STORAGE_KEYS } from '@/core/storage/gateway';
+import { STORAGE_KEYS, setDefaultTripShareId } from '@/core/storage/gateway';
 
 vi.mock('@/lib/firebase-config', () => ({
   isRemoteConfigured: () => true,
@@ -66,6 +66,15 @@ describe('a refused outbox write (#982)', () => {
     online = true;
     await m.flushOutbox(cs, storage({ d1: 1 }));
     expect(pushes).toEqual(['d1', 'd1']);
+    expect(m.outboxDirty('itinerary')).toEqual([]);
+  });
+
+  it('does not carry into another shared trip after a share switch', async () => {
+    setDefaultTripShareId('trip-a');
+    fillQuotaFor(KEY);
+    await m.withOutbox(cs)({}, { d1: 1 });
+    expect(m.outboxDirty('itinerary')).toEqual(['d1']);
+    setDefaultTripShareId('trip-b');
     expect(m.outboxDirty('itinerary')).toEqual([]);
   });
 });
