@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { precacheRevision } from '../../scripts/gen-sw.mjs';
 
 // ---------------------------------------------------------------------------
 // Lift the worker template out of the generator and instantiate it.
@@ -32,6 +33,14 @@ const RUNTIME_CACHE = 'trip-runtime-testhash';
 const ENGINE_CHUNK = '/_next/static/chunks/engine0000000000.js';
 const RUNTIME_URLS = [ENGINE_CHUNK, '/maplibre/maplibre-gl-worker.mjs'];
 const PRECACHE_LIST = '/__precache-urls.json';
+const HERO = '/images/hero/hero.avif';
+// Route pages never get a revision from the generator; '/plan/' has one here to prove the
+// worker refuses to reuse a page even if one slipped into the map.
+const PRECACHE_REVISIONS: Record<string, string> = {
+  [OWN_CHUNK]: precacheRevision('x.js', Buffer.from('CHUNK'))!,
+  [HERO]: precacheRevision('x.avif', Buffer.from('HERO'))!,
+  '/plan/': precacheRevision('x.js', Buffer.from('OLDPLAN'))!,
+};
 
 const genSwSrc = readFileSync(resolve(__dirname, '../../scripts/gen-sw.mjs'), 'utf8');
 
@@ -60,8 +69,9 @@ function extractWorkerSource(): string {
     'buildId',
     'RUNTIME_CACHE_NAME',
     'runtimeUrls',
+    'precacheRevisions',
     'return `' + template + '`'
-  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p, BUILD_ID, RUNTIME_CACHE, RUNTIME_URLS);
+  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p, BUILD_ID, RUNTIME_CACHE, RUNTIME_URLS, PRECACHE_REVISIONS);
 }
 
 const WORKER_SOURCE = extractWorkerSource();
@@ -99,6 +109,10 @@ class FakeResponse {
 
   async text(): Promise<string> {
     return this.body;
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    return new TextEncoder().encode(this.body).buffer as ArrayBuffer;
   }
 
   static error(): FakeResponse {
@@ -672,6 +686,70 @@ describe('install: refuses a mixed-build edge and cleans up after itself (#944, 
     const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
     expect(result).toBeInstanceOf(Error);
     expect(deleted).toEqual([]);
+  });
+
+  describe('reuses byte-identical entries from an older precache (#979)', () => {
+    const ok = `"buildId":"${BUILD_ID}"`;
+    const counting = (plan: string) => {
+      const fetched: string[] = [];
+      const impl = async (req: Keyish) => {
+        fetched.push(keyOf(req));
+        return network(plan)(req);
+      };
+      return { fetched, impl };
+    };
+
+    it('copies unchanged entries and fetches only the rest', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched.sort()).toEqual(['/', '/404.html', '/plan/', '/travel/', PAYLOAD].sort());
+      expect(stores.get(PRECACHE)!.get(OWN_CHUNK)!.body).toBe('CHUNK');
+      expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+    });
+
+    it('fetches an entry whose stored bytes no longer match', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK_V1', [HERO]: 'HERO' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
+      expect(fetched).not.toContain(HERO);
+      expect(stores.get(PRECACHE)!.get(OWN_CHUNK)!.body).toBe('CHUNK');
+    });
+
+    it('never reuses a page, even one with a matching revision', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { '/plan/': 'OLDPLAN' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain('/plan/');
+      expect(stores.get(PRECACHE)!.get('/plan/')!.body).toBe(ok);
+    });
+
+    it('ignores caches that are not ours', async () => {
+      const { caches } = makeCaches({ 'other-app-v1': { [OWN_CHUNK]: 'CHUNK' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
+    });
+
+    it('a failed fetch still rejects the install and leaves the old precache intact', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } });
+      const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
+      expect(result).toBeInstanceOf(Error);
+      expect(stores.has(PRECACHE)).toBe(false);
+      expect(stores.get('trip-precache-oldbuild')!.get(OWN_CHUNK)!.body).toBe('CHUNK');
+    });
+  });
+});
+
+describe('precacheRevision: pages and payloads are never reusable', () => {
+  it('skips html and txt, hashes everything else', () => {
+    expect(precacheRevision('plan/index.html', Buffer.from('x'))).toBeNull();
+    expect(precacheRevision('plan/__next._tree.txt', Buffer.from('x'))).toBeNull();
+    expect(precacheRevision('_next/static/chunks/a-1234abcd.js', Buffer.from('x'))).toMatch(/^[0-9a-f]{32}$/);
+    expect(precacheRevision('icons/icon-192.png', Buffer.from('a'))).not.toBe(
+      precacheRevision('icons/icon-192.png', Buffer.from('b'))
+    );
   });
 });
 

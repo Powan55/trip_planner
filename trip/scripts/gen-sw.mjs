@@ -721,6 +721,12 @@ function isDedupedSegmentPayload(rel) {
   return SEGMENT_PAYLOAD.test(rel) && !rel.endsWith('/' + ROOT_INDEX_PAYLOAD);
 }
 
+// Pages and RSC payloads embed the build id, so they are never carried over from an old cache.
+function precacheRevision(rel, bytes) {
+  if (/\.(html|txt)$/.test(rel)) return null;
+  return createHash('sha256').update(bytes).digest('hex').slice(0, 32);
+}
+
 async function buildPrecacheList(allFiles) {
   const set = new Set();
   const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
@@ -878,7 +884,7 @@ async function buildManifest() {
 // auditable. The precache URL list and the cache name (a sha256 over each precached
 // file's path AND bytes — see step 3 in main(), which records why hashing the URL list
 // alone shipped stale shells) are baked in at build time; everything else is static SW logic.
-function buildServiceWorker({ precacheUrls, precacheHash, buildId, runtimeUrls, runtimeHash }) {
+function buildServiceWorker({ precacheUrls, precacheHash, precacheRevisions, buildId, runtimeUrls, runtimeHash }) {
   const PRECACHE = `trip-precache-${precacheHash}`;
   const RUNTIME_CACHE_NAME = `trip-runtime-${runtimeHash}`;
   const IMAGES_CACHE = 'trip-images-v1';
@@ -898,6 +904,9 @@ const IMAGE_CACHE_LIMIT = ${IMAGE_CACHE_LIMIT};
 const NAV_FALLBACK = ${JSON.stringify(NAV_FALLBACK)};
 const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 const BUILD_ID = ${JSON.stringify(buildId)};
+// sha256 prefix per precached file, minus pages and payloads. Install copies a byte-identical
+// entry from an older trip-precache-* instead of downloading it again (#979).
+const PRECACHE_REVISIONS = ${JSON.stringify(precacheRevisions)};
 // Same-origin files this build ships but does not precache (lazy chunks, the map engine, its
 // worker, the glyphs). They are runtime-cached here instead of in PRECACHE so an update does
 // not wipe them. The name hashes the unhashed ones (maplibre worker, glyphs), so a maplibre
@@ -945,10 +954,14 @@ self.addEventListener('install', (event) => {
       // A failed install deletes the cache it was filling (#945), or the preflight check
       // and caches.match() would read the partial cache. Only one this install created: a
       // byte-identical rebuild reuses the active worker's cache name.
-      const fresh = !(await caches.keys()).includes(PRECACHE);
+      const names = await caches.keys();
+      const fresh = !names.includes(PRECACHE);
+      const previous = names.filter((k) => k.startsWith('trip-precache-'));
       const cache = await caches.open(PRECACHE);
       const results = await Promise.allSettled(
         PRECACHE_URLS.map(async (url) => {
+          const kept = await reusablePrecacheEntry(url, previous);
+          if (kept) return cache.put(url, kept);
           const res = await fetch(url, { cache: 'no-cache' });
           if (!res || !res.ok) {
             throw new Error(
@@ -1114,6 +1127,23 @@ function isExpectedPrecacheBody(url, res) {
 // Route pages and RSC payloads embed the build id; gen-sw checks every precached one does.
 function carriesBuildId(url) {
   return url.endsWith('/') || url.endsWith('.html') || url.endsWith('.txt');
+}
+
+// The stored bytes are hashed rather than the path trusted: icons, heroes and the manifest
+// keep their URL when their bytes change. Any miss or error just means a normal fetch.
+async function reusablePrecacheEntry(url, cacheNames) {
+  const revision = PRECACHE_REVISIONS[url];
+  if (!revision || carriesBuildId(url)) return undefined;
+  for (const cacheName of cacheNames) {
+    try {
+      const hit = await caches.match(url, { cacheName });
+      if (!hit) continue;
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await hit.clone().arrayBuffer()));
+      const hex = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+      if (hex.startsWith(revision)) return hit;
+    } catch (err) {}
+  }
+  return undefined;
 }
 
 function precacheListResponse() {
@@ -1437,8 +1467,12 @@ async function main() {
   // Any byte change anywhere in the precache set now yields a new cache
   // name, driving the update flow in the registrar.
   const h = createHash('sha256');
+  const precacheRevisions = {};
   for (const rel of precacheFiles) {
-    h.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
+    const bytes = await readFile(join(OUT_DIR, rel));
+    h.update(rel).update('\0').update(bytes);
+    const revision = precacheRevision(rel, bytes);
+    if (revision) precacheRevisions[toPrecacheUrl(rel)] = revision;
   }
   const precacheHash = h.digest('hex').slice(0, 12);
 
@@ -1467,10 +1501,11 @@ async function main() {
     if (!rel.startsWith('_next/')) r.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
   }
   const runtimeHash = r.digest('hex').slice(0, 12);
-  const sw = buildServiceWorker({ precacheUrls, precacheHash, buildId, runtimeUrls, runtimeHash });
+  const sw = buildServiceWorker({ precacheUrls, precacheHash, precacheRevisions, buildId, runtimeUrls, runtimeHash });
   await writeFile(join(OUT_DIR, 'sw.js'), sw, 'utf8');
   console.log(
-    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries; ` +
+    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries, ` +
+      `${Object.keys(precacheRevisions).length} reusable across builds; ` +
       `trip-runtime-${runtimeHash}, ${runtimeUrls.length} runtime URLs)`
   );
 
@@ -1488,4 +1523,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   });
 }
 
-export { eagerStaticAssets, isDedupedSegmentPayload };
+export { eagerStaticAssets, isDedupedSegmentPayload, precacheRevision };
