@@ -6298,6 +6298,7 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Dropping only the row would bring back #518 for trips that hold nothing but synced data. Extending the #843 guard keeps the wipe for those and keeps anything no remote can restore.
 
 **Not done.** The kept data has no row, so it is reachable only by re-joining the trip; sign-out clears it.
+
 ### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
 
 **Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
