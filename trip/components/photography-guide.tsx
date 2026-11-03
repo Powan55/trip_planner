@@ -45,7 +45,7 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
               src={spot.image}
               alt={`${spot.name}, ${spot.city}`}
               fill
-              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 85vw"
               className="object-cover"
               onError={() => setImgError(true)}
             />
