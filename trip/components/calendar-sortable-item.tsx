@@ -10,7 +10,7 @@
 import { useState, useRef, useId } from 'react';
 import {
   Trash2, Edit3, GripVertical, Copy,
-  MapPin, AlertTriangle,
+  MapPin, AlertTriangle, Sunset,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
@@ -22,6 +22,8 @@ import {
 import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { describeItemTime } from '@/lib/item-time-display';
+import { formatTimeAmPm } from '@/core/dates';
+import { endsAfterSunset } from '@/lib/sun-times';
 
 // Cross-friend attribution line: a small, muted
 // "by {updatedBy} · {relative time}" under each item. Renders NOTHING when the item
@@ -40,7 +42,7 @@ function AttributionLine({ item }: { item: ItineraryItem }) {
 }
 
 // Sortable Item
-export function SortableItem({ item, date, clashes, selectMode, selected, highlighted, mapVisible, hasMarker, dragDisabled = false, onToggleSelect, onEdit, onDelete, onDuplicate, onLocate }: { item: ItineraryItem; date: string; clashes: boolean; selectMode: boolean; selected: boolean; highlighted: boolean; mapVisible: boolean; hasMarker: boolean; dragDisabled?: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => void; onDuplicate: (targetDate: string) => void; onLocate: () => void }) {
+export function SortableItem({ item, date, clashes, sunsetMin, selectMode, selected, highlighted, mapVisible, hasMarker, dragDisabled = false, onToggleSelect, onEdit, onDelete, onDuplicate, onLocate }: { item: ItineraryItem; date: string; clashes: boolean; sunsetMin?: number; selectMode: boolean; selected: boolean; highlighted: boolean; mapVisible: boolean; hasMarker: boolean; dragDisabled?: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => void; onDuplicate: (targetDate: string) => void; onLocate: () => void }) {
   // `dragDisabled` is how the planner says "this row's place is decided by its time": the day
   // list is chronological now, so a timed row cannot be dragged anywhere that would survive the
   // next render. Telling dnd-kit itself (rather than only hiding the grip) is what keeps the
@@ -203,6 +205,16 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
             >
               <AlertTriangle className="w-3 h-3" aria-hidden="true" />
               Overlap
+            </span>
+          )}
+          {sunsetMin !== undefined && endsAfterSunset(item, sunsetMin) && (
+            <span
+              title={`Sunset is ${formatTimeAmPm(sunsetMin)}`}
+              data-testid={`calendar-item-after-dark-${item.id}`}
+              className="chip border-amber-500/60 text-amber-300"
+            >
+              <Sunset className="w-3 h-3" aria-hidden="true" />
+              Ends after sunset {formatTimeAmPm(sunsetMin)}
             </span>
           )}
         </div>
