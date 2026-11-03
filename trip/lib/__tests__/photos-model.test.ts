@@ -111,3 +111,14 @@ describe('repointExpenseOwner — the sync-on Undo re-point (D-160)', () => {
     expect(repointExpenseOwner([receipt], 'exp-1', 'exp-1')).toEqual([receipt]);
   });
 });
+
+describe('forward-compat (#986)', () => {
+  it('keeps a row whose owner kind a newer build added, and its extra keys', () => {
+    const row = { ...meta(), owner: { kind: 'trip', tripId: 't1' }, exif: { iso: 100 } };
+    expect(sanitizePhotos([row])).toEqual([row]);
+  });
+  it('still drops a known kind with a bad payload and a kind-less owner', () => {
+    expect(sanitizePhoto({ ...meta(), owner: { kind: 'docs', itemId: '' } })).toBeNull();
+    expect(sanitizePhoto({ ...meta(), owner: { tripId: 't1' } })).toBeNull();
+  });
+});

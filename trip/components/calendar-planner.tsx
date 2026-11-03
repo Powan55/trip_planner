@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   Calendar, Plus, Trash2,
   MapPin, X, Check, ChevronLeft, ChevronRight, ChevronDown,
-  ExternalLink, Map as MapIcon, MoreHorizontal,
+  ExternalLink, Map as MapIcon, MoreHorizontal, Sunrise, Sunset,
 } from 'lucide-react';
 import { DndContext, closestCenter, DragOverlay, type CollisionDetection } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -49,7 +49,8 @@ import { buildMapsPlaceUrl } from '@/lib/maps-link';
 import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
-import { effectiveDurationMinutes, effectiveStartMinutes, offsetForCountry } from '@/core/dates';
+import { effectiveDurationMinutes, effectiveStartMinutes, formatTimeAmPm, offsetForCountry } from '@/core/dates';
+import { daySunTimes } from '@/lib/sun-times';
 import { unplannedGapsByItemId } from '@/lib/unplanned-gap';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
@@ -1217,6 +1218,10 @@ export default function CalendarPlanner() {
   // clash badge and the unplanned rules all take it). Declared here because the phase grouping
   // is the first consumer — it used to sit further down, next to the clash badge alone.
   const dayOffsetMin = offsetForCountry(getCountryForDate(selectedDate));
+  const daySun = useMemo(
+    () => daySunTimes(selectedDate, currentPlan.city, currentPlan.country),
+    [selectedDate, currentPlan.city, currentPlan.country],
+  );
   // phase-of-day grouping, CHRONOLOGICAL (owner-instructed): timed items ascend by absolute
   // instant, untimed items form one trailing "Anytime" run. `isNewPhase` marks where the render
   // layer inserts a subtle phase header — which is the whole point of the sort, since a day
@@ -1606,6 +1611,14 @@ export default function CalendarPlanner() {
                       From {firstStartInfo.label}
                     </span>
                   )}
+                  {daySun && (
+                    <span data-testid="calendar-day-sun" className="chip">
+                      <Sunrise className="w-3 h-3" aria-hidden="true" />
+                      <span>Sunrise {formatTimeAmPm(daySun.sunriseMin)}</span>
+                      <Sunset className="w-3 h-3" aria-hidden="true" />
+                      <span>Sunset {formatTimeAmPm(daySun.sunsetMin)}</span>
+                    </span>
+                  )}
                   {/* cost overlay (read-only): this day's total logged spend, in the day's
                       leg-local currency (a single day is one leg). Renders only when there is spend;
                       an unplanned/no-spend day shows nothing extra. Purely derived from useExpenses(). */}
@@ -1867,6 +1880,7 @@ export default function CalendarPlanner() {
                                relative order of untimed items. */
                             dragDisabled={phase !== 'anytime'}
                             clashes={dayClashIds.has(item.id)}
+                            sunsetMin={daySun?.sunsetMin}
                             selectMode={selectMode}
                             selected={selectedIds.has(item.id)}
                             highlighted={item.id === highlightId || (showMap && markerId != null && markerId === highlightId)}
