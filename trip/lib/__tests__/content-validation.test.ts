@@ -72,18 +72,18 @@ function findDuplicates(values: readonly string[]): string[] {
 }
 
 /** The set of issue path-strings a failed safeParse produced. */
-function issuePaths(r: z.SafeParseReturnType<unknown, unknown>): string[] {
+function issuePaths(r: z.ZodSafeParseResult<unknown>): string[] {
   return r.success ? [] : r.error.issues.map((i) => i.path.join('.'));
 }
 
 /** Whether any issue references `field` (via path, an unrecognized-keys entry, or the message). */
-function issueMentions(r: z.SafeParseReturnType<unknown, unknown>, field: string): boolean {
+function issueMentions(r: z.ZodSafeParseResult<unknown>, field: string): boolean {
   if (r.success) return false;
   return r.error.issues.some(
     (i) =>
       i.path.includes(field) ||
       i.message.includes(field) ||
-      (i.code === 'unrecognized_keys' && (i as z.ZodUnrecognizedKeysIssue).keys.includes(field)),
+      (i.code === 'unrecognized_keys' && i.keys.includes(field)),
   );
 }
 
@@ -245,7 +245,7 @@ describe('validate:content — the validator HAS TEETH (broken fixture is reject
   });
 
   it('prints the red-proof (what a rejection looks like — visible in the run output)', () => {
-    const cases: Array<[string, z.SafeParseReturnType<unknown, unknown>]> = [
+    const cases: Array<[string, z.ZodSafeParseResult<unknown>]> = [
       ['badCategoryItem', contentItineraryItemSchema.safeParse(broken.badCategoryItem)],
       ['malformedDateDay', contentDayPlanSchema.safeParse(broken.malformedDateDay)],
       ['unknownKeyItem', contentItineraryItemSchema.safeParse(broken.unknownKeyItem)],

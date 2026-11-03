@@ -33,7 +33,7 @@ describe('sanitizePlace — parse-don\'t-validate', () => {
   });
 
   it('trims name/legId and drops blank note/url + non-finite coords', () => {
-    // Infinity passes Zod's `z.number()` (only `.finite()` rejects it) — `cleanNum` drops it.
+    // Infinite coordinates must not discard an otherwise valid place.
     expect(sanitizePlace({ id: ' a ', name: '  Temple  ', legId: ' nepal ', addedAt: ' t ', note: '   ', sourceUrl: '', lat: Infinity, lng: -Infinity }))
       .toEqual({ id: 'a', name: 'Temple', legId: 'nepal', addedAt: 't' });
   });
