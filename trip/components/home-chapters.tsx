@@ -115,7 +115,7 @@ export default function HomeChapters() {
                     src={src}
                     alt=""
                     fill
-                    sizes="(min-width: 640px) 50vw, 100vw"
+                    sizes="(min-width: 640px) 50vw, 85vw"
                     className={`object-cover ${focus}`}
                   />
                 </div>
