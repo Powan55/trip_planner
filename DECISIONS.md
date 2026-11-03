@@ -6282,3 +6282,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** A dismissed toast never returned, and a crashed root layout took the registrar (the only `SKIP_WAITING` sender) with it, so Reload kept serving the same cached shell.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
+
+### D-738 · (issue #981, 2026-11-02) · Gallery images revalidate after 7 days; the trim is serialised
+
+**Decision.** A hit in `trip-images-v1` older than 7 days (by its `Date` header, missing counts as old) is still served at once, then refetched with `cache: no-cache` under `waitUntil` and replaced. `trimImageCache()` runs one at a time off a promise chain, so each pass reads current keys. Amends D-086(b): still cache-first, no longer forever.
+
+**Why.** Image filenames are not content-hashed, so a re-encode or credit fix at the same path never reached returning devices; overlapping trims worked from stale key snapshots.
+
+**Not done.** Hashed filenames. The precache-first order for hero rasters is unchanged.
