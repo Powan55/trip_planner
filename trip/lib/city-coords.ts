@@ -19,6 +19,7 @@
 export interface CityCoord {
   latitude: number;
   longitude: number;
+  utcOffsetMin?: number;
 }
 
 // 16 rows. Every per-day city in `core/dates`' TRIP_CITIES / the sample
@@ -33,7 +34,7 @@ export const CITY_COORDS: Record<string, CityCoord> = {
   // the JFK layover and the long-haul out are most of it. Coordinates are JFK's, because weather
   // at the airport you are actually sitting in is the useful reading, and a coordinate here is
   // REQUIRED — the content validator's "every itinerary city is weather-known" case fails without it.
-  'New York': { latitude: 40.6413, longitude: -73.7781 },
+  'New York': { latitude: 40.6413, longitude: -73.7781, utcOffsetMin: -300 },
   // No longer a trip city (D-315 moved Dec 9 to New York), and DO NOT DELETE IT on the grounds
   // that nothing reads it any more. The load-bearing reason is not the custom-trip rule below:
   // any device that already saved or synced a 2026-12-09 day doc still holds `city: 'Syracuse'`,
@@ -41,7 +42,7 @@ export const CITY_COORDS: Record<string, CityCoord> = {
   // (`lib/itinerary-remote.ts:623`) and a seed swap never rewrites live saved data. Drop this row
   // and those devices silently lose Dec-9 weather (`isKnownWeatherCity`) and their derived map pin
   // (rung 5, `lib/itinerary-map.ts`). The custom-trip rule and the SYR flight are secondary.
-  Syracuse: { latitude: 43.0481, longitude: -76.1474 },
+  Syracuse: { latitude: 43.0481, longitude: -76.1474, utcOffsetMin: -300 },
   // Nepal
   Kathmandu: { latitude: 27.7172, longitude: 85.324 },
   Lalitpur: { latitude: 27.6667, longitude: 85.324 },
