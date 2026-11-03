@@ -61,7 +61,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
   };
 
   return (
-    <div className="relative max-w-md mx-auto mb-6">
+    <div className="relative max-w-md mx-auto sm:mb-6 max-sm:min-w-0 max-sm:flex-1">
       <label htmlFor={inputId} className="sr-only">
         Search this plan by title, notes, or category
       </label>

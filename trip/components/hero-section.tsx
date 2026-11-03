@@ -576,7 +576,7 @@ export default function HeroSection() {
             hero copy over the photo may drop to the floor tier. */}
         <m.p
           variants={reveal}
-          className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3 [overflow-wrap:anywhere]"
+          className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3 [overflow-wrap:anywhere] max-[419px]:[@media(max-height:699px)]:hidden"
         >
           {custom
             ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')

@@ -322,6 +322,24 @@ test.describe('S258: hero first CTA clears the fold on an xs viewport', () => {
   }
 });
 
+test.describe('#959: hero CTA clears the tab bar on a short phone', () => {
+  for (const [width, height] of [[360, 640], [390, 844]] as const) {
+    test(`5-cell countdown at ${width}x${height}: "Open Planner" ends above the tab bar`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await gotoWithClock(page, '2026-11-03');
+      await expect(page.getByTestId('countdown-months')).toBeVisible();
+      await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
+      await expect(page.locator('[data-lazy-visible="pending"]')).toHaveCount(0);
+
+      const cta = await page.getByRole('link', { name: 'Open Planner' }).boundingBox();
+      const tab = await page.getByTestId('tab-bar').boundingBox();
+      expect(cta).not.toBeNull();
+      expect(tab).not.toBeNull();
+      expect(cta!.y + cta!.height).toBeLessThanOrEqual(tab!.y);
+    });
+  }
+});
+
 test.describe('?today=off restores the real clock', () => {
   test('after an override, ?today=off falls back to the real (pre-trip) clock', async ({
     page,

@@ -189,7 +189,7 @@ export default function Navbar() {
                   {brand}
                 </span>
               ) : (
-                <span data-testid="navbar-brand" className="font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
+                <span data-testid="navbar-brand" className="whitespace-nowrap font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
                   Nepal <span className="text-muted-foreground">×</span> Japan
                 </span>
               )}
@@ -212,7 +212,7 @@ export default function Navbar() {
                     data-testid={`navbar-link-${item.label.toLowerCase()}`}
                     aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
-                    className={`relative flex min-h-tap items-center gap-1.5 rounded-r1 px-3 py-2 font-sans text-t-sm font-semibold transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    className={`relative flex min-h-tap items-center gap-1.5 rounded-r1 px-2 py-2 lg:px-3 font-sans text-t-sm font-semibold transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive
                         ? 'text-[color:var(--text-hi)]'
                         : 'text-[color:var(--text-lo)] hover:text-[color:var(--text-hi)] hover:bg-white/5'
@@ -249,7 +249,7 @@ export default function Navbar() {
                     onClick={() => setMoreOpen((v) => !v)}
                     aria-expanded={moreOpen}
                     aria-controls="navbar-more-menu"
-                    className="flex min-h-tap items-center gap-1 rounded-r1 px-3 py-2 font-sans text-t-sm font-semibold text-[color:var(--text-lo)] transition-colors duration-200 outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="flex min-h-tap items-center gap-1 rounded-r1 px-2 py-2 lg:px-3 font-sans text-t-sm font-semibold text-[color:var(--text-lo)] transition-colors duration-200 outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     More
                     <ChevronDown
@@ -352,10 +352,10 @@ export default function Navbar() {
                 onClick={() => enterTravel(navigate)}
                 data-testid="navbar-travel-mode"
                 aria-label="Enter Travel Mode"
-                className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border border-[color:hsl(var(--accent))] px-2.5 font-sans text-t-label font-semibold text-[color:hsl(var(--accent))] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3.5"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border border-[color:hsl(var(--accent))] px-2.5 font-sans text-t-label font-semibold text-[color:hsl(var(--accent))] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3 lg:px-3.5"
               >
                 <Compass className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden lg:inline">Travel Mode</span>
+                <span className="hidden whitespace-nowrap md:inline">Travel Mode</span>
               </button>
             </div>
           </div>
