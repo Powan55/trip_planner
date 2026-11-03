@@ -152,7 +152,7 @@
             {
               "id": "chargers-adapters",
               "section": "dayzero",
-              "label": "Chargers, cables & Type-A/C power adapters",
+              "label": "Chargers, cables & plug adapters (Nepal 230 V type C/D/M, Japan 100 V type A/B)",
               "checked": false
             },
             {
@@ -212,7 +212,7 @@
             {
               "id": "nepal-visa",
               "section": "critical",
-              "label": "Nepal visa sorted — visa on arrival at KTM, or the online form from 26 Nov 2026 (its receipt is valid 15 days)",
+              "label": "Nepal visa sorted — visa on arrival at KTM, or the online form from 26 Nov 2026 (its receipt is valid 15 days); 15-day tourist visa, USD 30 cash",
               "checked": false
             },
             {
@@ -236,7 +236,7 @@
             {
               "id": "passport-validity",
               "section": "critical",
-              "label": "Passport valid 6+ months beyond Jan 2027",
+              "label": "Passport valid 6+ months beyond Jan 2027 (Nepal needs it; Japan only for your stay)",
               "checked": true,
               "updatedBy": "Powan",
               "rev": 2,
