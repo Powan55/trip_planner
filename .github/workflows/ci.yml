@@ -450,10 +450,17 @@ jobs:
   # inside workflow_call (the deploy path) github.event_name is the caller's "push",
   # so this stays off the deploy path too — that path is already covered by `e2e`'s
   # own note on why the browser suite deliberately stays on the pull request.
+  #
+  # Also runs on push to dev so baseline drift shows on dev, not on the next unrelated PR.
+  # Keyed on github.ref, not event_name: in the deploy call ref is refs/heads/main, so it stays
+  # skipped there (a red job would fail the whole called workflow and block the deploy). The
+  # check name differs off-PR so a red dev push never shares a context with the required PR
+  # check; the PR-event name is unchanged and required on dev and main. Only the off-PR name
+  # ('Visual drift on dev (advisory)') is required nowhere, so it informs and never blocks.
   visual:
-    name: Visual regression (Windows baselines)
+    name: ${{ github.event_name == 'pull_request' && 'Visual regression (Windows baselines)' || 'Visual drift on dev (advisory)' }}
     needs: checks
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/dev'
     runs-on: windows-latest
     defaults:
       run:
