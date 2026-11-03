@@ -8,6 +8,8 @@
 // this Server Component page exports metadata. Reached via a direct URL or the command palette's
 // "Documents" entry.
 import PageHeader from '@/components/page-header';
+import DefaultTripOnly from '@/components/default-trip-only';
+import GuideCards from '@/components/guide-cards';
 import { DocsChecklist, PreflightChecks } from './sections';
 
 export const metadata = {
@@ -29,6 +31,9 @@ export default function ChecklistPage() {
       {/* #20 — the machine-checked half of "am I ready?", below the human-attested list it
           complements (same page, same moment: the evening before flying). */}
       <PreflightChecks />
+      <DefaultTripOnly quiet>
+        <GuideCards id="checklist-setup" title="Set up before you fly" />
+      </DefaultTripOnly>
     </main>
   );
 }
