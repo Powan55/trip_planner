@@ -51,7 +51,7 @@
  * So CI runs `node scripts/rules-check.mjs && touch "$RUNNER_TEMP/rules-ok"`, discards the CLI's
  * exit code, and asserts the file. Wiring the bare command in gives a RED gate on GREEN rules.
  *
- * WHAT IT PROVES, in fourteen phases:
+ * WHAT IT PROVES, in fifteen phases:
  *   0. control      — deny-all really denies, allow-all really allows (else every PASS is noise)
  *   1. D-251        — `request.resource.size()` is Cloud STORAGE syntax; in Firestore it is a
  *                     CONSTANT 3 (the {data,id,__name__} wrapper's member count), so the
@@ -98,8 +98,12 @@
  *                     with no trip doc, a bare one, or a roster naming strangers as owners;
  *                     other trips behave as in 6-9 (D-663).
  *  14n. NEGATIVE CONTROL — each `!isShared()` guard removed in turn; the denial it owns must flip.
+ *  15. app write shapes — every write in trip/lib/__tests__/__fixtures__/rules-write-shapes.json,
+ *                     captured from the real *-remote writers, is allowed for the role that sends
+ *                     it and denied to a non-member and to an unauthenticated client (#973).
  */
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -1123,6 +1127,87 @@ const phase14n = flush('PHASE 14n (shared-trip guards REMOVED)  <-- MUST be red'
 await loadRules(shipped);
 await loadRules(shipped);
 
+// ── 15. the app's real write shapes (#973) ───────────────────────────────────
+// Every payload above is hand-written. These are not: lib/__tests__/rules-write-shapes.test.ts
+// drives each *-remote writer through a recording Firestore and pins what it sent in this file,
+// so a writer that adds or renames a field fails that test, and a rules change that refuses the
+// new shape fails here.
+console.log("\n\n=== 15. APP WRITE SHAPES: the docs the *-remote writers actually send (#973) ===");
+const SHAPES_FILE = join(ROOT, 'trip', 'lib', '__tests__', '__fixtures__', 'rules-write-shapes.json');
+const SHAPES = JSON.parse(readFileSync(SHAPES_FILE, 'utf8'));
+for (const need of ['/days/', '/expenses/', '/budget/model', '/docs/checklist', '/places/list', '/meta/info',
+  '/presence/', '/invites/', '"trips/$NEW_TRIP"', '/profile/identity', '/profile/tripList', '/profile/prefs', '/profile/journal_']) {
+  if (!JSON.stringify(SHAPES).includes(need)) throw new Error(`phase 15: no ${need} write in ${SHAPES_FILE}. Regenerate it; do not drop a domain.`);
+}
+const fill = (writes, ids) => {
+  const s = Object.entries(ids).reduce((t, [k, v]) => t.split(`$${k}`).join(v), JSON.stringify(writes));
+  const left = /\$[A-Z_]+/.exec(s);
+  if (left) throw new Error(`phase 15: ${left[0]} in ${SHAPES_FILE} has no value here. Update this script.`);
+  return JSON.parse(s);
+};
+const decode = (v) => {
+  if (Array.isArray(v)) return v.map(decode);
+  if (!v || typeof v !== 'object') return v;
+  if ('$sentinel' in v) {
+    if (v.$sentinel === 'serverTimestamp') return serverTimestamp();
+    if (v.$sentinel === 'deleteField') return deleteField();
+    throw new Error(`phase 15: unknown sentinel ${v.$sentinel}. Update this script.`);
+  }
+  return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, decode(x)]));
+};
+// Same calls the writers make. Each transaction reads its doc first, as every writer's does.
+async function replay(d, writes) {
+  for (const w of writes) {
+    if (w.op === 'set') await setDoc(doc(d, w.path), decode(w.data), w.merge ? { merge: true } : {});
+    else if (w.op === 'update') await updateDoc(doc(d, w.path), decode(w.data));
+    else if (w.op === 'tx.set' || w.op === 'tx.update') {
+      await runTransaction(d, async (tx) => {
+        const r = doc(d, w.path);
+        await tx.get(r);
+        if (w.op === 'tx.set') tx.set(r, decode(w.data));
+        else tx.update(r, decode(w.data));
+      });
+    } else if (w.op === 'batch') {
+      const b = writeBatch(d);
+      for (const s of w.writes) {
+        if (s.op === 'set') b.set(doc(d, s.path), decode(s.data));
+        else if (s.op === 'update') b.update(doc(d, s.path), decode(s.data));
+        else throw new Error(`phase 15: unknown batch op ${s.op}`);
+      }
+      await b.commit();
+    } else throw new Error(`phase 15: unknown op ${w.op}`);
+  }
+}
+const jApp = client('j15');
+const JN = await signIn(jApp.app);
+// member: M on the gated trip L. owner: O on L. joiner: a signed-in non-member of L holding an
+// invite. creator: O on a fresh trip id. account: any signed-in device on a fresh account path.
+const SHAPE_ACTORS = {
+  member: { d: dbM, uid: M, denied: [['stranger S', dbS, S]] },
+  owner: { d: db, uid: O, denied: [['member M', dbM, M]] },
+  joiner: { d: jApp.db, uid: JN, denied: [] },
+  creator: { d: db, uid: O, denied: [] },
+  account: { d: dbS, uid: S, denied: [] },
+};
+const runShape = async (g, d, uid) => {
+  const ids = { TRIP: L, NEW_TRIP: randomUUID(), ACCT: randomUUID(), INVITE: randomUUID(), UID: uid, OTHER: THIRD };
+  await seedGated();
+  if (g.as === 'joiner') await seed(['trips', L, 'invites', ids.INVITE], { createdBy: O, createdAt: new Date() });
+  return replay(d, fill(g.writes, ids));
+};
+let PHASE15_ASSERTS = 0;
+for (const g of SHAPES) {
+  const a = SHAPE_ACTORS[g.as];
+  if (!a) throw new Error(`phase 15: unknown actor "${g.as}" in ${SHAPES_FILE}. Update this script.`);
+  for (const [who, d, uid] of [...a.denied, ['UNAUTH', dbU, 'unauth-uid']]) {
+    await expect(`${who}: ${g.name}`, 'DENIED', () => runShape(g, d, uid));
+    PHASE15_ASSERTS++;
+  }
+  await expect(`${g.as}: ${g.name}`, 'ALLOWED', () => runShape(g, a.d, a.uid));
+  PHASE15_ASSERTS++;
+}
+const phase15 = flush('PHASE 15 (app write shapes)');
+
 console.log('\n──────────────────────────────────────────────────────────────');
 console.log(`  phase 3   shape guard PRESENT   ${phase3.pass} passed, ${phase3.fail} failed`);
 console.log(`  phase 4   shape guard REMOVED   ${phase4.pass} passed, ${phase4.fail} failed   <- negative control`);
@@ -1139,6 +1224,7 @@ console.log(`  phase 13  invites               ${phase13.pass} passed, ${phase13
 console.log(`  phase 13n invite stamp REMOVED  ${phase13n.pass} passed, ${phase13n.fail} failed   <- negative control`);
 console.log(`  phase 14  shared trip           ${phase14.pass} passed, ${phase14.fail} failed`);
 console.log(`  phase 14n shared guards REMOVED ${phase14n.pass} passed, ${phase14n.fail} failed   <- negative control`);
+console.log(`  phase 15  app write shapes      ${phase15.pass} passed, ${phase15.fail} failed`);
 const shapeProven = phase3.fail === 0 && phase4.fail === HOSTILE.length && phase5.fail === 0;
 const memberProven = phase6.fail === 0 && phase7.fail === 0 && phase8.fail === 0 && phase9.fail === 0
   && phase10.fail === MEMBER_DENIALS.length && phase10b.fail === 0
@@ -1148,14 +1234,15 @@ const usersProven = phase12.fail === 0 && phase12.pass === PHASE12_ASSERTS
   && phase13n.fail === STAMP_DENIALS.length
   && phase14.fail === 0 && phase14.pass === PHASE14_ASSERTS
   && phase14n.fail === MUTANT_CASES;
-const proven = shapeProven && memberProven && usersProven;
+const appShapesProven = phase15.fail === 0 && phase15.pass === PHASE15_ASSERTS;
+const proven = shapeProven && memberProven && usersProven && appShapesProven;
 console.log(`  VERDICT: ${proven
   ? `BOTH GUARDS BITE — all ${HOSTILE.length} hostile writes flip DENIED->ALLOWED without boundedWrite(), `
     + `and all ${MEMBER_DENIALS.length} member denials flip DENIED->ALLOWED without the membership predicates`
-  : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'}, users ${usersProven ? 'ok' : 'BAD'})`}`);
+  : `INCONCLUSIVE — see failures above (shape ${shapeProven ? 'ok' : 'BAD'}, membership ${memberProven ? 'ok' : 'BAD'}, users ${usersProven ? 'ok' : 'BAD'}, app shapes ${appShapesProven ? 'ok' : 'BAD'})`}`);
 console.log('──────────────────────────────────────────────────────────────\n');
 
-for (const c of [owner, memberApp, strangerApp, anonApp, eApp, fApp, xApp, P, SU, ES, LK, utApp]) {
+for (const c of [owner, memberApp, strangerApp, anonApp, eApp, fApp, xApp, P, SU, ES, LK, utApp, jApp]) {
   await terminate(c.db);
   await deleteApp(c.app);
 }
