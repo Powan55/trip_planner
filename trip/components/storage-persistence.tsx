@@ -141,7 +141,7 @@ export function StoragePersistence() {
     const showInstallHint = () => {
       const description = isIOS()
         ? 'Tap Share, then "Add to Home Screen" — installed apps are protected from Safari clearing their data. The installed app starts empty: export your trip in Settings first, then open it once online and sign in.'
-        : "Install this app to your Home Screen so your trip data can't be cleared.";
+        : "Installed apps are protected from the browser clearing your trip data.";
       const id = toast('Install this app to your Home Screen', {
         description,
         duration: Infinity,

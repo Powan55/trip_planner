@@ -406,6 +406,16 @@ describe('StoragePersistence — install-to-Home hint', () => {
     expect(call?.options?.description).toContain('Share');
     r.unmount();
   });
+
+  it('body gives only the reason, not the title again (#961)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    signInTraveler();
+    const r = render(createElement(StoragePersistence));
+    await r.settle();
+    const call = h.toastCalls.find((c) => c.message.includes('Install this app'));
+    expect(String(call?.options?.description)).not.toContain('Install this app');
+    r.unmount();
+  });
 });
 
 // S279 — the REACTIVE write-failure toast, complementing the PROACTIVE near-quota toast above.
