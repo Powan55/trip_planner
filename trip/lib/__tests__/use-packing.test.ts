@@ -78,13 +78,13 @@ describe('usePacking (S206)', () => {
     vi.restoreAllMocks();
   });
 
-  it('starts hydrated with the built-in 28-item template, all unchecked, progress 0/28', async () => {
+  it('starts hydrated with the built-in 29-item template, all unchecked, progress 0/29', async () => {
     const h = renderPacking();
     await h.run(() => {});
     expect(h.current.hydrated).toBe(true);
-    expect(h.current.items).toHaveLength(28);
+    expect(h.current.items).toHaveLength(29);
     expect(h.current.items.every((i) => i.checked === false)).toBe(true);
-    expect(h.current.progress).toEqual({ checked: 0, total: 28 });
+    expect(h.current.progress).toEqual({ checked: 0, total: 29 });
     h.unmount();
   });
 
@@ -94,7 +94,7 @@ describe('usePacking (S206)', () => {
     const id = h.current.items[0].id;
     await h.run((store) => store.toggleItem(id));
     expect(h.current.items.find((i) => i.id === id)?.checked).toBe(true);
-    expect(h.current.progress).toEqual({ checked: 1, total: 28 });
+    expect(h.current.progress).toEqual({ checked: 1, total: 29 });
     const stored = JSON.parse(window.localStorage.getItem(KEY) as string);
     expect(stored.find((i: { id: string }) => i.id === id).checked).toBe(true);
     h.unmount();
@@ -107,7 +107,7 @@ describe('usePacking (S206)', () => {
     await h.run((store) => store.toggleItem(id));
     await h.run((store) => store.toggleItem(id));
     expect(h.current.items.find((i) => i.id === id)?.checked).toBe(false);
-    expect(h.current.progress).toEqual({ checked: 0, total: 28 });
+    expect(h.current.progress).toEqual({ checked: 0, total: 29 });
     h.unmount();
   });
 
@@ -117,9 +117,9 @@ describe('usePacking (S206)', () => {
     const [a, b] = [h.current.items[0].id, h.current.items[1].id];
     await h.run((store) => store.toggleItem(a));
     await h.run((store) => store.toggleItem(b));
-    expect(h.current.progress).toEqual({ checked: 2, total: 28 });
+    expect(h.current.progress).toEqual({ checked: 2, total: 29 });
     await h.run((store) => store.toggleItem(a));
-    expect(h.current.progress).toEqual({ checked: 1, total: 28 });
+    expect(h.current.progress).toEqual({ checked: 1, total: 29 });
     expect(h.current.items.find((i) => i.id === b)?.checked).toBe(true);
     h.unmount();
   });
@@ -131,7 +131,7 @@ describe('usePacking (S206)', () => {
     await h.run((store) => store.toggleItem(id));
     await h.rerenderFresh();
     expect(h.current.items.find((i) => i.id === id)?.checked).toBe(true);
-    expect(h.current.progress).toEqual({ checked: 1, total: 28 });
+    expect(h.current.progress).toEqual({ checked: 1, total: 29 });
     h.unmount();
   });
 
@@ -167,10 +167,10 @@ describe('usePacking — addItem/removeItem (#227)', () => {
     const h = renderPacking();
     await h.run(() => {});
     await h.run((store) => store.addItem('Travel pillow'));
-    expect(h.current.items).toHaveLength(29);
+    expect(h.current.items).toHaveLength(30);
     const added = h.current.items[h.current.items.length - 1];
     expect(added).toMatchObject({ label: 'Travel pillow', category: 'universal', checked: false });
-    expect(h.current.progress).toEqual({ checked: 0, total: 29 });
+    expect(h.current.progress).toEqual({ checked: 0, total: 30 });
 
     const stored = JSON.parse(window.localStorage.getItem(KEY) as string);
     expect(stored.find((i: { id: string }) => i.id === added.id)).toMatchObject({ label: 'Travel pillow' });
@@ -184,7 +184,7 @@ describe('usePacking — addItem/removeItem (#227)', () => {
     const addedId = h.current.items[h.current.items.length - 1].id;
     await h.rerenderFresh();
     expect(h.current.items.find((i) => i.id === addedId)).toMatchObject({ label: 'Neck pillow' });
-    expect(h.current.items).toHaveLength(29);
+    expect(h.current.items).toHaveLength(30);
     h.unmount();
   });
 
@@ -195,7 +195,7 @@ describe('usePacking — addItem/removeItem (#227)', () => {
     const addedId = h.current.items[h.current.items.length - 1].id;
     await h.run((store) => store.removeItem(addedId));
     expect(h.current.items.find((i) => i.id === addedId)).toBeUndefined();
-    expect(h.current.items).toHaveLength(28);
+    expect(h.current.items).toHaveLength(29);
     const stored = JSON.parse(window.localStorage.getItem(KEY) as string);
     expect(stored.find((i: { id: string }) => i.id === addedId)).toBeUndefined();
     h.unmount();
@@ -206,10 +206,10 @@ describe('usePacking — addItem/removeItem (#227)', () => {
     await h.run(() => {});
     const id = h.current.items[0].id;
     await h.run((store) => store.removeItem(id));
-    expect(h.current.items).toHaveLength(27);
+    expect(h.current.items).toHaveLength(28);
     await h.rerenderFresh();
     expect(h.current.items.find((i) => i.id === id)).toBeUndefined();
-    expect(h.current.items).toHaveLength(27);
+    expect(h.current.items).toHaveLength(28);
     h.unmount();
   });
 });
@@ -230,7 +230,7 @@ describe('usePacking — emptying the list (#328)', () => {
     }
   }
 
-  it('removing EVERY item persists an empty list — not the 28-row template', async () => {
+  it('removing EVERY item persists an empty list — not the 29-row template', async () => {
     const h = renderPacking();
     await h.run(() => {});
     await emptyTheList(h);

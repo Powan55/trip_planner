@@ -33,9 +33,12 @@ export function isPackingCategory(v: unknown): v is PackingCategory {
 }
 
 /**
- * The built-in packing template (28 items — 10 universal, 9 Nepal-leg, 9 Japan-leg), all
+ * The built-in packing template (29 items — 10 universal, 9 Nepal-leg, 10 Japan-leg), all
  * unchecked. Realistic gear/clothing/toiletries for a Dec 9 Nepal → Japan trip (-style
  * static content, no live data). Ids are stable kebab-case strings — the persistence key.
+ * The template only seeds an ABSENT slot (see `loadPacking`); a row added here reaches fresh
+ * installs and "restore the checklist", never an already-saved list. Append new rows, never
+ * renumber or reuse an id.
  */
 export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   // ── Universal (both legs) ────────────────────────────────────────────────
@@ -73,6 +76,7 @@ export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   { id: 'japan-gloves-scarf', label: 'Gloves + scarf', category: 'japan', checked: false },
   { id: 'japan-cash-jpy', label: 'Japanese yen (cash)', category: 'japan', checked: false },
   { id: 'japan-slip-on-shoes', label: 'Slip-on shoes (temple visits)', category: 'japan', checked: false },
+  { id: 'japan-carry-passport', label: 'Original passport on you at all times in Japan (a copy is not enough)', category: 'japan', checked: false },
 ] as const;
 
 /**

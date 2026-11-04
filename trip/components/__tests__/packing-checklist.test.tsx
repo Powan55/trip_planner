@@ -152,13 +152,13 @@ describe('PackingChecklist (#227) — remove an item', () => {
     await act(async () => at<HTMLButtonElement>('packing-restore-template')!.click());
 
     expect(at('packing-empty')).toBeNull();
-    expect(rawOnDisk()).toHaveLength(28);
-    expect(at('packing-progress')!.textContent).toBe('0/28 packed');
+    expect(rawOnDisk()).toHaveLength(29);
+    expect(at('packing-progress')!.textContent).toBe('0/29 packed');
 
     act(() => root.unmount());
     container.remove();
     await mount();
-    expect(rawOnDisk()).toHaveLength(28);
+    expect(rawOnDisk()).toHaveLength(29);
     expect(at('packing-item-universal-passport-copies')).not.toBeNull();
   });
 
