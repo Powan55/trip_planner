@@ -86,11 +86,9 @@ describe('a refused write in one tab, an accepted one in another (#1026)', () =>
     const quota = fillQuotaFor(KEY);
     expect(m.withOutbox(held)({}, { d1: 1 })).toBe(false);
     quota.mockRestore();
-    // the other tab lands its own first enqueue of d1, then this tab's flush pushes and acks
-    localStorage.setItem(KEY, JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 1 } } }));
     const flushing = m.flushOutbox(held, storage({ d1: 1 }));
-    // the other tab enqueues d1 again while this tab's push is in flight
-    localStorage.setItem(KEY, JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 2 } } }));
+    // the other tab lands its own first enqueue of d1 while this tab's push is in flight
+    localStorage.setItem(KEY, JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 1 } } }));
     release();
     await flushing;
     expect(m.outboxDirty('itinerary')).toEqual(['d1']);

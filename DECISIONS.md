@@ -6363,4 +6363,4 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Why.** D-720's memory copy is gone after a reload, and the first server snapshot then applies over an edit the vault kept with no dirty record. Refusing the edit up front is the only outcome that stays true across a reload.
 
-**Not done.** The restore path (`enqueueRestored` in `lib/trip-backup.ts`) still ignores the result. While a newer build's slot is on disk, every synced edit on this device is refused.
+**Not done.** The restore path (`enqueueRestored` in `lib/trip-backup.ts`) still ignores the result. While a newer build's slot is on disk, every synced edit on this device is refused, and silently: that refusal raises no toast.
