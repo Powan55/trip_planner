@@ -149,7 +149,7 @@ describe('S379 — a generic city word must not claim a specific landmark pin', 
 
   it('a district-level alias still resolves (the fix must not over-correct)', () => {
     expect(
-      matchMarker({ id: 't', title: "Sam's Bar social night", category: 'nightlife', location: 'Thamel, Kathmandu' })
+      matchMarker({ id: 't', title: 'Pool night at a Thamel bar', category: 'nightlife', location: 'Thamel, Kathmandu' })
         ?.id,
     ).toBe('np-thamel');
     expect(matchMarker({ id: 'n', title: 'Pre-dawn drive to Nagarkot', category: 'transportation' })?.id).toBe(
@@ -417,6 +417,11 @@ describe('named stops that used to fall back to an area pin', () => {
     ['Patan Museum', 'np-patan-museum'],
     ['Godavari Botanical Garden', 'np-godavari-botanical'],
     ['Casino Royale', 'np-casino-royale'],
+    ['Live music at Purple Haze Rock Bar', 'np-purple-haze'],
+    ["Sam's Bar social night", 'np-sams-bar'],
+    ['Dinner & live music at House of Music', 'np-house-of-music'],
+    ['teamLab Borderless', 'jp-teamlab-borderless'],
+    ['Kushikatsu at Daruma', 'jp-kushikatsu-daruma'],
   ];
   it.each(cases)('%s plots on its own marker', (title, id) => {
     expect(matchMarker({ id: 'x', title, category: 'sightseeing' })?.id).toBe(id);

@@ -1886,6 +1886,61 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
+    id: 'np-purple-haze',
+    name: 'Purple Haze Rock Bar',
+    category: 'Attraction',
+    country: 'Nepal',
+    area: 'Thamel, Kathmandu',
+    description:
+      'A multi-level live-music bar in Thamel with rock and blues bands most nights. Hours and cover change, so check the night’s lineup before going.',
+    lng: 85.31043, lat: 27.71479,
+    x: 0, y: 0,
+  },
+  {
+    id: 'np-sams-bar',
+    name: "Sam's Bar",
+    category: 'Attraction',
+    country: 'Nepal',
+    area: 'Thamel, Kathmandu',
+    description:
+      'A long-running backpacker bar in Thamel with pool tables and cheap drinks. Check hours before going.',
+    lng: 85.31006, lat: 27.71627,
+    x: 0, y: 0,
+  },
+  {
+    id: 'np-house-of-music',
+    name: 'House of Music',
+    category: 'Attraction',
+    country: 'Nepal',
+    area: 'Thamel, Kathmandu',
+    description:
+      'A Thamel dinner and live-music venue with a rock, jazz and blues calendar. Check the night’s lineup before going.',
+    lng: 85.31323, lat: 27.71735,
+    x: 0, y: 0,
+  },
+  {
+    id: 'jp-teamlab-borderless',
+    name: 'teamLab Borderless',
+    category: 'Photo Spot',
+    country: 'Japan',
+    area: 'Azabudai Hills, Tokyo',
+    description:
+      'The immersive digital-art museum in Azabudai Hills, where artworks move between rooms. Timed tickets sell out, so book ahead; light clothing shows the projections best.',
+    lng: 139.74342, lat: 35.6620,
+    x: 0, y: 0,
+  },
+  {
+    id: 'jp-kushikatsu-daruma',
+    name: 'Kushikatsu at Daruma',
+    category: 'Restaurant',
+    country: 'Japan',
+    area: 'Shinsekai, Osaka',
+    description:
+      'Deep-fried skewers at the Daruma kushikatsu chain, which started in Shinsekai. The pin is the Shinsekai shop near Tsutenkaku; Daruma has other branches, so confirm which one you are going to. No double-dipping the sauce.',
+    lng: 135.50647, lat: 34.65273,
+    x: 0, y: 0,
+  },
+  {
     id: 'jp-gala-yuzawa', image: '/images/map/jp-gala-yuzawa.jpg',
     name: 'GALA Yuzawa Snow Resort',
     category: 'Day Trip',
