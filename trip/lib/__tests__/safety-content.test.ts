@@ -94,7 +94,7 @@ describe('safety content — valid data parses', () => {
     expect(detail('nepal-visa')).toMatch(/USD 30/);
     expect(detail('nepal-visa')).toMatch(/immigration\.gov\.np/);
     expect(detail('vaccinations')).toMatch(/Hepatitis A and typhoid/);
-    expect(detail('vaccinations')).toMatch(/4-6 weeks/);
+    expect(detail('vaccinations')).toMatch(/at least 1 month before departure/);
   });
 
   // #936/#939 — tourist police dials the toll-free 1144; Japan needs the original passport on you.

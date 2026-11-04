@@ -47,9 +47,9 @@ export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   { id: 'universal-phone-charger', label: 'Phone charger + cable', category: 'universal', checked: false },
   { id: 'universal-power-adapter', label: 'Plug adapters — Nepal 230 V type C/D/M, Japan 100 V type A/B', category: 'universal', checked: false },
   { id: 'universal-water-bottle', label: 'Reusable water bottle', category: 'universal', checked: false },
-  { id: 'universal-first-aid', label: 'First-aid kit + basic medications', category: 'universal', checked: false },
+  { id: 'universal-first-aid', label: 'First-aid kit + basic medications + N95 masks (Kathmandu dust and smog)', category: 'universal', checked: false },
   { id: 'universal-sunglasses', label: 'Sunglasses', category: 'universal', checked: false },
-  { id: 'universal-daypack', label: 'Daypack / small backpack', category: 'universal', checked: false },
+  { id: 'universal-daypack', label: 'Daypack / small backpack + headlamp + hand towel', category: 'universal', checked: false },
   { id: 'universal-toiletries', label: 'Toiletries kit', category: 'universal', checked: false },
   // The rules live in the label because PackingItem has no notes field (#253). The lower ceiling
   // one carrier flags for Jan 2027 is deliberately left out until it is more than a maybe. The
@@ -57,7 +57,7 @@ export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   // ban is carrier-by-carrier and this row states only what is firm.
   { id: 'universal-power-bank', label: 'Portable battery pack — carry-on only, never checked; under 100 Wh (100-160 Wh needs airline approval, 2 max); many airlines now ban using or charging it in flight', category: 'universal', checked: false },
   // ── Nepal leg ─────────────────────────────────────────────────────────────
-  { id: 'nepal-trekking-boots', label: 'Trekking boots', category: 'nepal', checked: false },
+  { id: 'nepal-trekking-boots', label: 'Trekking boots or sturdy closed-toe shoes', category: 'nepal', checked: false },
   { id: 'nepal-base-layers', label: 'Warm base layers', category: 'nepal', checked: false },
   { id: 'nepal-down-jacket', label: 'Down jacket', category: 'nepal', checked: false },
   { id: 'nepal-sleeping-bag-liner', label: 'Sleeping bag liner', category: 'nepal', checked: false },
@@ -74,7 +74,7 @@ export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   { id: 'japan-ic-card', label: 'Suica/Pasmo IC card', category: 'japan', checked: false },
   { id: 'japan-umbrella', label: 'Compact umbrella', category: 'japan', checked: false },
   { id: 'japan-gloves-scarf', label: 'Gloves + scarf', category: 'japan', checked: false },
-  { id: 'japan-cash-jpy', label: 'Japanese yen (cash)', category: 'japan', checked: false },
+  { id: 'japan-cash-jpy', label: 'Japanese yen (cash) + coin purse', category: 'japan', checked: false },
   { id: 'japan-slip-on-shoes', label: 'Slip-on shoes (temple visits)', category: 'japan', checked: false },
   { id: 'japan-carry-passport', label: 'Original passport on you at all times in Japan (a copy is not enough)', category: 'japan', checked: false },
 ] as const;
