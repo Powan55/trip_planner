@@ -93,8 +93,8 @@ function notifyChanged(): void {
 // #982: slots whose last save was refused (full quota, or a newer build's slot we must not
 // overwrite), keyed by slot key. Every read merges the entry back in, so this page load's
 // first-snapshot merge, flush and badge still see the unsaved chunks; the next save that lands
-// carries them to disk and drops the entry. Gone on reload, which is the ceiling: a chunk that
-// never reached disk is only protected until then.
+// carries them to disk and drops the entry. Gone on reload, so a commit whose enqueue lands here
+// is rolled back (see `withOutbox`); this only covers a rollback that was itself refused.
 const unsaved = new Map<string, OutboxSlot>();
 
 function unsavedKey(slotKey: string, packId: string): string {
@@ -326,8 +326,8 @@ export function outboxBlocked(): number {
  * scope here.
  *
  * #544: every enqueue bumps each chunk's counter (even an already-dirty one) and returns the new
- * values, which the push carries to its ack. */
-function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<string, number> {
+ * values, which the push carries to its ack. Null when the slot did not reach disk (#982). */
+function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<string, number> | null {
   const fresh = loadSlot(packId);
   const set = new Set(fresh.dirty[domain] ?? []);
   const counters = { ...fresh.seq?.[domain] };
@@ -336,13 +336,12 @@ function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<s
     counters[c] = (counters[c] ?? 0) + 1;
   }
   fresh.dirty[domain] = [...set];
-  if (!saveSlot(packId, fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters })) {
-    // A memory-only counter must not equal the integer another tab lands for the same chunk, or this
-    // tab's ack would clear that tab's newer edit (#1026). Below it, withUnsaved's max keeps the
-    // disk value. `counters` is the object saveSlot kept.
-    for (const c of chunks) counters[c] -= Math.random();
-  }
-  return counters;
+  if (saveSlot(packId, fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters })) return counters;
+  // A memory-only counter must not equal the integer another tab lands for the same chunk, or this
+  // tab's ack would clear that tab's newer edit (#1026). Below it, withUnsaved's max keeps the
+  // disk value. `counters` is the object saveSlot kept.
+  for (const c of chunks) counters[c] -= Math.random();
+  return null;
 }
 
 /** Ack: remove one confirmed chunk from the domain's dirty set, and stamp the single app-wide
@@ -507,15 +506,23 @@ async function pushChunks<T>(
  * Takes NO StoragePort: the push path only ever writes `next`, the state the caller just
  * committed. `flushOutbox` is the one that needs `storage.load()`, because it runs later and must
  * re-read the freshest local state.
+ *
+ * #982: a write-ahead record that did not reach disk returns `false` without pushing. Nothing would
+ * protect the edit from the first snapshot after a reload, so the caller rolls the commit back.
  */
 export function withOutbox<T>(cs: ChunkSync<T>): SyncPort<T>['push'] {
-  return async (prev: T, next: T): Promise<void> => {
-    const t = enabled() ? captureTarget() : null;
-    if (!t) return;
-    const chunks = cs.chunkDiff(prev, next);
-    if (chunks.length === 0) return;
-    const seqs = enqueue(t.packId, cs.domain, chunks); // ① write-ahead
-    await pushChunks(cs, t, next, chunks, seqs); // ②③④
+  return (prev: T, next: T) => {
+    try {
+      const t = enabled() ? captureTarget() : null;
+      if (!t) return Promise.resolve();
+      const chunks = cs.chunkDiff(prev, next);
+      if (chunks.length === 0) return Promise.resolve();
+      const seqs = enqueue(t.packId, cs.domain, chunks); // ① write-ahead
+      if (!seqs) return false;
+      return pushChunks(cs, t, next, chunks, seqs); // ②③④
+    } catch (err) {
+      return Promise.reject(err); // same as the async version this replaced: never a sync throw into commit
+    }
   };
 }
 
