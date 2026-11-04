@@ -22,9 +22,21 @@ describe('GuideCards', () => {
     expect(np).not.toContain('guide-card-jp-safety-tips');
   });
 
-  it('pins no prices or validity numbers, and ships no links', () => {
-    const text = JSON.stringify(GUIDE_CARDS);
+  it('pins no prices or validity numbers in the copy', () => {
+    const text = JSON.stringify(GUIDE_CARDS.map(({ links: _links, ...rest }) => rest));
     expect(text).not.toMatch(/https?:|\d/);
     expect(guideCardSchema.safeParse({ ...GUIDE_CARDS[0], extra: 1 }).success).toBe(false);
+  });
+
+  it('every card links out: https only, new tab with noopener, destination in the name', () => {
+    const html = renderToStaticMarkup(<GuideCards id="t" />);
+    for (const c of GUIDE_CARDS) {
+      expect(c.links?.length).toBeGreaterThan(0);
+      for (const l of c.links!) {
+        expect(html).toContain(`href="${l.href}" target="_blank" rel="noopener noreferrer"`);
+        expect(html).toContain(`${l.label}<span class="sr-only"> (opens in a new tab)</span>`);
+      }
+    }
+    expect(guideCardSchema.safeParse({ ...GUIDE_CARDS[0], links: [{ label: 'x', href: 'http://a.test' }] }).success).toBe(false);
   });
 });
