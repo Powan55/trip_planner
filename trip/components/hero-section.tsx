@@ -738,11 +738,14 @@ export default function HeroSection() {
                 fraction={ringFraction(daysLeft, timeLeft.isPast)}
                 reducedMotion={!!prefersReducedMotion}
               >
-                <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
-                  <CountUpNumber live={daysLeft} active={mounted} format={identity} />
-                </span>
+                <div className="flex flex-col items-center gap-1">
+                  <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
+                    <CountUpNumber live={daysLeft} active={mounted} format={identity} />
+                  </span>
+                  <span data-testid="countdown-total-days-unit" className="text-t-label text-ink-mid leading-none">{daysLeft === 1 ? 'day' : 'days'}</span>
+                </div>
               </CountdownRing>
-              <p className="text-sm text-ink-mid">days until adventure begins</p>
+              <p className="text-sm text-ink-mid">until adventure begins</p>
             </div>
           </m.div>
         ))}
