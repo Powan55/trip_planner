@@ -62,10 +62,10 @@ describe('a refused outbox write (#982)', () => {
 
   it('a flush still retries the unsaved chunk and acks it', async () => {
     fillQuotaFor(KEY);
-    await m.withOutbox(cs)({}, { d1: 1 });
+    expect(m.withOutbox(cs)({}, { d1: 1 })).toBe(false); // the commit is refused, nothing pushed
     online = true;
     await m.flushOutbox(cs, storage({ d1: 1 }));
-    expect(pushes).toEqual(['d1', 'd1']);
+    expect(pushes).toEqual(['d1']);
     expect(m.outboxDirty('itinerary')).toEqual([]);
   });
 
@@ -84,12 +84,15 @@ describe('a refused write in one tab, an accepted one in another (#1026)', () =>
     let release!: () => void;
     const held: ChunkSync<State> = { ...cs, pushChunk: () => new Promise<void>((r) => (release = r)) };
     const quota = fillQuotaFor(KEY);
-    const inFlight = m.withOutbox(held)({}, { d1: 1 });
+    expect(m.withOutbox(held)({}, { d1: 1 })).toBe(false);
     quota.mockRestore();
-    // the other tab lands its own first enqueue of d1
+    // the other tab lands its own first enqueue of d1, then this tab's flush pushes and acks
     localStorage.setItem(KEY, JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 1 } } }));
+    const flushing = m.flushOutbox(held, storage({ d1: 1 }));
+    // the other tab enqueues d1 again while this tab's push is in flight
+    localStorage.setItem(KEY, JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] }, seq: { itinerary: { d1: 2 } } }));
     release();
-    await inFlight;
+    await flushing;
     expect(m.outboxDirty('itinerary')).toEqual(['d1']);
   });
 });

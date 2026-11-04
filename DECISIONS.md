@@ -6356,3 +6356,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Changes if:** the owner wants the card to follow a person across trips or devices, which needs an account-scoped slot and a decision on where it may be stored.
 
 **Known gap.** `readJson` accepts arrays for object fallbacks (follow-up issue).
+
+### D-796 · (amends D-720; issue #982, 2026-11-03) · A commit the outbox cannot record is rolled back
+
+**Decision.** `withOutbox`'s push returns `false` synchronously, without pushing, when its write-ahead slot did not reach disk (full quota, or a newer build's slot). `SyncPort.push` is typed `Promise<void> | false`. `createReactiveStore`'s `commit()` then saves `prev` back, re-dispatches, and returns `false`, so the edit snaps back like any refused save and the quota toast explains it. If the rollback save is refused too, the edit stays and D-720's in-memory entry covers it for the page load.
+
+**Why.** D-720's memory copy is gone after a reload, and the first server snapshot then applies over an edit the vault kept with no dirty record. Refusing the edit up front is the only outcome that stays true across a reload.
+
+**Not done.** The restore path (`enqueueRestored` in `lib/trip-backup.ts`) still ignores the result. While a newer build's slot is on disk, every synced edit on this device is refused.
