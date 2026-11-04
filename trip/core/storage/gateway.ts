@@ -1102,7 +1102,11 @@ export function readJson<T>(store: Store, key: string, fallback: T, onReject?: (
     onReject?.(raw);
     return fallback;
   }
-  if (typeof fallback === 'object' && fallback !== null && (parsed === null || typeof parsed !== 'object')) {
+  if (
+    typeof fallback === 'object' &&
+    fallback !== null &&
+    (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed) !== Array.isArray(fallback))
+  ) {
     onReject?.(raw);
     return fallback;
   }
