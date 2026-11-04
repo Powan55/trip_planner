@@ -11,7 +11,7 @@ import CelebrationBurst from '@/components/celebration-burst';
 
 /**
  * PackingChecklist — the `/packing` route's checklist: a fixed built-in template
- * (`core/packing/model.ts`'s `DEFAULT_TEMPLATE`, 28 items) grouped Nepal / Japan / Universal,
+ * (`core/packing/model.ts`'s `DEFAULT_TEMPLATE`, 29 items) grouped Nepal / Japan / Universal,
  * each a checkbox toggle persisted via the gateway (`hooks/use-packing.ts`, key 21), plus
  * traveler-added custom items (#227) — a text input appends a new `universal`-category item, and
  * every row (template or custom) gets a remove button. The template seeds a slot that was never
@@ -100,7 +100,7 @@ export default function PackingChecklist() {
         <h2 id="packing-heading" className="sr-only">
           Packing checklist
         </h2>
-        {/* e2e/packing.spec.ts asserts this node reads exactly "0/28 packed" — the count and the
+        {/* e2e/packing.spec.ts asserts this node reads exactly "0/29 packed" — the count and the
             word are the contract, so nothing else may join this text node. */}
         <p data-testid="packing-progress" className="num text-n-sm text-ink-hi">
           {progress.checked}/{progress.total} packed
@@ -156,7 +156,7 @@ export default function PackingChecklist() {
         // sits at --t-body / --text-mid, never --t-micro.
         <div data-testid="packing-empty" className="px-gut">
           <p className="empty max-w-2xl">
-            Nothing on your list yet. The built-in checklist is 28 items across the two legs and
+            Nothing on your list yet. The built-in checklist is 29 items across the two legs and
             the universal kit — restore it, or add your own above.
           </p>
           <ul aria-hidden="true" className="empty-frame mt-4 list">
