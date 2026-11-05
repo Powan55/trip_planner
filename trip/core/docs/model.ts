@@ -63,12 +63,12 @@ export interface SanitizeOptions {
  */
 export const DEFAULT_TEMPLATE: readonly DocItem[] = [
   // ── Critical documents ──────────────────────────────────────────────────────
-  { id: 'passport-validity', section: 'critical', label: 'Passport valid 6+ months beyond Jan 2027 (Nepal needs it; Japan only for your stay)', checked: false },
+  { id: 'passport-validity', section: 'critical', label: 'Passport valid 6+ months from your Nepal arrival in Dec 2026 (confirm at immigration.gov.np; Japan only for your stay)', checked: false },
   // The date is written into the label on purpose (#252): the online pre-application receipt is
   // valid 15 days, so an early tick is a false green on the row that gates entry. Arrival is
   // Dec 10 2026 and the trip dates are fixed, so the earliest useful day is a constant — not a
   // due-date field on DocItem, which extends the synced row type.
-  { id: 'nepal-visa', section: 'critical', label: 'Nepal visa sorted — visa on arrival at KTM, or the online form from 26 Nov 2026 (its receipt is valid 15 days); 15-day tourist visa, USD 30 cash', checked: false },
+  { id: 'nepal-visa', section: 'critical', label: 'Nepal visa sorted — visa on arrival at KTM, or the online form from 26 Nov 2026 (its receipt is valid 15 days; verify on the portal); 15-day tourist visa, USD 30 cash', checked: false },
   { id: 'japan-entry', section: 'critical', label: 'Japan entry — Visit Japan Web done, QR saved offline', checked: false },
   { id: 'travel-insurance', section: 'critical', label: 'Travel insurance policy + 24h assistance number', checked: false },
   { id: 'flight-tickets', section: 'critical', label: 'Flight e-tickets (Kathmandu & Japan legs) saved offline', checked: false },

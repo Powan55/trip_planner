@@ -212,7 +212,7 @@
             {
               "id": "nepal-visa",
               "section": "critical",
-              "label": "Nepal visa sorted — visa on arrival at KTM, or the online form from 26 Nov 2026 (its receipt is valid 15 days); 15-day tourist visa, USD 30 cash",
+              "label": "Nepal visa sorted — visa on arrival at KTM, or the online form from 26 Nov 2026 (its receipt is valid 15 days; verify on the portal); 15-day tourist visa, USD 30 cash",
               "checked": false
             },
             {
@@ -236,7 +236,7 @@
             {
               "id": "passport-validity",
               "section": "critical",
-              "label": "Passport valid 6+ months beyond Jan 2027 (Nepal needs it; Japan only for your stay)",
+              "label": "Passport valid 6+ months from your Nepal arrival in Dec 2026 (confirm at immigration.gov.np; Japan only for your stay)",
               "checked": true,
               "updatedBy": "Powan",
               "rev": 2,

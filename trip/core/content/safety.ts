@@ -367,8 +367,8 @@ const rawChecklist: ChecklistItem[] = [
   {
     id: 'passport-validity',
     group: 'Before you go',
-    label: 'Passport valid 6+ months beyond the return date',
-    detail: 'Nepal requires six months. Japan only needs it valid for the length of your stay.',
+    label: 'Passport valid 6+ months from your Nepal arrival',
+    detail: 'Nepal requires six months. Sources differ on whether it counts from arrival or departure, so confirm at immigration.gov.np. Japan only needs it valid for the length of your stay.',
   },
   {
     id: 'nepal-visa',
@@ -377,7 +377,7 @@ const rawChecklist: ChecklistItem[] = [
     // Kept in sync with core/docs/model.ts's DEFAULT_TEMPLATE row of the same id (#280,
     // #252's date anchor): the online pre-application receipt is valid 15 days, so an early
     // submission is a false green on the row that gates entry.
-    detail: 'Visa-on-arrival at Tribhuvan Intl (KTM), or the online pre-application from 26 Nov 2026 (receipt valid 15 days) — bring passport photos and cash for the fee (15-day tourist visa, USD 30; confirm on immigration.gov.np first).',
+    detail: 'Visa-on-arrival at Tribhuvan Intl (KTM), or the online pre-application from 26 Nov 2026 (receipt valid 15 days; verify on the portal) — bring passport photos and cash for the fee (15-day tourist visa, USD 30; confirm on immigration.gov.np first).',
   },
   {
     id: 'japan-entry',
@@ -396,7 +396,7 @@ const rawChecklist: ChecklistItem[] = [
     id: 'vaccinations',
     group: 'Before you go',
     label: 'Vaccinations / health certificates up to date',
-    detail: 'CDC lists Hepatitis A and typhoid as core for Nepal, plus Hepatitis B, MMR and rabies to discuss. See a clinic 4-6 weeks before travel (wwwnc.cdc.gov/travel/destinations/nepal).',
+    detail: 'CDC for Nepal: routine shots and MMR up to date for everyone; Hepatitis A and typhoid for most travellers; Hepatitis B if unvaccinated; rabies if animal exposure. Book a travel clinic now, at least 1 month before departure (wwwnc.cdc.gov/travel/destinations/nepal).',
   },
   {
     id: 'carry-passport-japan',
