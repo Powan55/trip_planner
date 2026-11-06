@@ -69,14 +69,14 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
           type="button"
           onClick={handleOpen}
           aria-haspopup="dialog"
-          aria-label={`${draft.title} is planned ${summary.toLowerCase()}. Modify or remove.`}
+          aria-label={`Added · ${summary}: ${draft.title}. Modify or remove.`}
           // STRUCK: this place is committed to a day, so the mark is filled and the
           // border is the struck --text-hi rule, not a tint.
           className="pr mt-3 flex min-h-tap w-full items-center justify-center gap-2 rounded-r1 border border-[color:var(--text-hi)] px-3 py-2 text-[color:var(--text-hi)] outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Check className="w-3.5 h-3.5 shrink-0" />
-          <span>Added</span>
-          <span className="text-[color:var(--text-lo)]" aria-hidden="true">·</span>
+          <span>Added</span>{' '}
+          <span className="text-[color:var(--text-lo)]" aria-hidden="true">·</span>{' '}
           <span className="flex items-center gap-1 tabular-nums">
             <CalendarDays className="w-3 h-3 shrink-0" />
             {summary}
@@ -88,7 +88,7 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
           type="button"
           onClick={handleOpen}
           aria-haspopup="dialog"
-          aria-label={`Add ${draft.title} to your trip plan`}
+          aria-label={`Add to plan: ${draft.title}`}
           // HOLLOW: not yet on any day, so the border is dashed --text-lo and the label
           // sits a tier down. Same box, same size — unfilled, never smaller.
           className={`pr mt-3 flex min-h-tap w-full items-center justify-center gap-1.5 rounded-r1 border border-dashed border-[color:var(--text-lo)] px-3 py-2 transition-colors outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor ?? 'text-[color:var(--text-lo)]'}`}

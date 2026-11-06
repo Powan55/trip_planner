@@ -1154,12 +1154,13 @@ export default function MapSection() {
             className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
             aria-label="Trip days — activate a day to show only its stops, or drop a map pin onto a day to anchor it"
           >
-            {ASSIGN_DAYS.map(({ date, label }, i) => {
+            {ASSIGN_DAYS.map(({ date }, i) => {
               const exact = exactCountByDate.get(date) ?? 0;
               const planned = itemCountByDate.get(date) ?? 0;
               const anchored = anchorsReady && Boolean(anchors[date]);
               const isSelected = selectedDay === date;
               const isDropTarget = dragOverDate === date;
+              const shortDate = formatDate(date).replace(/^[A-Za-z]+,\s*/, '');
               return (
                 <li key={date} className="snap-start shrink-0">
                   <button
@@ -1199,9 +1200,10 @@ export default function MapSection() {
                     // counts the EXACTLY-placed ones, which is still able to fail.
                     data-stop-count={planned}
                     data-mapped-count={exact}
-                    aria-label={`${label}, ${
+                    // Follows the visible text word for word so it contains it (WCAG 2.5.3).
+                    aria-label={`Day ${i + 1}, ${shortDate}, ${
                       planned === 0
-                        ? 'nothing planned yet'
+                        ? 'not yet planned'
                         : `${planned} ${planned === 1 ? 'plan' : 'plans'}, ${exact} exact`
                     }${anchored ? ', anchored' : ''}. ${
                       isSelected
@@ -1230,10 +1232,8 @@ export default function MapSection() {
                           aria-hidden="true"
                         />
                       )}
-                    </span>
-                    <span className="pr pr--lo">
-                      {formatDate(date).replace(/^[A-Za-z]+,\s*/, '')}
-                    </span>
+                    </span>{' '}
+                    <span className="pr pr--lo">{shortDate}</span>{' '}
                     <span className={`pr ${planned === 0 ? 'pr--lo' : ''}`}>
                       {planned === 0 ? (
                         'not yet'
@@ -1301,6 +1301,8 @@ export default function MapSection() {
                               ? haversineKm(coord, { lat: p.lat, lng: p.lng })
                               : null;
                           const position = `stop ${idx + 1} of ${selectedDayRows.length}, Day ${dayNo}`;
+                          const kmText =
+                            km === null ? null : km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
 
                           // Issue #224 — distance from the PREVIOUS stop (not the anchor), so a
                           // backtrack (Asakusa → Shibuya → Asakusa) shows up: the anchor-distance
@@ -1374,11 +1376,12 @@ export default function MapSection() {
                                 data-via={p.via}
                                 data-marker-id={p.marker.id}
                                 data-derived-from={approx ? p.derivedFrom : ''}
-                                aria-label={
-                                  approx
-                                    ? `Show ${row.item.title} on the map — approximate, placed from ${p.derivedFrom} — ${position}`
-                                    : `Show ${row.item.title} on the map — ${position}`
-                                }
+                                // Opens with the row's visible text in order (WCAG 2.5.3).
+                                aria-label={`${idx + 1} ${row.item.title}${approx ? ` ≈ ${p.derivedFrom}` : ''}${
+                                  kmText ? ` ${kmText}` : ''
+                                }. Show on the map${
+                                  approx ? ` — approximate, placed from ${p.derivedFrom}` : ''
+                                } — ${position}`}
                                 className="w-full flex items-center gap-2 min-h-tap -mx-1 px-1 rounded-r1 text-left text-t-sm text-ink-mid hover:bg-[rgb(255_255_255/0.05)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
                                 {/* the approximate marker must survive GREYSCALE, so
@@ -1395,10 +1398,10 @@ export default function MapSection() {
                                   aria-hidden="true"
                                 >
                                   {idx + 1}
-                                </span>
+                                </span>{' '}
                                 <span className="min-w-0 truncate text-ink-hi">
                                   {row.item.title}
-                                </span>
+                                </span>{' '}
                                 {approx && (
                                   <span
                                     className="shrink-0 max-w-[45%] truncate font-normal text-ink-mid"
@@ -1406,11 +1409,9 @@ export default function MapSection() {
                                   >
                                     ≈ {p.derivedFrom}
                                   </span>
-                                )}
-                                {km !== null && (
-                                  <span className="num ml-auto shrink-0 text-ink-mid">
-                                    {km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`}
-                                  </span>
+                                )}{' '}
+                                {kmText && (
+                                  <span className="num ml-auto shrink-0 text-ink-mid">{kmText}</span>
                                 )}
                               </button>
                             </li>

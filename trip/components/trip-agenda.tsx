@@ -151,7 +151,6 @@ function AgendaRow({
         type="button"
         onClick={onToggle}
         aria-pressed={done}
-        aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${item.title}`}
         data-testid={`${prefix}-done-toggle-${item.id}`}
         data-row-phase={phase}
         data-mark={recedes ? 'hollow' : undefined}
@@ -160,7 +159,10 @@ function AgendaRow({
         // can raise it to the 48px this row needs without `!`. max() keeps the outdoor 52px.
         className="r w-full text-left !min-h-[max(var(--tap),48px)]"
       >
-        <span className="tm whitespace-nowrap">{timeInfo ? timeInfo.label : NO_TIME}</span>
+        {/* Named by the row's own text plus this verb, not an aria-label: the name must
+            contain everything the row shows (WCAG 2.5.3). Absolute, so not a grid cell. */}
+        <span className="sr-only">{done ? 'Mark not done' : 'Mark done'}: </span>
+        <span className="tm whitespace-nowrap">{timeInfo ? timeInfo.label : NO_TIME}</span>{' '}
         <span className="min-w-0">
           <span
             data-testid={`${prefix}-agenda-item`}
@@ -176,7 +178,7 @@ function AgendaRow({
           </span>
           {meta && <span className="mt break-words">{meta}</span>}
           <CompletedFooter item={item} />
-        </span>
+        </span>{' '}
         <span
           className={
             done

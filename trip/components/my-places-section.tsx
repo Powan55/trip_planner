@@ -65,6 +65,8 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
     (u): u is string => !!u && isSafeHref(u),
   );
 
+  const addLabel = placements.length > 0 ? 'Added · edit plan' : 'Add to plan';
+
   const openDialog = () => {
     triggerRef.current = (document.activeElement as HTMLButtonElement) ?? null;
     setDialogOpen(true);
@@ -104,12 +106,12 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
             onClick={openDialog}
             aria-haspopup="dialog"
             data-testid={`myplace-add-${place.id}`}
-            aria-label={`Add ${place.name} to your plan`}
+            aria-label={`${addLabel}: ${place.name}`}
             className={`btn max-w-none flex-1 min-w-0 outline-none focus-visible:outline-none ${
               placements.length > 0 ? '' : 'btn--2'
             }`}
           >
-            {placements.length > 0 ? 'Added · edit plan' : 'Add to plan'}
+            {addLabel}
           </button>
           {link && (
             <a

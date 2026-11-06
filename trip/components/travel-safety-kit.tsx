@@ -242,18 +242,20 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
     <li data-testid={`safety-contact-${contact.id}`}>
       <a
         href={`tel:${contact.tel}`}
-        aria-label={`Call ${contact.service}, ${contact.number}${unverified ? ', unverified' : ''}`}
+        // Mirrors the visible text in order so the spoken name contains it (WCAG 2.5.3).
+        aria-label={`Call ${contact.service}${unverified ? `, unverified, ${contact.note}` : ''}, ${contact.number}`}
         className="r [--cols:1fr_auto] no-underline"
       >
         <span className="min-w-0">
           <h3>{contact.service}</h3>
           {unverified && (
             <>
-              <span className="hollow-tag mt-1">unverified</span>
+              {' '}
+              <span className="hollow-tag mt-1">unverified</span>{' '}
               <span className="mt !normal-case !tracking-normal">{contact.note}</span>
             </>
           )}
-        </span>
+        </span>{' '}
         <span className="num self-center whitespace-nowrap text-n-sm text-ink-hi">{contact.number}</span>
       </a>
     </li>
@@ -302,15 +304,17 @@ function PhraseRow({ phrase, onShow }: { phrase: Phrase; onShow: ShowCard }) {
 function ScriptCell({ lang, script, roman, label, onShow }: { lang: 'ne' | 'ja'; script: string; roman: string; label: string; onShow: (trigger: HTMLElement) => void }) {
   return (
     <td className="px-2 py-2 align-top sm:px-gut">
+      {/* Named by its content, not aria-label: the name must contain the visible phrase
+          (WCAG 2.5.3), and only real content keeps the script's `lang` voice switch. */}
       <button
         type="button"
-        aria-label={label}
         onClick={(e) => onShow(e.currentTarget)}
         className="-mx-1 block min-h-[44px] w-full rounded-r1 px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
+        <span className="sr-only">{label}: </span>
         <span lang={lang} className="block text-t-lead leading-snug text-ink-hi">
           {script}
-        </span>
+        </span>{' '}
         <span className="mt-0.5 block text-t-sm text-ink-mid">{roman}</span>
       </button>
     </td>

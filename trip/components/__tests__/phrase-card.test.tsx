@@ -47,7 +47,9 @@ function mount() {
 const hello = SAFETY_PHRASES.find((p) => p.id === 'hello')!;
 
 function trigger(lang: 'Nepali' | 'Japanese') {
-  return container.querySelector<HTMLButtonElement>(`button[aria-label='Show "Hello" in ${lang} full screen']`)!;
+  return Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+    b.textContent!.startsWith(`Show "Hello" in ${lang} full screen:`),
+  )!;
 }
 
 describe('phrase card (#952)', () => {
@@ -98,7 +100,9 @@ describe('phrase card (#952)', () => {
 
   it('every phrase script cell has a 44px trigger', () => {
     mount();
-    const triggers = container.querySelectorAll('button[aria-label$="full screen"]');
+    const triggers = Array.from(container.querySelectorAll('button')).filter((b) =>
+      b.textContent!.includes('full screen:'),
+    );
     expect(triggers).toHaveLength(SAFETY_PHRASES.length * 2);
     triggers.forEach((b) => expect(b.className).toContain('min-h-[44px]'));
   });

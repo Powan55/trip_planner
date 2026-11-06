@@ -349,7 +349,8 @@ const NO_FILTER_BASELINE = {
   clashIds: ['af-p2', 'af-s1'],
   // Note the day-strip's label format is SHORTER than the month cell's (no year) — recorded,
   // not guessed. Writing what looked right here produced a real failure on the pre-S383 run.
-  stripLabel: 'Tuesday, December 15, 5 activities, Kathmandu',
+  // Re-recorded when the chip label was reordered to lead with its visible text (WCAG 2.5.3).
+  stripLabel: 'Tue 15, 5 activities, December, Kathmandu',
   monthDots: 3,
   monthLabel: 'Tuesday, December 15, 2026, 5 activities planned, Kathmandu',
   mapTotalAttr: '5',
@@ -403,7 +404,7 @@ test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed
       glanceCount: '3 items',
       firstStart: 'From 5:30 AM',
       clashIds: [],
-      stripLabel: 'Wednesday, December 9, 3 activities, New York, travel day',
+      stripLabel: 'Wed 9, 3 activities, December, New York, travel day',
       monthDots: 3,
       monthLabel: 'Wednesday, December 9, 2026, 3 activities planned, New York, travel day',
       mapTotalAttr: null,
