@@ -458,6 +458,20 @@ describe('StoragePersistence — reactive write-failure toast (S279)', () => {
     r.unmount();
   });
 
+  it('shows a reload toast, not the storage-full one, when trip:outbox-newer-version fires', async () => {
+    vi.resetModules();
+    const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    const r = render(createElement(Fresh));
+    await r.settle();
+    window.dispatchEvent(new CustomEvent('trip:outbox-newer-version'));
+    await r.settle();
+    const call = h.toastCalls.find((c) => c.options?.id === 'outbox-newer-version');
+    expect(call?.message).toContain('newer version');
+    expect(h.toastCalls.some((c) => c.options?.id === 'quota-exceeded')).toBe(false);
+    r.unmount();
+  });
+
   it('does NOT show the reactive toast without the event (no false positive on mount)', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     const r = render(createElement(StoragePersistence));

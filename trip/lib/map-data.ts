@@ -1919,6 +1919,39 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
+    id: 'np-club-deja-vu',
+    name: 'Club Deja Vu',
+    category: 'Attraction',
+    country: 'Nepal',
+    area: 'Thamel, Kathmandu',
+    description:
+      'A high-capacity Thamel dance club that runs late, busiest on Saturdays. The pin is the Thamel neighbourhood; check hours and cover before going.',
+    lng: 85.31180, lat: 27.71560,
+    x: 0, y: 0,
+  },
+  {
+    id: 'np-mazaaj',
+    name: 'Mazaaj Hookah Lounge',
+    category: 'Attraction',
+    country: 'Nepal',
+    area: 'Thamel, Kathmandu',
+    description:
+      'A seated rooftop hookah lounge in Thamel with live music, good for winding a night down. The pin is the Thamel neighbourhood; check hours before going.',
+    lng: 85.31262, lat: 27.71690,
+    x: 0, y: 0,
+  },
+  {
+    id: 'np-club-fahrenheit',
+    name: 'Club Fahrenheit',
+    category: 'Attraction',
+    country: 'Nepal',
+    area: 'Durbar Marg, Kathmandu',
+    description:
+      'One of Kathmandu’s premium nightclubs, inside Hotel Annapurna on Durbar Marg. Busiest Friday and Saturday, so a weekday can be quiet; check tonight’s event before going.',
+    lng: 85.31836, lat: 27.71190,
+    x: 0, y: 0,
+  },
+  {
     id: 'jp-teamlab-borderless',
     name: 'teamLab Borderless',
     category: 'Photo Spot',

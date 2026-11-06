@@ -181,6 +181,14 @@ export function StoragePersistence() {
       });
     };
     window.addEventListener('trip:quota-exceeded', onQuotaExceeded);
+    // The sync outbox refuses to overwrite a slot written by a newer build, so the edit reverts.
+    const onOutboxNewer = () =>
+      toast("Couldn't save — this trip was updated by a newer version of the app", {
+        id: 'outbox-newer-version',
+        description: 'Reload the app to get the latest version, then try again.',
+        duration: 10000,
+      });
+    window.addEventListener('trip:outbox-newer-version', onOutboxNewer);
 
     // ── 5. Backup nudge on leg change (once per leg, #222) ──
     const fireBackupNudge = (promptedValue: string, message: string) => {
@@ -225,6 +233,7 @@ export function StoragePersistence() {
 
     return () => {
       window.removeEventListener('trip:quota-exceeded', onQuotaExceeded);
+      window.removeEventListener('trip:outbox-newer-version', onOutboxNewer);
       if (waitingForTour) window.removeEventListener('trip:tour-done', showInstallHint);
       clearInterval(legTimer);
     };
