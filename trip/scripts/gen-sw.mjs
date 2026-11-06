@@ -907,6 +907,7 @@ const BUILD_ID = ${JSON.stringify(buildId)};
 // sha256 prefix per precached file, minus pages and payloads. Install copies a byte-identical
 // entry from an older trip-precache-* instead of downloading it again (#979).
 const PRECACHE_REVISIONS = ${JSON.stringify(precacheRevisions)};
+const PARTIAL_CACHE = 'trip-install-partial';
 // Same-origin files this build ships but does not precache (lazy chunks, the map engine, its
 // worker, the glyphs). They are runtime-cached here instead of in PRECACHE so an update does
 // not wipe them. The name hashes the unhashed ones (maplibre worker, glyphs), so a maplibre
@@ -953,10 +954,14 @@ self.addEventListener('install', (event) => {
       //
       // A failed install deletes the cache it was filling (#945), or the preflight check
       // and caches.match() would read the partial cache. Only one this install created: a
-      // byte-identical rebuild reuses the active worker's cache name.
+      // byte-identical rebuild reuses the active worker's cache name. Its reusable entries
+      // move to PARTIAL_CACHE first, so a retry on a flaky link resumes instead of
+      // starting over (#979); activate sweeps that cache like any other stale trip-* one.
       const names = await caches.keys();
       const fresh = !names.includes(PRECACHE);
-      const previous = names.filter((k) => k.startsWith('trip-precache-') && k !== PRECACHE);
+      const previous = names.filter(
+        (k) => (k.startsWith('trip-precache-') && k !== PRECACHE) || k === PARTIAL_CACHE
+      );
       const cache = await caches.open(PRECACHE);
       const results = await Promise.allSettled(
         PRECACHE_URLS.map(async (url) => {
@@ -985,10 +990,14 @@ self.addEventListener('install', (event) => {
       );
       const failed = results.find((r) => r.status === 'rejected');
       if (failed) {
-        if (fresh) await caches.delete(PRECACHE).catch(() => {});
+        if (fresh) {
+          await keepPartial(cache).catch(() => {});
+          await caches.delete(PRECACHE).catch(() => {});
+        }
         throw failed.reason;
       }
       await cache.put(PRECACHE_LIST, precacheListResponse());
+      await caches.delete(PARTIAL_CACHE).catch(() => {});
     })()
   );
 });
@@ -1148,6 +1157,18 @@ async function reusablePrecacheEntry(url, cacheNames) {
     } catch (err) {}
   }
   return undefined;
+}
+
+// Only entries reusablePrecacheEntry would accept, and it re-hashes them on the way back.
+async function keepPartial(cache) {
+  await caches.delete(PARTIAL_CACHE);
+  const partial = await caches.open(PARTIAL_CACHE);
+  for (const req of await cache.keys()) {
+    const path = new URL(req.url).pathname;
+    if (!PRECACHE_REVISIONS[path] || carriesBuildId(path)) continue;
+    const res = await cache.match(req);
+    if (res) await partial.put(req, res);
+  }
 }
 
 function precacheListResponse() {
