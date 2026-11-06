@@ -202,6 +202,8 @@ function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string
   if (isNewerVersion(readJson<unknown>('local', key, null))) {
     console.warn('[outbox] not overwriting a slot from a newer version; keeping this change in memory');
     ok = false;
+    // Literal name, not an export: storage-persistence.tsx (root layout) must not import this module.
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('trip:outbox-newer-version'));
   } else if (Object.keys(pruned).length === 0 && lastAckAt === undefined) {
     removeKey('local', key);
     ok = true;
