@@ -232,6 +232,7 @@ const rawGuideCards: GuideCard[] = [
     ],
     links: [
       { label: 'Apple Wallet transit cards (Japanese page)', href: 'https://www.apple.com/jp/apple-pay/transit/' },
+      { label: 'Welcome Suica (JR East)', href: 'https://www.jreast.co.jp/en/multi/welcomesuica/' },
       { label: 'PASMO', href: 'https://www.pasmo.co.jp/en/' },
     ],
   },
