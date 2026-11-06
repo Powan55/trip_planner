@@ -422,8 +422,16 @@ describe('named stops that used to fall back to an area pin', () => {
     ['Dinner & live music at House of Music', 'np-house-of-music'],
     ['teamLab Borderless', 'jp-teamlab-borderless'],
     ['Kushikatsu at Daruma', 'jp-kushikatsu-daruma'],
+    ['Club Deja Vu', 'np-club-deja-vu'],
+    ['Mazaaj Hookah Lounge', 'np-mazaaj'],
+    ['Kathmandu send-off at Club Fahrenheit', 'np-club-fahrenheit'],
   ];
   it.each(cases)('%s plots on its own marker', (title, id) => {
     expect(matchMarker({ id: 'x', title, category: 'sightseeing' })?.id).toBe(id);
+  });
+
+  it('the seed teamLab item resolves to Borderless', () => {
+    const item = TRIP_ITINERARY.flatMap((d) => d.items).find((i) => i.id === 'j19-1')!;
+    expect(matchMarker(item)?.id).toBe('jp-teamlab-borderless');
   });
 });
