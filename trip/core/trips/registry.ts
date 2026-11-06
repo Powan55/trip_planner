@@ -23,8 +23,10 @@ import {
   wipeTripData,
   keyForTrip,
   readJson,
+  readString,
   isSafeTripSegment,
   STORAGE_KEYS,
+  type TripScopedSlot,
 } from '@/core/storage/gateway';
 import { outboxDirty, type SyncDomain } from '@/core/sync/outbox';
 import { sanitizePhotos } from '@/core/photos/model';
@@ -583,6 +585,49 @@ export function localPhotoCountFor(id: string): number {
   return sanitizePhotos(readJson<unknown>('local', keyForTrip(id, 'photos'), null)).length;
 }
 
+const DEVICE_ONLY_SLOTS = [
+  'packing',
+  'shareInbox',
+  'favorites',
+  'dayAnchors',
+  'conciergeChat',
+  'journalDraft',
+  'itineraryCorrupt',
+  'expensesCorrupt',
+  'localRescue',
+  'ice',
+] as const satisfies readonly TripScopedSlot[];
+
+function holdsContent(raw: string | null): boolean {
+  if (raw === null) return false;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return typeof v !== 'object' || v === null || Object.keys(v).length > 0;
+  } catch {
+    return true;
+  }
+}
+
+/** Data for a trip that only this device has: no remote copy could restore it (#983). Journal
+ * entries count until a sync stamp says the account holds them. */
+export function hasDeviceOnlyData(id: string): boolean {
+  if (DEVICE_ONLY_SLOTS.some((slot) => holdsContent(readString('local', keyForTrip(id, slot))))) return true;
+  const raw = readString('local', keyForTrip(id, 'journal'));
+  if (raw === null) return false;
+  let entries: unknown;
+  try {
+    entries = JSON.parse(raw);
+  } catch {
+    return true;
+  }
+  if (!Array.isArray(entries)) return holdsContent(raw);
+  const stamps = readJson<Record<string, unknown>>('local', keyForTrip(id, 'journalSync'), {});
+  return entries.some((e) => {
+    const date = (e as { date?: unknown } | null)?.date;
+    return typeof date !== 'string' || !stamps[date];
+  });
+}
+
 /** Person prefs not yet on the account (#672); the wipe deletes key 48 with them. */
 export function personPrefsDirty(): number {
   const prefs = readJson<unknown>('local', STORAGE_KEYS.personPrefs, null);
@@ -766,8 +811,8 @@ export function importRemoteTrips(
   const mergedIds = new Set(merged.map((t) => t.id));
   for (const t of stored) {
     if (t.id === DEFAULT_TRIP_ID || mergedIds.has(t.id)) continue;
-    // Unsynced edits and device-only photos survive another device's forget (#843).
-    if (unsyncedEditCountFor(t.id) > 0 || localPhotoCountFor(t.id) > 0) continue;
+    // Unsynced edits, photos and other device-only data survive another device's forget (#843, #983).
+    if (unsyncedEditCountFor(t.id) > 0 || localPhotoCountFor(t.id) > 0 || hasDeviceOnlyData(t.id)) continue;
     wipeForgottenTripData(t.id);
   }
   return { localHadExtras };

@@ -540,12 +540,12 @@ a pure view-level chronological sort (`sortItemsByTime`, stable, untimed items s
 preserving relative order) and warn-only clash badges (`clashingItemIds`, half-open overlap on
 `effectiveStartMinutes`/`durationMinutes`). Zero store writes.
 
-**D-606 widened the sort to every day list.** It was the map's per-day stop ordering alone; it is
+**D-780 widened the sort to every day list.** It was the map's per-day stop ordering alone; it is
 now the one order behind the planner's day detail (through `groupItemsByPhase`, section 23a), the
 Today panel, the Travel-Mode agenda, the printed sheet and the `/plan` + `/travel` day routes.
 Zero store writes still: it is a render-time projection, so the persisted order is untouched and
 D-018 holds — `e2e/sort-clash.spec.ts`'s zero-writes test asserts the stored bytes are still
-out of order while the screen is sorted. What D-606 retired is D-142's separate clause that the
+out of order while the screen is sorted. What D-780 retired is D-142's separate clause that the
 calendar RENDERS that stored order.
 
 Both functions are live; neither renders a `timeline-*` id any more. The badge's consumer is the
@@ -565,7 +565,7 @@ proves only the calendar surface.
 > so `/plan` shipped two 32-day day selectors that never synced. **Nothing replaced either id**,
 > and the behaviour they carried is asserted at the two consumers named above instead.
 
-### 23a. Chronological day lists and the locked grip (D-606)
+### 23a. Chronological day lists and the locked grip (D-780)
 
 The planner's day detail renders `groupItemsByPhase(visibleItems, selectedDate, dayOffsetMin)` —
 `sortItemsByTime` first, then phase classification — so the `calendar-phase-header-<phase>-<id>`
@@ -580,7 +580,7 @@ Because a timed row's place is decided by its time, drag now governs the untimed
 |---|---|---|
 | `data-drag-disabled="true"` | on `calendar-item-<id>` | Present only on a TIMED row. Absent (not `"false"`) on an untimed one, so assert with `not.toHaveAttribute`. The same boolean is passed to dnd-kit's `useSortable({ disabled })`, so the keyboard sensor and the pointer sensor agree — a timed row can neither be picked up nor dropped onto. |
 | `calendar-item-grip-locked-<id>` | the `<span>` replacing the grip on a timed row | Dimmed, `aria-hidden`, `title="Timed plans are ordered by time"`, same box as the button so the row's left edge stays aligned. NOT in the tab order or the a11y tree. |
-| `Reorder <title>` (role=button) | the grip `<button>` on an UNTIMED row | Unchanged, and still the keyboard-dnd entry point. The two keyboard-reorder specs (`e2e/mobile-planner.spec.ts`, `e2e/plan-map-split.spec.ts`) drive untimed fixtures, which is why they are untouched by D-606 — give either fixture a `startMinutes` and its grip disappears. |
+| `Reorder <title>` (role=button) | the grip `<button>` on an UNTIMED row | Unchanged, and still the keyboard-dnd entry point. The two keyboard-reorder specs (`e2e/mobile-planner.spec.ts`, `e2e/plan-map-split.spec.ts`) drive untimed fixtures, which is why they are untouched by D-780 — give either fixture a `startMinutes` and its grip disappears. |
 
 `e2e/sort-clash.spec.ts` owns the nets: the rendered order, the Morning-before-Afternoon header
 sequence (the reported defect), the trailing Anytime run, and the grip split above.

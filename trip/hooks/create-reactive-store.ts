@@ -126,8 +126,14 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
       setValue(next);
       window.dispatchEvent(new CustomEvent(eventName));
       // A refused local save snaps back on re-read; pushing it would sync a change this device lost.
-      if (sync && ok !== false) void sync.push(prev, next);
-      return ok !== false;
+      if (!sync || ok === false) return ok !== false;
+      if (sync.push(prev, next) !== false) return true;
+      // The outbox could not record the edit, so a reload's first snapshot would erase it (#982):
+      // refuse it now instead. If even the rollback is refused, the outbox's in-memory entry still
+      // covers this page load.
+      if (storage.save(prev) === false) return true;
+      window.dispatchEvent(new CustomEvent(eventName));
+      return false;
     }, []);
 
     return { value, hydrated, commit };

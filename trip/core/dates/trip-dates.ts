@@ -24,7 +24,7 @@
 // unit suites gate that parity. `new Date('YYYY-MM-DDThh:mm:ss')` parses as LOCAL time (no
 // trailing Z), exactly as the old literals did, so every downstream value is unchanged.
 import { differenceInCalendarDays } from 'date-fns';
-import { getActiveTrip, legForDate } from '@/core/trips';
+import { getActiveTrip, isPlaceholderSpan, legForDate } from '@/core/trips';
 
 const activeTrip = getActiveTrip();
 // A single-leg pack has neither a 'nepal' nor a 'japan' leg — the old
@@ -67,7 +67,10 @@ const MONTH_NAMES = [
 function formatLabelPart(d: Date): string {
   return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
-export const TRIP_DATE_LABEL = `${formatLabelPart(TRIP_START)} – ${formatLabelPart(TRIP_END)}`;
+export const TRIP_DATES_PENDING = isPlaceholderSpan(activeTrip);
+export const TRIP_DATE_LABEL = TRIP_DATES_PENDING
+  ? 'Trip details not loaded yet'
+  : `${formatLabelPart(TRIP_START)} – ${formatLabelPart(TRIP_END)}`;
 
 // B-01 fix: country classification must be timezone-independent. The input is NEVER
 // parsed with `new Date(dateStr)` (the ES spec treats date-ONLY strings as UTC midnight,

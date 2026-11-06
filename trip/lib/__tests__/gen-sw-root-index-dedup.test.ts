@@ -47,8 +47,9 @@ describe('cacheKey (emitted SW): non-root __next._index.txt URLs collapse onto t
       'buildId',
       'RUNTIME_CACHE_NAME',
       'runtimeUrls',
+      'precacheRevisions',
       'return `' + template + '`'
-    )('trip-precache-test', 'trip-images-v1', 80, '/', ['/'], (p: string) => p, 'test-build', 'trip-runtime-test', []);
+    )('trip-precache-test', 'trip-images-v1', 80, '/', ['/'], (p: string) => p, 'test-build', 'trip-runtime-test', [], {});
     // cacheKey() is a plain function declared at top level of the worker source;
     // grab a reference to it without driving the whole install/fetch machinery.
     return new Function(`${workerSource}\nreturn cacheKey;`)();

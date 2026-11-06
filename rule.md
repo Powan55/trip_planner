@@ -79,12 +79,14 @@ static export, grep-excluding the visual specs. It must pass.
 **WebKit** (Safari engine) is its own job, gated on Checks and pull requests only,
 the same as E2E.
 
-**Visual regression** is its own job, also gated on Checks and pull-requests
-only, and it is **not advisory**: it runs on `windows-latest` because the
+**Visual regression** is its own job, gated on Checks and pull requests, and it is
+**not advisory** on a pull request: it runs on `windows-latest` because the
 committed screenshot baselines are Windows-canonical (`-win32`), which makes
 this a real pixel compare instead of a guaranteed miss on a Linux runner, and
 it carries no `continue-on-error` — a genuine diff fails the pull request. The
-report and any diff are uploaded as an artifact on failure.
+report and any diff are uploaded as an artifact on failure. On push to `dev` the same job
+runs as an advisory check under its own context name (`Visual drift on dev (advisory)`), so
+drift shows without blocking anything.
 
 **Release gate** (seconds) runs on a pull request into `main` only, and again on the
 push to `main` that deploys. It needs no dependencies, so it answers before anything

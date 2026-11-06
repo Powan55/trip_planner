@@ -86,8 +86,9 @@ export interface StoragePort<T> {
  * can never break a local edit.
  */
 export interface SyncPort<T> {
-  /** Best-effort per-delta push of `prev`→`next`; never throws. */
-  push(prev: T, next: T): Promise<void>;
+  /** Best-effort per-delta push of `prev`→`next`; never throws. Returns `false`, synchronously and
+   * without pushing, when the outbox could not record the edit (#982). */
+  push(prev: T, next: T): Promise<void> | false;
   /**
    * Open the remote→local subscription (merge + `savePlans()`+dispatch, never `commit()`).
    * Returns an unsubscribe fn; a no-op unsub when `isConfigured()` is false.

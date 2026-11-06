@@ -12,7 +12,7 @@ import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 
 /** Load + sanitize the persisted photo-metadata list (empty list when absent / SSR / corrupt). */
 export function loadPhotos(): PhotoMeta[] {
-  return sanitizePhotos(photosStore.get<unknown>([]));
+  return sanitizePhotos(photosStore.get<unknown>([], sanitizePhotos));
 }
 
 /** Sanitize + persist the whole photo-metadata list as JSON. Never throws; false when the write was refused. */

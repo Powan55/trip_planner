@@ -5609,7 +5609,9 @@ The original length is kept because it is diagnostic in its own right: it is how
 
 **Changes if:** the `?trip=` handshake is rewired to set the share id instead of switching packs, which would make the link and the code the same thing.
 
-### D-546 · (issue #485, 2026-09-21) · Prototype-safe maps at the settlement and budget-merge boundary
+### D-781 · (issue #485, 2026-09-21) · Prototype-safe maps at the settlement and budget-merge boundary
+_Renumbered from D-546; the id collided with the share-link entry._
+
 
 **Decision.** `core/budget/settlement.ts` and `core/sync/merge-budget.ts` build their accumulator maps with `Object.create(null)` and read with `Object.prototype.hasOwnProperty.call`. A participant or field path named `constructor`, `toString` or `__proto__` behaves like any other key. `core/sync/hlc.ts` `parse` returns the oldest stamp for a non-string input rather than throwing.
 
@@ -5946,7 +5948,9 @@ Every load of a non-default trip re-fetches meta/info once (no listener) and app
 
 **Status.** Repo only until the rules are actually published (#263). rules-check 7e now expects these adds to be denied.
 
-### D-606 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
+### D-780 · Amends D-142 (retires its view-order clause) · (owner-instructed, 2026-09-27) · Every day list is chronological; the sort is view-level, and drag now governs the untimed run only
+_Renumbered from a second D-606; the id collided with the basemap entry._
+
 
 **Decision.** A day's plans render in time order on every surface that lists them: the planner's day detail (`lib/phase-of-day.ts`'s `groupItemsByPhase`, which now sorts before it classifies), the Today panel, the Travel-Mode agenda card, the printed itinerary, and the numbered day route on the `/plan` and `/travel` maps (`buildItineraryStops` passes `chrono: true`). One key throughout: `sortItemsByTime`, so timed items ascend by absolute INSTANT, untimed items sink to a single trailing run preserving their own relative order, and equal instants keep their stored order. `groupItemsByPhase` therefore takes the day's date and place offset — an instant-accurate sort cannot be done without them, and there is no second time-math path.
 
@@ -6241,14 +6245,6 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
 
-### D-707 · Extends D-662 · (issue #858, 2026-10-05) · An owner can make another member an owner, and step down while a second owner exists
-
-**Decision.** `setTripMemberRole` in `lib/trips-remote.ts` writes `members.{uid}` as `'owner'` or `'member'` through the same field-path write as add and remove. The members list in Settings shows an owner a **Make owner** button on each member row and a **Step down** button on their own row, each behind a confirm. Step down is offered only while the roster names a second owner. `firestore.rules` is unchanged: it already let an owner write any well-formed roster (`isOwner()`), refuses one that names no owner (`rosterIsWellFormed`), and refuses a member's role write (D-642); `scripts/rules-check.mjs` now pins the promote, step-down and hand-back writes.
-
-**Why.** The rules header promised owners could change roles, but the client only added `'member'` or deleted, so a trip whose owner device was lost, or whose account was deleted and recreated (D-660), had nobody who could remove a device or mint an invite. A second owner removes that single point of failure.
-
-**Not done here.** A trip whose only owner is already gone cannot be recovered from the client, since only an owner may write a role; that would need a rules change or an out-of-band repair (`scripts/roster-inspect.mjs`). Owners are not told when a co-owner steps down.
-
 ### D-708 · Extends D-642, D-662 · (issue #859, 2026-10-05) · A member can leave a gated trip by removing its own roster key
 
 **Decision.** `leavesRoster()` in `firestore.rules` lets a member write an update whose only affected key is `members` and whose only change is removing the writer's own uid: nothing else removed, added or re-roled. An owner leaves through `isOwner()` as before, so `rosterIsWellFormed()` still refuses a roster left with no owner and the last owner cannot walk away. `leaveTrip` in `lib/trips-remote.ts` makes that write, and Settings shows **Leave this trip** (behind a confirm) to a member, or to an owner while a second owner exists; the card then says the device has left. Leaving does not forget the trip locally; that stays on the Trips page. `scripts/rules-check.mjs` pins the leave, the two refused extras and the read denial afterwards.
@@ -6283,6 +6279,40 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Not done.** A worker still installing when the button is pressed is not waited for, and there is no "reset offline copy" action.
 
+### D-725 · (issue #985, 2026-11-02) · Unreadable device-only data is copied before the next save
+
+**Decision.** The journal, packing, photo index, share inbox and favorites stores read through `readDeviceOnlyJson` in the gateway. When the stored bytes fail to parse, or parse to a scalar the store refuses, the raw string is copied into the new trip-scoped slot `localRescue` (key 54: `nepal_japan_local_rescue` on the default pack, `trip:{id}:localRescue` on a custom trip) as `{ [slot]: raw }` before the fallback is returned. Write-once per slot, like the itinerary quarantine; a rescue slot that is itself unreadable is left alone. Not capped, unlike the itinerary's 4096 chars, because a truncated journal is not a copy. Not in the backup; sign-out and a local forget wipe it.
+
+**Why.** These slots have no remote copy, so the save after a failed read overwrote the only one.
+
+**Not done.** No UI reads the rescue slot; recovery is by hand. Day anchors and the concierge thread are not covered. A second corruption of a slot already rescued once is not covered (write-once), and the copy can push the next save over quota on a nearly full disk. (#1025) A slot that parses but whose entries the domain sanitizer drops entirely is now rescued too: the six `get` calls take the sanitizer and the gateway copies when stored content sanitizes to nothing.
+
+### D-726 · (issue #983, 2026-11-02) · Another device's forget keeps this device's own data
+
+**Decision.** `importRemoteTrips` still drops the row, but skips the #518 wipe when `hasDeviceOnlyData(id)` is true: a non-empty packing list, share inbox, favorites, day anchors, concierge thread, journal draft, either quarantine slot or `localRescue`, or any journal entry without a sync stamp (an unreadable journal counts). Empty `[]`/`{}` slots do not count. A local forget still wipes everything.
+
+**Why.** Dropping only the row would bring back #518 for trips that hold nothing but synced data. Extending the #843 guard keeps the wipe for those and keeps anything no remote can restore.
+
+**Not done.** The kept data has no row, so it is reachable only by re-joining the trip; sign-out clears it.
+
+### D-720 · (issues #982, #978, 2026-11-02) · A refused outbox write is kept in memory
+
+**Decision.** When the outbox slot write is refused (full quota), `core/sync/outbox.ts` keeps the slot it tried to write in a per-tab map and merges it into every slot read. `outboxDirty`, the flush, the badge and the first-snapshot merge in every domain see the chunk for the rest of the page load, and the next slot write that lands carries it to disk. A slot whose `version` is a number above 1 is never overwritten or removed; edits made under it go to the same in-memory map. `markOutboxDirty` is gone; its last caller left with #728.
+
+**Why.** The enqueue ignored `writeJson`'s result, so the vault held the edit with no write-ahead record, and the first snapshot after a resubscribe applied over it. A newer build's slot was rewritten as v1, dropping its dirty set.
+
+**Not done.** The memory copy does not survive a reload, so an edit that never reached the server or the disk is still lost then. Rolling back the vault write instead would need the reactive store to see the push's enqueue result.
+
+### D-730 · (issue #986, 2026-11-02) · Older builds keep fields they don't know on journal entries and photo rows
+
+**Decision.** The journal push in `lib/journal-remote.ts` carries the server row's undeclared keys into the row it writes, so an older build's edit no longer erases them. `sanitizePhoto` (`core/photos/model.ts`) keeps a row whose owner has a kind this build doesn't know, and keeps extra keys on the row. `sameOwner` never matches an unknown kind, so no view here lists it.
+
+**Why.** Same class as #138 and #519. An older tab or phone editing a day rebuilt the entry from known fields and wrote it over the whole server row, erasing what a newer build had added. A photo row with an unknown owner kind was dropped on read and the next save made the drop permanent.
+
+**Same shape as expenses.** The local journal path stays a strict allowlist (D-159, D-374): a backup restore or a legacy slot carrying a photo ref cannot reach Firestore, and text and highlight keep their length caps. Unknown keys are read only from the server row inside the push transaction, and never the declared fields, so clearing a mood or highlight still sticks. A tombstone, or a push over one, carries nothing. The local slot never holds the unknown keys; the server row is where they live. Photo rows are device-local, so that half keeps unknown owner kinds and keys in the model.
+
+**Not done.** The outbox slot version is a separate change. Unknown keys have no size cap beyond Firestore's document limit.
+
 ### D-738 · (issue #981, 2026-11-02) · Gallery images revalidate after 7 days; the trim is serialised
 
 **Decision.** A hit in `trip-images-v1` older than 7 days (by its `Date` header, missing counts as old) is still served at once, then refetched with `cache: no-cache` under `waitUntil` and replaced. `trimImageCache()` runs one at a time off a promise chain, so each pass reads current keys. Amends D-086(b): still cache-first, no longer forever.
@@ -6290,3 +6320,47 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** Image filenames are not content-hashed, so a re-encode or credit fix at the same path never reached returning devices; overlapping trims worked from stale key snapshots.
 
 **Not done.** Hashed filenames. The precache-first order for hero rasters is unchanged.
+
+### D-770 · (issue #970, 2026-11-03) · Config-less trips hide their placeholder dates; create picks a local currency
+
+**Decision.** A trip with no config still resolves to the one-day 2099-12-31 placeholder (D-342), but nothing shows that date. `TRIP_DATES_PENDING` turns the date label into "Trip details not loaded yet", the hero drops its countdown, the live stat cell reads "Dates not set", the gate countdown shows the label, and Travel Mode skips its pre-trip Day 1 default. The create form gets a local currency picker limited to `CURRENCIES` (USD, NPR, JPY), written to the existing optional `config.currency`.
+
+**Why.** Those three are the only currencies the budget has rates for (`rates.{NPR,JPY}`). Another currency needs new synced rate fields and a wider `CurrencyCode`, so it is a separate change.
+
+**Not done.** More currencies, and per-day cities for multi-destination trips: every day still uses `destinations[0]`.
+
+### D-741 · (issue #980, 2026-11-02) · The worker no longer caches the Frankfurter rate
+
+**Decision.** The stale-while-revalidate route for `api.frankfurter.dev` is gone; the host is plain cross-origin passthrough again. `trip-frankfurter-v1` is no longer allowlisted, so the next activate deletes it. Retires D-190.
+
+**Why.** The worker answered the rate request from cache as a 200, so `fetchCurrencyRate` took its success branch: the previous fetch looked fresh, never flagged stale, and online the row always lagged one fetch behind. Network-first with a cache fallback would still hand a cached 200 to the client when the network dies with `navigator.onLine` true, so the stale flag would stay wrong. With the route gone a dead network rejects and the localStorage fallback in `lib/currency-rate.ts` marks the value stale.
+
+**Changes if:** the rate needs a cache layer the client's localStorage cannot give.
+
+### D-795 · (amends D-226, D-086(a); issue #979, 2026-11-03) · Install copies byte-identical precache entries forward
+
+**Decision.** gen-sw writes `PRECACHE_REVISIONS` (sha256, first 32 hex) for every precached file except `.html`/`.txt`. Before fetching each URL, install looks in existing `trip-precache-*` caches, hashes the stored bytes, and copies the entry only on a match. Pages and payloads are always fetched and checked against the build id. Any miss or error falls back to the normal fetch. Install stays atomic, the content-hashed cache name is unchanged, activate cleanup is unchanged.
+
+**Why.** Pages ETags are deploy time plus size so no 304 is possible, and every device paid ~1.9 MB per deploy (#979).
+
+**Changes if:** the worker gains a header-dependent read on precache entries (copied entries keep the old response headers), or a build step changes `out/` after gen-sw.
+
+### D-790 · (issue #987, 2026-11-03) · The emergency card is a device-only slot (key 55)
+
+**Decision.** `ice` (localStorage `nepal_japan_ice`, `trip:{id}:ice` off the default pack) holds the emergency card: blood type, allergies, medications, insurance and its 24h number, home contact, hotel in local script. Trip-scoped, written through `iceStore` and read through `readDeviceOnlyJson`, so an unreadable copy is rescued into `localRescue` before a save can replace it. Shape and limits live in `core/ice/ice.ts`; the editor is `components/ice-card.tsx` on `/profile`, linked from `/safety`, and the card holds the screen wake lock while it has content.
+
+**Never leaves the device.** No sync domain, share link, backup (listed in the `trip-backup.ts` exclusion type) or concierge payload reads it. Sign-out and a local forget wipe it through `TRIP_SCOPED_SLOTS`; a remote forget keeps it, because `DEVICE_ONLY_SLOTS` counts it as data no remote copy could restore.
+
+**Why.** Medical and contact details are the one kind of data where a sync leak or a backup file left in a shared inbox does harm that an app cannot undo. The issue's optional "include in backup" toggle is not built: the card is small enough to retype, and a toggle is a way to put it in a file by accident.
+
+**Changes if:** the owner wants the card to follow a person across trips or devices, which needs an account-scoped slot and a decision on where it may be stored.
+
+**Known gap.** `readJson` accepts arrays for object fallbacks (follow-up issue).
+
+### D-796 · (amends D-720; issue #982, 2026-11-03) · A commit the outbox cannot record is rolled back
+
+**Decision.** `withOutbox`'s push returns `false` synchronously, without pushing, when its write-ahead slot did not reach disk (full quota, or a newer build's slot). `SyncPort.push` is typed `Promise<void> | false`. `createReactiveStore`'s `commit()` then saves `prev` back, re-dispatches, and returns `false`, so the edit snaps back like any refused save and the quota toast explains it. If the rollback save is refused too, the edit stays and D-720's in-memory entry covers it for the page load.
+
+**Why.** D-720's memory copy is gone after a reload, and the first server snapshot then applies over an edit the vault kept with no dirty record. Refusing the edit up front is the only outcome that stays true across a reload.
+
+**Not done.** The restore path (`enqueueRestored` in `lib/trip-backup.ts`) still ignores the result. While a newer build's slot is on disk, every synced edit on this device is refused, and silently: that refusal raises no toast.

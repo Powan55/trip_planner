@@ -203,6 +203,19 @@ describe('createReactiveStore — the shared hydrate/listen/commit skeleton (D-1
     h.unmount();
   });
 
+  it('a push the outbox could not record rolls the commit back (#982)', async () => {
+    const { port, disk } = makeStorage([1]);
+    const sync: SyncPort<number[]> = { push: () => false, subscribe: () => () => {}, isConfigured: () => true };
+    const useStore = createReactiveStore<number[]>({ eventName: EVENT, storageKeys: [KEY], storage: port, sync });
+    const h = render(useStore);
+    let got = true;
+    await h.run((c) => { got = c.commit((cur) => [...cur, 2]); });
+    expect(got).toBe(false);
+    expect(disk.v).toEqual([1]);
+    expect(h.current.value).toEqual([1]);
+    h.unmount();
+  });
+
   it('commit returns false only for a refused save; a save that returns nothing counts as landed (#711)', async () => {
     const { port } = makeStorage([1]);
     let verdict: boolean | 'void' = false;

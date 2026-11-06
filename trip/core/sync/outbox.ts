@@ -35,7 +35,7 @@
 // at runtime — the dependency direction is an accepted, existing pattern for the sync seam.)
 
 import type { StoragePort, SyncPort } from '@/core/ports';
-import { DEFAULT_TRIP_ID, getActiveTripId, getDefaultTripShareId, keyFor, keyForTrip, readJson, writeJson, removeKey } from '@/core/storage/gateway';
+import { DEFAULT_TRIP_ID, getActiveTripId, getDefaultTripShareId, getStoredDefaultTripShareId, keyForTrip, readJson, writeJson, removeKey } from '@/core/storage/gateway';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
@@ -90,15 +90,53 @@ function notifyChanged(): void {
 // SSR-safe / never-throw / corrupt-slot→empty are inherited from the gateway primitives; the
 // shape guard below folds a structurally-bad slot to empty too. ──────────────────────────────
 
+// #982: slots whose last save was refused (full quota, or a newer build's slot we must not
+// overwrite), keyed by slot key. Every read merges the entry back in, so this page load's
+// first-snapshot merge, flush and badge still see the unsaved chunks; the next save that lands
+// carries them to disk and drops the entry. Gone on reload, so a commit whose enqueue lands here
+// is rolled back (see `withOutbox`); this only covers a rollback that was itself refused.
+const unsaved = new Map<string, OutboxSlot>();
+
+function unsavedKey(slotKey: string, packId: string): string {
+  // A share switch drops the default pack's slot; memory from the old trip must not outlive it.
+  return packId === DEFAULT_TRIP_ID ? JSON.stringify([slotKey, getStoredDefaultTripShareId()]) : slotKey;
+}
+
+function withUnsaved(slot: OutboxSlot, key: string, packId: string): OutboxSlot {
+  const mem = unsaved.get(unsavedKey(key, packId));
+  if (!mem) return slot;
+  const dirty: OutboxSlot['dirty'] = { ...slot.dirty };
+  for (const d of Object.keys(mem.dirty) as SyncDomain[]) {
+    dirty[d] = [...new Set([...(dirty[d] ?? []), ...(mem.dirty[d] ?? [])])];
+  }
+  const seq: NonNullable<OutboxSlot['seq']> = { ...slot.seq };
+  for (const [d, counters] of Object.entries(mem.seq ?? {}) as [SyncDomain, Record<string, number>][]) {
+    const merged = { ...seq[d] };
+    for (const [c, n] of Object.entries(counters)) merged[c] = Math.max(merged[c] ?? 0, n);
+    seq[d] = merged;
+  }
+  const lastAckAt = [slot.lastAckAt, mem.lastAckAt].filter((s): s is string => !!s).sort().pop();
+  return { version: 1, dirty, lastAckAt, seq };
+}
+
+function isNewerVersion(raw: unknown): boolean {
+  const v = raw && typeof raw === 'object' ? (raw as { version?: unknown }).version : undefined;
+  return typeof v === 'number' && v > 1;
+}
+
 function loadSlot(tripId?: string): OutboxSlot {
-  const key = tripId !== undefined ? keyForTrip(tripId, 'syncOutbox') : keyFor('syncOutbox');
+  const packId = tripId ?? getActiveTripId();
+  const key = keyForTrip(packId, 'syncOutbox');
+  return withUnsaved(readSlot(key), key, packId);
+}
+
+function readSlot(key: string): OutboxSlot {
   const raw = readJson<OutboxSlot | null>('local', key, null);
   if (!raw || typeof raw !== 'object') return { version: 1, dirty: {} };
-  // A version we do not understand is discarded rather than guessed at, but it is NOT discarded
-  // silently (#439): dropping every pending chunk is exactly the kind of data-shaped event that
-  // should leave a trace, or a future migration bug looks like "sync just stopped".
+  // A version we do not understand is not guessed at, but it is NOT ignored silently (#439), or a
+  // future migration bug looks like "sync just stopped". A newer one is left on disk (#982).
   if (raw.version !== 1) {
-    console.warn('[outbox] discarding a slot written at version', raw.version, '— expected 1');
+    console.warn('[outbox] ignoring a slot written at version', raw.version, '— expected 1');
     return { version: 1, dirty: {} };
   }
   if (typeof raw.dirty !== 'object' || raw.dirty === null) {
@@ -144,7 +182,8 @@ function chunkSeq(slot: OutboxSlot, domain: SyncDomain, chunk: string): number {
   return slot.seq?.[domain]?.[chunk] ?? 0;
 }
 
-function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSlot['seq']): void {
+/** A slot that does not reach disk is kept in `unsaved` instead (#982). */
+function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string, seq?: OutboxSlot['seq']): boolean {
   // Prune empty domain arrays. A fully-clean outbox with NO ack timestamp yet REMOVES the key (so
   // "slot cleared" is literal and the byte footprint is zero) — but once ANY ack has ever been
   // recorded, the key persists (holding `{dirty:{}, lastAckAt}`) so the sync-status badge's
@@ -154,16 +193,25 @@ function saveSlot(packId: string, dirty: OutboxSlot['dirty'], lastAckAt?: string
     const arr = dirty[d];
     if (arr && arr.length > 0) pruned[d] = arr;
   }
-  if (Object.keys(pruned).length === 0 && lastAckAt === undefined) {
-    removeKey('local', keyForTrip(packId, 'syncOutbox'));
-    notifyChanged();
-    return;
-  }
+  const key = keyForTrip(packId, 'syncOutbox');
+  const memKey = unsavedKey(key, packId);
   const slot: OutboxSlot = { version: 1, dirty: pruned };
   if (lastAckAt !== undefined) slot.lastAckAt = lastAckAt;
   if (seq && Object.keys(seq).length > 0) slot.seq = seq;
-  writeJson('local', keyForTrip(packId, 'syncOutbox'), slot);
+  let ok: boolean;
+  if (isNewerVersion(readJson<unknown>('local', key, null))) {
+    console.warn('[outbox] not overwriting a slot from a newer version; keeping this change in memory');
+    ok = false;
+  } else if (Object.keys(pruned).length === 0 && lastAckAt === undefined) {
+    removeKey('local', key);
+    ok = true;
+  } else {
+    ok = writeJson('local', key, slot);
+  }
+  if (ok) unsaved.delete(memKey);
+  else unsaved.set(memKey, slot);
   notifyChanged();
+  return ok;
 }
 
 /** The dirty chunk keys currently recorded for a domain (a copy; empty when none). Read by the
@@ -278,8 +326,8 @@ export function outboxBlocked(): number {
  * scope here.
  *
  * #544: every enqueue bumps each chunk's counter (even an already-dirty one) and returns the new
- * values, which the push carries to its ack. */
-function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<string, number> {
+ * values, which the push carries to its ack. Null when the slot did not reach disk (#982). */
+function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<string, number> | null {
   const fresh = loadSlot(packId);
   const set = new Set(fresh.dirty[domain] ?? []);
   const counters = { ...fresh.seq?.[domain] };
@@ -288,18 +336,12 @@ function enqueue(packId: string, domain: SyncDomain, chunks: string[]): Record<s
     counters[c] = (counters[c] ?? 0) + 1;
   }
   fresh.dirty[domain] = [...set];
-  saveSlot(packId, fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters });
-  return counters;
-}
-
-/**
- * Queue chunks without pushing them (D-598): the device is about to point the default pack at an
- * account's existing trip, and its own days must merge into that trip's first snapshot rather than
- * be replaced by it. Deliberately not behind `enabled()`: the share id is written right after this,
- * so the trip gate cannot be true yet. The caller checks the traveler.
- */
-export function markOutboxDirty(domain: SyncDomain, chunks: string[]): void {
-  if (chunks.length > 0) enqueue(getActiveTripId(), domain, chunks);
+  if (saveSlot(packId, fresh.dirty, fresh.lastAckAt, { ...fresh.seq, [domain]: counters })) return counters;
+  // A memory-only counter must not equal the integer another tab lands for the same chunk, or this
+  // tab's ack would clear that tab's newer edit (#1026). Below it, withUnsaved's max keeps the
+  // disk value. `counters` is the object saveSlot kept.
+  for (const c of chunks) counters[c] -= Math.random();
+  return null;
 }
 
 /** Ack: remove one confirmed chunk from the domain's dirty set, and stamp the single app-wide
@@ -464,15 +506,23 @@ async function pushChunks<T>(
  * Takes NO StoragePort: the push path only ever writes `next`, the state the caller just
  * committed. `flushOutbox` is the one that needs `storage.load()`, because it runs later and must
  * re-read the freshest local state.
+ *
+ * #982: a write-ahead record that did not reach disk returns `false` without pushing. Nothing would
+ * protect the edit from the first snapshot after a reload, so the caller rolls the commit back.
  */
 export function withOutbox<T>(cs: ChunkSync<T>): SyncPort<T>['push'] {
-  return async (prev: T, next: T): Promise<void> => {
-    const t = enabled() ? captureTarget() : null;
-    if (!t) return;
-    const chunks = cs.chunkDiff(prev, next);
-    if (chunks.length === 0) return;
-    const seqs = enqueue(t.packId, cs.domain, chunks); // ① write-ahead
-    await pushChunks(cs, t, next, chunks, seqs); // ②③④
+  return (prev: T, next: T) => {
+    try {
+      const t = enabled() ? captureTarget() : null;
+      if (!t) return Promise.resolve();
+      const chunks = cs.chunkDiff(prev, next);
+      if (chunks.length === 0) return Promise.resolve();
+      const seqs = enqueue(t.packId, cs.domain, chunks); // ① write-ahead
+      if (!seqs) return false;
+      return pushChunks(cs, t, next, chunks, seqs); // ②③④
+    } catch (err) {
+      return Promise.reject(err); // same as the async version this replaced: never a sync throw into commit
+    }
   };
 }
 

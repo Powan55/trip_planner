@@ -138,6 +138,10 @@ import { flushOutbox, outboxDirty } from '@/core/sync/outbox';
 import { loadPlans, savePlans } from '@/lib/itinerary-storage';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 import { serialize } from '@/core/sync/hlc';
+import { createReactiveStore } from '@/hooks/create-reactive-store';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { act } from 'react-dom/test-utils';
 
 function item(id: string, over: Partial<ItineraryItem> = {}): ItineraryItem {
   return { id, title: `Item ${id}`, category: 'sightseeing', ...over };
@@ -265,6 +269,46 @@ describe('first-snapshot dirty-chunk merge exception (the reload guard)', () => 
     // to today's behavior; the merge exception did not fire because the outbox was empty).
     const d09 = loadPlans().find((d) => d.date === '2026-12-09')!;
     expect(d09.items.map((i) => i.id)).toEqual(['B']);
+    unsub();
+  });
+});
+
+describe('#982: an edit the outbox could not record', () => {
+  it('is refused rather than kept on screen and erased by the first snapshot after a reload', async () => {
+    const synced = day('2026-12-09', [item('A', { hlc: hlc(1000, 'friend'), rev: 1 })]);
+    savePlans([synced]);
+    fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+    fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, { ...synced });
+    gate.offline = true;
+    const realSet = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === STORAGE_KEYS.syncOutbox) throw new DOMException('full', 'QuotaExceededError');
+      realSet.call(this, k, v);
+    });
+
+    const useStore = createReactiveStore({ eventName: 'itinerary:changed', storageKeys: [], storage: itineraryStoragePort, sync: itinerarySyncPort });
+    const ref = { current: null as unknown as ReturnType<typeof useStore> };
+    const root = createRoot(document.createElement('div'));
+    act(() => root.render(createElement(() => ((ref.current = useStore()), null))));
+    let committed = false;
+    await act(async () => {
+      committed = ref.current.commit((cur) => cur.map((d) => ({ ...d, items: [...d.items, item('B', { hlc: hlc(2000, 'me'), rev: 1 })] })));
+    });
+    act(() => root.unmount());
+
+    // Reload: fresh modules, so nothing held in memory survives.
+    vi.resetModules();
+    const remote = await import('@/lib/itinerary-remote');
+    const storage = await import('@/lib/itinerary-storage');
+    const unsub = remote.subscribeRemote();
+    await flush();
+    fake.emitServerSnapshot();
+    await flush();
+
+    // What commit reported is what the device still holds once the server has spoken.
+    const ids = storage.loadPlans().find((d) => d.date === '2026-12-09')!.items.map((i) => i.id);
+    expect(ids.includes('B')).toBe(committed);
+    expect(committed).toBe(false);
     unsub();
   });
 });

@@ -721,6 +721,12 @@ function isDedupedSegmentPayload(rel) {
   return SEGMENT_PAYLOAD.test(rel) && !rel.endsWith('/' + ROOT_INDEX_PAYLOAD);
 }
 
+// Pages and RSC payloads embed the build id, so they are never carried over from an old cache.
+function precacheRevision(rel, bytes) {
+  if (/\.(html|txt)$/.test(rel)) return null;
+  return createHash('sha256').update(bytes).digest('hex').slice(0, 32);
+}
+
 async function buildPrecacheList(allFiles) {
   const set = new Set();
   const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
@@ -878,7 +884,7 @@ async function buildManifest() {
 // auditable. The precache URL list and the cache name (a sha256 over each precached
 // file's path AND bytes — see step 3 in main(), which records why hashing the URL list
 // alone shipped stale shells) are baked in at build time; everything else is static SW logic.
-function buildServiceWorker({ precacheUrls, precacheHash, buildId, runtimeUrls, runtimeHash }) {
+function buildServiceWorker({ precacheUrls, precacheHash, precacheRevisions, buildId, runtimeUrls, runtimeHash }) {
   const PRECACHE = `trip-precache-${precacheHash}`;
   const RUNTIME_CACHE_NAME = `trip-runtime-${runtimeHash}`;
   const IMAGES_CACHE = 'trip-images-v1';
@@ -898,6 +904,9 @@ const IMAGE_CACHE_LIMIT = ${IMAGE_CACHE_LIMIT};
 const NAV_FALLBACK = ${JSON.stringify(NAV_FALLBACK)};
 const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 const BUILD_ID = ${JSON.stringify(buildId)};
+// sha256 prefix per precached file, minus pages and payloads. Install copies a byte-identical
+// entry from an older trip-precache-* instead of downloading it again (#979).
+const PRECACHE_REVISIONS = ${JSON.stringify(precacheRevisions)};
 // Same-origin files this build ships but does not precache (lazy chunks, the map engine, its
 // worker, the glyphs). They are runtime-cached here instead of in PRECACHE so an update does
 // not wipe them. The name hashes the unhashed ones (maplibre worker, glyphs), so a maplibre
@@ -945,10 +954,18 @@ self.addEventListener('install', (event) => {
       // A failed install deletes the cache it was filling (#945), or the preflight check
       // and caches.match() would read the partial cache. Only one this install created: a
       // byte-identical rebuild reuses the active worker's cache name.
-      const fresh = !(await caches.keys()).includes(PRECACHE);
+      const names = await caches.keys();
+      const fresh = !names.includes(PRECACHE);
+      const previous = names.filter((k) => k.startsWith('trip-precache-') && k !== PRECACHE);
       const cache = await caches.open(PRECACHE);
       const results = await Promise.allSettled(
         PRECACHE_URLS.map(async (url) => {
+          const kept = await reusablePrecacheEntry(url, previous);
+          if (kept) {
+            try {
+              return await cache.put(url, kept);
+            } catch (err) {}
+          }
           const res = await fetch(url, { cache: 'no-cache' });
           if (!res || !res.ok) {
             throw new Error(
@@ -984,9 +1001,8 @@ self.addEventListener('activate', (event) => {
       // that is not in the current set — the active precache PLUS the two runtime
       // caches. This drops the previous build's trip-precache-* (atomic activation)
       // AND garbage-collects renamed runtime caches (e.g. a bumped trip-images-v1 ->
-      // v2, or a retired frankfurter cache) that a prefix-only filter would have
-      // leaked forever. FRANKFURTER_CACHE is declared lower in this file; it is only
-      // read here at activate time (well after module eval), so no TDZ issue.
+      // v2, or the retired trip-frankfurter-v1) that a prefix-only filter would have
+      // leaked forever.
       //
       // The OWNERSHIP predicate is load-bearing and is not a duplicate of the
       // allowlist: caches.keys() is scoped to the ORIGIN, not to this worker's
@@ -994,7 +1010,7 @@ self.addEventListener('activate', (event) => {
       // is shared with every other Pages project on the account. Without the
       // prefix, accepting an update here wipes a sibling app's Cache Storage, and
       // that sibling only repopulates on ITS own next version bump.
-      const allowlist = new Set([PRECACHE, RUNTIME_CACHE, IMAGES_CACHE, FRANKFURTER_CACHE]);
+      const allowlist = new Set([PRECACHE, RUNTIME_CACHE, IMAGES_CACHE]);
       const keys = await caches.keys();
       await Promise.all(
         keys
@@ -1117,6 +1133,23 @@ function carriesBuildId(url) {
   return url.endsWith('/') || url.endsWith('.html') || url.endsWith('.txt');
 }
 
+// The stored bytes are hashed rather than the path trusted: icons, heroes and the manifest
+// keep their URL when their bytes change. Any miss or error just means a normal fetch.
+async function reusablePrecacheEntry(url, cacheNames) {
+  const revision = PRECACHE_REVISIONS[url];
+  if (!revision || carriesBuildId(url)) return undefined;
+  for (const cacheName of cacheNames) {
+    try {
+      const hit = await caches.match(url, { cacheName });
+      if (!hit || !hit.ok || hit.redirected || !isExpectedPrecacheBody(url, hit)) continue;
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await hit.clone().arrayBuffer()));
+      const hex = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+      if (hex.startsWith(revision)) return hit;
+    } catch (err) {}
+  }
+  return undefined;
+}
+
 function precacheListResponse() {
   return new Response(JSON.stringify(PRECACHE_URLS), {
     headers: { 'Content-Type': 'application/json' },
@@ -1225,37 +1258,10 @@ async function cacheFirst(request, cacheName) {
   return res;
 }
 
-// stale-while-revalidate for Frankfurter (api.frankfurter.dev, the Travel Mode Essentials
-// currency rate, lib/currency-rate.ts) — ONE deliberate, hand-added exception (: gen-sw.mjs
-// is hand-maintained) to the cross-origin passthrough just below. Serves the cached response
-// immediately when present (instant, offline-safe) while refreshing it in the background;
-// falls through to a plain network fetch on a cold cache. This is a network-layer NICETY only —
-// \`lib/currency-rate.ts\`'s own localStorage cache is the dormant-safe guarantee
-// (an offline "as of <date>" line even with this SW cache empty); this just avoids a redundant
-// round-trip when a good one is already sitting in the Cache API. No other cross-origin host is
-// touched here — Firebase/gstatic/font hosts still hit the untouched-passthrough line below.
-const FRANKFURTER_CACHE = 'trip-frankfurter-v1';
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  const network = fetch(request)
-    .then((res) => {
-      if (res && res.ok) cache.put(request, res.clone());
-      return res;
-    })
-    .catch(() => undefined);
-  return cached || (await network) || Response.error();
-}
-
 // --- fetch routing -------------------------------------------------------
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-
-  if (request.method === 'GET' && url.hostname === 'api.frankfurter.dev') {
-    event.respondWith(staleWhileRevalidate(request, FRANKFURTER_CACHE));
-    return;
-  }
 
   // FIRST LINE: cross-origin -> return untouched. This protects
   // Firebase (firestore/identitytoolkit), gstatic, font hosts — the SW must
@@ -1465,8 +1471,12 @@ async function main() {
   // Any byte change anywhere in the precache set now yields a new cache
   // name, driving the update flow in the registrar.
   const h = createHash('sha256');
+  const precacheRevisions = {};
   for (const rel of precacheFiles) {
-    h.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
+    const bytes = await readFile(join(OUT_DIR, rel));
+    h.update(rel).update('\0').update(bytes);
+    const revision = precacheRevision(rel, bytes);
+    if (revision) precacheRevisions[toPrecacheUrl(rel)] = revision;
   }
   const precacheHash = h.digest('hex').slice(0, 12);
 
@@ -1495,10 +1505,11 @@ async function main() {
     if (!rel.startsWith('_next/')) r.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
   }
   const runtimeHash = r.digest('hex').slice(0, 12);
-  const sw = buildServiceWorker({ precacheUrls, precacheHash, buildId, runtimeUrls, runtimeHash });
+  const sw = buildServiceWorker({ precacheUrls, precacheHash, precacheRevisions, buildId, runtimeUrls, runtimeHash });
   await writeFile(join(OUT_DIR, 'sw.js'), sw, 'utf8');
   console.log(
-    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries; ` +
+    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries, ` +
+      `${Object.keys(precacheRevisions).length} reusable across builds; ` +
       `trip-runtime-${runtimeHash}, ${runtimeUrls.length} runtime URLs)`
   );
 
@@ -1516,4 +1527,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   });
 }
 
-export { eagerStaticAssets, isDedupedSegmentPayload };
+export { eagerStaticAssets, isDedupedSegmentPayload, precacheRevision };
