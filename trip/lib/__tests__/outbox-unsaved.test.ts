@@ -100,7 +100,11 @@ describe('a slot from a newer build (#982)', () => {
     const future = JSON.stringify({ version: 2, dirty: { itinerary: ['d9'] }, extra: true });
     localStorage.setItem(KEY, future);
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await m.withOutbox(cs)({}, { d1: 1 });
+    const refused = vi.fn();
+    window.addEventListener('trip:outbox-newer-version', refused);
+    expect(m.withOutbox(cs)({}, { d1: 1 })).toBe(false);
+    window.removeEventListener('trip:outbox-newer-version', refused);
+    expect(refused).toHaveBeenCalledTimes(1); // StoragePersistence toasts on this
     expect(localStorage.getItem(KEY)).toBe(future);
     expect(m.outboxDirty('itinerary')).toEqual(['d1']);
   });
