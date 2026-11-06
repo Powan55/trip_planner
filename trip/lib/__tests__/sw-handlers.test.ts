@@ -769,6 +769,26 @@ describe('install: refuses a mixed-build edge and cleans up after itself (#944, 
       expect(fetched).toContain(OWN_CHUNK);
     });
 
+    it('a retry after a failed install fetches only what the failed attempt missed', async () => {
+      const { caches, stores } = makeCaches({});
+      const first = counting(ok);
+      const flaky = async (req: Keyish) => {
+        first.fetched.push(keyOf(req));
+        if (keyOf(req) === '/travel/') throw new TypeError('network down');
+        return network(ok)(req);
+      };
+      expect(await runInstall(instantiate(caches, flaky))).toBeInstanceOf(Error);
+      expect(first.fetched.sort()).toEqual([...PRECACHE_URLS].sort());
+      expect(stores.has(PRECACHE)).toBe(false);
+      expect([...stores.get('trip-install-partial')!.keys()].sort()).toEqual([HERO, OWN_CHUNK].sort());
+
+      const retry = counting(ok);
+      expect(await runInstall(instantiate(caches, retry.impl))).toBe('installed');
+      expect(retry.fetched.sort()).toEqual(['/', '/404.html', '/plan/', '/travel/', PAYLOAD].sort());
+      expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+      expect(stores.has('trip-install-partial')).toBe(false);
+    });
+
     it('a BUILD_ID mismatch rejects the install and leaves the old precache intact', async () => {
       const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } });
       const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
