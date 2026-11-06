@@ -170,7 +170,7 @@ type DomainSpec = {
    * reports success (issue #698 — a refused local write must not reach every member's device).
    * Absent ⇒ either local-only, or (journal) synced through its own path that gates on `write`'s
    * result itself rather than this hook. */
-  enqueueRestore?: (cleaned: unknown) => () => void;
+  enqueueRestore?: (cleaned: unknown) => () => boolean;
 };
 
 /**
@@ -201,10 +201,15 @@ type DomainSpec = {
  * path for a domain that DOES fit one of the two existing shapes: inject its restore fn the way
  * `commitItinerary`/`commitExpenses`/`commitMyPlaces`/`commitDocsChecklist` are injected.
  */
-function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => () => void {
+function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => () => boolean {
   return (cleaned) => {
     const prev = storage.load(); // pre-restore state, captured before the caller's `write`
-    return () => void port.push(prev, cleaned as T);
+    return () => {
+      if (port.push(prev, cleaned as T) !== false) return true;
+      // The outbox could not record it, so the first snapshot after the reload would erase the
+      // restore (#1045): put the old copy back and report it refused, as `commit` does (#982).
+      return storage.save(prev) === false;
+    };
   };
 }
 
@@ -714,7 +719,10 @@ export async function importTripBackup(
       refused.push(slot); // refused local write: don't claim it, don't queue it (#698)
       continue;
     }
-    pushRestored?.();
+    if (pushRestored?.() === false) {
+      refused.push(slot); // outbox refused the record; the thunk put the old copy back (#1045)
+      continue;
+    }
     restored.push(slot);
   }
 
