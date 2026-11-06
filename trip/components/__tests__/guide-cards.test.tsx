@@ -10,6 +10,7 @@ describe('GuideCards', () => {
     for (const c of GUIDE_CARDS) expect(html).toContain(`data-testid="guide-card-${c.id}"`);
     expect(html).toContain('Japan Safety Tips');
     expect(html).toContain('Welcome Suica');
+    expect(html).toContain('href="https://www.jreast.co.jp/en/multi/welcomesuica/"');
     for (const label of ['iPhone', 'Android', 'Not sure']) expect(html).toContain(`>${label}</dt>`);
   });
 
