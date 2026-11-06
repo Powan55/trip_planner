@@ -375,7 +375,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
     city: 'Tokyo',
     country: 'japan',
     items: [
-      { id: 'j19-1', title: 'TeamLab (Borderless or Planets)', category: 'sightseeing', time: '10:00', duration: '3h', notes: 'Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colours for the best effect', location: 'Azabudai Hills / Toyosu, Tokyo' },
+      { id: 'j19-1', title: 'TeamLab (Borderless or Planets)', category: 'sightseeing', time: '10:00', duration: '3h', notes: 'Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colours for the best effect', location: 'Azabudai Hills / Toyosu, Tokyo', sourceId: 'jp-teamlab-borderless' },
       { id: 'j19-2', title: 'Lunch nearby', category: 'food', time: '13:30', duration: '1h', notes: 'Casual bite after the museum', location: 'Tokyo' },
       { id: 'j19-3', title: 'Dinner', category: 'food', time: '18:00', duration: '1.5h', notes: "Pick the neighbourhood based on tonight's best event", location: 'Tokyo' },
       { id: 'j19-4', title: 'Shibuya, Roppongi or Shinjuku night', category: 'nightlife', time: '20:30', duration: '3.5h', notes: 'Choose the venue closest to wherever the best event is tonight — Harlem/TK Shibuya (Shibuya), WARP (Shinjuku) or V2/Jumanji 55 (Roppongi) are the standing options. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Shibuya/Roppongi/Shinjuku, Tokyo' },
