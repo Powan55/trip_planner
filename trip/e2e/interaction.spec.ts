@@ -581,7 +581,7 @@ test.describe('S248 · glance-able "added" state on the guides (/nepal/)', () =>
     // Add Shivapuri via its card's own AddToPlanButton → the shared add dialog.
     await page
       .getByTestId(`guide-tilt-${SHIVAPURI_ID}`)
-      .getByRole('button', { name: /^Add .* to your trip plan/ })
+      .getByRole('button', { name: /^Add to plan: / })
       .click();
     const dialog = page.getByTestId('add-item-dialog');
     await expect(dialog).toBeVisible();
@@ -623,7 +623,7 @@ test.describe('S248 · glance-able "added" state on the guides (/nepal/)', () =>
     await expect(page.getByTestId(`photo-added-${PHOTO_ID}`)).toHaveCount(0);
 
     // The photography guide's PhotoCard reuses the same shared AddToPlanButton.
-    await page.getByRole('button', { name: `Add ${PHOTO_NAME} to your trip plan` }).click();
+    await page.getByRole('button', { name: `Add to plan: ${PHOTO_NAME}` }).click();
     const dialog = page.getByTestId('add-item-dialog');
     await expect(dialog).toBeVisible();
     await page.getByTestId('add-item-confirm').click();
