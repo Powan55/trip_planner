@@ -6373,8 +6373,10 @@ The `ok` gate stays: a refused local write pushes nothing.
 
 **Changes if:** stops become editable after creation, which needs a plan for days already written.
 
-### D-798 · More currencies is deferred (issue #1052, 2026-11-08)
+### D-798 · Trip currencies beyond USD, NPR and JPY are leg-only (issue #1052, 2026-11-08)
 
-**Decision.** `CurrencyCode` stays USD, NPR and JPY. `ratePerUsd` falls through to the JPY rate for any other code, so a code added only to the type would convert at the wrong rate with no error, and an older client reads an unknown `homeCurrency` as USD and writes it back.
+**Decision.** EUR, GBP, INR, AUD, CAD and THB can be a trip's leg currency (`LOCAL_CURRENCIES`). `CURRENCIES` and `homeCurrency` stay USD, NPR and JPY, so an older client never sees a home code it cannot name. Each extra rate is its own additive `rates.<CODE>` path and falls back to that code's own seed. `ratePerUsd` is an explicit per-code lookup with no JPY fallthrough. Cents show for USD, EUR, GBP, AUD and CAD; INR and THB are whole units.
 
-**Changes if:** a slice adds an explicit per-code rate lookup, keeps `homeCurrency` limited to the three, and has an old-build/new-build budget round trip test. Post-trip.
+**Why.** The old lookup sent every code that was not USD or NPR to the JPY rate, so a code added only to the type would have converted at about 159 per dollar with no error. Older clients keep an unknown `rates.<CODE>` through the union merge (D-374, D-403, D-509) and only mislabel the amount with a dollar sign.
+
+**Changes if:** the converter in `lib/currency-convert.ts` widens, or home currency needs a fourth code, which needs a rollout plan for older clients.
