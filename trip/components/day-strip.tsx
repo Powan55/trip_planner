@@ -38,12 +38,12 @@ export interface DayStripProps {
 }
 
 /** Local, tz-safe parts from a 'YYYY-MM-DD' trip date (noon avoids day-edge slips). */
-function parseDay(dateStr: string): { weekday: string; dayNum: number; long: string } {
+function parseDay(dateStr: string): { weekday: string; dayNum: number; month: string } {
   const d = new Date(dateStr + 'T12:00:00');
   return {
     weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
     dayNum: d.getDate(),
-    long: d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+    month: d.toLocaleDateString('en-US', { month: 'long' }),
   };
 }
 
@@ -104,7 +104,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
       className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide pt-5 pb-1 snap-x snap-mandatory scroll-px-3 overscroll-x-contain"
     >
       {dates.map((date, i) => {
-        const { weekday, dayNum, long } = parseDay(date);
+        const { weekday, dayNum, month } = parseDay(date);
         const m = metaByDate.get(date);
         const shade = dayShade(date);
         const count = m?.count ?? 0;
@@ -112,7 +112,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
         const isToday = todayDate != null && date === todayDate;
 
         const activityLabel = count > 0 ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ', no activities';
-        const todayLabel = isToday ? ', today' : '';
+        const todayLabel = isToday ? 'Today, ' : '';
 
         return (
           <button
@@ -132,7 +132,9 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
               }
             }}
             aria-pressed={isSelected}
-            aria-label={`${long}${todayLabel}${activityLabel}${shadeLabel(shade)}`}
+            // Opens with the chip's visible text in DOM order (stamp, weekday, day, count) so
+            // a voice-control user can say what they see (WCAG 2.5.3).
+            aria-label={`${todayLabel}${weekday} ${dayNum}${activityLabel}, ${month}${shadeLabel(shade)}`}
             data-testid={`day-strip-${date}`}
             style={isSelected ? undefined : cellPaint(shade, { planned: count > 0, tint: 0, border: 100 })}
             // A DAY TAB (SPEC 9.9). MATERIAL carries the active state — a lighter surface,
@@ -162,8 +164,9 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
                 wrapper, above which the axe pack always runs; Travel Mode has no such wrapper
                 (the strip is the ONLY day picker, at every width), so it's genuinely visible to
                 a real user and must clear contrast on its own. */}
-            <span className="pr pr--lo">{weekday}</span>
-            <span className="num text-n-sm">{dayNum}</span>
+            {' '}
+            <span className="pr pr--lo">{weekday}</span>{' '}
+            <span className="num text-n-sm">{dayNum}</span>{' '}
             {/* The country mark: FILLED when the day carries items, an unfilled ring when
                 it does not. Same disc, same place — only the fill says which. */}
             <span

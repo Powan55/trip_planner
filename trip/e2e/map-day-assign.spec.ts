@@ -367,7 +367,7 @@ test.describe('S380 · a day-order row is a real control that flies the map (INT
     // A real <button> — not a click handler bolted onto the <li>.
     expect(await row.evaluate((el) => el.tagName)).toBe('BUTTON');
     // Its accessible name says where it goes, not just what it is called.
-    expect(await row.getAttribute('aria-label')).toContain(`Show ${BOUDHA_NAME} on the map`);
+    expect(await row.getAttribute('aria-label')).toMatch(new RegExp(`^1 ${BOUDHA_NAME}\\b.*Show on the map`));
 
     // Focusable BY THE BROWSER: .focus() on a non-focusable <li> leaves activeElement on <body>.
     await row.focus();

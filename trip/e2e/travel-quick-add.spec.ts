@@ -77,7 +77,7 @@ test.describe('S318 · "Log something different" quick-add', () => {
     // name (aria-pressed=true) and the S316 completion footer names the acting traveler (Alina).
     const agenda = page.getByTestId('travel-agenda');
     await expect(agenda).toContainText('Found a street market');
-    await expect(agenda.getByRole('button', { name: 'Mark not done: Found a street market' })).toBeVisible();
+    await expect(agenda.getByRole('button', { name: /^Mark not done: .*Found a street market/ })).toBeVisible();
     await expect(agenda).toContainText('Completed');
     await expect(agenda).toContainText('Alina');
 
@@ -112,7 +112,7 @@ test.describe('S318 · "Log something different" quick-add', () => {
     await page.reload({ waitUntil: 'load' });
     await expect(page.getByTestId('travel-mode-root')).toBeVisible();
     const agendaAfter = page.getByTestId('travel-agenda');
-    await expect(agendaAfter.getByRole('button', { name: 'Mark not done: Found a street market' })).toBeVisible();
+    await expect(agendaAfter.getByRole('button', { name: /^Mark not done: .*Found a street market/ })).toBeVisible();
     await expect(agendaAfter).toContainText('Completed');
     await expect(agendaAfter).toContainText('Alina');
     let afterReload: Record<string, unknown> | null = null;
@@ -159,7 +159,7 @@ test.describe('S318 · "Log something different" quick-add', () => {
     await input.press('Enter');
 
     const agenda = page.getByTestId('travel-agenda');
-    await expect(agenda.getByRole('button', { name: 'Mark not done: Nameless detour' })).toBeVisible();
+    await expect(agenda.getByRole('button', { name: /^Mark not done: .*Nameless detour/ })).toBeVisible();
     await expect(agenda).toContainText('Completed'); // the nameless footer still renders
 
     let onDisk: Record<string, unknown> | null = null;
