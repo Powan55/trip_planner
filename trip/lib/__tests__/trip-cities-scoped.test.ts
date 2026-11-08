@@ -49,6 +49,24 @@ describe('S330 getCityForDate — trip-scoped (custom trip does NOT inherit the 
     }
   });
 
+  it('#1052 a custom trip with stops resolves day 1 and day N to different cities', async () => {
+    setActiveTripId('custom-stops');
+    setTripConfig('custom-stops', {
+      ...OVERLAP,
+      stops: [
+        { date: '2026-12-05', city: 'Reykjavik' },
+        { date: '2026-12-20', city: 'Vik' },
+      ],
+    });
+
+    vi.resetModules();
+    const { getCityForDate } = await import('@/core/dates/trip-cities');
+    expect(getCityForDate('2026-12-05')).toBe('Reykjavik');
+    expect(getCityForDate('2026-12-19')).toBe('Reykjavik');
+    expect(getCityForDate('2026-12-20')).toBe('Vik');
+    expect(getCityForDate('2027-01-15')).toBe('Vik');
+  });
+
   it('the DEFAULT trip (unset pointer) still resolves the frozen S82 boundary cities from the per-day map', async () => {
     // Parity re-check in this file too: with no pointer set, the module loads under the default pack
     // and the authored per-day map applies exactly as before.

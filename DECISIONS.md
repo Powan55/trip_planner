@@ -6364,3 +6364,17 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** D-720's memory copy is gone after a reload, and the first server snapshot then applies over an edit the vault kept with no dirty record. Refusing the edit up front is the only outcome that stays true across a reload.
 
 **Not done.** The restore path (`enqueueRestored` in `lib/trip-backup.ts`) still ignores the result. While a newer build's slot is on disk, every synced edit on this device is refused, and silently: that refusal raises no toast.
+
+### D-797 · Per-day city for custom trips is create-time only (issue #1052, 2026-11-08)
+
+**Decision.** A custom trip may carry `stops: {date, city}[]` inside `TripConfigBlock`, next to the single `main` leg. The city for a date is the last stop on or before it, else `destinations[0]`. The sanitizer keeps a stop only if its date is a real day and its city is exactly one of `destinations`; first stop per date wins, sorted, capped at 50. The create form splits the span evenly across the destinations, and cities beyond the number of days get no stop.
+
+**Why.** `DayPlan.city`, expenses and budgets are keyed to the leg and stored per day, so a second leg would orphan them (the D-303 class of bug), and editing stops later would mean rewriting stored days. Old clients drop `stops` and keep `destinations[0]` for every day, which is today's behaviour.
+
+**Changes if:** stops become editable after creation, which needs a plan for days already written.
+
+### D-798 · More currencies is deferred (issue #1052, 2026-11-08)
+
+**Decision.** `CurrencyCode` stays USD, NPR and JPY. `ratePerUsd` falls through to the JPY rate for any other code, so a code added only to the type would convert at the wrong rate with no error, and an older client reads an unknown `homeCurrency` as USD and writes it back.
+
+**Changes if:** a slice adds an explicit per-code rate lookup, keeps `homeCurrency` limited to the three, and has an old-build/new-build budget round trip test. Post-trip.

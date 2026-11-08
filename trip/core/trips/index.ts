@@ -17,7 +17,7 @@ import { getKnownTrip } from './registry';
 import { customTripConfig } from './custom';
 
 export type { TripConfig, TripLeg } from './model';
-export { legForDate } from './model';
+export { legForDate, cityForDate } from './model';
 export { buildDayShells, isPlaceholderSpan } from './custom';
 
 /** Default pack id — LOCAL-ONLY since #10 (no remote path; lib/firebase-config's getTripId()

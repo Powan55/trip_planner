@@ -333,6 +333,16 @@ export default function TripsHub() {
       currency: createCurrency,
       updatedAt: 0, // setTripConfig stamps its own updatedAt
     };
+    if (destinations.length > 1) {
+      // #1052 — split the span evenly: destination i begins on day floor(i * days / count).
+      const days = spanDays(start, end);
+      // More cities than days: only the first `days` get a day, so no two share a date.
+      const cities = destinations.slice(0, days);
+      config.stops = cities.map((city, i) => ({
+        date: addDaysIso(start, Math.floor((i * days) / cities.length)),
+        city,
+      }));
+    }
     markTripCreatedHere(id);
     // D-546 — same result check as join()/switchTo(): a minted uuid should always land, but
     // if it doesn't, surface the create error instead of pushing config for a trip nothing switched to.
@@ -697,7 +707,7 @@ export default function TripsHub() {
                 className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
               <p id="trips-hub-create-destinations-hint" className="text-t-sm text-ink-lo">
-                The first destination is used as every day&rsquo;s city.
+                With several destinations, the trip dates are split evenly across them, in order.
               </p>
             </div>
 

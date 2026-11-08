@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { STORAGE_KEYS } from '@/core/storage/gateway';
+import { STORAGE_KEYS, setActiveTripId } from '@/core/storage/gateway';
+import { setTripConfig } from '@/core/trips/registry';
 import {
   addVisit,
   confirmVisit,
@@ -9,6 +10,7 @@ import {
   getVisitConfirmations,
   hasVisitedCity,
   hasVisitedCountry,
+  isTripClaimedCity,
   markVisitCheck,
   removeVisit,
   tidyPlaceName,
@@ -221,6 +223,23 @@ describe('removeVisit — a deleted city leaves no shadow record behind (D-320, 
     const before = window.localStorage.getItem(STORAGE_KEYS.visitConfirmations);
     removeVisit({ city: 'Lisbon' });
     expect(window.localStorage.getItem(STORAGE_KEYS.visitConfirmations)).toBe(before);
+  });
+});
+
+describe('isTripClaimedCity — a custom trip claims its later stop cities (#1052)', () => {
+  it('matches destinations[0] and a later stop, not a stranger', () => {
+    setActiveTripId('multi-claim');
+    setTripConfig('multi-claim', {
+      start: '2027-03-01',
+      end: '2027-03-05',
+      destinations: ['Bali', 'Lombok'],
+      vibe: 'beach',
+      stops: [{ date: '2027-03-01', city: 'Bali' }, { date: '2027-03-04', city: 'Lombok' }],
+      updatedAt: 1,
+    });
+    expect(isTripClaimedCity('Bali')).toBe(true);
+    expect(isTripClaimedCity(' lombok ')).toBe(true);
+    expect(isTripClaimedCity('Java')).toBe(false);
   });
 });
 

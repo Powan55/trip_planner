@@ -33,7 +33,7 @@ function setValue(el: HTMLInputElement | HTMLSelectElement, value: string, event
   el.dispatchEvent(new Event(event, { bubbles: true }));
 }
 
-async function createTrip(currency?: string): Promise<void> {
+async function createTrip(currency?: string, destinations = 'Kochi', dates?: [string, string]): Promise<void> {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -42,7 +42,11 @@ async function createTrip(currency?: string): Promise<void> {
   });
   await act(async () => {
     setValue(at<HTMLInputElement>('trips-hub-create-name'), 'Kerala 2027', 'input');
-    setValue(at<HTMLInputElement>('trips-hub-create-destinations'), 'Kochi', 'input');
+    setValue(at<HTMLInputElement>('trips-hub-create-destinations'), destinations, 'input');
+    if (dates) {
+      setValue(at<HTMLInputElement>('trips-hub-create-start'), dates[0], 'input');
+      setValue(at<HTMLInputElement>('trips-hub-create-end'), dates[1], 'input');
+    }
     if (currency) setValue(at<HTMLSelectElement>('trips-hub-create-currency'), currency, 'change');
   });
   await act(async () => {
@@ -85,6 +89,30 @@ describe('trips hub create: destinations hint (#970)', () => {
     await createTrip();
     const input = at<HTMLInputElement>('trips-hub-create-destinations');
     const hint = document.getElementById(input.getAttribute('aria-describedby')!);
-    expect(hint?.textContent).toBe('The first destination is used as every day’s city.');
+    expect(hint?.textContent).toBe('With several destinations, the trip dates are split evenly across them, in order.');
+  });
+});
+
+describe('trips hub create: per-day city stops (#1052)', () => {
+  it('splits the span evenly across several destinations', async () => {
+    await createTrip(undefined, 'Kochi, Munnar, Alleppey', ['2027-02-01', '2027-02-09']);
+    expect(created()?.config?.stops).toEqual([
+      { date: '2027-02-01', city: 'Kochi' },
+      { date: '2027-02-04', city: 'Munnar' },
+      { date: '2027-02-07', city: 'Alleppey' },
+    ]);
+  });
+
+  it('gives every city its own day when there are more cities than days', async () => {
+    await createTrip(undefined, 'Kochi, Munnar, Alleppey', ['2027-02-01', '2027-02-02']);
+    expect(created()?.config?.stops).toEqual([
+      { date: '2027-02-01', city: 'Kochi' },
+      { date: '2027-02-02', city: 'Munnar' },
+    ]);
+  });
+
+  it('writes no stops for a single destination', async () => {
+    await createTrip();
+    expect(created()?.config).not.toHaveProperty('stops');
   });
 });

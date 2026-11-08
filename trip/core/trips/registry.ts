@@ -56,6 +56,13 @@ export type TripConfigBlock = {
    * `lib/city-coords.ts`'s shared table.
    */
   cityCoords?: Record<string, CityCoord>;
+  /**
+   * #1052 — per-day city for a multi-destination trip: from `date` onward the city is `city`
+   * (verbatim one of `destinations`) until the next stop. Before the first stop, `destinations[0]`
+   * applies. ADDITIVE + OPTIONAL — absent on every config that predates it, and an old client just
+   * ignores it (every day is `destinations[0]`).
+   */
+  stops?: { date: string; city: string }[];
   updatedAt: number;
 };
 
@@ -143,7 +150,32 @@ export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
   if (typeof c.currency === 'string' && c.currency.trim().length > 0) out.currency = c.currency.trim();
   const cityCoords = sanitizeCityCoords(c.cityCoords);
   if (cityCoords) out.cityCoords = cityCoords;
+  const stops = sanitizeStops(c.stops, destinations);
+  if (stops) out.stops = stops;
   return out;
+}
+
+const STOPS_MAX = 50;
+
+/** Validate raw `stops`: keep only entries with a real ISO day and a city that is verbatim in
+ *  `destinations`; sort by date, one per date (first wins), cap at STOPS_MAX. `undefined` when
+ *  nothing survives. TOTAL, never throws. */
+function sanitizeStops(raw: unknown, destinations: string[]): TripConfigBlock['stops'] {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const out: { date: string; city: string }[] = [];
+  for (const s of raw) {
+    if (s === null || typeof s !== 'object') continue;
+    const { date, city } = s as Record<string, unknown>;
+    if (typeof date !== 'string' || !ISO_DATE.test(date) || Number.isNaN(isoDayMs(date))) continue;
+    // `__proto__` guard as in `sanitizeCityCoords`; `includes` already rejects it as a city, kept explicit.
+    if (typeof city !== 'string' || city === '__proto__' || !destinations.includes(city)) continue;
+    if (seen.has(date)) continue;
+    seen.add(date);
+    out.push({ date, city });
+  }
+  out.sort((a, b) => (a.date < b.date ? -1 : 1));
+  return out.length > 0 ? out.slice(0, STOPS_MAX) : undefined;
 }
 
 /** Validate a raw `cityCoords` map: drop any entry whose key is empty or whose coordinate isn't a

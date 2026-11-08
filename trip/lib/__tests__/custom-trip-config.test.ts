@@ -145,6 +145,69 @@ describe('sanitizeTripConfig — cityCoords (#250)', () => {
   it('absent cityCoords stays absent — old configs serialize with no new field', () => {
     expect(sanitizeTripConfig(GOOD)!.cityCoords).toBeUndefined();
   });
+
+  it('a config without stops round-trips byte-identical (no stops key appears)', () => {
+    const out = sanitizeTripConfig(GOOD)!;
+    expect(JSON.stringify(out)).toBe(JSON.stringify(sanitizeTripConfig(out)));
+    expect('stops' in out).toBe(false);
+  });
+});
+
+// #1052 — per-day city for a multi-destination trip, stored as `stops` inside the same config block.
+describe('sanitizeTripConfig — stops (#1052)', () => {
+  const stops = (s: unknown) => sanitizeTripConfig({ ...GOOD, stops: s })!.stops;
+
+  it('keeps good stops, sorted by date, one per date, and re-sanitizes unchanged', () => {
+    const once = stops([
+      { date: '2027-03-04', city: 'Lombok' },
+      { date: '2027-03-01', city: 'Bali' },
+      { date: '2027-03-04', city: 'Bali' }, // duplicate date: first wins
+    ]);
+    expect(once).toEqual([
+      { date: '2027-03-01', city: 'Bali' },
+      { date: '2027-03-04', city: 'Lombok' },
+    ]);
+    expect(sanitizeTripConfig({ ...GOOD, stops: once })!.stops).toEqual(once);
+  });
+
+  it('drops a stop whose date is not a real day or whose city is not verbatim in destinations', () => {
+    expect(
+      stops([
+        { date: '2027-02-30', city: 'Bali' }, // ISO-shaped, not a day
+        { date: 'soon', city: 'Bali' },
+        { date: '2027-03-02', city: 'Java' }, // unknown city
+        { date: '2027-03-02', city: 'bali' }, // not verbatim
+        { date: '2027-03-03', city: '__proto__' },
+        null,
+        { date: '2027-03-04', city: 'Lombok' },
+      ]),
+    ).toEqual([{ date: '2027-03-04', city: 'Lombok' }]);
+  });
+
+  it('nothing surviving (or a non-array) leaves no stops key; caps at 50', () => {
+    expect('stops' in sanitizeTripConfig({ ...GOOD, stops: [{ date: 'x', city: 'Bali' }] })!).toBe(false);
+    expect('stops' in sanitizeTripConfig({ ...GOOD, stops: 'nope' })!).toBe(false);
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      date: `2027-04-${String((i % 30) + 1).padStart(2, '0')}`,
+      city: 'Bali',
+    }));
+    expect(stops(many)!.length).toBe(30); // dedupe by date first
+    const wide = Array.from({ length: 60 }, (_, i) => ({
+      date: new Date(Date.UTC(2027, 0, 1 + i)).toISOString().slice(0, 10),
+      city: 'Bali',
+    }));
+    expect(stops(wide)!.length).toBe(50);
+  });
+
+  it('buildDayShells gives each day its stop city; a config without stops stays on destinations[0]', () => {
+    const meta = (config: TripConfigBlock) => ({ id: 'multi', name: 'Multi', joinedAt: 1, config });
+    const withStops = customTripConfig(
+      meta({ ...GOOD, stops: [{ date: '2027-03-01', city: 'Bali' }, { date: '2027-03-04', city: 'Lombok' }] }),
+    )!;
+    expect(buildDayShells(withStops).map((d) => d.city)).toEqual(['Bali', 'Bali', 'Bali', 'Lombok', 'Lombok']);
+    expect(buildDayShells(customTripConfig(meta(GOOD))!).map((d) => d.city)).toEqual(Array(5).fill('Bali'));
+    expect('stops' in customTripConfig(meta(GOOD))!).toBe(false);
+  });
 });
 
 describe('getActiveTripCityCoord (#250)', () => {

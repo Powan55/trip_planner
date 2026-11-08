@@ -258,7 +258,11 @@ export function isTripClaimedCity(city: string): boolean {
   if (isDefaultTrip()) {
     return Object.values(TRIP_CITIES).some((entry) => fold(entry) === key);
   }
-  return getActiveTrip().legs.some((leg) => fold(leg.fallbackCity) === key);
+  const trip = getActiveTrip();
+  return (
+    trip.legs.some((leg) => fold(leg.fallbackCity) === key) ||
+    (trip.stops ?? []).some((s) => fold(s.city) === key)
+  );
 }
 
 /**
