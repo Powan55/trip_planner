@@ -19,7 +19,7 @@ import {
   type TripConfigBlock,
 } from '@/core/trips/registry';
 import { VIBES, DEFAULT_VIBE } from '@/core/trips/custom';
-import { CURRENCIES, type CurrencyCode } from '@/core/budget/model';
+import { LOCAL_CURRENCIES, type CurrencyCode } from '@/core/budget/model';
 import { formatDateLong } from '@/core/dates/trip-dates';
 import {
   getActiveTripId,
@@ -712,7 +712,7 @@ export default function TripsHub() {
                 onChange={(e) => setCreateCurrency(e.target.value as CurrencyCode)}
                 className="min-h-tap min-w-0 self-start rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               >
-                {CURRENCIES.map((cur) => (
+                {LOCAL_CURRENCIES.map((cur) => (
                   <option key={cur} value={cur} className="bg-surface text-ink-hi">
                     {cur}
                   </option>

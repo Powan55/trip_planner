@@ -298,3 +298,69 @@ describe('parseAmountInput (#785)', () => {
     expect(parseAmountInput(String(MAX_AMOUNT), 'USD')).toBe(MAX_AMOUNT);
   });
 });
+
+import {
+  EXTRA_CURRENCIES,
+  LOCAL_CURRENCIES,
+  SEED_EXTRA_RATES,
+  normalizeLegCurrency,
+  type CurrencyCode,
+} from '@/core/budget/model';
+
+describe('extra leg currencies (#1052)', () => {
+  const R = { NPR: 138, JPY: 155, EUR: 0.9, GBP: 0.75, INR: 94, AUD: 1.5, CAD: 1.4, THB: 34 };
+
+  it('each new code converts via its OWN rate, never the JPY one', () => {
+    expect(convert(100, 'EUR', 'USD', R)).toBeCloseTo(100 / 0.9, 10);
+    expect(convert(100, 'EUR', 'USD', R)).not.toBeCloseTo(100 / 155, 3);
+    for (const c of EXTRA_CURRENCIES) {
+      expect(ratePerUsd(R, c)).toBe(R[c]);
+      expect(convert(1, 'USD', c, R)).toBeCloseTo(R[c], 10);
+    }
+  });
+
+  it('an unset extra uses its seed; an unknown code does not fall through to JPY', () => {
+    expect(ratePerUsd({ NPR: 138, JPY: 155 }, 'GBP')).toBe(SEED_EXTRA_RATES.GBP);
+    expect(ratePerUsd(R, 'CHF' as CurrencyCode)).toBe(1);
+    expect(convert(100, 'CHF' as CurrencyCode, 'USD', R)).toBe(100);
+  });
+
+  it('home stays USD/NPR/JPY; only legs accept the extras', () => {
+    expect([...CURRENCIES]).toEqual(['USD', 'NPR', 'JPY']);
+    expect(LOCAL_CURRENCIES).toEqual(['USD', 'NPR', 'JPY', ...EXTRA_CURRENCIES]);
+    expect(normalizeCurrency('EUR')).toBe('USD');
+    expect(normalizeLegCurrency('EUR')).toBe('EUR');
+    expect(normalizeLegCurrency('toString')).toBe('USD');
+    expect(normalizeModel({ homeCurrency: 'EUR' }).homeCurrency).toBe('USD');
+  });
+
+  it('normalizeRates keeps valid extras only; default shape is unchanged', () => {
+    expect(normalizeRates({})).toEqual(SEED_RATES);
+    expect(normalizeRates({ EUR: 0.9, GBP: -1, INR: 'x' })).toEqual({ ...SEED_RATES, EUR: 0.9 });
+  });
+
+  it('old client round trip: new rates + home survive an old-shape normalize', () => {
+    // The pre-change normalizers, as a stale bundle runs them.
+    const oldCurrency = (v: unknown) => (v === 'NPR' || v === 'JPY' || v === 'USD' ? v : 'USD');
+    const oldRates = (v: unknown) => {
+      const o = (v ?? {}) as { NPR?: unknown; JPY?: unknown };
+      return { NPR: safeRate(o.NPR, SEED_RATES.NPR), JPY: safeRate(o.JPY, SEED_RATES.JPY) };
+    };
+    const doc = { homeCurrency: 'JPY', rates: R };
+    expect(oldCurrency(doc.homeCurrency)).toBe('JPY');
+    expect(oldRates(doc.rates)).toEqual({ NPR: 138, JPY: 155 });
+    // An old build mislabels a EUR leg as USD; it never writes a new code into home.
+    expect(oldCurrency('EUR')).toBe('USD');
+    // The new build reads the same doc without disturbing either.
+    const m = normalizeModel(doc);
+    expect(m.homeCurrency).toBe('JPY');
+    expect(m.rates).toEqual(R);
+  });
+
+  it('cents for EUR-style currencies, whole units for INR/THB', () => {
+    expect(formatMoney(12.5, 'EUR')).toBe('€12.50');
+    expect(formatMoney(1234.4, 'THB')).toBe('฿1,234');
+    expect(parseAmountInput('9.999', 'GBP')).toBe(10);
+    expect(parseAmountInput('99.6', 'INR')).toBe(100);
+  });
+});
