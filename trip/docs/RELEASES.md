@@ -12,15 +12,22 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
-## v7.8.1 (app) · 2026-11-01 · worker stays at v1.11.0
+## v7.9.0 (app) · 2026-11-07 · worker stays at v1.11.0
 
-- Backups keep existing photos when imported photo metadata is invalid and restore overwritten photo files if saving the photo index fails (#912, #913). Sign-out and Forget this device now show local photo counts and explain that photos do not sync; export each trip first (#904).
+- A restore rolls back when the sync outbox refuses the write, instead of losing the restored data on reload (#1045). A refused outbox write stays in memory (#982), and a slot written by a newer build now shows a toast instead of silently reverting synced edits (#1046). Older builds no longer strip fields a newer build adds to journal, photo and outbox data (#986).
+- The service worker keeps the progress of a failed precache install and reuses unchanged entries, so a deploy no longer re-downloads everything on retry (#979).
+- Backups keep existing photos when imported photo metadata is invalid and restore overwritten photo files if saving the photo index fails (#912, #913). Sign-out and Forget this device show local photo counts and explain that photos do not sync (#904).
 - Failed storage writes no longer report success or dismiss affected editors. Journal changes are not pushed after a failed local save, and storage-full warnings can appear again after dismissal (#788).
-- The planner opens closer to the selected day's workspace, with Trip overview below the editor. The mobile day strip clears the navbar border, and keyboard reordering targets itinerary rows (#920).
-- Checklist notes and photo controls sit behind a Details button, with an indication when a row contains a note or photos (#921).
-- Flight details wrap on narrow screens, Travel Mode avoids overlapping connection badges, and the homepage preloads its responsive hero image (#901–#903).
-- The map header selector is fixed, and Skip to content appears only when its destination exists (#910, #919). New Year's Eve travel guidance no longer promises all-night trains; it asks travelers to check their line's timetable (#914).
-- Added Safari-engine checks for itinerary persistence and cached offline navigation, refreshed regression tests, and updated Next.js and its ESLint config to 16.3.8 (#915–#918).
+- Map: Deja Vu, Fahrenheit, Mazaaj and a teamLab pin now have markers, so those stops no longer show approximate pins (#972). Pins cluster up to zoom 13 and have a larger hit area.
+- Sunrise and sunset show per plan day, and outdoor items scheduled after dark get a warning, also in Travel Mode's today panel (#953). Home and Travel Mode show tonight's stay (#938).
+- Added a full-screen show-to-staff phrase card (#952), a local-only emergency card (#987) and reminders in the calendar export (#956).
+- Guides: connectivity, alert-app and Suica/PASMO cards with official links, including the JR East Welcome Suica page in the IC card guide (#955). Packing, vaccine, tipping, visa and weekend notes are corrected, and the Japan packing list gains a carry-passport row (#969).
+- Custom trips: the placeholder date is no longer 2099, there is a currency field instead of USD only, and the create form hints that one destination covers every day (#970).
+- A cached FX rate is marked stale when offline, and the rate is fetched network-first (#980). A page restored from the back/forward cache reloads, so the old trip cannot sync into the new trip's keys (#984).
+- The first-run install toast waits until the tour is done (#961), and the Journal page no longer repeats its eyebrow and heading (#962).
+- The planner opens closer to the selected day's workspace, with Trip overview below the editor, and checklist notes and photo controls sit behind a Details button (#920, #921). Flight details wrap on narrow screens, and the map header selector and Skip to content link are fixed (#901–#903, #910, #919).
+- axe-core 4.14 flagged controls whose accessible name did not contain their visible text. Names now start with the visible text.
+- Minor and patch dependency updates, plus zod 4 and ESLint 10. Next.js and Playwright stay where they are until after the trip.
 
 **Deploy targets:** GitHub Pages. No worker changes.
 
