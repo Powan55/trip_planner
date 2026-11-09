@@ -70,8 +70,13 @@ describe('trips hub create: local currency (#970)', () => {
   it('offers the currencies the budget can convert, defaulting to USD', async () => {
     await createTrip();
     const options = [...at<HTMLSelectElement>('trips-hub-create-currency').options].map((o) => o.value);
-    expect(options).toEqual(['USD', 'NPR', 'JPY']);
+    expect(options).toEqual(['USD', 'NPR', 'JPY', 'EUR', 'GBP', 'INR', 'AUD', 'CAD', 'THB']);
     expect(created()?.config?.currency).toBe('USD');
+  });
+
+  it('stores an extra leg currency as picked', async () => {
+    await createTrip('EUR');
+    expect(created()?.config?.currency).toBe('EUR');
   });
 
   it('writes the picked currency into the trip config', async () => {

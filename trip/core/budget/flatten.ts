@@ -18,6 +18,7 @@
 
 import {
   BUDGET_CATEGORIES,
+  EXTRA_CURRENCIES,
   LEGS,
   normalizeModel,
   type BudgetModel,
@@ -43,6 +44,10 @@ export function flattenBudget(model: BudgetModel): Record<string, FieldValue> {
     'rates.NPR': model.rates.NPR,
     'rates.JPY': model.rates.JPY,
   };
+  for (const c of EXTRA_CURRENCIES) {
+    const r = model.rates[c];
+    if (typeof r === 'number' && r > 0) flat[`rates.${c}`] = r; // additive: only once set
+  }
   // `legBudgets.{leg}` for each ACTIVE-pack leg — `.nepal` + `.japan` for the default pack.
   for (const leg of LEGS) flat[`legBudgets.${leg}`] = model.legBudgets[leg] ?? 0;
   for (const leg of LEGS) {
@@ -63,6 +68,7 @@ export function flattenBudget(model: BudgetModel): Record<string, FieldValue> {
  */
 function knownPaths(): Set<string> {
   const paths = new Set<string>(['homeCurrency', 'rates.NPR', 'rates.JPY']);
+  for (const c of EXTRA_CURRENCIES) paths.add(`rates.${c}`);
   for (const leg of LEGS) {
     paths.add(`legBudgets.${leg}`);
     for (const cat of BUDGET_CATEGORIES) paths.add(`categoryBudgets.${leg}.${cat}`);
@@ -84,6 +90,9 @@ export function unflattenBudget(flat: Record<string, FieldValue>): BudgetModel {
     legBudgets,
     categoryBudgets: {},
   };
+  for (const c of EXTRA_CURRENCIES) {
+    if (`rates.${c}` in flat) model.rates[c] = Number(flat[`rates.${c}`]);
+  }
   for (const [path, v] of Object.entries(flat)) {
     const m = CATEGORY_PATH.exec(path);
     if (!m) continue;

@@ -131,7 +131,7 @@ describe('modelToFields / fieldsToModel — stamped round-trip + stamped-null cl
 // window (D-374), not a same-build case, so nothing else in either budget suite reaches it.
 describe('a leaf THIS BUILD CANNOT NAME is a peer forward field, never a clear', () => {
   const PEER_HLC = '000000000005000:000000:PEER';
-  const FORWARD = 'rates.EUR';
+  const FORWARD = 'rates.CHF';
   const peerFields = (): BudgetFields => ({
     ...modelToFields(fullModel()),
     [FORWARD]: { v: 400000, hlc: PEER_HLC },
@@ -167,6 +167,35 @@ describe('a leaf THIS BUILD CANNOT NAME is a peer forward field, never a clear',
     expect(pushedBack['legBudgets.antarctica']).toBeUndefined();
     expect(pushedBack['categoryBudgets.antarctica.food']).toBeUndefined();
     expect(mergeBudget(pushedBack, fields)['legBudgets.antarctica']).toEqual({ v: 900, hlc: PEER_HLC });
+  });
+});
+
+describe('extra leg-currency rates — additive rates.<CODE> paths', () => {
+  const withEur = (): BudgetModel => ({ ...fullModel(), rates: { NPR: 140, JPY: 150, EUR: 0.92 } });
+
+  it('flatten emits rates.EUR only once set, and the stamped round-trip keeps it', () => {
+    expect(flattenBudget(fullModel())).not.toHaveProperty('rates.EUR');
+    expect(flattenBudget(withEur())['rates.EUR']).toBe(0.92);
+    const stamped = { ...withEur(), sync: { fieldHlc: { 'rates.EUR': '000000000001000:000000:A' } } };
+    const back = fieldsToModel(modelToFields(stamped));
+    expect(back.rates).toEqual({ NPR: 140, JPY: 150, EUR: 0.92 });
+    expect(back.sync!.fieldHlc['rates.EUR']).toBe('000000000001000:000000:A');
+  });
+
+  it('clearing it stamps the path and emits a stamped null (known path)', () => {
+    const next = stampBudgetChanges(withEur(), fullModel(), 5000, 'A');
+    expect(next.sync!.fieldHlc['rates.EUR']).toBeDefined();
+    expect(modelToFields(next)['rates.EUR']).toEqual({ v: null, hlc: next.sync!.fieldHlc['rates.EUR'] });
+  });
+
+  it('an old-shape client (home USD/NPR/JPY only, no extra rates) leaves the doc intact', () => {
+    // Old build: unknown rates.EUR value dropped locally, its stamp kept, nothing emitted for it.
+    const peer: BudgetFields = { ...modelToFields(withEur()), homeCurrency: { v: 'JPY', hlc: '000000000009000:000000:P' } };
+    const oldView = fieldsToModel(Object.fromEntries(Object.entries(peer).filter(([k]) => k !== 'rates.EUR')));
+    expect(oldView.homeCurrency).toBe('JPY');
+    expect(oldView.rates).toEqual({ NPR: 140, JPY: 150 });
+    const pushed = mergeBudget(modelToFields(oldView), peer);
+    expect(pushed['rates.EUR']).toEqual(peer['rates.EUR']);
   });
 });
 
