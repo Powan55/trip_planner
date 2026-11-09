@@ -12,7 +12,7 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
-## v7.9.0 (app) · 2026-11-07 · worker stays at v1.11.0
+## v7.9.0 (app) · 2026-11-08 · worker at v1.11.3
 
 - A restore rolls back when the sync outbox refuses the write, instead of losing the restored data on reload (#1045). A refused outbox write stays in memory (#982), and a slot written by a newer build now shows a toast instead of silently reverting synced edits (#1046). Older builds no longer strip fields a newer build adds to journal, photo and outbox data (#986).
 - The service worker keeps the progress of a failed precache install and reuses unchanged entries, so a deploy no longer re-downloads everything on retry (#979).
@@ -22,14 +22,15 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 - Sunrise and sunset show per plan day, and outdoor items scheduled after dark get a warning, also in Travel Mode's today panel (#953). Home and Travel Mode show tonight's stay (#938).
 - Added a full-screen show-to-staff phrase card (#952), a local-only emergency card (#987) and reminders in the calendar export (#956).
 - Guides: connectivity, alert-app and Suica/PASMO cards with official links, including the JR East Welcome Suica page in the IC card guide (#955). Packing, vaccine, tipping, visa and weekend notes are corrected, and the Japan packing list gains a carry-passport row (#969).
-- Custom trips: the placeholder date is no longer 2099, there is a currency field instead of USD only, and the create form hints that one destination covers every day (#970).
+- Custom trips: the placeholder date is no longer 2099, there is a currency field instead of USD only, and the create form hints that one destination covers every day (#970). A trip created with several destinations now splits its dates evenly across them, so each day gets its own city (#1052). Older app versions ignore the split and keep the first city for every day. The trip currency can also be EUR, GBP, INR, AUD, CAD or THB (#1052); an older app version shows those amounts with a dollar sign.
 - A cached FX rate is marked stale when offline, and the rate is fetched network-first (#980). A page restored from the back/forward cache reloads, so the old trip cannot sync into the new trip's keys (#984).
 - The first-run install toast waits until the tour is done (#961), and the Journal page no longer repeats its eyebrow and heading (#962).
 - The planner opens closer to the selected day's workspace, with Trip overview below the editor, and checklist notes and photo controls sit behind a Details button (#920, #921). Flight details wrap on narrow screens, and the map header selector and Skip to content link are fixed (#901–#903, #910, #919).
 - axe-core 4.14 flagged controls whose accessible name did not contain their visible text. Names now start with the visible text.
+- Worker 1.11.3 (already deployed): a chat body that is not a JSON object gets a 400, a membership check outage returns a retryable 503 instead of a 403, the body size cap counts bytes, and a place link that fails to resolve can be retried (#911, #915, #916).
 - Minor and patch dependency updates, plus zod 4 and ESLint 10. Next.js and Playwright stay where they are until after the trip.
 
-**Deploy targets:** GitHub Pages. No worker changes.
+**Deploy targets:** GitHub Pages. Cloudflare Worker 1.11.3 was deployed separately before this release.
 
 ---
 
