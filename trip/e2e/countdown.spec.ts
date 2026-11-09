@@ -369,6 +369,11 @@ test.describe('?today=off restores the real clock', () => {
     await gotoWithClock(page, '2026-12-12');
     await expect(page.getByTestId('hero-travel-mode')).toBeVisible();
 
+    // A pre-trip override in the past, so it can never equal the real clock again before
+    // the trip: 2026-10-09 is 61 days to 2026-12-09.
+    await gotoWithClock(page, '2026-10-09');
+    await expect(page.getByTestId('countdown-total-days')).toHaveText('61');
+
     // ...then explicitly clear it. Per trip-now.ts, `?today=off` removes the
     // sessionStorage key and falls through to `new Date()`. This test assumes only that the
     // real clock is still PRE-trip (before TRIP_START, 2026-12-09), so the real clock must
@@ -398,7 +403,7 @@ test.describe('?today=off restores the real clock', () => {
     const totalDays = Number(totalDaysText);
     expect(Number.isFinite(totalDays)).toBe(true);
     expect(totalDays).toBeGreaterThan(0);
-    expect(totalDays).not.toBe(30); // `?today=2026-11-09` above
+    expect(totalDays).not.toBe(61); // `?today=2026-10-09` above
 
     // Back to the pre-trip lifecycle state on the REAL clock, and the live cell's figure
     // must be the same large countdown the ring just reported — a stale override would

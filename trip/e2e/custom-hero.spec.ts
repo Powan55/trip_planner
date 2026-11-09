@@ -103,7 +103,10 @@ test.describe('S253 — custom trip hero', () => {
     });
     const page = await context.newPage();
     await seedCustomTrip(page);
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    // Frozen clock: a 4-cell set (e.g. 6 months 0 days) goes 4-up on purpose (`fourUp` in
+    // hero-section), so the real clock made this row test date-dependent. 2026-11-15 against
+    // the 2027-05-10 start is 5 months, 3 weeks, 4 days: all six cells render.
+    await page.goto('/?today=2026-11-15', { waitUntil: 'domcontentloaded' });
     await page.locator('#hero-heading').waitFor({ state: 'visible' });
 
     // No horizontal scrollbar at 360px (the hard mobile-polish requirement).
@@ -113,13 +116,11 @@ test.describe('S253 — custom trip hero', () => {
     // `grid-cols-3 sm:flex` (S253 mobile polish): the countdown cells lay out 3 to a row at
     // this width. The first 3 share one row, the 4th starts the next.
     //
-    // The cells are read by POSITION, not by unit name: since issue #11 a calendar unit that
-    // is zero is not rendered, so which of months/weeks/days is present depends on the real
-    // clock against this seeded trip's 2027-05-10 start. The rendered set is 3 to 6 cells,
-    // always ending in hours/minutes/seconds, which is enough for the row test.
+    // Read by POSITION: zero calendar units are not rendered (issue #11); the frozen date
+    // above makes the set a deterministic six.
     const cells = page.getByTestId(/^countdown-(months|weeks|days|hours|minutes|seconds)$/);
     const count = await cells.count();
-    expect(count).toBeGreaterThanOrEqual(4);
+    expect(count).toBe(6);
     const boxes = await Promise.all(
       [0, 1, 2, 3].map((i) => cells.nth(i).boundingBox()),
     );
