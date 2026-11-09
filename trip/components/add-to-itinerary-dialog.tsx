@@ -662,7 +662,7 @@ export default function AddToItineraryDialog({
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
-                    <span className="pr pr--lo capitalize tracking-normal leading-tight text-center break-words w-full text-current">{cat}</span>
+                    <span className="pr pr--lo capitalize tracking-normal max-sm:text-[0.65rem] leading-tight text-center break-words w-full text-current">{cat}</span>
                   </button>
                 );
               })}

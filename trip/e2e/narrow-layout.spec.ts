@@ -18,16 +18,18 @@ for (const width of [360, 390]) {
     await page.getByTestId('calendar-add-item').click();
     const editor = page.getByTestId('calendar-editor');
     await expect(editor).toBeVisible();
-    const split = await editor.evaluate((el) =>
+    // Linux fonts render a few percent wider than Windows, so demand 8px of slack, not a bare fit.
+    const tight = await editor.evaluate((el) =>
       [...el.querySelectorAll<HTMLElement>('[data-testid^="calendar-editor-category-"] > span')]
         .filter((s) => {
-          s.style.overflowWrap = 'normal';
-          const wide = s.scrollWidth > s.clientWidth;
-          s.style.overflowWrap = '';
-          return wide;
+          const box = s.clientWidth;
+          s.style.width = 'max-content';
+          const text = s.getBoundingClientRect().width;
+          s.style.width = '';
+          return box - text < 8;
         })
         .map((s) => s.textContent),
     );
-    expect(split).toEqual([]);
+    expect(tight).toEqual([]);
   });
 }
