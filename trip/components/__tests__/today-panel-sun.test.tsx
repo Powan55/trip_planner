@@ -31,7 +31,6 @@ vi.mock('framer-motion', async () => {
     m: { div: (props: Record<string, unknown>) => React.createElement('div', strip(props)) },
     AnimatePresence: ({ children }: { children: unknown }) => children,
     useReducedMotion: () => true,
-    useDragControls: () => ({ start: () => {} }),
   };
 });
 

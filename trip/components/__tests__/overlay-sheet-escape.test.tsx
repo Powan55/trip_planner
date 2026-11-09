@@ -18,7 +18,6 @@ vi.mock('framer-motion', async () => {
     } },
     AnimatePresence: ({ children }: { children: ReactNode }) => children,
     useReducedMotion: () => false,
-    useDragControls: () => ({ start: vi.fn() }),
   };
 });
 
