@@ -183,6 +183,63 @@ const rawHazardNotes: HazardNote[] = [
 
 export const HAZARD_NOTES = z.array(hazardNoteSchema).parse(rawHazardNotes);
 
+// ── Set-up-before-you-fly guide cards ───────────────────────────────────────────────────────
+// No prices, validity periods or supported-model lists on purpose: they change and sources
+// disagree, so the cards name the official provider and send the traveler to its own page.
+
+export const guideCardSchema = z
+  .object({
+    id: z.string().min(1),
+    country: z.enum(['Nepal', 'Japan']),
+    title: z.string().min(1),
+    body: z.string().min(1),
+    options: z.array(z.object({ label: z.string().min(1), text: z.string().min(1) }).strict()).optional(),
+    links: z
+      .array(z.object({ label: z.string().min(1), href: z.string().url().startsWith('https://') }).strict())
+      .optional(),
+  })
+  .strict();
+
+export type GuideCard = z.infer<typeof guideCardSchema>;
+
+const rawGuideCards: GuideCard[] = [
+  {
+    id: 'np-sim',
+    country: 'Nepal',
+    title: 'Phone data in Nepal',
+    body: "A tourist SIM is sold at the airport and needs your original passport. eSIMs are sold online. Prices change, so check the carrier's own page rather than trusting a figure.",
+    links: [
+      { label: 'Nepal Telecom', href: 'https://www.ntc.net.np/' },
+      { label: 'Ncell', href: 'https://www.ncell.com.np/en' },
+    ],
+  },
+  {
+    id: 'jp-safety-tips',
+    country: 'Japan',
+    title: 'Japan Safety Tips app',
+    body: 'A free app that pushes earthquake early warnings, tsunami and volcano alerts in several languages. It works in Japan only, so install it before you fly.',
+    links: [{ label: 'Japan Safety Tips (JNTO)', href: 'https://www.jnto.go.jp/safety-tips/eng/index.html' }],
+  },
+  {
+    id: 'jp-ic-card',
+    country: 'Japan',
+    title: 'Suica or PASMO: which phone?',
+    body: "IC cards are the easiest way to pay for daily transit. What works depends on your phone. Validity periods and supported iPhone models differ between sources, so check Apple's and the card operators' own pages for your model.",
+    options: [
+      { label: 'iPhone', text: "Add Suica or PASMO to Apple Wallet, or use JR East's Welcome Suica app." },
+      { label: 'Android', text: "Most Android phones sold outside Japan can't use mobile Suica. Get a physical card instead." },
+      { label: 'Not sure', text: "If you can't confirm your phone supports it, a physical card is the safe choice." },
+    ],
+    links: [
+      { label: 'Apple Wallet transit cards (Japanese page)', href: 'https://www.apple.com/jp/apple-pay/transit/' },
+      { label: 'Welcome Suica (JR East)', href: 'https://www.jreast.co.jp/en/multi/welcomesuica/' },
+      { label: 'PASMO', href: 'https://www.pasmo.co.jp/en/' },
+    ],
+  },
+];
+
+export const GUIDE_CARDS = z.array(guideCardSchema).parse(rawGuideCards);
+
 // ── Phrasebook (Nepali + Japanese: native script AND romanization) ─────────────────────────
 //
 // #2 added the NATIVE SCRIPT to every row. Two fields per language, both required:
@@ -311,8 +368,8 @@ const rawChecklist: ChecklistItem[] = [
   {
     id: 'passport-validity',
     group: 'Before you go',
-    label: 'Passport valid 6+ months beyond the return date',
-    detail: 'Many countries (incl. Nepal and Japan) require this validity window for entry.',
+    label: 'Passport valid 6+ months from your Nepal arrival',
+    detail: 'Nepal requires six months. Sources differ on whether it counts from arrival or departure, so confirm at immigration.gov.np. Japan only needs it valid for the length of your stay.',
   },
   {
     id: 'nepal-visa',
@@ -321,7 +378,7 @@ const rawChecklist: ChecklistItem[] = [
     // Kept in sync with core/docs/model.ts's DEFAULT_TEMPLATE row of the same id (#280,
     // #252's date anchor): the online pre-application receipt is valid 15 days, so an early
     // submission is a false green on the row that gates entry.
-    detail: 'Visa-on-arrival at Tribhuvan Intl (KTM), or the online pre-application from 26 Nov 2026 (receipt valid 15 days) — bring passport photos and the entry fee in cash.',
+    detail: 'Visa-on-arrival at Tribhuvan Intl (KTM), or the online pre-application from 26 Nov 2026 (receipt valid 15 days; verify on the portal) — bring passport photos and cash for the fee (15-day tourist visa, USD 30; confirm on immigration.gov.np first).',
   },
   {
     id: 'japan-entry',
@@ -340,7 +397,7 @@ const rawChecklist: ChecklistItem[] = [
     id: 'vaccinations',
     group: 'Before you go',
     label: 'Vaccinations / health certificates up to date',
-    detail: 'Check current guidance for both destinations before departure.',
+    detail: 'CDC for Nepal: routine shots and MMR up to date for everyone; Hepatitis A and typhoid for most travellers; Hepatitis B if unvaccinated; rabies if animal exposure. Book a travel clinic now, at least 1 month before departure (wwwnc.cdc.gov/travel/destinations/nepal).',
   },
   {
     id: 'carry-passport-japan',

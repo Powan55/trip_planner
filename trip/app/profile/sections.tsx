@@ -6,6 +6,8 @@
 import dynamic from 'next/dynamic';
 import SectionSkeleton from '@/components/section-skeleton';
 
+export const IceCard = dynamic(() => import('@/components/ice-card'), { ssr: false });
+
 export const VisitedPlaces = dynamic(() => import('@/components/visited-places-panel'), {
   ssr: false,
   loading: () => <SectionSkeleton height="28rem" count={2} contentClassName="max-w-3xl" />,

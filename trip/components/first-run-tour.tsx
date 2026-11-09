@@ -174,6 +174,7 @@ export default function FirstRunTour() {
   function finish() {
     tourStore.markTourSeen();
     setOpen(false);
+    window.dispatchEvent(new Event('trip:tour-done'));
   }
 
   function handleNext() {
@@ -361,19 +362,22 @@ function TourPanel({
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              if (step === 1) nextRef.current?.focus();
-              onBack();
-            }}
-            disabled={step === 0}
-            data-testid="tour-back"
-            className="btn btn--2 gap-1.5 px-3 focus-visible:outline-none"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back
-          </button>
+          {step === 0 ? (
+            <span />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (step === 1) nextRef.current?.focus();
+                onBack();
+              }}
+              data-testid="tour-back"
+              className="btn btn--2 gap-1.5 px-3 focus-visible:outline-none"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back
+            </button>
+          )}
 
           <button
             type="button"

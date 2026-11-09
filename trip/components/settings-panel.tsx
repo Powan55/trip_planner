@@ -45,6 +45,8 @@ import {
   isOwnAccountToken,
   OWN_ACCOUNT_TOKEN_COPY,
 } from '@/core/trips/registry';
+import { TRIP_DATES } from '@/core/dates';
+import { isDefaultTrip } from '@/core/trips';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
@@ -61,7 +63,13 @@ import { downloadBlob } from '@/lib/download-blob';
 import {
   currencySymbol,
   CURRENCIES,
+  EXTRA_CURRENCIES,
+  LEGS,
+  legCurrency,
+  SEED_EXTRA_RATES,
   SEED_RATES,
+  type CurrencyCode,
+  type ExtraCurrency,
 } from '@/core/budget/model';
 import BackupRestore from '@/components/backup-restore';
 import {
@@ -1353,7 +1361,7 @@ function TripGroup() {
 function CurrencyGroup() {
   const { model, commit, setHomeCurrency } = useBudget();
 
-  const setRate = (currency: 'NPR' | 'JPY', value: string) => {
+  const setRate = (currency: Exclude<CurrencyCode, 'USD'>, value: string) => {
     // 0 is the "blank / mid-edit / use the seed" sentinel that `ratePerUsd` already falls back on,
     // so anything that isn't a positive number collapses to it here. A negative rate used to
     // persist and redisplay while every conversion silently used the seed instead (#120).
@@ -1367,6 +1375,9 @@ function CurrencyGroup() {
   };
 
   const home = model.homeCurrency;
+  // Leg currencies beyond NPR/JPY (custom trips only) each get their own rate field.
+  const legExtras = EXTRA_CURRENCIES.filter((c) => LEGS.some((l) => legCurrency(l) === c));
+  const showBase = isDefaultTrip() || home !== 'USD';
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -1395,7 +1406,9 @@ function CurrencyGroup() {
         </div>
       </fieldset>
 
-      {/* Exchange rates (manual override; seeded) */}
+      {/* Exchange rates (manual override; seeded). A custom trip is USD-only, so NPR/JPY rates
+          only show once a non-USD display currency is picked. */}
+      {(showBase || legExtras.length > 0) && (
       <fieldset className="border-hair border-border bg-surface-raised px-gut py-4">
         <legend className="pr pr--l px-1 text-ink-hi">Exchange rates</legend>
         <p className="mt-1 flex items-center gap-1.5 text-t-sm text-ink-mid">
@@ -1403,20 +1416,34 @@ function CurrencyGroup() {
           Approximate defaults — edit to match today&apos;s rate. Units per 1 US dollar.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <RateField
-            id="budget-rate-npr"
-            label="Rs per $1"
-            seed={SEED_RATES.NPR}
-            value={model.rates.NPR}
-            onChange={(v) => setRate('NPR', v)}
-          />
-          <RateField
-            id="budget-rate-jpy"
-            label="¥ per $1"
-            seed={SEED_RATES.JPY}
-            value={model.rates.JPY}
-            onChange={(v) => setRate('JPY', v)}
-          />
+          {showBase && (
+            <>
+              <RateField
+                id="budget-rate-npr"
+                label="Rs per $1"
+                seed={SEED_RATES.NPR}
+                value={model.rates.NPR}
+                onChange={(v) => setRate('NPR', v)}
+              />
+              <RateField
+                id="budget-rate-jpy"
+                label="¥ per $1"
+                seed={SEED_RATES.JPY}
+                value={model.rates.JPY}
+                onChange={(v) => setRate('JPY', v)}
+              />
+            </>
+          )}
+          {legExtras.map((c: ExtraCurrency) => (
+            <RateField
+              key={c}
+              id={`budget-rate-${c.toLowerCase()}`}
+              label={`${currencySymbol(c)} (${c}) per $1`}
+              seed={SEED_EXTRA_RATES[c]}
+              value={model.rates[c] ?? 0}
+              onChange={(v) => setRate(c, v)}
+            />
+          ))}
         </div>
         <button
           type="button"
@@ -1428,6 +1455,7 @@ function CurrencyGroup() {
           Reset to defaults
         </button>
       </fieldset>
+      )}
     </div>
   );
 }
@@ -1575,7 +1603,7 @@ function DataGroup() {
             label="Itinerary"
             description="Every planned activity across all days."
             title="Clear the whole itinerary?"
-            body="This removes every planned activity from all 32 days. On a shared trip it clears the itinerary for everyone. This cannot be undone."
+            body={`This removes every planned activity from ${TRIP_DATES.length === 1 ? 'the 1 day' : `all ${TRIP_DATES.length} days`}. On a shared trip it clears the itinerary for everyone. This cannot be undone.`}
             confirmLabel="Clear itinerary"
             onConfirm={clearItinerary}
           />

@@ -68,6 +68,7 @@ function DocRow({
   const detailsSummary = [draft.trim() !== '' && 'note', photoCount > 0 && `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`]
     .filter(Boolean)
     .join(', ');
+  const detailCount = photoCount + (draft.trim() !== '' ? 1 : 0);
   const focusedRef = useRef(false);
   // Keep the draft in step with an external update (a peer's synced note) UNLESS we're editing.
   useEffect(() => {
@@ -147,14 +148,15 @@ function DocRow({
         type="button"
         aria-expanded={open}
         aria-controls={`docs-details-${item.id}`}
-        aria-label={`Details for ${item.label}${detailsSummary ? `: ${detailsSummary}` : ''}`}
+        // The visible count leads the name so it is contained in it (WCAG 2.5.3).
+        aria-label={`${detailsSummary ? `${detailCount} ` : ''}Details for ${item.label}${detailsSummary ? `: ${detailsSummary}` : ''}`}
         onClick={() => setOpen((o) => !o)}
         data-testid={`docs-details-toggle-${item.id}`}
         className="flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-0.5 rounded-r1 px-1 text-ink-mid outline-none transition-colors hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring"
       >
         {detailsSummary && (
           <span className="num text-n-sm" aria-hidden="true">
-            {photoCount + (draft.trim() !== '' ? 1 : 0)}
+            {detailCount}
           </span>
         )}
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />

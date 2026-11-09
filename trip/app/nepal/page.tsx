@@ -1,5 +1,6 @@
 import PageHero from '@/components/page-hero';
 import DefaultTripOnly from '@/components/default-trip-only';
+import GuideCards from '@/components/guide-cards';
 
 // NEPAL: recommendations · photography (Nepal) · nightlife (Nepal)
 // · foods/etiquette/featured (Nepal). Section ids (#nepal/#photography/
@@ -27,17 +28,18 @@ export default function NepalPage() {
     <main data-leg="nepal" className="min-h-screen bg-surface">
       {/* PageHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
-      <PageHero
-        variant="nepal"
-        title="Nepal"
-        eyebrow="Dec 9 – 18"
-        subtitle="Kathmandu Valley — temples, markets, photography spots, nightlife, and local flavors."
-      />
       <DefaultTripOnly>
+        <PageHero
+          variant="nepal"
+          title="Nepal"
+          eyebrow="Dec 9 – 18"
+          subtitle="Kathmandu Valley — temples, markets, photography spots, nightlife, and local flavors."
+        />
         <NepalSection />
         <MyPlacesSection legId="nepal" />
         <PhotographyGuide country="Nepal" />
         <NightlifeSection country="Nepal" />
+        <GuideCards country="Nepal" id="nepal-setup" />
         <CountryEssentials country="Nepal" />
       </DefaultTripOnly>
     </main>

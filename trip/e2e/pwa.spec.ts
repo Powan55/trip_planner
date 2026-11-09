@@ -959,7 +959,7 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     // V6-14: nothing to evict until something put it there. ONE online /map/ visit is the
     // whole mechanism — the island's chunks and then the engine itself are same-origin,
     // non-image, non-navigate GETs, so they land on the SW's last fetch branch and
-    // cacheFirst() writes them into the precache. `map-shell` renders only from inside the
+    // cacheFirst() writes them into the runtime cache (#945). `map-shell` renders only from inside the
     // island, so it proves that import resolved rather than that the HTML was served.
     await page.goto('/map/', { waitUntil: 'load' });
     await expect(

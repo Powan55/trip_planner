@@ -28,7 +28,7 @@ export const metadata = {
 
 export default function PlanPage() {
   return (
-    <main className="min-h-screen bg-surface">
+    <main className="min-h-screen bg-surface pt-[var(--nav-h)] sm:pt-0">
       {/* PlanHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
       {/* #223 — the three `print:hidden` wrappers are BARE blocks: the Tailwind print variant

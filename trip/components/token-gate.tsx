@@ -19,6 +19,7 @@ import { parseTripToken } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import { TRIP_START, TRIP_END } from '@/lib/trip-data';
+import { TRIP_DATE_LABEL, TRIP_DATES_PENDING } from '@/core/dates';
 import { getNow } from '@/lib/trip-now';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import LandingPage from '@/components/landing-page';
@@ -1189,6 +1190,10 @@ function CompactCountdown() {
 
   // Reserve height before hydration so the card doesn't jump (no layout shift / overflow).
   if (!cd) return <div className="h-[58px]" aria-hidden="true" />;
+
+  if (TRIP_DATES_PENDING) {
+    return <p className="text-t-body text-ink-hi text-center">{TRIP_DATE_LABEL}</p>;
+  }
 
   if (cd.isPast) {
     return (

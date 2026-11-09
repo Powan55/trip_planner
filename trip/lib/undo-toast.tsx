@@ -56,7 +56,14 @@ export function showUndoToast(message: string, onUndo: () => void, onSettled?: (
   const settle = () => {
     if (!undone) onSettled?.();
   };
-  toast.success(<span className="line-clamp-2 break-words">{message}</span>, {
+  // Alt+T is sonner's default hotkey to focus the toast region.
+  const body = (
+    <>
+      <span className="line-clamp-2 break-words">{message}</span>
+      <span className="sr-only">{/[.!?]$/.test(message) ? ' ' : '. '}Undo available, Alt+T</span>
+    </>
+  );
+  toast.success(body, {
     icon: <UndoRing />,
     action: {
       label: 'Undo',

@@ -187,7 +187,8 @@ async function eagerStaticAssets(htmlFiles, baseDir = OUT_DIR) {
 // THE REGRESSION, NAMED: a cold-offline `/map` degrades to the island boundary, and
 // map labels are blank on a cold-offline first open. The ENGINE comes back on the first
 // online /map visit — it is a same-origin, non-image, non-navigate GET, so it lands on
-// the last branch of the fetch listener and cacheFirst() writes it into PRECACHE.
+// the last branch of the fetch listener and cacheFirst() writes it into RUNTIME_CACHE,
+// which survives updates (#945).
 // So do the worker scripts under /maplibre/ and the GLYPHS it requests: the worker loads
 // same-origin from inside the SW scope, so the SW sees its fetches (offline not yet measured).
 //
@@ -720,6 +721,12 @@ function isDedupedSegmentPayload(rel) {
   return SEGMENT_PAYLOAD.test(rel) && !rel.endsWith('/' + ROOT_INDEX_PAYLOAD);
 }
 
+// Pages and RSC payloads embed the build id, so they are never carried over from an old cache.
+function precacheRevision(rel, bytes) {
+  if (/\.(html|txt)$/.test(rel)) return null;
+  return createHash('sha256').update(bytes).digest('hex').slice(0, 32);
+}
+
 async function buildPrecacheList(allFiles) {
   const set = new Set();
   const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
@@ -877,8 +884,9 @@ async function buildManifest() {
 // auditable. The precache URL list and the cache name (a sha256 over each precached
 // file's path AND bytes — see step 3 in main(), which records why hashing the URL list
 // alone shipped stale shells) are baked in at build time; everything else is static SW logic.
-function buildServiceWorker({ precacheUrls, precacheHash, buildId }) {
+function buildServiceWorker({ precacheUrls, precacheHash, precacheRevisions, buildId, runtimeUrls, runtimeHash }) {
   const PRECACHE = `trip-precache-${precacheHash}`;
+  const RUNTIME_CACHE_NAME = `trip-runtime-${runtimeHash}`;
   const IMAGES_CACHE = 'trip-images-v1';
   const IMAGE_CACHE_LIMIT = 80;
   // The navigation fallback: the cached shell for the app root.
@@ -896,6 +904,19 @@ const IMAGE_CACHE_LIMIT = ${IMAGE_CACHE_LIMIT};
 const NAV_FALLBACK = ${JSON.stringify(NAV_FALLBACK)};
 const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 const BUILD_ID = ${JSON.stringify(buildId)};
+// sha256 prefix per precached file, minus pages and payloads. Install copies a byte-identical
+// entry from an older trip-precache-* instead of downloading it again (#979).
+const PRECACHE_REVISIONS = ${JSON.stringify(precacheRevisions)};
+const PARTIAL_CACHE = 'trip-install-partial';
+// Same-origin files this build ships but does not precache (lazy chunks, the map engine, its
+// worker, the glyphs). They are runtime-cached here instead of in PRECACHE so an update does
+// not wipe them. The name hashes the unhashed ones (maplibre worker, glyphs), so a maplibre
+// bump drops the cache whole; activate prunes it to this list, so it never outgrows one build.
+const RUNTIME_CACHE = ${JSON.stringify(RUNTIME_CACHE_NAME)};
+const RUNTIME_URLS = new Set(${JSON.stringify(runtimeUrls)});
+// Written last by install: lib/preflight.ts compares the cache against it to tell a complete
+// shell from a partial one.
+const PRECACHE_LIST = ${JSON.stringify(withBase('/__precache-urls.json'))};
 
 // --- install: precache the app shell -------------------------------------
 // NOTE: NO self.skipWaiting() here. An updated worker MUST stay
@@ -909,7 +930,6 @@ const BUILD_ID = ${JSON.stringify(buildId)};
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(PRECACHE);
       // ATOMIC install: every precache URL is same-origin, so a
       // healthy build MUST fetch each one OK. If ANY entry fails to fetch OK,
       // THROW so this waitUntil rejects -- the worker then never reaches the
@@ -926,8 +946,31 @@ self.addEventListener('install', (event) => {
       // committed to a DURABLE cache -- worse than the runtime case, since the
       // poison then survives restarts and the image fallback below would hand
       // that HTML back as the "cached image". isExpectedPrecacheBody rejects it.
-      await Promise.all(
+      //
+      // Pages and RSC payloads must also carry this build's id (#944): an edge still serving
+      // the previous build's HTML next to the new sw.js would otherwise pin route HTML whose
+      // chunk hashes no longer exist. Throwing keeps the old build serving; the next update
+      // check retries.
+      //
+      // A failed install deletes the cache it was filling (#945), or the preflight check
+      // and caches.match() would read the partial cache. Only one this install created: a
+      // byte-identical rebuild reuses the active worker's cache name. Its reusable entries
+      // move to PARTIAL_CACHE first, so a retry on a flaky link resumes instead of
+      // starting over (#979); activate sweeps that cache like any other stale trip-* one.
+      const names = await caches.keys();
+      const fresh = !names.includes(PRECACHE);
+      const previous = names.filter(
+        (k) => (k.startsWith('trip-precache-') && k !== PRECACHE) || k === PARTIAL_CACHE
+      );
+      const cache = await caches.open(PRECACHE);
+      const results = await Promise.allSettled(
         PRECACHE_URLS.map(async (url) => {
+          const kept = await reusablePrecacheEntry(url, previous);
+          if (kept) {
+            try {
+              return await cache.put(url, kept);
+            } catch (err) {}
+          }
           const res = await fetch(url, { cache: 'no-cache' });
           if (!res || !res.ok) {
             throw new Error(
@@ -939,9 +982,22 @@ self.addEventListener('install', (event) => {
               'precache body rejected: ' + url + ' -> ' + (contentTypeOf(res) || 'no content type')
             );
           }
+          if (carriesBuildId(url) && !(await res.clone().text()).includes(BUILD_ID)) {
+            throw new Error('precache body from another build: ' + url);
+          }
           await cache.put(url, res.clone());
         })
       );
+      const failed = results.find((r) => r.status === 'rejected');
+      if (failed) {
+        if (fresh) {
+          await keepPartial(cache).catch(() => {});
+          await caches.delete(PRECACHE).catch(() => {});
+        }
+        throw failed.reason;
+      }
+      await cache.put(PRECACHE_LIST, precacheListResponse());
+      await caches.delete(PARTIAL_CACHE).catch(() => {});
     })()
   );
 });
@@ -954,9 +1010,8 @@ self.addEventListener('activate', (event) => {
       // that is not in the current set — the active precache PLUS the two runtime
       // caches. This drops the previous build's trip-precache-* (atomic activation)
       // AND garbage-collects renamed runtime caches (e.g. a bumped trip-images-v1 ->
-      // v2, or a retired frankfurter cache) that a prefix-only filter would have
-      // leaked forever. FRANKFURTER_CACHE is declared lower in this file; it is only
-      // read here at activate time (well after module eval), so no TDZ issue.
+      // v2, or the retired trip-frankfurter-v1) that a prefix-only filter would have
+      // leaked forever.
       //
       // The OWNERSHIP predicate is load-bearing and is not a duplicate of the
       // allowlist: caches.keys() is scoped to the ORIGIN, not to this worker's
@@ -964,13 +1019,19 @@ self.addEventListener('activate', (event) => {
       // is shared with every other Pages project on the account. Without the
       // prefix, accepting an update here wipes a sibling app's Cache Storage, and
       // that sibling only repopulates on ITS own next version bump.
-      const allowlist = new Set([PRECACHE, IMAGES_CACHE, FRANKFURTER_CACHE]);
+      const allowlist = new Set([PRECACHE, RUNTIME_CACHE, IMAGES_CACHE]);
       const keys = await caches.keys();
       await Promise.all(
         keys
           .filter((k) => k.startsWith('trip-') && !allowlist.has(k))
           .map((k) => caches.delete(k))
       );
+      try {
+        const runtime = await caches.open(RUNTIME_CACHE);
+        for (const req of await runtime.keys()) {
+          if (!RUNTIME_URLS.has(new URL(req.url).pathname)) await runtime.delete(req);
+        }
+      } catch (err) {}
       await self.clients.claim();
     })()
   );
@@ -1001,6 +1062,7 @@ async function repairPrecache() {
     if (reg.installing || reg.waiting) return;
     const cache = await caches.open(PRECACHE);
     const have = new Set((await cache.keys()).map((req) => new URL(req.url).pathname));
+    if (!have.has(PRECACHE_LIST)) await cache.put(PRECACHE_LIST, precacheListResponse());
     const missing = PRECACHE_URLS.filter((url) => !have.has(url));
     if (missing.length === 0) return;
     await Promise.all(
@@ -1010,9 +1072,7 @@ async function repairPrecache() {
           if (!res || !res.ok || !isExpectedPrecacheBody(url, res)) return;
           // Pages and RSC payloads carry the build id. A portal page has none, and one
           // from a newer deploy carries that deploy's (hashed chunks can be shared, ids not).
-          if (url.endsWith('/') || url.endsWith('.html') || url.endsWith('.txt')) {
-            if (!(await res.clone().text()).includes(BUILD_ID)) return;
-          }
+          if (carriesBuildId(url) && !(await res.clone().text()).includes(BUILD_ID)) return;
           await cache.put(url, res);
         } catch (err) {}
       })
@@ -1077,15 +1137,81 @@ function isExpectedPrecacheBody(url, res) {
   return !contentTypeOf(res).startsWith('text/html');
 }
 
+// Route pages and RSC payloads embed the build id; gen-sw checks every precached one does.
+function carriesBuildId(url) {
+  return url.endsWith('/') || url.endsWith('.html') || url.endsWith('.txt');
+}
+
+// The stored bytes are hashed rather than the path trusted: icons, heroes and the manifest
+// keep their URL when their bytes change. Any miss or error just means a normal fetch.
+async function reusablePrecacheEntry(url, cacheNames) {
+  const revision = PRECACHE_REVISIONS[url];
+  if (!revision || carriesBuildId(url)) return undefined;
+  for (const cacheName of cacheNames) {
+    try {
+      const hit = await caches.match(url, { cacheName });
+      if (!hit || !hit.ok || hit.redirected || !isExpectedPrecacheBody(url, hit)) continue;
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', await hit.clone().arrayBuffer()));
+      const hex = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+      if (hex.startsWith(revision)) return hit;
+    } catch (err) {}
+  }
+  return undefined;
+}
+
+// Only entries reusablePrecacheEntry would accept, and it re-hashes them on the way back.
+async function keepPartial(cache) {
+  await caches.delete(PARTIAL_CACHE);
+  const partial = await caches.open(PARTIAL_CACHE);
+  for (const req of await cache.keys()) {
+    const path = new URL(req.url).pathname;
+    if (!PRECACHE_REVISIONS[path] || carriesBuildId(path)) continue;
+    const res = await cache.match(req);
+    if (res) await partial.put(req, res);
+  }
+}
+
+function precacheListResponse() {
+  return new Response(JSON.stringify(PRECACHE_URLS), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 // LRU-ish cap on the runtime image cache: evict oldest (insertion order) on
-// overflow. Cache API keys() returns entries in insertion order.
-async function trimImageCache() {
-  const cache = await caches.open(IMAGES_CACHE);
-  const keys = await cache.keys();
-  if (keys.length <= IMAGE_CACHE_LIMIT) return;
-  const overflow = keys.length - IMAGE_CACHE_LIMIT;
-  for (let i = 0; i < overflow; i++) {
-    await cache.delete(keys[i]);
+// overflow. Cache API keys() returns entries in insertion order. Runs one at a time:
+// overlapping trims each read their own key snapshot and evicted more than the overflow.
+let imageTrim = Promise.resolve();
+function trimImageCache() {
+  imageTrim = imageTrim
+    .then(async () => {
+      const cache = await caches.open(IMAGES_CACHE);
+      const keys = await cache.keys();
+      const overflow = keys.length - IMAGE_CACHE_LIMIT;
+      for (let i = 0; i < overflow; i++) {
+        await cache.delete(keys[i]);
+      }
+    })
+    .catch(() => {});
+  return imageTrim;
+}
+
+// Runtime-cached images are served as-is until this old, then refreshed in the background.
+const IMAGE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+function isStaleImage(res) {
+  const stored = Date.parse(res.headers?.get?.('Date'));
+  return !(Date.now() - stored < IMAGE_MAX_AGE_MS);
+}
+
+async function refreshImage(request) {
+  try {
+    const res = await fetch(request, { cache: 'no-cache' });
+    if (res && res.ok && res.type === 'basic' && isImageResponse(res)) {
+      const cache = await caches.open(IMAGES_CACHE);
+      await cache.put(request, res.clone());
+      await trimImageCache();
+    }
+  } catch (err) {
+    // Offline: keep the cached copy.
   }
 }
 
@@ -1153,37 +1279,10 @@ async function cacheFirst(request, cacheName) {
   return res;
 }
 
-// stale-while-revalidate for Frankfurter (api.frankfurter.dev, the Travel Mode Essentials
-// currency rate, lib/currency-rate.ts) — ONE deliberate, hand-added exception (: gen-sw.mjs
-// is hand-maintained) to the cross-origin passthrough just below. Serves the cached response
-// immediately when present (instant, offline-safe) while refreshing it in the background;
-// falls through to a plain network fetch on a cold cache. This is a network-layer NICETY only —
-// \`lib/currency-rate.ts\`'s own localStorage cache is the dormant-safe guarantee
-// (an offline "as of <date>" line even with this SW cache empty); this just avoids a redundant
-// round-trip when a good one is already sitting in the Cache API. No other cross-origin host is
-// touched here — Firebase/gstatic/font hosts still hit the untouched-passthrough line below.
-const FRANKFURTER_CACHE = 'trip-frankfurter-v1';
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  const network = fetch(request)
-    .then((res) => {
-      if (res && res.ok) cache.put(request, res.clone());
-      return res;
-    })
-    .catch(() => undefined);
-  return cached || (await network) || Response.error();
-}
-
 // --- fetch routing -------------------------------------------------------
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-
-  if (request.method === 'GET' && url.hostname === 'api.frankfurter.dev') {
-    event.respondWith(staleWhileRevalidate(request, FRANKFURTER_CACHE));
-    return;
-  }
 
   // FIRST LINE: cross-origin -> return untouched. This protects
   // Firebase (firestore/identitytoolkit), gstatic, font hosts — the SW must
@@ -1214,7 +1313,10 @@ self.addEventListener('fetch', (event) => {
         const fresh = await cacheMatch(request, { cacheName: PRECACHE });
         if (fresh) return fresh;
         const cached = await cacheMatch(request, { cacheName: IMAGES_CACHE });
-        if (cached) return cached;
+        if (cached) {
+          if (isStaleImage(cached)) event.waitUntil(refreshImage(request));
+          return cached;
+        }
         let res;
         try {
           res = await fetch(request);
@@ -1294,10 +1396,13 @@ self.addEventListener('fetch', (event) => {
   // an identical caches.match(request) sat here too, outside the try, so a rejecting
   // Cache Storage took down an asset the precache was holding, and the unnormalized
   // key missed every _rsc request that cacheFirst then had to look up again.
+  // Anything not on RUNTIME_URLS (RSC payloads, unknown paths) is build-specific and
+  // stays in PRECACHE, which the next activate drops.
+  const target = RUNTIME_URLS.has(url.pathname) ? RUNTIME_CACHE : PRECACHE;
   event.respondWith(
     (async () => {
       try {
-        return await cacheFirst(request, PRECACHE);
+        return await cacheFirst(request, target);
       } catch (err) {
         return Response.error();
       }
@@ -1387,8 +1492,12 @@ async function main() {
   // Any byte change anywhere in the precache set now yields a new cache
   // name, driving the update flow in the registrar.
   const h = createHash('sha256');
+  const precacheRevisions = {};
   for (const rel of precacheFiles) {
-    h.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
+    const bytes = await readFile(join(OUT_DIR, rel));
+    h.update(rel).update('\0').update(bytes);
+    const revision = precacheRevision(rel, bytes);
+    if (revision) precacheRevisions[toPrecacheUrl(rel)] = revision;
   }
   const precacheHash = h.digest('hex').slice(0, 12);
 
@@ -1399,10 +1508,30 @@ async function main() {
     })
   ).trim();
   if (!buildId) throw new Error('gen-sw: .next/BUILD_ID is empty.');
-  const sw = buildServiceWorker({ precacheUrls, precacheHash, buildId });
+  // Install refuses any page or payload without the build id, so one that lacks it here
+  // would fail every install on every device.
+  for (const rel of precacheFiles) {
+    if (/\.(html|txt)$/.test(rel) && !(await readFile(join(OUT_DIR, rel), 'utf8')).includes(buildId)) {
+      throw new Error(`gen-sw: ${rel} does not contain BUILD_ID ${buildId}.`);
+    }
+  }
+
+  const precacheSet = new Set(precacheFiles);
+  const runtimeFiles = allFiles
+    .filter((rel) => /^(_next\/static|maplibre|font)\//.test(rel) && !precacheSet.has(rel))
+    .sort();
+  const runtimeUrls = runtimeFiles.map((rel) => encodeURI(withBase('/' + rel)));
+  const r = createHash('sha256');
+  for (const rel of runtimeFiles) {
+    if (!rel.startsWith('_next/')) r.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
+  }
+  const runtimeHash = r.digest('hex').slice(0, 12);
+  const sw = buildServiceWorker({ precacheUrls, precacheHash, precacheRevisions, buildId, runtimeUrls, runtimeHash });
   await writeFile(join(OUT_DIR, 'sw.js'), sw, 'utf8');
   console.log(
-    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries)`
+    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries, ` +
+      `${Object.keys(precacheRevisions).length} reusable across builds; ` +
+      `trip-runtime-${runtimeHash}, ${runtimeUrls.length} runtime URLs)`
   );
 
   // 5) Log a few sample URLs for the single-prefix proof.
@@ -1419,4 +1548,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   });
 }
 
-export { eagerStaticAssets, isDedupedSegmentPayload };
+export { eagerStaticAssets, isDedupedSegmentPayload, precacheRevision };

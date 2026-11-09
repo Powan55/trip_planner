@@ -12,7 +12,7 @@
  */
 import type { DayPlan } from '@/lib/trip-data';
 import type { TripMeta } from './registry';
-import { legForDate, type TripConfig } from './model';
+import { cityForDate, legForDate, type TripConfig } from './model';
 
 /**
  * Vibe presets — CSS-only visual identity for a custom trip (gradient + accent, no images).
@@ -113,6 +113,8 @@ export function customTripConfig(meta: TripMeta | undefined | null): TripConfig 
         fallbackCity: c.destinations[0],
       },
     ],
+    // Conditional spread: a config without stops yields a TripConfig with no `stops` key at all.
+    ...(c.stops ? { stops: c.stops } : {}),
   };
 }
 
@@ -157,6 +159,10 @@ const PLACEHOLDER_CITY = 'Somewhere';
  * Invalid Date), so a zero-day span would be a fresh crash of exactly the class SB-6 fixed.
  */
 const PLACEHOLDER_DATE = '2099-12-31';
+
+export function isPlaceholderSpan(trip: { start: string; end: string }): boolean {
+  return trip.start === PLACEHOLDER_DATE && trip.end === PLACEHOLDER_DATE;
+}
 
 /**
  * A minimal single-day, single-leg `TripConfig` for a KNOWN trip (a registered `TripMeta`) that
@@ -216,6 +222,6 @@ function dateRange(startIso: string, endIso: string): string[] {
 export function buildDayShells(config: TripConfig): DayPlan[] {
   return dateRange(config.start, config.end).map((date) => {
     const leg = legForDate(config, date);
-    return { date, city: leg.fallbackCity, country: leg.id, items: [] };
+    return { date, city: cityForDate(config, date), country: leg.id, items: [] };
   });
 }

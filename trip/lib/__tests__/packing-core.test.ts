@@ -34,14 +34,22 @@ describe('isPackingCategory', () => {
 });
 
 describe('DEFAULT_TEMPLATE', () => {
-  it('has 28 items — 10 universal, 9 nepal, 9 japan — all unchecked, unique ids', () => {
-    expect(DEFAULT_TEMPLATE).toHaveLength(28);
+  it('has 29 items — 10 universal, 9 nepal, 10 japan — all unchecked, unique ids', () => {
+    expect(DEFAULT_TEMPLATE).toHaveLength(29);
     expect(DEFAULT_TEMPLATE.every((i) => i.checked === false)).toBe(true);
     const ids = new Set(DEFAULT_TEMPLATE.map((i) => i.id));
     expect(ids.size).toBe(DEFAULT_TEMPLATE.length);
     expect(DEFAULT_TEMPLATE.filter((i) => i.category === 'universal')).toHaveLength(10);
     expect(DEFAULT_TEMPLATE.filter((i) => i.category === 'nepal')).toHaveLength(9);
-    expect(DEFAULT_TEMPLATE.filter((i) => i.category === 'japan')).toHaveLength(9);
+    expect(DEFAULT_TEMPLATE.filter((i) => i.category === 'japan')).toHaveLength(10);
+  });
+
+  it('carry-passport row is Japan-leg and appended last, so no existing id moved (#939)', () => {
+    const row = DEFAULT_TEMPLATE.find((i) => i.id === 'japan-carry-passport');
+    expect(row?.category).toBe('japan');
+    expect(DEFAULT_TEMPLATE[DEFAULT_TEMPLATE.length - 1].id).toBe('japan-carry-passport');
+    expect(DEFAULT_TEMPLATE[0].id).toBe('universal-passport-copies');
+    expect(DEFAULT_TEMPLATE[DEFAULT_TEMPLATE.length - 2].id).toBe('japan-slip-on-shoes');
   });
 });
 
@@ -137,7 +145,7 @@ describe('addItem (#227)', () => {
     expect(next).not.toBe(items);
     expect(next).toHaveLength(items.length + 1);
     expect(next[next.length - 1]).toEqual({ id: 'custom-1', label: 'Travel pillow', category: 'universal', checked: false });
-    expect(items).toHaveLength(28); // original untouched (pure)
+    expect(items).toHaveLength(29); // original untouched (pure)
   });
 
   it('trims the label', () => {
@@ -191,7 +199,7 @@ describe('packingProgress', () => {
     expect(packingProgress(items)).toEqual({ checked: 2, total: 3 });
   });
 
-  it('the full built-in template starts at 0/28', () => {
-    expect(packingProgress(DEFAULT_TEMPLATE)).toEqual({ checked: 0, total: 28 });
+  it('the full built-in template starts at 0/29', () => {
+    expect(packingProgress(DEFAULT_TEMPLATE)).toEqual({ checked: 0, total: 29 });
   });
 });

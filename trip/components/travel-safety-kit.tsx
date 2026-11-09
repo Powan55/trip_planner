@@ -1,6 +1,9 @@
 'use client';
 
+import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
+import PhraseCard from '@/components/phrase-card';
 import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
 import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core/content/safety';
 import { useWakeLock } from '@/lib/use-wake-lock';
@@ -27,6 +30,15 @@ export default function TravelSafetyKit() {
   // visibility-aware, releases on unmount, never throws (see lib/use-wake-lock.ts).
   useWakeLock(true);
 
+  const [card, setCard] = useState<{ phrase: Phrase; lang: 'ne' | 'ja' } | null>(null);
+  const [cardOpen, setCardOpen] = useState(false);
+  const cardTriggerRef = useRef<HTMLElement | null>(null);
+  const showCard = (phrase: Phrase, lang: 'ne' | 'ja', trigger: HTMLElement) => {
+    cardTriggerRef.current = trigger;
+    setCard({ phrase, lang });
+    setCardOpen(true);
+  };
+
   // Country the trip clock is in goes first; no match (before/after trip, custom 'main' leg) → Nepal first.
   const order: Array<'Nepal' | 'Japan'> = (getTodayInTrip()?.country.toLowerCase() === 'japan' ? ['Japan', 'Nepal'] : ['Nepal', 'Japan']);
   const contactsByCountry = groupBy(EMERGENCY_CONTACTS, (c) => c.country);
@@ -36,6 +48,11 @@ export default function TravelSafetyKit() {
 
   return (
     <div data-testid="safety-kit" className="mx-auto w-full max-w-4xl pb-20">
+      <div className="px-gut pb-6 print:hidden">
+        <Link href="/profile/" data-testid="safety-ice-link" className="btn btn--2 no-underline">
+          Your emergency card
+        </Link>
+      </div>
       {/* ── 1. Emergency & embassy contacts ─────────────────────────────────────────────── */}
       <section aria-labelledby="safety-emergency-heading" className="mb-14">
         <div className="sec px-gut">
@@ -150,7 +167,7 @@ export default function TravelSafetyKit() {
                   </thead>
                   <tbody>
                     {phrases.map((p) => (
-                      <PhraseRow key={p.id} phrase={p} />
+                      <PhraseRow key={p.id} phrase={p} onShow={showCard} />
                     ))}
                   </tbody>
                 </table>
@@ -192,6 +209,14 @@ export default function TravelSafetyKit() {
           ))}
         </div>
       </section>
+
+      <PhraseCard
+        open={cardOpen}
+        phrase={card?.phrase ?? null}
+        lang={card?.lang ?? 'ne'}
+        onClose={() => setCardOpen(false)}
+        onExitComplete={() => cardTriggerRef.current?.focus?.()}
+      />
     </div>
   );
 }
@@ -217,18 +242,20 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
     <li data-testid={`safety-contact-${contact.id}`}>
       <a
         href={`tel:${contact.tel}`}
-        aria-label={`Call ${contact.service}, ${contact.number}${unverified ? ', unverified' : ''}`}
+        // Mirrors the visible text in order so the spoken name contains it (WCAG 2.5.3).
+        aria-label={`Call ${contact.service}${unverified ? `, unverified, ${contact.note}` : ''}, ${contact.number}`}
         className="r [--cols:1fr_auto] no-underline"
       >
         <span className="min-w-0">
           <h3>{contact.service}</h3>
           {unverified && (
             <>
-              <span className="hollow-tag mt-1">unverified</span>
+              {' '}
+              <span className="hollow-tag mt-1">unverified</span>{' '}
               <span className="mt !normal-case !tracking-normal">{contact.note}</span>
             </>
           )}
-        </span>
+        </span>{' '}
         <span className="num self-center whitespace-nowrap text-n-sm text-ink-hi">{contact.number}</span>
       </a>
     </li>
@@ -249,12 +276,14 @@ function HazardRow({ note }: { note: HazardNote }) {
   );
 }
 
-function PhraseRow({ phrase }: { phrase: Phrase }) {
+type ShowCard = (phrase: Phrase, lang: 'ne' | 'ja', trigger: HTMLElement) => void;
+
+function PhraseRow({ phrase, onShow }: { phrase: Phrase; onShow: ShowCard }) {
   return (
     <tr data-testid={`safety-phrase-${phrase.id}`} className="border-b-hair border-border last:border-0">
       <td className="px-2 py-2 align-top text-t-body text-ink-hi sm:px-gut">{phrase.english}</td>
-      <ScriptCell lang="ne" script={phrase.nepaliScript} roman={phrase.nepali} />
-      <ScriptCell lang="ja" script={phrase.japaneseScript} roman={phrase.japanese} />
+      <ScriptCell lang="ne" script={phrase.nepaliScript} roman={phrase.nepali} label={`Show "${phrase.english}" in Nepali full screen`} onShow={(el) => onShow(phrase, 'ne', el)} />
+      <ScriptCell lang="ja" script={phrase.japaneseScript} roman={phrase.japanese} label={`Show "${phrase.english}" in Japanese full screen`} onShow={(el) => onShow(phrase, 'ja', el)} />
     </tr>
   );
 }
@@ -272,13 +301,22 @@ function PhraseRow({ phrase }: { phrase: Phrase }) {
  * Both lines sit on the solid text tiers on the dark field, so both clear AA at rest
  * (issue #27 replaced the old `white/70` alpha; --text-mid is 8.85:1 at its worst step).
  */
-function ScriptCell({ lang, script, roman }: { lang: 'ne' | 'ja'; script: string; roman: string }) {
+function ScriptCell({ lang, script, roman, label, onShow }: { lang: 'ne' | 'ja'; script: string; roman: string; label: string; onShow: (trigger: HTMLElement) => void }) {
   return (
     <td className="px-2 py-2 align-top sm:px-gut">
-      <span lang={lang} className="block text-t-lead leading-snug text-ink-hi">
-        {script}
-      </span>
-      <span className="mt-0.5 block text-t-sm text-ink-mid">{roman}</span>
+      {/* Named by its content, not aria-label: the name must contain the visible phrase
+          (WCAG 2.5.3), and only real content keeps the script's `lang` voice switch. */}
+      <button
+        type="button"
+        onClick={(e) => onShow(e.currentTarget)}
+        className="-mx-1 block min-h-[44px] w-full rounded-r1 px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="sr-only">{label}: </span>
+        <span lang={lang} className="block text-t-lead leading-snug text-ink-hi">
+          {script}
+        </span>{' '}
+        <span className="mt-0.5 block text-t-sm text-ink-mid">{roman}</span>
+      </button>
     </td>
   );
 }

@@ -142,6 +142,7 @@ test.describe('Pre-trip countdown + total-days math (D-016 computeCountdown, fro
     // truncated 24h count borrows half of Nov 9 into the 12h residue and the calendar does
     // not. The two numbers answer different questions and the ring is labelled with its own.
     await expect(page.getByTestId('countdown-total-days')).toHaveText('30');
+    await expect(page.getByTestId('countdown-total-days-unit')).toHaveText('days');
 
     // Stat row: the PRE-TRIP lifecycle state (what the deleted dashboard called
     // "Upcoming") is the live cell's caption, duration = the full 32-day trip, and the
@@ -322,6 +323,44 @@ test.describe('S258: hero first CTA clears the fold on an xs viewport', () => {
   }
 });
 
+test.describe('#959: hero CTA clears the tab bar on a short phone', () => {
+  for (const [width, height] of [[360, 640], [390, 844]] as const) {
+    test(`5-cell countdown at ${width}x${height}: "Open Planner" ends above the tab bar`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await gotoWithClock(page, '2026-11-03');
+      await expect(page.getByTestId('countdown-months')).toBeVisible();
+      await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
+      await expect(page.locator('[data-lazy-visible="pending"]')).toHaveCount(0);
+
+      const cta = await page.getByRole('link', { name: 'Open Planner' }).boundingBox();
+      const tab = await page.getByTestId('tab-bar').boundingBox();
+      expect(cta).not.toBeNull();
+      expect(tab).not.toBeNull();
+      expect(cta!.y + cta!.height).toBeLessThanOrEqual(tab!.y);
+    });
+  }
+
+  for (const width of [320, 360] as const) {
+    test(`4-cell countdown at ${width}x640: all cells on one row, CTA above the tab bar`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 640 });
+      await gotoWithClock(page, '2026-11-09');
+      await expect(page.locator('[data-lazy-visible="pending"]')).toHaveCount(0);
+
+      const ys = new Set<number>();
+      for (const key of ['days', 'hours', 'minutes', 'seconds']) {
+        const cell = await page.getByTestId(`countdown-${key}`).locator('..').boundingBox();
+        expect(cell).not.toBeNull();
+        ys.add(Math.round(cell!.y));
+      }
+      expect(ys.size).toBe(1);
+
+      const cta = await page.getByRole('link', { name: 'Open Planner' }).boundingBox();
+      const tab = await page.getByTestId('tab-bar').boundingBox();
+      expect(cta!.y + cta!.height).toBeLessThanOrEqual(tab!.y);
+    });
+  }
+});
+
 test.describe('?today=off restores the real clock', () => {
   test('after an override, ?today=off falls back to the real (pre-trip) clock', async ({
     page,
@@ -329,6 +368,11 @@ test.describe('?today=off restores the real clock', () => {
     // First land on an in-trip override so travel mode is showing...
     await gotoWithClock(page, '2026-12-12');
     await expect(page.getByTestId('hero-travel-mode')).toBeVisible();
+
+    // A pre-trip override in the past, so it can never equal the real clock again before
+    // the trip: 2026-10-09 is 61 days to 2026-12-09.
+    await gotoWithClock(page, '2026-10-09');
+    await expect(page.getByTestId('countdown-total-days')).toHaveText('61');
 
     // ...then explicitly clear it. Per trip-now.ts, `?today=off` removes the
     // sessionStorage key and falls through to `new Date()`. This test assumes only that the
@@ -359,7 +403,7 @@ test.describe('?today=off restores the real clock', () => {
     const totalDays = Number(totalDaysText);
     expect(Number.isFinite(totalDays)).toBe(true);
     expect(totalDays).toBeGreaterThan(0);
-    expect(totalDays).not.toBe(30); // `?today=2026-11-09` above
+    expect(totalDays).not.toBe(61); // `?today=2026-10-09` above
 
     // Back to the pre-trip lifecycle state on the REAL clock, and the live cell's figure
     // must be the same large countdown the ring just reported — a stale override would

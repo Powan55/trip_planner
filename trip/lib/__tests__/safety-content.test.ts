@@ -86,12 +86,28 @@ describe('safety content — valid data parses', () => {
     expect(japanEntry?.detail).toMatch(/QR/);
   });
 
+  // #969 — corrected passport, visa fee and vaccine facts.
+  it('DOCUMENT_CHECKLIST: passport, Nepal visa fee and vaccine rows carry the corrected facts (#969)', () => {
+    const detail = (id: string) => DOCUMENT_CHECKLIST.find((i) => i.id === id)?.detail;
+    expect(detail('passport-validity')).toMatch(/Nepal requires six months/);
+    expect(detail('passport-validity')).toMatch(/Japan only needs .* length of your stay/);
+    expect(detail('nepal-visa')).toMatch(/USD 30/);
+    expect(detail('nepal-visa')).toMatch(/immigration\.gov\.np/);
+    expect(detail('vaccinations')).toMatch(/Hepatitis A and typhoid/);
+    expect(detail('vaccinations')).toMatch(/at least 1 month before departure/);
+  });
+
   // #936/#939 — tourist police dials the toll-free 1144; Japan needs the original passport on you.
   it('Nepal tourist police is 1144; checklist has the Japan passport-carry row', () => {
     const tp = EMERGENCY_CONTACTS.find((c) => c.id === 'np-tourist-police');
     expect(tp?.tel).toBe('1144');
     expect(tp?.sourceUrl).toBe('https://tourismdepartment.gov.np/pages/tourist-police/');
     expect(DOCUMENT_CHECKLIST.some((i) => i.id === 'carry-passport-japan')).toBe(true);
+  });
+
+  it('HAZARD_NOTES: Japan nightlife spiking/touts and Nepal scams notes exist (#939)', () => {
+    expect(HAZARD_NOTES.find((n) => n.id === 'jp-nightlife-spiking')?.body).toMatch(/drink/i);
+    expect(HAZARD_NOTES.find((n) => n.id === 'np-scams')?.country).toBe('Nepal');
   });
 
   it('DOCUMENT_CHECKLIST: every item parses and belongs to a known group', () => {

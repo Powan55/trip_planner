@@ -98,7 +98,7 @@ test.describe('S190 · exit restores the prior route with no history trap', () =
     await expect(page.getByTestId('navbar')).toBeVisible(); // chrome restored
     // Flag cleared to 'seen' on exit (not active → no relaunch re-enter).
     const flag = await page.evaluate((k) => localStorage.getItem(k), TRAVEL_KEY);
-    expect(flag).toBe('seen');
+    expect(flag).toBe('seen:nepal-japan-2026');
   });
 
   test('after EXIT, browser Back does NOT bounce back into /travel (no trap)', async ({ page }) => {
@@ -125,9 +125,19 @@ test.describe('S190 · exit restores the prior route with no history trap', () =
 });
 
 test.describe('S190 · PWA relaunch re-enter', () => {
-  test('a set flag re-enters /travel on boot; exit clears it and lands Home', async ({ page }) => {
+  // Legacy bare `active` (pre-scoping installs) and the trip-scoped value both re-enter.
+  for (const seed of ['active', 'active:nepal-japan-2026']) {
+  test(`a ${seed} flag re-enters /travel on boot; exit clears it and lands Home`, async ({ page }) => {
     // Seed the gateway flag as if Travel Mode was active when the app last closed.
-    await page.addInitScript((k) => localStorage.setItem(k, 'active'), TRAVEL_KEY);
+    // The relaunch only fires inside the trip window with no query on the URL, so the on-trip
+    // clock comes from the session override rather than `?today=`.
+    await page.addInitScript(
+      ([k, day, v]) => {
+        localStorage.setItem(k, v);
+        sessionStorage.setItem('tripPlannerTodayOverride', day);
+      },
+      [TRAVEL_KEY, ON_TRIP, seed],
+    );
     await page.goto('/', { waitUntil: 'load' });
 
     // Boot bounce: replace → /travel.
@@ -138,8 +148,9 @@ test.describe('S190 · PWA relaunch re-enter', () => {
     await exitBtn(page).click();
     await page.waitForURL((url) => !url.pathname.includes('/travel'));
     const flag = await page.evaluate((k) => localStorage.getItem(k), TRAVEL_KEY);
-    expect(flag).toBe('seen');
+    expect(flag).toBe('seen:nepal-japan-2026');
   });
+  }
 });
 
 test.describe('S351B · redirect-loop regression (signed-out visitor, stale active flag)', () => {
@@ -159,6 +170,7 @@ test.describe('S351B · redirect-loop regression (signed-out visitor, stale acti
       window.localStorage.removeItem('tripPlannerToken');
       window.localStorage.removeItem('tripPlannerUserName');
       window.localStorage.setItem(k, 'active');
+      window.sessionStorage.setItem('tripPlannerTodayOverride', '2026-12-10');
     }, TRAVEL_KEY);
 
     // Issue #7 — the third-party calls /travel makes when it DOES mount. Collected from before the

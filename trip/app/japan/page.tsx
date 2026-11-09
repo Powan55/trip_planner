@@ -1,5 +1,6 @@
 import PageHero from '@/components/page-hero';
 import DefaultTripOnly from '@/components/default-trip-only';
+import GuideCards from '@/components/guide-cards';
 
 // JAPAN: mirror of /nepal/ with country="Japan". Section ids
 // (#japan/#photography/#nightlife/#essentials) are kept for sub-anchors + the
@@ -26,17 +27,18 @@ export default function JapanPage() {
     <main data-leg="japan" className="min-h-screen bg-surface">
       {/* PageHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
-      <PageHero
-        variant="japan"
-        title="Japan"
-        eyebrow="Dec 19 – Jan 9"
-        subtitle="Winter Japan — Tokyo neon, Kyoto temples, photo spots, nightlife, and local etiquette."
-      />
       <DefaultTripOnly>
+        <PageHero
+          variant="japan"
+          title="Japan"
+          eyebrow="Dec 19 – Jan 9"
+          subtitle="Winter Japan — Tokyo neon, Kyoto temples, photo spots, nightlife, and local etiquette."
+        />
         <JapanSection />
         <MyPlacesSection legId="japan" />
         <PhotographyGuide country="Japan" />
         <NightlifeSection country="Japan" />
+        <GuideCards country="Japan" id="japan-setup" />
         <CountryEssentials country="Japan" />
       </DefaultTripOnly>
     </main>

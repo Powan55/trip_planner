@@ -375,8 +375,8 @@ export default function PlaceDetailSheet({
                     aria-haspopup="dialog"
                     aria-label={
                       customIsAdded
-                        ? `${customAddDraft.title} is planned ${customSummary.toLowerCase()}. Modify or remove.`
-                        : `Add ${customAddDraft.title} to your trip plan`
+                        ? `Added · ${customSummary}: ${customAddDraft.title}. Modify or remove.`
+                        : `Add to plan: ${customAddDraft.title}`
                     }
                     className={
                       // STRUCK once it is committed to a day; HOLLOW while it is only an
@@ -389,8 +389,8 @@ export default function PlaceDetailSheet({
                     {customIsAdded ? (
                       <>
                         <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>Added</span>
-                        <span aria-hidden="true">·</span>
+                        <span>Added</span>{' '}
+                        <span aria-hidden="true">·</span>{' '}
                         <span className="flex items-center gap-1">
                           <CalendarDays className="w-3 h-3 shrink-0" aria-hidden="true" />
                           {customSummary}

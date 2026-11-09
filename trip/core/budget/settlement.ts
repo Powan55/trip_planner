@@ -31,7 +31,7 @@
  */
 
 import type { Expense } from './expenses';
-import { legCurrency, LEGS, type CurrencyCode, type Leg } from './model';
+import { hasCents, legCurrency, LEGS, type CurrencyCode, type Leg } from './model';
 
 /** One "from pays to amount" reimbursement (leg-local currency). */
 export interface Transfer {
@@ -141,7 +141,7 @@ export function settle(
 
     if (Object.keys(balances).length === 0) continue; // no attributable split on this leg
     const currency = legCurrency(leg);
-    const rounded = roundBalances(balances, currency === 'USD' ? 0.01 : 1);
+    const rounded = roundBalances(balances, hasCents(currency) ? 0.01 : 1);
     out.push({
       leg,
       currency,

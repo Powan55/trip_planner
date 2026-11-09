@@ -40,7 +40,7 @@ function sanitizeIds(raw: unknown): string[] {
 }
 
 function loadFavorites(): string[] {
-  return sanitizeIds(favoritesStore.get<unknown>([]));
+  return sanitizeIds(favoritesStore.get<unknown>([], sanitizeIds));
 }
 
 function saveFavorites(ids: string[]): void {

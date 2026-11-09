@@ -151,14 +151,14 @@ test.describe('S285 · place import — persistence hard guarantee (paste → co
     const nepalGrid = page.getByTestId('my-places-grid-nepal');
     await expect(nepalGrid).toBeVisible({ timeout: 15_000 });
     await expect(nepalGrid.getByText(PLACE_NAME)).toBeVisible();
-    await expect(nepalGrid.getByRole('button', { name: `Add ${PLACE_NAME} to your plan` })).toHaveText(/Added/);
+    await expect(nepalGrid.getByRole('button', { name: `: ${PLACE_NAME}` })).toHaveText(/Added/);
 
     // The localStorage hard guarantee: reload, both survive.
     await page.reload({ waitUntil: 'load' });
     const nepalGridReloaded = page.getByTestId('my-places-grid-nepal');
     await expect(nepalGridReloaded).toBeVisible({ timeout: 15_000 });
     await expect(nepalGridReloaded.getByText(PLACE_NAME)).toBeVisible();
-    await expect(nepalGridReloaded.getByRole('button', { name: `Add ${PLACE_NAME} to your plan` })).toHaveText(
+    await expect(nepalGridReloaded.getByRole('button', { name: `: ${PLACE_NAME}` })).toHaveText(
       /Added/,
     );
 

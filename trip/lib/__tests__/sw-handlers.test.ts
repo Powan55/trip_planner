@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { precacheRevision } from '../../scripts/gen-sw.mjs';
 
 // ---------------------------------------------------------------------------
 // Lift the worker template out of the generator and instantiate it.
@@ -28,6 +29,18 @@ const OWN_CHUNK = '/_next/static/chunks/app-1234abcd.js';
 const PAYLOAD = '/plan/index.txt';
 const PRECACHE_URLS = ['/', '/404.html', '/plan/', '/travel/', '/images/hero/hero.avif', OWN_CHUNK, PAYLOAD];
 const BUILD_ID = 'BUILD_OWN';
+const RUNTIME_CACHE = 'trip-runtime-testhash';
+const ENGINE_CHUNK = '/_next/static/chunks/engine0000000000.js';
+const RUNTIME_URLS = [ENGINE_CHUNK, '/maplibre/maplibre-gl-worker.mjs'];
+const PRECACHE_LIST = '/__precache-urls.json';
+const HERO = '/images/hero/hero.avif';
+// Route pages never get a revision from the generator; '/plan/' has one here to prove the
+// worker refuses to reuse a page even if one slipped into the map.
+const PRECACHE_REVISIONS: Record<string, string> = {
+  [OWN_CHUNK]: precacheRevision('x.js', Buffer.from('CHUNK'))!,
+  [HERO]: precacheRevision('x.avif', Buffer.from('HERO'))!,
+  '/plan/': precacheRevision('x.js', Buffer.from('OLDPLAN'))!,
+};
 
 const genSwSrc = readFileSync(resolve(__dirname, '../../scripts/gen-sw.mjs'), 'utf8');
 
@@ -54,8 +67,11 @@ function extractWorkerSource(): string {
     'precacheUrls',
     'withBase',
     'buildId',
+    'RUNTIME_CACHE_NAME',
+    'runtimeUrls',
+    'precacheRevisions',
     'return `' + template + '`'
-  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p, BUILD_ID);
+  )(PRECACHE, IMAGES_CACHE, 80, NAV_FALLBACK, PRECACHE_URLS, (p: string) => p, BUILD_ID, RUNTIME_CACHE, RUNTIME_URLS, PRECACHE_REVISIONS);
 }
 
 const WORKER_SOURCE = extractWorkerSource();
@@ -73,7 +89,7 @@ class FakeResponse {
 
   constructor(
     body: string,
-    init: { ok?: boolean; status?: number; type?: string; contentType?: string } = {}
+    init: { ok?: boolean; status?: number; type?: string; contentType?: string; date?: string } = {}
   ) {
     this.body = body;
     this.ok = init.ok ?? true;
@@ -81,7 +97,10 @@ class FakeResponse {
     this.type = init.type ?? 'basic';
     this.redirected = false;
     const contentType = init.contentType ?? 'text/html';
-    this.headers = { get: (n) => (n.toLowerCase() === 'content-type' ? contentType : null) };
+    this.headers = {
+      get: (n) =>
+        n.toLowerCase() === 'content-type' ? contentType : n.toLowerCase() === 'date' ? (init.date ?? null) : null,
+    };
   }
 
   clone(): FakeResponse {
@@ -90,6 +109,10 @@ class FakeResponse {
 
   async text(): Promise<string> {
     return this.body;
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    return new TextEncoder().encode(this.body).buffer as ArrayBuffer;
   }
 
   static error(): FakeResponse {
@@ -125,7 +148,10 @@ function makeCaches(
   const stores = new Map<string, Map<string, FakeResponse>>();
   for (const [name, entries] of Object.entries(initial)) {
     const store = new Map<string, FakeResponse>();
-    for (const [k, body] of Object.entries(entries)) store.set(keyOf(k), new FakeResponse(body));
+    for (const [k, body] of Object.entries(entries)) {
+      const page = k.endsWith('/') || k.endsWith('.html');
+      store.set(keyOf(k), new FakeResponse(body, { contentType: page ? 'text/html' : 'application/octet-stream' }));
+    }
     stores.set(name, store);
   }
   const deleted: string[] = [];
@@ -183,7 +209,8 @@ interface Handlers {
 function instantiate(
   caches: FakeCacheStorage,
   fetchImpl: (req: Keyish) => Promise<FakeResponse>,
-  registration: { waiting?: unknown; installing?: unknown } = {}
+  registration: { waiting?: unknown; installing?: unknown } = {},
+  cryptoImpl: unknown = globalThis.crypto
 ): Handlers {
   const handlers: Handlers = {};
   const self = {
@@ -195,12 +222,13 @@ function instantiate(
     skipWaiting: () => {},
     registration: { installing: null, waiting: null, update: async () => {}, ...registration },
   };
-  new Function('self', 'caches', 'fetch', 'Response', 'location', WORKER_SOURCE)(
+  new Function('self', 'caches', 'fetch', 'Response', 'location', 'crypto', WORKER_SOURCE)(
     self,
     caches,
     fetchImpl,
     FakeResponse,
-    { origin: ORIGIN, href: ORIGIN + '/' }
+    { origin: ORIGIN, href: ORIGIN + '/' },
+    cryptoImpl
   );
   return handlers;
 }
@@ -219,13 +247,17 @@ function makeRequest(path: string, over: Partial<Record<string, string>> = {}) {
 function runFetch(handlers: Handlers, request: ReturnType<typeof makeRequest>) {
   return new Promise<FakeResponse | undefined>((resolve, reject) => {
     let responded = false;
+    const background: Promise<unknown>[] = [];
     const event = {
       request,
+      waitUntil: (p: Promise<unknown>) => {
+        background.push(p);
+      },
       respondWith: (p: Promise<FakeResponse>) => {
         responded = true;
         Promise.resolve(p).then(
           // flush a macrotask so fire-and-forget cache writes settle
-          (res) => setTimeout(() => resolve(res), 0),
+          (res) => Promise.all(background).then(() => setTimeout(() => resolve(res), 0)),
           reject
         );
       },
@@ -275,7 +307,21 @@ describe('activate: the cache sweep is scoped to this app', () => {
     // Current set survives.
     expect(deleted).not.toContain(PRECACHE);
     expect(deleted).not.toContain(IMAGES_CACHE);
-    expect(deleted).not.toContain(FRANKFURTER_CACHE);
+    // Retired with the Frankfurter handler (#980): a returning client drops it.
+    expect(deleted).toContain(FRANKFURTER_CACHE);
+  });
+});
+
+describe('fx rate: the worker leaves api.frankfurter.dev to the page (#980)', () => {
+  // A cached 200 reads as a fresh fetch to fetchCurrencyRate; passing through lets a
+  // dead network reject so the client's localStorage fallback marks the rate stale.
+  const fx = () => makeRequest('https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY');
+
+  it('passes the request through even with a cached copy present', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {}, [FRANKFURTER_CACHE]: { [fx().url]: 'OLD_RATE' } });
+    const handlers = instantiate(caches, async () => new FakeResponse('NEW_RATE'));
+    expect(await runFetch(handlers, fx())).toBeUndefined();
+    expect(put).toEqual([]);
   });
 });
 
@@ -430,6 +476,61 @@ describe('images: the content-hashed precache wins over the durable runtime cach
     const res = await runFetch(handlers, makeRequest('/images/gallery/kyoto.avif', { destination: 'image' }));
     expect(res?.body).toBe('GALLERY');
   });
+
+  const gallery = () => makeRequest('/images/gallery/kyoto.avif', { destination: 'image' });
+  const stale = new Date(Date.now() - 30 * 86400_000).toUTCString();
+  const fresh = new Date().toUTCString();
+
+  function seeded(date: string) {
+    const made = makeCaches({ [PRECACHE]: {}, [IMAGES_CACHE]: {} });
+    made.stores
+      .get(IMAGES_CACHE)!
+      .set('/images/gallery/kyoto.avif', new FakeResponse('OLD', { contentType: 'image/avif', date }));
+    return made;
+  }
+
+  it('serves a stale gallery image at once and refreshes it in the background', async () => {
+    const { caches, stores } = seeded(stale);
+    const handlers = instantiate(caches, async () => new FakeResponse('NEW', { contentType: 'image/avif' }));
+    const res = await runFetch(handlers, gallery());
+    expect(res?.body).toBe('OLD');
+    expect(stores.get(IMAGES_CACHE)!.get('/images/gallery/kyoto.avif')?.body).toBe('NEW');
+  });
+
+  it('does not refetch a fresh gallery image', async () => {
+    const { caches } = seeded(fresh);
+    let fetches = 0;
+    const handlers = instantiate(caches, async () => {
+      fetches++;
+      return new FakeResponse('NEW', { contentType: 'image/avif' });
+    });
+    expect((await runFetch(handlers, gallery()))?.body).toBe('OLD');
+    expect(fetches).toBe(0);
+  });
+
+  it('offline, a stale gallery image still serves and stays cached', async () => {
+    const { caches, stores } = seeded(stale);
+    const handlers = instantiate(caches, async () => {
+      throw new TypeError('offline');
+    });
+    expect((await runFetch(handlers, gallery()))?.body).toBe('OLD');
+    expect(stores.get(IMAGES_CACHE)!.get('/images/gallery/kyoto.avif')?.body).toBe('OLD');
+  });
+
+  it('overlapping misses trim to exactly the cap, oldest first', async () => {
+    const full: Record<string, string> = {};
+    for (let i = 0; i < 80; i++) full[`/images/gallery/old${i}.avif`] = 'x';
+    const { caches, stores } = makeCaches({ [PRECACHE]: {}, [IMAGES_CACHE]: full });
+    const handlers = instantiate(caches, async () => new FakeResponse('N', { contentType: 'image/avif' }));
+    await Promise.all(
+      [0, 1, 2].map((i) => runFetch(handlers, makeRequest(`/images/gallery/new${i}.avif`, { destination: 'image' })))
+    );
+    const keys = [...stores.get(IMAGES_CACHE)!.keys()];
+    expect(keys).toHaveLength(80);
+    expect(keys).not.toContain('/images/gallery/old2.avif');
+    expect(keys).toContain('/images/gallery/old3.avif');
+    expect(keys).toContain('/images/gallery/new2.avif');
+  });
 });
 
 describe('a rejecting Cache Storage degrades, it does not take the response down', () => {
@@ -495,7 +596,14 @@ describe('repair: a precache emptied under a live registration refills itself (#
     if (k.endsWith('.txt')) return new FakeResponse(txt, { contentType: 'text/x-component' });
     return new FakeResponse(html);
   };
-  const putKeys = (put: Array<{ key: string }>) => put.map((p) => p.key).sort();
+  const putKeys = (put: Array<{ key: string }>) =>
+    put.map((p) => p.key).filter((k) => k !== PRECACHE_LIST).sort();
+
+  it('writes the precache list the preflight check compares against', async () => {
+    const { caches, stores } = makeCaches({ [PRECACHE]: {} });
+    await runRepair(instantiate(caches, network(ownPage)));
+    expect(JSON.parse(stores.get(PRECACHE)!.get(PRECACHE_LIST)!.body)).toEqual(PRECACHE_URLS);
+  });
 
   it('refetches only the missing entries and leaves the rest alone', async () => {
     const { caches, put, stores } = makeCaches({
@@ -546,4 +654,187 @@ describe('repair: a precache emptied under a live registration refills itself (#
       expect(fetches).toBe(0);
     });
   }
+});
+
+describe('install: refuses a mixed-build edge and cleans up after itself (#944, #945)', () => {
+  const runInstall = (handlers: Handlers) =>
+    new Promise<unknown>((res) => {
+      handlers.install!({
+        waitUntil: (p: Promise<unknown>) => Promise.resolve(p).then(() => res('installed'), (err) => res(err)),
+      });
+    });
+  const network = (plan: string) => async (req: Keyish) => {
+    const k = keyOf(req);
+    if (k.endsWith('.js')) return new FakeResponse('CHUNK', { contentType: 'text/javascript' });
+    if (k.endsWith('.avif')) return new FakeResponse('HERO', { contentType: 'image/avif' });
+    if (k.endsWith('.txt')) return new FakeResponse(`0:{"b":"${BUILD_ID}"}`, { contentType: 'text/x-component' });
+    return new FakeResponse(k === '/plan/' ? plan : `"buildId":"${BUILD_ID}"`);
+  };
+
+  it('installs a consistent build and writes the precache list last', async () => {
+    const { caches, stores, put } = makeCaches({});
+    expect(await runInstall(instantiate(caches, network(`"buildId":"${BUILD_ID}"`)))).toBe('installed');
+    expect(put.at(-1)!.key).toBe(PRECACHE_LIST);
+    expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+  });
+
+  it('rejects route HTML from the previous build and deletes the half-filled cache', async () => {
+    const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { '/plan/': 'OLD' } });
+    const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
+    expect(result).toBeInstanceOf(Error);
+    expect(stores.has(PRECACHE)).toBe(false);
+    expect(stores.get('trip-precache-oldbuild')!.get('/plan/')!.body).toBe('OLD');
+  });
+
+  it('a failed install leaves an existing cache of the same name alone', async () => {
+    const { caches, deleted } = makeCaches({ [PRECACHE]: { '/': 'LIVE' } });
+    const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
+    expect(result).toBeInstanceOf(Error);
+    expect(deleted).toEqual([]);
+  });
+
+  describe('reuses byte-identical entries from an older precache (#979)', () => {
+    const ok = `"buildId":"${BUILD_ID}"`;
+    const counting = (plan: string) => {
+      const fetched: string[] = [];
+      const impl = async (req: Keyish) => {
+        fetched.push(keyOf(req));
+        return network(plan)(req);
+      };
+      return { fetched, impl };
+    };
+
+    it('copies unchanged entries and fetches only the rest', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched.sort()).toEqual(['/', '/404.html', '/plan/', '/travel/', PAYLOAD].sort());
+      expect(stores.get(PRECACHE)!.get(OWN_CHUNK)!.body).toBe('CHUNK');
+      expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+    });
+
+    it('fetches an entry whose stored bytes no longer match', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK_V1', [HERO]: 'HERO' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
+      expect(fetched).not.toContain(HERO);
+      expect(stores.get(PRECACHE)!.get(OWN_CHUNK)!.body).toBe('CHUNK');
+    });
+
+    it('never reuses a page, even one with a matching revision', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { '/plan/': 'OLDPLAN' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain('/plan/');
+      expect(stores.get(PRECACHE)!.get('/plan/')!.body).toBe(ok);
+    });
+
+    it('ignores caches that are not ours', async () => {
+      const { caches } = makeCaches({ 'other-app-v1': { [OWN_CHUNK]: 'CHUNK' } });
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
+    });
+
+    it('a rejecting cache lookup falls back to the network for every entry', async () => {
+      const { caches, stores } = makeCaches(
+        { 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } },
+        { rejectMatch: true }
+      );
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
+      expect(fetched).toContain(HERO);
+      expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+    });
+
+    it('a throwing digest falls back to the network for every entry', async () => {
+      const old = { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' };
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': old });
+      const { fetched, impl } = counting(ok);
+      const broken = { subtle: { digest: async () => { throw new Error('no subtle'); } } };
+      expect(await runInstall(instantiate(caches, impl, {}, broken))).toBe('installed');
+      expect(fetched.sort()).toEqual([...PRECACHE_URLS].sort());
+      for (const url of [OWN_CHUNK, HERO]) {
+        expect(stores.get(PRECACHE)!.get(url)).not.toBe(stores.get('trip-precache-oldbuild')!.get(url));
+      }
+    });
+
+    it('does not copy a stored entry the install guards would refuse', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': {} });
+      stores.get('trip-precache-oldbuild')!.set(OWN_CHUNK, new FakeResponse('CHUNK', { contentType: 'text/html' }));
+      const { fetched, impl } = counting(ok);
+      expect(await runInstall(instantiate(caches, impl))).toBe('installed');
+      expect(fetched).toContain(OWN_CHUNK);
+    });
+
+    it('a retry after a failed install fetches only what the failed attempt missed', async () => {
+      const { caches, stores } = makeCaches({});
+      const first = counting(ok);
+      const flaky = async (req: Keyish) => {
+        first.fetched.push(keyOf(req));
+        if (keyOf(req) === '/travel/') throw new TypeError('network down');
+        return network(ok)(req);
+      };
+      expect(await runInstall(instantiate(caches, flaky))).toBeInstanceOf(Error);
+      expect(first.fetched.sort()).toEqual([...PRECACHE_URLS].sort());
+      expect(stores.has(PRECACHE)).toBe(false);
+      expect([...stores.get('trip-install-partial')!.keys()].sort()).toEqual([HERO, OWN_CHUNK].sort());
+
+      const retry = counting(ok);
+      expect(await runInstall(instantiate(caches, retry.impl))).toBe('installed');
+      expect(retry.fetched.sort()).toEqual(['/', '/404.html', '/plan/', '/travel/', PAYLOAD].sort());
+      expect(stores.get(PRECACHE)!.size).toBe(PRECACHE_URLS.length + 1);
+      expect(stores.has('trip-install-partial')).toBe(false);
+    });
+
+    it('a BUILD_ID mismatch rejects the install and leaves the old precache intact', async () => {
+      const { caches, stores } = makeCaches({ 'trip-precache-oldbuild': { [OWN_CHUNK]: 'CHUNK', [HERO]: 'HERO' } });
+      const result = await runInstall(instantiate(caches, network('"buildId":"BUILD_OLD"')));
+      expect(result).toBeInstanceOf(Error);
+      expect(stores.has(PRECACHE)).toBe(false);
+      expect(stores.get('trip-precache-oldbuild')!.get(OWN_CHUNK)!.body).toBe('CHUNK');
+    });
+  });
+});
+
+describe('precacheRevision: pages and payloads are never reusable', () => {
+  it('skips html and txt, hashes everything else', () => {
+    expect(precacheRevision('plan/index.html', Buffer.from('x'))).toBeNull();
+    expect(precacheRevision('plan/__next._tree.txt', Buffer.from('x'))).toBeNull();
+    expect(precacheRevision('_next/static/chunks/a-1234abcd.js', Buffer.from('x'))).toMatch(/^[0-9a-f]{32}$/);
+    expect(precacheRevision('icons/icon-192.png', Buffer.from('a'))).not.toBe(
+      precacheRevision('icons/icon-192.png', Buffer.from('b'))
+    );
+  });
+});
+
+describe('runtime cache: the map engine survives an update (#945)', () => {
+  it('writes a runtime-only asset to the runtime cache, not the per-build precache', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {} });
+    const handlers = instantiate(caches, async () => new FakeResponse('ENGINE', { contentType: 'text/javascript' }));
+    await runFetch(handlers, makeRequest(ENGINE_CHUNK));
+    await runFetch(handlers, makeRequest('/plan/__next._full.txt'));
+    expect(put).toEqual([
+      { cache: RUNTIME_CACHE, key: ENGINE_CHUNK },
+      { cache: PRECACHE, key: '/plan/__next._full.txt' },
+    ]);
+  });
+
+  it('activate keeps the runtime cache and prunes what this build no longer ships', async () => {
+    const { caches, deleted, stores } = makeCaches({
+      [PRECACHE]: {},
+      'trip-precache-oldbuild': {},
+      [RUNTIME_CACHE]: { [ENGINE_CHUNK]: 'ENGINE', '/_next/static/chunks/gone1111111111.js': 'OLD' },
+      'trip-runtime-oldmaplibre': { [ENGINE_CHUNK]: 'ENGINE_V5' },
+    });
+    const handlers = instantiate(caches, async () => new FakeResponse('x'));
+    await new Promise<void>((res, rej) => {
+      handlers.activate!({ waitUntil: (p: Promise<unknown>) => Promise.resolve(p).then(() => res(), rej) });
+    });
+    expect(deleted).toEqual(expect.arrayContaining(['trip-precache-oldbuild', 'trip-runtime-oldmaplibre']));
+    expect(deleted).not.toContain(RUNTIME_CACHE);
+    expect([...stores.get(RUNTIME_CACHE)!.keys()]).toEqual([ENGINE_CHUNK]);
+  });
 });

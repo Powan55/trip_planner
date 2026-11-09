@@ -41,6 +41,9 @@ export interface TripConfig {
   legs: TripLeg[];
   /** Content-bundle key resolved by core/content/registry.ts. Default: 'nepal-japan-2026'. */
   contentRef: string;
+  /** #1052 — custom multi-destination trips only: from `date` onward the day's city is `city`.
+   * Sorted ascending by date; absent ⇒ every day uses its leg's `fallbackCity`. */
+  stops?: { date: string; city: string }[];
 }
 
 /**
@@ -57,4 +60,17 @@ export function legForDate(config: TripConfig, dateStr: string): TripLeg {
     if (dateStr <= leg.end) return leg;
   }
   return legs[legs.length - 1];
+}
+
+/**
+ * The city for `dateStr` (PURE, TOTAL): the last stop with `date <= dateStr`, else the leg's
+ * `fallbackCity`. Lexicographic ISO compare, same TZ-safety rule as `legForDate`.
+ */
+export function cityForDate(config: TripConfig, dateStr: string): string {
+  let city: string | undefined;
+  for (const s of config.stops ?? []) {
+    if (s.date <= dateStr) city = s.city;
+    else break;
+  }
+  return city ?? legForDate(config, dateStr).fallbackCity;
 }

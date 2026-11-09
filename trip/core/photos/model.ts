@@ -48,6 +48,16 @@ export function isPhotoOwner(v: unknown): v is PhotoOwner {
   return false;
 }
 
+const KNOWN_KINDS = ['journal', 'expense', 'docs'];
+
+/** An owner kind a newer build added. Kept verbatim so our next save doesn't drop its photos (#986);
+ * `sameOwner` never matches it, so no view here shows it. */
+function isForeignOwner(v: unknown): v is PhotoOwner {
+  if (v === null || typeof v !== 'object') return false;
+  const kind = (v as Record<string, unknown>).kind;
+  return typeof kind === 'string' && kind.length > 0 && !KNOWN_KINDS.includes(kind);
+}
+
 /** A non-negative finite number, or 0. Total. */
 function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0;
@@ -64,7 +74,7 @@ export function sanitizePhoto(value: unknown): PhotoMeta | null {
   const v = value as Record<string, unknown>;
 
   if (typeof v.id !== 'string' || v.id.length === 0) return null;
-  if (!isPhotoOwner(v.owner)) return null;
+  if (!isPhotoOwner(v.owner) && !isForeignOwner(v.owner)) return null;
 
   const caption =
     typeof v.caption === 'string' && v.caption.trim().length > 0 ? v.caption.trim() : undefined;
@@ -72,14 +82,16 @@ export function sanitizePhoto(value: unknown): PhotoMeta | null {
     typeof v.altText === 'string' && v.altText.trim().length > 0 ? v.altText.trim() : (caption ?? '');
 
   const meta: PhotoMeta = {
+    ...(value as PhotoMeta), // undeclared keys ride along (#986)
     id: v.id,
-    owner: v.owner,
+    owner: v.owner as PhotoOwner,
     altText,
     w: num(v.w),
     h: num(v.h),
     bytes: num(v.bytes),
     createdAt: typeof v.createdAt === 'string' ? v.createdAt : '',
   };
+  delete meta.caption;
   if (caption !== undefined) meta.caption = caption;
   return meta;
 }

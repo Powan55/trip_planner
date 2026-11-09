@@ -16,7 +16,7 @@
 // The island is lazy + ssr:false (app/settings/sections.tsx's shape); this Server Component page
 // exports the metadata and owns the <h1>.
 import PageHeader from '@/components/page-header';
-import { VisitedPlaces } from './sections';
+import { IceCard, VisitedPlaces } from './sections';
 
 export const metadata = {
   title: 'Profile · Nepal × Japan Journey',
@@ -35,10 +35,11 @@ export default function ProfilePage() {
       <PageHeader
         eyebrow="Where you have been"
         title="Profile"
-        description="Add the countries and cities you had already been to before this trip, so your totals count a lifetime of travel and not just this one journey. Everything here is kept on this device and survives clearing a trip or signing out."
+        description="Add the countries and cities you had already been to before this trip, so your totals count a lifetime of travel and not just this one journey. Everything here is kept on this device. Your visited places survive clearing a trip or signing out; the emergency card does not."
         reveal={false}
         className="max-w-3xl"
       />
+      <IceCard />
       <VisitedPlaces />
     </main>
   );

@@ -837,6 +837,37 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(res.restored).toContain('budget');
   });
 
+  // #1045: the data write lands but the outbox record does not; a reload's first snapshot would
+  // erase the restore, so it must be rolled back and reported refused.
+  it('a refused outbox write rolls the domain back and reports it refused', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const seedStore = makeInMemoryBlobStore();
+    await seedAll(seedStore);
+    const file = await exportTripBackup(seedStore);
+
+    expensesStore.set([]);
+    budgetStore.set(normalizeModel({}));
+    docsStore.set([]);
+    myPlacesStore.set([]);
+
+    const realSetItem = Storage.prototype.setItem.bind(localStorage);
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+      if (key === STORAGE_KEYS.syncOutbox) throw new DOMException('quota', 'QuotaExceededError');
+      return realSetItem(key, value);
+    });
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    setItemSpy.mockRestore();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    expect(res.refused).toEqual(expect.arrayContaining(['expenses', 'budget', 'docsChecklist', 'myPlaces']));
+    expect(res.restored).not.toContain('expenses');
+    expect(expensesStore.get<unknown>(null)).toEqual([]); // old copy back, not the restored rows
+  });
+
   it('a refused journal write does not re-stamp/push the OLD local journal', async () => {
     gate.remoteOn = true;
     gate.traveler = { name: 'Powan' };

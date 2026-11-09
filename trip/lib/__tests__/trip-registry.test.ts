@@ -371,6 +371,14 @@ describe('trip registry (S238)', () => {
           { id: 'ph-gone-1', owner: { kind: 'journal', date: '2026-12-10' }, altText: 'a', createdAt: '2026-12-10T00:00:00.000Z' },
         ]),
       ],
+      ['a packing list', 'trip:gone:packing', JSON.stringify([{ id: 'p1', label: 'Socks', checked: true }])],
+      ['a share inbox item', 'trip:gone:shareInbox', JSON.stringify([{ id: 's1', url: 'https://example.com' }])],
+      ['a favorite', 'trip:gone:favorites', JSON.stringify(['na1'])],
+      ['a day anchor', 'trip:gone:dayAnchors', JSON.stringify({ '2026-12-10': 'm1' })],
+      ['a concierge thread', 'trip:gone:conciergeChat', JSON.stringify([{ role: 'user', content: 'hi' }])],
+      ['an unstamped journal entry', 'trip:gone:journal', JSON.stringify([{ date: '2026-12-10', text: 'day one' }])],
+      ['an unreadable journal', 'trip:gone:journal', '{not json'],
+      ['a rescued copy', 'trip:gone:localRescue', JSON.stringify({ journal: '{not json' })],
     ])('keeps trip:{id}:* and blobs when the device holds %s, still drops the entry (#843)', async (_n, key, value) => {
       await defaultBlobStore.putWithId('ph-gone-1', new Blob(['a']));
       window.localStorage.setItem(key, value);
@@ -387,6 +395,20 @@ describe('trip registry (S238)', () => {
       expect(window.localStorage.getItem('trip:gone:budget')).toBe('x');
       expect(window.localStorage.getItem(key)).toBe(value);
       expect(await defaultBlobStore.list()).toContain('ph-gone-1');
+    });
+
+    it('still wipes when the journal is all stamped and the device-only slots are empty (#983)', () => {
+      window.localStorage.setItem('trip:gone:journal', JSON.stringify([{ date: '2026-12-10', text: 'day one' }]));
+      window.localStorage.setItem('trip:gone:journalSync', JSON.stringify({ '2026-12-10': { hlc: 'h1' } }));
+      window.localStorage.setItem('trip:gone:favorites', '[]');
+      window.localStorage.setItem('trip:gone:dayAnchors', '{}');
+
+      upsertKnownTrip('gone', 'Going away');
+      joinTrip(DEFAULT_TRIP_ID);
+      importRemoteTrips([], [{ id: 'gone', removedAt: Date.now() + 60_000 }]);
+
+      expect(window.localStorage.getItem('trip:gone:journal')).toBeNull();
+      expect(window.localStorage.getItem('trip:gone:favorites')).toBeNull();
     });
 
     it('does NOT wipe an id the tombstone drops but the same merge re-adds (re-join beats a stale tombstone)', () => {

@@ -83,7 +83,7 @@ vi.mock('@/core/trips', async (importOriginal) => {
 });
 
 import { StoragePersistence } from '@/components/storage-persistence';
-import { installHintStore, backupPromptStore, identityStore, STORAGE_KEYS } from '@/core/storage/gateway';
+import { installHintStore, backupPromptStore, identityStore, tourStore, STORAGE_KEYS } from '@/core/storage/gateway';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -145,9 +145,10 @@ function stubStorageManager(opts: {
  * Seeds the identity slot the install hint now gates on (#352). `resolveToken` takes any
  * non-empty trimmed name, so the token alone is a signed-in traveler.
  */
-function signInTraveler(name = 'Alina') {
+function signInTraveler(name = 'Alina', tourSeen = true) {
   identityStore.setToken(name);
   identityStore.setName(name);
+  if (tourSeen) tourStore.markTourSeen();
 }
 
 /** Stubs matchMedia + navigator.standalone for the install-hint standalone check. */
@@ -318,6 +319,30 @@ describe('StoragePersistence — install-to-Home hint', () => {
     signedIn.unmount();
   });
 
+  // #961 — the tour dialog and this never-clearing toast landed together on first run.
+  it('holds the hint while the tour is unseen, then shows it once the tour finishes (#961)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    signInTraveler('Alina', false);
+    const r = render(createElement(StoragePersistence));
+    await r.settle();
+    expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(false);
+
+    window.dispatchEvent(new Event('trip:tour-done'));
+    expect(h.toastCalls.filter((c) => c.message.includes('Install this app')).length).toBe(1);
+    window.dispatchEvent(new Event('trip:tour-done'));
+    expect(h.toastCalls.filter((c) => c.message.includes('Install this app')).length).toBe(1);
+    r.unmount();
+  });
+
+  it('does not show a held hint after unmount (#961)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    signInTraveler('Alina', false);
+    const r = render(createElement(StoragePersistence));
+    r.unmount();
+    window.dispatchEvent(new Event('trip:tour-done'));
+    expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(false);
+  });
+
   it('does NOT show the hint when already standalone', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(true);
@@ -381,6 +406,16 @@ describe('StoragePersistence — install-to-Home hint', () => {
     expect(call?.options?.description).toContain('Share');
     r.unmount();
   });
+
+  it('body gives only the reason, not the title again (#961)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    signInTraveler();
+    const r = render(createElement(StoragePersistence));
+    await r.settle();
+    const call = h.toastCalls.find((c) => c.message.includes('Install this app'));
+    expect(String(call?.options?.description)).not.toContain('Install this app');
+    r.unmount();
+  });
 });
 
 // S279 — the REACTIVE write-failure toast, complementing the PROACTIVE near-quota toast above.
@@ -420,6 +455,20 @@ describe('StoragePersistence — reactive write-failure toast (S279)', () => {
     const toasts = h.toastCalls.filter((c) => c.message.includes("Couldn't save"));
     expect(toasts.length).toBe(3);
     expect(new Set(toasts.map((c) => c.options?.id))).toEqual(new Set(['quota-exceeded']));
+    r.unmount();
+  });
+
+  it('shows a reload toast, not the storage-full one, when trip:outbox-newer-version fires', async () => {
+    vi.resetModules();
+    const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    const r = render(createElement(Fresh));
+    await r.settle();
+    window.dispatchEvent(new CustomEvent('trip:outbox-newer-version'));
+    await r.settle();
+    const call = h.toastCalls.find((c) => c.options?.id === 'outbox-newer-version');
+    expect(call?.message).toContain('newer version');
+    expect(h.toastCalls.some((c) => c.options?.id === 'quota-exceeded')).toBe(false);
     r.unmount();
   });
 

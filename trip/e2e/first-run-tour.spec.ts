@@ -123,20 +123,20 @@ test.describe('S155 — first-run tour shows exactly once', () => {
     await expect(page.getByTestId('tour-dialog')).toHaveCount(0);
   });
 
-  test('Back is disabled on step 1 and enabled after advancing; steps its way back and forth', async ({
+  test('Back is absent on step 1 and shown after advancing; steps its way back and forth', async ({
     page,
   }) => {
     await gotoFreshHome(page);
     await expectTourVisible(page);
 
-    await expect(page.getByTestId('tour-back')).toBeDisabled();
+    await expect(page.getByTestId('tour-back')).toHaveCount(0);
     await page.getByTestId('tour-next').click();
     await expect(page.getByTestId('tour-progress')).toHaveText('Step 2 of 5');
     await expect(page.getByTestId('tour-back')).toBeEnabled();
 
     await page.getByTestId('tour-back').click();
     await expect(page.getByTestId('tour-progress')).toHaveText('Step 1 of 5');
-    await expect(page.getByTestId('tour-back')).toBeDisabled();
+    await expect(page.getByTestId('tour-back')).toHaveCount(0);
   });
 
 });
@@ -149,8 +149,8 @@ test.describe('S155 — first-run tour keyboard + a11y', () => {
     // Skip button is focused on open (the dialog's first control).
     await expect(page.getByTestId('tour-skip')).toBeFocused();
 
-    await page.keyboard.press('Tab'); // -> Back (disabled, skipped by native focus order)
-    // Back is disabled on step 1, so Tab should land on Next.
+    // No Back on step 1, so Tab lands on Next.
+    await page.keyboard.press('Tab');
     await expect(page.getByTestId('tour-next')).toBeFocused();
 
     await page.keyboard.press('Enter');

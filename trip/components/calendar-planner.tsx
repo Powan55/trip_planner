@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   Calendar, Plus, Trash2,
   MapPin, X, Check, ChevronLeft, ChevronRight, ChevronDown,
-  ExternalLink, Map as MapIcon, MoreHorizontal,
+  ExternalLink, Map as MapIcon, MoreHorizontal, Sunrise, Sunset,
 } from 'lucide-react';
 import { DndContext, closestCenter, DragOverlay, type CollisionDetection } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -49,7 +49,8 @@ import { buildMapsPlaceUrl } from '@/lib/maps-link';
 import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
-import { effectiveDurationMinutes, effectiveStartMinutes, offsetForCountry } from '@/core/dates';
+import { effectiveDurationMinutes, effectiveStartMinutes, formatTimeAmPm, offsetForCountry } from '@/core/dates';
+import { daySunTimes } from '@/lib/sun-times';
 import { unplannedGapsByItemId } from '@/lib/unplanned-gap';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
@@ -782,6 +783,8 @@ export default function CalendarPlanner() {
   );
   const [mapExpanded, setMapExpanded] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const dayHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const lastDeleteAtRef = useRef(0);
 
   // pin-pick. The editor asks for a coordinate; the MAP PANE (which lives out here,
   // not in the portal) collects it. While `pickingPin` the editor is visually hidden but
@@ -967,12 +970,28 @@ export default function CalendarPlanner() {
   };
 
   const handleDeleteItem = (item: ItineraryItem) => {
+    // A double tap's second hit lands on the row that reflowed under the first, so an id guard
+    // can't catch it. A short window covers pointer, swipe and Enter key-repeat alike.
+    const now = Date.now();
+    if (now - lastDeleteAtRef.current < 400) return;
+    lastDeleteAtRef.current = now;
     // Capture the full item in the closure BEFORE removing, so Undo can restore it.
     // removeItem is unchanged (tombstone under sync, physical under dormant); restoreItem
     // mirrors it (fresh-id under sync, same-id under dormant).
     const day = selectedDate;
+    const at = allItemIds.indexOf(item.id);
+    const neighbourId = allItemIds[at + 1] ?? allItemIds[at - 1];
     removeItem(day, item.id);
     showUndoToast(`Deleted “${item.title}”`, () => restoreItem(day, item));
+    // The focused Delete button just unmounted; hand focus to the next/previous row's Delete,
+    // else the day heading, instead of letting it fall to <body>.
+    requestAnimationFrame(() => {
+      const next = neighbourId
+        ? listRef.current?.querySelector<HTMLElement>(`[data-testid="calendar-item-delete-${neighbourId}"]`)
+        : null;
+      if (next) next.focus({ preventScroll: true });
+      else dayHeadingRef.current?.focus();
+    });
   };
 
   // clear-whole-day: capture the day's LIVE items BEFORE clearing (so Undo can restore the
@@ -1199,6 +1218,10 @@ export default function CalendarPlanner() {
   // clash badge and the unplanned rules all take it). Declared here because the phase grouping
   // is the first consumer — it used to sit further down, next to the clash badge alone.
   const dayOffsetMin = offsetForCountry(getCountryForDate(selectedDate));
+  const daySun = useMemo(
+    () => daySunTimes(selectedDate, currentPlan.city, currentPlan.country),
+    [selectedDate, currentPlan.city, currentPlan.country],
+  );
   // phase-of-day grouping, CHRONOLOGICAL (owner-instructed): timed items ascend by absolute
   // instant, untimed items form one trailing "Anytime" run. `isNewPhase` marks where the render
   // layer inserts a subtle phase header — which is the whole point of the sort, since a day
@@ -1336,7 +1359,7 @@ export default function CalendarPlanner() {
             overflowing fields were pointer-only (#365). `group`, not `region` — axe's
             aria-allowed-role rejects `region` on a <header>. Inset ring — full-bleed. */}
         <header
-          className="head static mb-3 -mx-4 sm:-mx-6 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          className="head static mb-3 -mx-4 sm:-mx-6 max-sm:hidden outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           tabIndex={0}
           role="group"
           aria-label="Day summary"
@@ -1368,11 +1391,6 @@ export default function CalendarPlanner() {
         {/* #920: heading is screen-reader only so the day workspace opens in the first screen;
             the trip-wide density overview sits below the planner in a disclosure. */}
         <h2 id="itinerary-heading" className="sr-only">Itinerary planner</h2>
-
-        {/* search-within-plan: read-only over titles/notes/categories across
-            every day. A cross-day pick jumps `selectedDate` and highlights the row via
-            `focusItem`. */}
-        <PlanSearch plans={plans} onSelect={handleSearchSelect} />
 
         {/* ── ROW 1: the sticky date strip (`<lg`) ────────────────────────────────
             Lifted out of the left grid cell to get here. `position:sticky` only sticks
@@ -1419,11 +1437,16 @@ export default function CalendarPlanner() {
             disclosure. The controls are declared ONCE and the SAME nodes are either laid
             out inline (`sm:`) or dropped into the panel — duplicating them per breakpoint
             would double every testid and break Playwright's strict mode. */}
+        {/* Search shares the toolbar's row below `sm` (the two buttons go icon-only) so the day
+            workspace clears the tab bar on a phone (#960). Read-only over titles/notes/categories
+            across every day; a cross-day pick jumps `selectedDate` and highlights the row. */}
+        <div className="flex items-start gap-2 max-sm:mb-3 sm:block">
+        <PlanSearch plans={plans} onSelect={handleSearchSelect} />
         <div
           role="group"
           aria-label="Plan tools"
           data-testid="calendar-toolbar"
-          className="relative mb-6 flex min-h-tap flex-wrap items-center justify-center gap-2"
+          className="relative flex min-h-tap shrink-0 items-center justify-center gap-2 sm:mb-6 sm:flex-wrap"
         >
           {/* split map/list toggle. OFF by default → the maplibre island stays
               interaction-lazy. On → the selected day's stops + polyline render on
@@ -1440,7 +1463,7 @@ export default function CalendarPlanner() {
             }`}
           >
             <MapIcon className="w-4 h-4" aria-hidden="true" />
-            {showMap ? 'Hide map' : 'Show map'}
+            <span className="max-sm:sr-only">{showMap ? 'Hide map' : 'Show map'}</span>
           </button>
 
           <button
@@ -1452,7 +1475,7 @@ export default function CalendarPlanner() {
             className="chip min-h-tap min-w-tap px-3 transition-colors hover:bg-white/5 hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:hidden"
           >
             <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
-            More
+            <span className="sr-only">More</span>
           </button>
 
           <div
@@ -1526,6 +1549,7 @@ export default function CalendarPlanner() {
             )}
           </div>
         </div>
+        </div>
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
           {/* Left: the day selector — extracted the mobile day-strip block + desktop
@@ -1549,10 +1573,10 @@ export default function CalendarPlanner() {
           {/* Right: Day Detail with DnD */}
           <div className="min-w-0 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] p-4 sm:p-6" data-leg={currentPlan.country} style={{ ['--now' as string]: dayShade(selectedDate).color }}>
             {/* Day Header */}
-            <div className="flex items-center justify-between gap-1 mb-5">
+            <div className="flex items-center justify-between gap-1 mb-3 sm:mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 hover:bg-white/5 text-ink-mid disabled:text-ink-lo disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
-                <h3 className="font-sans text-n-sm font-semibold text-ink-hi sm:text-n-md">{formatDateLong(selectedDate)}</h3>
+                <h3 ref={dayHeadingRef} tabIndex={-1} className="font-sans text-n-sm font-semibold text-ink-hi outline-none sm:text-n-md">{formatDateLong(selectedDate)}</h3>
                 <p className="pr pr--lo mt-0.5">
                   <span
                     aria-hidden="true"
@@ -1586,6 +1610,14 @@ export default function CalendarPlanner() {
                       className="chip"
                     >
                       From {firstStartInfo.label}
+                    </span>
+                  )}
+                  {daySun && (
+                    <span data-testid="calendar-day-sun" className="chip max-sm:[@media(max-height:699px)]:hidden">
+                      <Sunrise className="w-3 h-3" aria-hidden="true" />
+                      <span>Sunrise {formatTimeAmPm(daySun.sunriseMin)}</span>
+                      <Sunset className="w-3 h-3" aria-hidden="true" />
+                      <span>Sunset {formatTimeAmPm(daySun.sunsetMin)}</span>
                     </span>
                   )}
                   {/* cost overlay (read-only): this day's total logged spend, in the day's
@@ -1667,7 +1699,7 @@ export default function CalendarPlanner() {
                   here, deliberately) so no width can ever clip it mid-word. */}
               <p
                 data-testid="calendar-quick-add-hint"
-                className="mt-1 text-t-sm leading-snug text-ink-mid"
+                className="mt-1 text-t-sm leading-snug text-ink-mid max-sm:[@media(max-height:699px)]:hidden"
               >
                 Tip: start with a time — “7pm dinner”
               </p>
@@ -1849,6 +1881,7 @@ export default function CalendarPlanner() {
                                relative order of untimed items. */
                             dragDisabled={phase !== 'anytime'}
                             clashes={dayClashIds.has(item.id)}
+                            sunsetMin={daySun?.sunsetMin}
                             selectMode={selectMode}
                             selected={selectedIds.has(item.id)}
                             highlighted={item.id === highlightId || (showMap && markerId != null && markerId === highlightId)}

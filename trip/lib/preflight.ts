@@ -53,6 +53,8 @@ import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
 
 /** The service worker's content-hashed precache (`scripts/gen-sw.mjs`). */
 const PRECACHE_PREFIX = 'trip-precache-';
+/** The URL list the worker writes into its precache once install has filled it. */
+const PRECACHE_LIST_SUFFIX = '/__precache-urls.json';
 
 /**
  * The marker `gen-sw.mjs`'s own `isMaplibreChunk()` uses to find the map engine by CONTENT.
@@ -122,7 +124,7 @@ function formatBytes(bytes: number): string {
  * tiles come from `tiles.openfreemap.org`, which is cross-origin, and the SW's first fetch-handler
  * line passes cross-origin through untouched, so tiles are never cached. Offline PMTiles was
  * closed NO-GO (D-173 → D-197: 180 MB–3.7 GB against a 100 MB cap). The maplibre ENGINE is not
- * precached either (V6-14): it is RUNTIME-cached into the precache on the first ONLINE `/map`
+ * precached either (V6-14): it is RUNTIME-cached into `trip-runtime-*` on the first ONLINE `/map`
  * visit, and once it is there it buys pins and the route line on a navy canvas — no street
  * imagery. Say that and no more.
  *
@@ -145,8 +147,33 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
     };
   }
   try {
-    const precacheName = (await cacheStorage.keys()).find((n) => n.startsWith(PRECACHE_PREFIX));
-    if (!precacheName) {
+    // Search every cache of ours: the engine lives in trip-runtime-*, and a precache only counts
+    // when it holds every URL on the list its worker wrote at install (#945).
+    let shellComplete = false;
+    const entries: { res: Response; size: number }[] = [];
+    for (const name of await cacheStorage.keys()) {
+      if (!name.startsWith('trip-')) continue;
+      const cache = await cacheStorage.open(name);
+      const reqs = await cache.keys();
+      if (!shellComplete && name.startsWith(PRECACHE_PREFIX)) {
+        const listReq = reqs.find((r) => r.url.endsWith(PRECACHE_LIST_SUFFIX));
+        const list = listReq && (await cache.match(listReq));
+        if (list) {
+          const have = new Set(reqs.map((r) => new URL(r.url).pathname));
+          shellComplete = (JSON.parse(await list.text()) as string[]).every((u) => have.has(u));
+        }
+      }
+      for (const req of reqs) {
+        if (!req.url.endsWith('.js')) continue;
+        const res = await cache.match(req);
+        // KNOWN CEILING: `content-length` is only a HINT for ordering — an entry without one
+        // sorts last (size 0) and is STILL read, so a header-less cache costs speed, never
+        // correctness. Worst case is one text read per cached `.js` entry (~124 today, ~3 MB),
+        // paid once on mount of a screen the traveler opened deliberately.
+        if (res) entries.push({ res, size: Number(res.headers.get('content-length')) || 0 });
+      }
+    }
+    if (!shellComplete) {
       return {
         ...base,
         state: 'attention',
@@ -154,17 +181,6 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
         detail:
           "The offline copy of the app hasn't been stored on this device. Open the app once more while you still have a connection, then check again.",
       };
-    }
-    const cache = await cacheStorage.open(precacheName);
-    const entries: { res: Response; size: number }[] = [];
-    for (const req of await cache.keys()) {
-      if (!req.url.endsWith('.js')) continue;
-      const res = await cache.match(req);
-      // KNOWN CEILING: `content-length` is only a HINT for ordering — an entry without one
-      // sorts last (size 0) and is STILL read, so a header-less cache costs speed, never
-      // correctness. Worst case is one text read per cached `.js` entry (~124 today, ~3 MB),
-      // paid once on mount of a screen the traveler opened deliberately.
-      if (res) entries.push({ res, size: Number(res.headers.get('content-length')) || 0 });
     }
     entries.sort((a, b) => b.size - a.size);
     for (const { res } of entries) {

@@ -11,12 +11,9 @@ import AxeBuilder from '@axe-core/playwright';
  * (`api.frankfurter.dev`) and Open-Meteo (`api.open-meteo.com`) are both STUBBED with
  * `page.route(...)` — the live network is never touched (deterministic, sandbox-safe).
  *
- * SERVICE WORKERS BLOCKED (S213 gate triage): sw.js carries a stale-while-revalidate route for
- * api.frankfurter.dev (D-190). Once the SW installs fast enough to claim the page BEFORE the
- * Essentials island's fetch fires (warm server → fast precache install), the fetch is served
- * from inside the SW — invisible to page.route — and hits the REAL network, breaking the stub
- * deterministically on a quiet box. This spec's subject is the app-level fetch+cache logic, not
- * the SW, so SWs are blocked here; the SW's own behavior is covered by the pwa/tm-offline packs.
+ * SERVICE WORKERS BLOCKED: this spec's subject is the app-level fetch+cache logic, not the SW,
+ * so SWs are blocked to keep the page.route stubs deterministic; the SW's own behavior is
+ * covered by the pwa/tm-offline packs.
  */
 test.use({ serviceWorkers: 'block' });
 

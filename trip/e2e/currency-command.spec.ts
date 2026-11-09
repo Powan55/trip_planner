@@ -18,7 +18,7 @@ import AxeBuilder from '@axe-core/playwright';
  *   4. No console errors; axe is serious/critical-clean with the result visible.
  */
 
-// SW blocked - same D-190 frankfurter s-w-r stub-bypass race as travel-essentials.spec.ts (S213 triage).
+// SW blocked - the subject is the app-level fetch, same as travel-essentials.spec.ts.
 test.use({ serviceWorkers: 'block' });
 
 const FRANKFURTER_JPY_FIXTURE = { amount: 1, base: 'USD', date: '2026-07-15', rates: { JPY: 155.32 } };

@@ -59,7 +59,7 @@ describe('TravelSafetyKit — contact call labels (#710)', () => {
     expect(tagged.length).toBeGreaterThan(0);
     rows.forEach((a) => {
       const hasTag = !!a.querySelector('.hollow-tag');
-      expect(a.getAttribute('aria-label')!.endsWith(', unverified')).toBe(hasTag);
+      expect(a.getAttribute('aria-label')!.includes(', unverified,')).toBe(hasTag);
     });
     r.unmount();
   });

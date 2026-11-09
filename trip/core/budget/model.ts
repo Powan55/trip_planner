@@ -39,7 +39,10 @@ import type { ItineraryCategory } from '@/lib/trip-data';
 import { getActiveTrip } from '@/core/trips';
 
 // ── Types ───────────────────────────────────────────────────────────────────
-export type CurrencyCode = 'NPR' | 'JPY' | 'USD';
+/** Leg-local-only currencies. NEVER a `homeCurrency` (CURRENCIES stays USD/NPR/JPY), so an older
+ * build that cannot name these never reads one out of the home slot. */
+export type ExtraCurrency = 'EUR' | 'GBP' | 'INR' | 'AUD' | 'CAD' | 'THB';
+export type CurrencyCode = 'NPR' | 'JPY' | 'USD' | ExtraCurrency;
 // a leg id is a generic `string` (=== DayPlan.country). The DEFAULT pack's ids are still
 // exactly 'nepal' | 'japan'; a custom single-leg trip's id is 'main'. `LEGS` / `legCurrency` are
 // DERIVED from the active pack's legs (below) rather than hardcoded, so the same math serves any
@@ -66,13 +69,27 @@ export function isLeg(value: unknown): value is Leg {
   return typeof value === 'string' && LEGS.includes(value);
 }
 
-/** Each leg's fixed LOCAL currency, derived from the active pack. */
-const LEG_CURRENCY: Record<Leg, CurrencyCode> = Object.fromEntries(
-  getActiveTrip().legs.map((l) => [l.id, normalizeCurrency(l.currency)]),
-);
+/** The three HOME/display-currency choices, in a stable order for the toggle. */
+export type HomeCurrency = 'USD' | 'NPR' | 'JPY';
+export const CURRENCIES: readonly HomeCurrency[] = ['USD', 'NPR', 'JPY'] as const;
 
-/** All three display-currency choices, in a stable order for the toggle. */
-export const CURRENCIES: readonly CurrencyCode[] = ['USD', 'NPR', 'JPY'] as const;
+/** Every currency a trip LEG may use: the home three plus the extras. Leg pickers only. */
+export const LOCAL_CURRENCIES: readonly CurrencyCode[] = [
+  ...CURRENCIES,
+  'EUR', 'GBP', 'INR', 'AUD', 'CAD', 'THB',
+];
+
+/** The leg-only extras, each stored as an additive `rates.<CODE>` path. */
+export const EXTRA_CURRENCIES = LOCAL_CURRENCIES.slice(CURRENCIES.length) as readonly ExtraCurrency[];
+
+/** Currencies shown/entered with cents (USD-style); the rest are whole units. */
+const CENT_CURRENCIES: readonly CurrencyCode[] = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+export const hasCents = (cur: CurrencyCode): boolean => CENT_CURRENCIES.includes(cur);
+
+/** Each leg's fixed LOCAL currency, derived from the active pack. (After the lists it reads.) */
+const LEG_CURRENCY: Record<Leg, CurrencyCode> = Object.fromEntries(
+  getActiveTrip().legs.map((l) => [l.id, normalizeLegCurrency(l.currency)]),
+);
 
 /**
  * The 10 canonical itinerary categories — reused for per-category budgets, and the set
@@ -112,6 +129,9 @@ const _assertNoMissingBudgetCategories: _MissingFromBudgetCategories extends nev
   ? true
   : _MissingFromBudgetCategories = true;
 
+/** NPR/JPY always present; an extra only once set (absent ⇒ its seed). */
+export type Rates = { NPR: number; JPY: number } & Partial<Record<ExtraCurrency, number>>;
+
 /**
  * The persisted budget model (typed storage gateway key 10). `version` is a cheap internal
  * forward-compat marker for (NOT the Vault envelope version — the budget is its
@@ -122,7 +142,7 @@ export interface BudgetModel {
   /** Display/roll-up currency (default USD). Presentation-only — see the header note. */
   homeCurrency: CurrencyCode;
   /** Units of local currency per 1 USD (the fixed anchor). User-overridable; seeded defaults. */
-  rates: { NPR: number; JPY: number };
+  rates: Rates;
   /** Total budget per leg, in that leg's LOCAL currency (Nepal→NPR, Japan→JPY). */
   legBudgets: Record<Leg, number>;
   /** Optional per-category budgets per leg, in the leg's LOCAL currency. */
@@ -142,6 +162,12 @@ export interface BudgetModel {
  * default, and overridable — but a seed a traveller never touches is the number they budget
  * against, so it gets re-checked with the NPR reference rate rather than left to drift. */
 export const SEED_RATES: { NPR: number; JPY: number } = { NPR: 152.7, JPY: 159.2 };
+
+/** Approximate seeds for the leg-only extras (units per 1 USD, Frankfurter mid-rates 2026-11-06).
+ * Kept out of SEED_RATES so a default model's stored shape is unchanged. */
+export const SEED_EXTRA_RATES: Record<ExtraCurrency, number> = {
+  EUR: 0.9, GBP: 0.75, INR: 94, AUD: 1.46, CAD: 1.41, THB: 33.5,
+};
 
 /** The seeded default model a fresh visitor sees (no budgets set yet, USD display). `legBudgets`
  * is keyed by the ACTIVE pack's legs — `{ nepal: 0, japan: 0 }` for the default pack. */
@@ -188,7 +214,7 @@ export function parseAmountInput(raw: string, cur: CurrencyCode): number | null 
   if (raw.trim() === '') return null;
   const n = Number(raw);
   if (!Number.isFinite(n)) return null;
-  const r = cur === 'USD' ? Math.round(n * 100) / 100 : Math.round(n);
+  const r = hasCents(cur) ? Math.round(n * 100) / 100 : Math.round(n);
   return r > 0 && r <= MAX_AMOUNT ? r : null;
 }
 
@@ -206,7 +232,11 @@ export function safeRate(value: unknown, fallback: number): number {
 export function ratePerUsd(rates: BudgetModel['rates'], cur: CurrencyCode): number {
   if (cur === 'USD') return 1;
   if (cur === 'NPR') return safeRate(rates?.NPR, SEED_RATES.NPR);
-  return safeRate(rates?.JPY, SEED_RATES.JPY);
+  if (cur === 'JPY') return safeRate(rates?.JPY, SEED_RATES.JPY);
+  if (EXTRA_CURRENCIES.includes(cur as ExtraCurrency)) {
+    return safeRate(rates?.[cur as ExtraCurrency], SEED_EXTRA_RATES[cur as ExtraCurrency]);
+  }
+  return 1; // unknown code: no conversion (USD anchor). Never another currency's rate.
 }
 
 /**
@@ -363,13 +393,25 @@ export function normalizeCurrency(value: unknown): CurrencyCode {
   return value === 'NPR' || value === 'JPY' || value === 'USD' ? value : 'USD';
 }
 
-/** Coerce an unknown into a valid rates pair, seed-defaulting each side. */
-export function normalizeRates(value: unknown): { NPR: number; JPY: number } {
-  const v = (value ?? {}) as Partial<{ NPR: unknown; JPY: unknown }>;
-  return {
+/** Like `normalizeCurrency` but for a LEG's currency: also accepts the extras. Home stays strict. */
+export function normalizeLegCurrency(value: unknown): CurrencyCode {
+  return typeof value === 'string' && LOCAL_CURRENCIES.includes(value as CurrencyCode)
+    ? (value as CurrencyCode)
+    : 'USD';
+}
+
+/** Coerce an unknown into valid rates: NPR/JPY seed-defaulted; an extra kept only if valid. */
+export function normalizeRates(value: unknown): Rates {
+  const v = (value ?? {}) as Record<string, unknown>;
+  const out: Rates = {
     NPR: safeRate(v.NPR, SEED_RATES.NPR),
     JPY: safeRate(v.JPY, SEED_RATES.JPY),
   };
+  for (const c of EXTRA_CURRENCIES) {
+    const r = safeRate(v[c], 0);
+    if (r > 0) out[c] = r;
+  }
+  return out;
 }
 
 /**
@@ -455,7 +497,9 @@ export function normalizeModel(value: unknown): BudgetModel {
 }
 
 // ── Formatting (pure; the panel's single source for currency display) ─────────
-const CURRENCY_SYMBOL: Record<CurrencyCode, string> = { USD: '$', NPR: 'Rs', JPY: '¥' };
+const CURRENCY_SYMBOL: Record<CurrencyCode, string> = {
+  USD: '$', NPR: 'Rs', JPY: '¥', EUR: '€', GBP: '£', INR: '₹', AUD: 'A$', CAD: 'C$', THB: '฿',
+};
 
 /** Currency symbol/prefix for a code (`$`, `Rs`, `¥`). */
 export function currencySymbol(cur: CurrencyCode): string {
@@ -472,7 +516,7 @@ export function formatMoney(amount: unknown, cur: CurrencyCode): string {
   const raw = safeAmount(amount);
   const whole = Math.round(raw * 100) % 100 === 0;
   const usdDigits = whole ? 0 : 2;
-  const maxDigits = cur === 'USD' ? usdDigits : 0;
+  const maxDigits = hasCents(cur) ? usdDigits : 0;
   const n = maxDigits === 0 ? Math.round(raw) : raw;
   const grouped = n.toLocaleString('en-US', { minimumFractionDigits: maxDigits, maximumFractionDigits: maxDigits });
   const sym = currencySymbol(cur);

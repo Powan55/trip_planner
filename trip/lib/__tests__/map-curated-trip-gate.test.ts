@@ -81,15 +81,17 @@ describe('/map/ curated pins are gated to the default trip (CONTENT-1)', () => {
     r.unmount();
   });
 
-  it('still draws all 156 curated pins on the default Nepal x Japan trip', async () => {
+  it('still draws all 172 curated pins on the default Nepal x Japan trip', async () => {
     setActiveTripId(DEFAULT_TRIP_ID);
     const r = render(createElement(MapSection));
     await r.settle();
     expect(visibleCount(r.container)).toBe(String(MAP_MARKERS.length));
     // 74 until np-newa-lahana was folded back into np-newa-kitchen — one restaurant had been
     // entered twice, 293 m apart, because the dedupe list named it by marker id not by name.
-    // 73 until the Japan rebuild took that leg from 14 markers to 97; Nepal is still 59.
-    expect(MAP_MARKERS.length).toBe(156);
+    // 73 until the Japan rebuild took that leg from 14 markers to 97; Nepal was 59.
+    // 169 after three Thamel venues, teamLab Borderless and Kushikatsu at Daruma were added.
+    // 172 after Club Deja Vu, Mazaaj Hookah Lounge and Club Fahrenheit.
+    expect(MAP_MARKERS.length).toBe(172);
     r.unmount();
   });
 

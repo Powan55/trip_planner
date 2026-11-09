@@ -10,7 +10,7 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
 import { realClock } from '@/lib/trip-now';
 import { stampBudgetChanges } from '@/core/budget/flatten';
-import { CURRENCIES, SEED_RATES, type BudgetModel, type CurrencyCode } from '@/core/budget/model';
+import { CURRENCIES, SEED_RATES, type BudgetModel, type HomeCurrency } from '@/core/budget/model';
 import { accountCode, getCachedPrefs, hasAccount } from '@/lib/account-prefs';
 
 /**
@@ -52,7 +52,7 @@ export interface BudgetStore {
    * Pick the display currency. With an account it is a per-person pref (D-599) and the shared
    * budget is not written; without one it stays in the budget model on this device, as before.
    */
-  setHomeCurrency(home: CurrencyCode): void;
+  setHomeCurrency(home: HomeCurrency): void;
   /**
    * Reset the whole budget to the seeded default. DORMANT: a plain local seed write
    * (commit passthrough, byte-identical). SYNC ON: commit stamps the CHANGED leaf paths with a fresh
@@ -114,9 +114,9 @@ function subscribeHome(cb: () => void): () => void {
   };
 }
 
-function personalHome(): CurrencyCode | null {
+function personalHome(): HomeCurrency | null {
   const v = getCachedPrefs().homeCurrency;
-  return CURRENCIES.includes(v as CurrencyCode) ? (v as CurrencyCode) : null;
+  return CURRENCIES.includes(v as HomeCurrency) ? (v as HomeCurrency) : null;
 }
 
 export function useBudget(): BudgetStore {
@@ -168,7 +168,7 @@ export function useBudget(): BudgetStore {
     [commitShared],
   );
 
-  const setHomeCurrency = useCallback((home: CurrencyCode) => {
+  const setHomeCurrency = useCallback((home: HomeCurrency) => {
     if (!hasAccount()) {
       commitShared((cur) => ({ ...cur, homeCurrency: home }), false);
       return;

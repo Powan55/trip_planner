@@ -41,7 +41,7 @@
  */
 
 import { TRIP_ITINERARY } from '../content/itinerary';
-import { getActiveTrip, isDefaultTrip, legForDate } from '@/core/trips';
+import { cityForDate, getActiveTrip, isDefaultTrip } from '@/core/trips';
 
 // Both captured at MODULE LOAD — correct by design: a trip switch is a pointer write + full page
 // reload, so a fresh module graph re-captures the new active trip. (Mirrors the
@@ -89,5 +89,7 @@ export function getCityForDate(dateStr: string): string {
       : undefined;
     if (mapped !== undefined) return mapped;
   }
-  return legForDate(activeTrip, dateStr).fallbackCity;
+  // Custom trip: its stop for the date (#1052), else the leg's fallbackCity. The default pack has
+  // no stops, so its unmapped-date fallback is unchanged.
+  return cityForDate(activeTrip, dateStr);
 }

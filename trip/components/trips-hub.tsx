@@ -19,6 +19,7 @@ import {
   type TripConfigBlock,
 } from '@/core/trips/registry';
 import { VIBES, DEFAULT_VIBE } from '@/core/trips/custom';
+import { LOCAL_CURRENCIES, type CurrencyCode } from '@/core/budget/model';
 import { formatDateLong } from '@/core/dates/trip-dates';
 import {
   getActiveTripId,
@@ -139,6 +140,7 @@ export default function TripsHub() {
   const [createEnd, setCreateEnd] = useState('');
   const [createDestinations, setCreateDestinations] = useState('');
   const [createVibe, setCreateVibe] = useState('');
+  const [createCurrency, setCreateCurrency] = useState<CurrencyCode>('USD');
   /** The one create-form validation message, or null. A string (not a boolean) because the form now
    * reports three distinct refusals and a shared `role="alert"` beats three of them. */
   const [createError, setCreateError] = useState<string | null>(null);
@@ -317,7 +319,7 @@ export default function TripsHub() {
       .map((d) => d.trim())
       .filter((d) => d.length > 0);
     if (destinations.length === 0) {
-      setCreateError('Add at least one destination — it names the place each day is spent in.');
+      setCreateError('Add at least one destination.');
       return;
     }
     setCreateError(null);
@@ -328,8 +330,19 @@ export default function TripsHub() {
       end,
       destinations,
       vibe,
+      currency: createCurrency,
       updatedAt: 0, // setTripConfig stamps its own updatedAt
     };
+    if (destinations.length > 1) {
+      // #1052 — split the span evenly: destination i begins on day floor(i * days / count).
+      const days = spanDays(start, end);
+      // More cities than days: only the first `days` get a day, so no two share a date.
+      const cities = destinations.slice(0, days);
+      config.stops = cities.map((city, i) => ({
+        date: addDaysIso(start, Math.floor((i * days) / cities.length)),
+        city,
+      }));
+    }
     markTripCreatedHere(id);
     // D-546 — same result check as join()/switchTo(): a minted uuid should always land, but
     // if it doesn't, surface the create error instead of pushing config for a trip nothing switched to.
@@ -690,8 +703,31 @@ export default function TripsHub() {
                 placeholder="e.g. Kochi, Munnar, Alleppey"
                 required
                 autoComplete="off"
+                aria-describedby="trips-hub-create-destinations-hint"
                 className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
+              <p id="trips-hub-create-destinations-hint" className="text-t-sm text-ink-lo">
+                With several destinations, the trip dates are split evenly across them, in order.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="trips-hub-create-currency" className="pr pr--lo">
+                Local currency
+              </label>
+              <select
+                id="trips-hub-create-currency"
+                data-testid="trips-hub-create-currency"
+                value={createCurrency}
+                onChange={(e) => setCreateCurrency(e.target.value as CurrencyCode)}
+                className="min-h-tap min-w-0 self-start rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                {LOCAL_CURRENCIES.map((cur) => (
+                  <option key={cur} value={cur} className="bg-surface text-ink-hi">
+                    {cur}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <fieldset className="flex flex-col gap-2">

@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { TRIP_DATE_LABEL, formatDateLong, getCountryForDate } from '@/core/dates';
+import { TRIP_DATE_LABEL, TRIP_DATES_PENDING, formatDateLong, getCountryForDate } from '@/core/dates';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import { resolveTravelDate } from '@/lib/travel-date';
@@ -25,6 +25,7 @@ import TravelDayStrip from '@/components/travel-day-strip';
 import TravelHeroCard from '@/components/travel-hero-card';
 import TravelAgendaCard from '@/components/travel-agenda-card';
 import TravelSyncLine from '@/components/travel-sync-line';
+import TonightsStay from '@/components/tonights-stay';
 import TravelLogDifferent from '@/components/travel-log-different';
 import TravelExpenseQuickAdd from '@/components/travel-expense-quickadd';
 
@@ -149,7 +150,9 @@ export default function TravelDatePicker() {
           </h2>
         </div>
         <p className="empty px-gut py-3">
-          The trip runs {TRIP_DATE_LABEL}. Nothing is filed outside it.
+          {TRIP_DATES_PENDING
+            ? `${TRIP_DATE_LABEL}.`
+            : `The trip runs ${TRIP_DATE_LABEL}. Nothing is filed outside it.`}
         </p>
         <div className="px-gut pb-3">
           <button
@@ -221,6 +224,10 @@ export default function TravelDatePicker() {
       {/* the hero shrank to a ONE-LINE now/next strip so the checklist below is the primary
           surface. Its off-trip fallback still renders above (resolution.date === null branch). */}
       <TravelHeroCard date={selectedDate} />
+
+      {todayInTrip && !resolution.isPreview && (
+        <TonightsStay date={todayInTrip.date} className="mx-auto mt-4 max-w-2xl" />
+      )}
 
       {/* CHECKLIST-FIRST — the day's plan is
           now the primary thing on screen. */}

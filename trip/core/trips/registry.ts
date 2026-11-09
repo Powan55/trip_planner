@@ -23,8 +23,10 @@ import {
   wipeTripData,
   keyForTrip,
   readJson,
+  readString,
   isSafeTripSegment,
   STORAGE_KEYS,
+  type TripScopedSlot,
 } from '@/core/storage/gateway';
 import { outboxDirty, type SyncDomain } from '@/core/sync/outbox';
 import { sanitizePhotos } from '@/core/photos/model';
@@ -54,6 +56,13 @@ export type TripConfigBlock = {
    * `lib/city-coords.ts`'s shared table.
    */
   cityCoords?: Record<string, CityCoord>;
+  /**
+   * #1052 — per-day city for a multi-destination trip: from `date` onward the city is `city`
+   * (verbatim one of `destinations`) until the next stop. Before the first stop, `destinations[0]`
+   * applies. ADDITIVE + OPTIONAL — absent on every config that predates it, and an old client just
+   * ignores it (every day is `destinations[0]`).
+   */
+  stops?: { date: string; city: string }[];
   updatedAt: number;
 };
 
@@ -141,7 +150,32 @@ export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
   if (typeof c.currency === 'string' && c.currency.trim().length > 0) out.currency = c.currency.trim();
   const cityCoords = sanitizeCityCoords(c.cityCoords);
   if (cityCoords) out.cityCoords = cityCoords;
+  const stops = sanitizeStops(c.stops, destinations);
+  if (stops) out.stops = stops;
   return out;
+}
+
+const STOPS_MAX = 50;
+
+/** Validate raw `stops`: keep only entries with a real ISO day and a city that is verbatim in
+ *  `destinations`; sort by date, one per date (first wins), cap at STOPS_MAX. `undefined` when
+ *  nothing survives. TOTAL, never throws. */
+function sanitizeStops(raw: unknown, destinations: string[]): TripConfigBlock['stops'] {
+  if (!Array.isArray(raw)) return undefined;
+  const seen = new Set<string>();
+  const out: { date: string; city: string }[] = [];
+  for (const s of raw) {
+    if (s === null || typeof s !== 'object') continue;
+    const { date, city } = s as Record<string, unknown>;
+    if (typeof date !== 'string' || !ISO_DATE.test(date) || Number.isNaN(isoDayMs(date))) continue;
+    // `__proto__` guard as in `sanitizeCityCoords`; `includes` already rejects it as a city, kept explicit.
+    if (typeof city !== 'string' || city === '__proto__' || !destinations.includes(city)) continue;
+    if (seen.has(date)) continue;
+    seen.add(date);
+    out.push({ date, city });
+  }
+  out.sort((a, b) => (a.date < b.date ? -1 : 1));
+  return out.length > 0 ? out.slice(0, STOPS_MAX) : undefined;
 }
 
 /** Validate a raw `cityCoords` map: drop any entry whose key is empty or whose coordinate isn't a
@@ -583,6 +617,49 @@ export function localPhotoCountFor(id: string): number {
   return sanitizePhotos(readJson<unknown>('local', keyForTrip(id, 'photos'), null)).length;
 }
 
+const DEVICE_ONLY_SLOTS = [
+  'packing',
+  'shareInbox',
+  'favorites',
+  'dayAnchors',
+  'conciergeChat',
+  'journalDraft',
+  'itineraryCorrupt',
+  'expensesCorrupt',
+  'localRescue',
+  'ice',
+] as const satisfies readonly TripScopedSlot[];
+
+function holdsContent(raw: string | null): boolean {
+  if (raw === null) return false;
+  try {
+    const v: unknown = JSON.parse(raw);
+    return typeof v !== 'object' || v === null || Object.keys(v).length > 0;
+  } catch {
+    return true;
+  }
+}
+
+/** Data for a trip that only this device has: no remote copy could restore it (#983). Journal
+ * entries count until a sync stamp says the account holds them. */
+export function hasDeviceOnlyData(id: string): boolean {
+  if (DEVICE_ONLY_SLOTS.some((slot) => holdsContent(readString('local', keyForTrip(id, slot))))) return true;
+  const raw = readString('local', keyForTrip(id, 'journal'));
+  if (raw === null) return false;
+  let entries: unknown;
+  try {
+    entries = JSON.parse(raw);
+  } catch {
+    return true;
+  }
+  if (!Array.isArray(entries)) return holdsContent(raw);
+  const stamps = readJson<Record<string, unknown>>('local', keyForTrip(id, 'journalSync'), {});
+  return entries.some((e) => {
+    const date = (e as { date?: unknown } | null)?.date;
+    return typeof date !== 'string' || !stamps[date];
+  });
+}
+
 /** Person prefs not yet on the account (#672); the wipe deletes key 48 with them. */
 export function personPrefsDirty(): number {
   const prefs = readJson<unknown>('local', STORAGE_KEYS.personPrefs, null);
@@ -766,8 +843,8 @@ export function importRemoteTrips(
   const mergedIds = new Set(merged.map((t) => t.id));
   for (const t of stored) {
     if (t.id === DEFAULT_TRIP_ID || mergedIds.has(t.id)) continue;
-    // Unsynced edits and device-only photos survive another device's forget (#843).
-    if (unsyncedEditCountFor(t.id) > 0 || localPhotoCountFor(t.id) > 0) continue;
+    // Unsynced edits, photos and other device-only data survive another device's forget (#843, #983).
+    if (unsyncedEditCountFor(t.id) > 0 || localPhotoCountFor(t.id) > 0 || hasDeviceOnlyData(t.id)) continue;
     wipeForgottenTripData(t.id);
   }
   return { localHadExtras };
