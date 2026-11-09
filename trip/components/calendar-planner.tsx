@@ -506,7 +506,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           </div>
           <div>
             <span id={categoryLabelId} className="pr pr--lo mb-1 block">Category</span>
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
               {ALL_CATEGORIES.map((cat) => {
                 const colors = CATEGORY_COLORS[cat];
                 const isActive = category === cat;
@@ -518,12 +518,12 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                     aria-pressed={isActive}
                     aria-label={`Category: ${cat}`}
                     data-testid={`calendar-editor-category-${cat}`}
-                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-0.5 py-2 rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive ? `${colors.text} border-current bg-white/5` : 'border-transparent text-ink-lo hover:bg-white/5 hover:text-ink-hi'
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
-                    <span className="pr pr--lo capitalize leading-tight text-center break-words w-full text-current">{cat}</span>
+                    <span className="pr pr--lo capitalize tracking-normal leading-tight text-center break-words w-full text-current">{cat}</span>
                   </button>
                 );
               })}
