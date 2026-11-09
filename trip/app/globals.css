@@ -2173,7 +2173,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   right: 0;
   bottom: 0;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 0.75rem;
   padding: 0.5rem max(1rem, env(safe-area-inset-right)) calc(0.5rem + env(safe-area-inset-bottom))
     max(1rem, env(safe-area-inset-left));
@@ -2185,11 +2185,11 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
    the fixed band never sits on top of the last card. Inert while the band is empty (every dormant
    build today), so the collapsed-band layout above is unchanged. */
 .travel-mode-root:has(> .tm-thumb-zone > *) {
-  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(max(4rem, var(--tap) + 1rem) + env(safe-area-inset-bottom));
 }
 .tm-thumb-zone > * {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--tap);
+  min-height: var(--tap);
 }
 
 /* iOS Safari auto-zooms the page when a focused form control's font-size < 16px. App-wide
@@ -2440,6 +2440,25 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      fields survive on a 390px phone. */
   @media (max-width: 439px) {
     .head .f--drop { display: none; }
+  }
+  /* Outdoor's 18px root widens the mono fields past a 360px phone and the last one clips, so
+     the strip wraps into two columns instead of scrolling. */
+  @media (max-width: 399px) {
+    html[data-tm-legibility='high'] .head {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow-x: visible;
+    }
+    html[data-tm-legibility='high'] .head .f {
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      border-bottom: var(--hair) solid hsl(var(--border));
+    }
+    html[data-tm-legibility='high'] .head .f:nth-child(even) { border-right: 0; }
+    html[data-tm-legibility='high'] .head .f:last-child,
+    html[data-tm-legibility='high'] .head .f:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+    html[data-tm-legibility='high'] .head .f:last-child:nth-child(odd) { grid-column: 1 / -1; }
   }
 
   /* ---- 9.2 · .plate — the photographic plate ---- */
