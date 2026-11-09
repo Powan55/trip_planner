@@ -136,6 +136,26 @@ export default function SettingsPanel() {
    */
   const identified = mounted && traveler !== null;
 
+  // The sync pill links to #trip-access; the group is a closed <details> inside a lazy island, so
+  // the browser's own anchor jump finds nothing. Open it and scroll on mount and on later hash
+  // changes (the pill is also on this page). popstate covers history pushState navigations.
+  useEffect(() => {
+    const openFromHash = () => {
+      if (window.location.hash !== '#trip-access') return;
+      const el = document.getElementById('trip-access') as HTMLDetailsElement | null;
+      if (!el) return;
+      el.open = true;
+      el.scrollIntoView();
+    };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    window.addEventListener('popstate', openFromHash);
+    return () => {
+      window.removeEventListener('hashchange', openFromHash);
+      window.removeEventListener('popstate', openFromHash);
+    };
+  }, []);
+
   return (
     <section
       aria-labelledby="settings-title"
@@ -169,6 +189,7 @@ export default function SettingsPanel() {
             cannot desynchronise hydration. */}
         {isRemoteConfigured() && (
           <SettingsGroup
+            id="trip-access"
             testId="settings-group-access"
             icon={<Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
             title="Trip access"
@@ -202,6 +223,7 @@ export default function SettingsPanel() {
 
 /** A collapsible settings group — native `<details>` for keyboard + a11y with zero JS state. */
 function SettingsGroup({
+  id,
   testId,
   icon,
   title,
@@ -209,6 +231,7 @@ function SettingsGroup({
   defaultOpen,
   children,
 }: {
+  id?: string;
   testId: string;
   icon: React.ReactNode;
   title: string;
@@ -218,6 +241,7 @@ function SettingsGroup({
 }) {
   return (
     <details
+      id={id}
       open={defaultOpen}
       data-testid={testId}
       className="group overflow-hidden border-y-2 border-border bg-surface-low"
