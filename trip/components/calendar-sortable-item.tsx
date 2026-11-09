@@ -181,7 +181,7 @@ export function SortableItem({ item, date, clashes, sunsetMin, selectMode, selec
       >
         <div className="flex items-center gap-2 mb-1">
           <span className={colors.text} aria-hidden="true">{CATEGORY_ICON_MAP[item.category]}</span>
-          <span className={`truncate text-t-body ${timeInfo ? 'font-semibold text-ink-hi' : 'font-medium text-ink-lo'}`}>{item.title}</span>
+          <span title={item.title} className={`line-clamp-2 break-words text-t-body ${timeInfo ? 'font-semibold text-ink-hi' : 'font-medium text-ink-lo'}`}>{item.title}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2 font-machine text-t-sm text-ink-mid" data-testid={`calendar-item-time-${item.id}`}>
           {timeInfo && (
@@ -257,9 +257,10 @@ export function SortableItem({ item, date, clashes, sunsetMin, selectMode, selec
           <MapPin className="w-3.5 h-3.5" />
         </button>
       )}
-      {/* `group-focus-within` mirrors `group-hover`: at >=640px these are hover-revealed,
-          so without it keyboard focus lands on three fully transparent buttons (B-3). */}
-      <div className="ml-auto flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
+      {/* Hidden only where a mouse can hover to reveal them (touch tablets and landscape phones
+          stay visible). `group-focus-within` mirrors `group-hover` so keyboard focus never lands
+          on transparent buttons (B-3). */}
+      <div className="ml-auto flex shrink-0 gap-1 transition-opacity motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within:opacity-100">
         <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
         <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
         <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-[hsl(var(--destructive)/0.08)] text-ink-mid hover:text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
