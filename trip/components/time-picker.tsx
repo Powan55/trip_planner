@@ -369,7 +369,8 @@ export function DurationField({
       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
+        // Inside a form, blurring first would drop the field's implicit submit; commit and let it go.
+        if (e.key === 'Enter') (e.currentTarget.form ? commit() : e.currentTarget.blur());
       }}
       title={`Whole minutes, up to ${MAX_DURATION_MINUTES}`}
       data-testid={testId ?? 'duration-field-input'}
