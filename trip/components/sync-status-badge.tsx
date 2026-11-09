@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { m } from 'framer-motion';
 import { AlertTriangle, Check, CloudOff, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
@@ -8,6 +8,18 @@ import { usePresence } from '@/hooks/use-presence';
 import { useBackOnline, useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { isRemoteConfigured } from '@/lib/firebase-config';
+import { withBasePath } from '@/lib/base-path';
+
+// A plain anchor, not next/link: Link's pushState fires no hashchange, and the Settings page
+// needs one to open its Trip access group when the pill is tapped while already on /settings.
+function TripAccessLink(props: {
+  className: string;
+  children: ReactNode;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
+}) {
+  return <a href={withBasePath('/settings/#trip-access')} {...props} />;
+}
 
 /**
  * App-wide sync-status affordance — a passive, live "pending N / synced Xm ago" pill over
@@ -46,7 +58,8 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
  * every joiner on a different trip. With at least one other traveller present it now says so
  * ("Synced · 2 here"); alone it says "Saved", which is the honest weaker claim — uploaded, read by
  * nobody yet. Alone is the NORMAL state of a solo trip, so it keeps the neutral check mark and the
- * plain tone; the explanation lives in the sr-only sentence rather than in a warning.
+ * plain tone; the explanation lives in the sr-only sentence rather than in a warning. The failure
+ * states (blocked, dead) also print a short visible hint (#1076), and blocked links to Settings.
  *
  * THREE STATES, not two (#267, widened by #271). "pending" tells a traveler their edits will land
  * on their own; for a change (or a read) the security rules REFUSED that is false and no amount of
@@ -79,6 +92,7 @@ export function SyncStatusBadge() {
   // overlaps this right-anchored one — which is exactly when both are showing (offline with
   // unsynced edits). Drop a row while it is up (#129).
   const online = useOnline();
+  const summaryId = useId();
   const backOnline = useBackOnline();
 
   // #753: journal and prefs otherwise only retry while their own view is mounted. One-shot pushes,
@@ -145,6 +159,12 @@ export function SyncStatusBadge() {
         : audience > 0
           ? `Synced · ${audience} here`
           : `Saved ${relative ?? 'recently'}`;
+  const hint = isBlocked
+    ? 'Ask a member to add this device.'
+    : isDead
+      ? 'Check your connection.'
+      : null;
+  const Box = isBlocked ? TripAccessLink : 'div';
   const localOnlySummary =
     'Your plan is saved on this device only. It moves onto the shared trip once you sign in and agree to replace it, and nothing you change here reaches anyone else until then.';
   const summary = signInRequired
@@ -192,12 +212,13 @@ export function SyncStatusBadge() {
             {/* Printed stock, not glass. The FILL grammar carries the state: a struck
                 (solid) rule when synced, a hollow dashed one when the sync has not
                 landed. The word always says which — colour is never the only carrier. */}
-            <div
+            <Box
+              {...(isBlocked ? { 'aria-label': `${label}, open Trip access`, 'aria-describedby': summaryId } : {})}
               className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
                 signInRequired || isBlocked || isDead || isPending || isLocalOnly
                   ? 'border-dashed border-[color:var(--text-lo)]'
                   : 'border-[hsl(var(--border))]'
-              } ${tone}`}
+              } ${isBlocked ? 'min-h-tap outline-none focus-visible:ring-2 focus-visible:ring-ring' : ''} ${tone}`}
             >
               {signInRequired ? (
                 <CloudOff className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -210,11 +231,18 @@ export function SyncStatusBadge() {
               ) : (
                 <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
               )}
-              <span data-testid="sync-status-text" className={`pr ${tone}`}>
-                {label}
+              <span className="flex flex-col">
+                <span data-testid="sync-status-text" className={`pr ${tone}`}>
+                  {label}
+                </span>
+                {hint && (
+                  <span data-testid="sync-status-hint" aria-hidden="true" className="text-t-micro text-ink-mid">
+                    {hint}
+                  </span>
+                )}
               </span>
-              <span className="sr-only">{summary}</span>
-            </div>
+              <span id={summaryId} className="sr-only">{summary}</span>
+            </Box>
           </m.div>
         )}
       </div>
