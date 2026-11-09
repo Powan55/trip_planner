@@ -8,7 +8,7 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { m, AnimatePresence, useDragControls } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 import { overlayPanelMotion } from '@/lib/motion';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
@@ -93,7 +93,38 @@ export default function Sheet({
 
   // Swipe-down-to-dismiss: only the bottom-sheet form (side 'right' below the sm breakpoint).
   // The drag starts from a grab handle only, so the scrolling body keeps its own gestures.
-  const dragControls = useDragControls();
+  // Hand-rolled on pointer events because framer's `drag` ships only in `domMax`, and the app
+  // loads `domAnimation`. The offset goes on CSS `translate`, which framer's `transform` leaves alone.
+  const drag = useRef<{ id: number; y0: number; y: number; t: number; v: number } | null>(null);
+  const setDragY = (dy: number, transition: string) => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    panel.style.transition = transition;
+    panel.style.translate = dy ? `0 ${dy}px` : '';
+  };
+  const onHandleDown = (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    drag.current = { id: e.pointerId, y0: e.clientY, y: e.clientY, t: e.timeStamp, v: 0 };
+    setDragY(0, 'none');
+  };
+  const onHandleMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    const dt = e.timeStamp - d.t;
+    if (dt > 0) d.v = (e.clientY - d.y) / dt;
+    d.y = e.clientY;
+    d.t = e.timeStamp;
+    setDragY(Math.max(0, e.clientY - d.y0), 'none');
+  };
+  const onHandleUp = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    const dy = e.clientY - d.y0;
+    const v = e.timeStamp - d.t < 100 ? d.v : 0;
+    if (e.type === 'pointerup' && (dy > 100 || (dy > 0 && v > 0.5))) onCloseRef.current();
+    else setDragY(0, 'translate 240ms cubic-bezier(.2,.7,.3,1)');
+  };
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
@@ -104,6 +135,13 @@ export default function Sheet({
     return () => mq.removeEventListener?.('change', sync);
   }, []);
   const swipeable = side === 'right' && isMobile;
+  // Not on close: a swipe-dismissed panel exits from where the finger left it.
+  useEffect(() => {
+    if (!open) return;
+    drag.current = null;
+    const panel = panelRef.current;
+    if (panel) panel.style.translate = panel.style.transition = '';
+  }, [open, swipeable]);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -208,29 +246,17 @@ export default function Sheet({
             onKeyDown={handleKeyDown}
             {...panelMotion}
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            {...(swipeable
-              ? {
-                  drag: 'y' as const,
-                  dragControls,
-                  dragListener: false,
-                  dragConstraints: { top: 0, bottom: 0 },
-                  dragElastic: { top: 0, bottom: 0.6 },
-                  onDragEnd: (
-                    _e: unknown,
-                    info: { offset: { y: number }; velocity: { y: number } },
-                  ) => {
-                    if (info.offset.y > 100 || info.velocity.y > 500) onCloseRef.current();
-                  },
-                }
-              : {})}
             className={`sheet-surface flex flex-col overflow-hidden ${className}`}
           >
             {swipeable && (
               <div
                 data-testid="sheet-grab-handle"
                 aria-hidden="true"
-                onPointerDown={(e) => dragControls.start(e)}
-                className="flex shrink-0 cursor-grab touch-none items-center justify-center py-2"
+                onPointerDown={onHandleDown}
+                onPointerMove={onHandleMove}
+                onPointerUp={onHandleUp}
+                onPointerCancel={onHandleUp}
+                className="flex shrink-0 cursor-grab touch-none select-none items-center justify-center py-2"
               >
                 <span className="h-1 w-10 rounded-full bg-white/30" />
               </div>

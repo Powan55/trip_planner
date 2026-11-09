@@ -20,7 +20,6 @@ vi.mock('framer-motion', async () => {
       return children;
     },
     useReducedMotion: () => false,
-    useDragControls: () => ({ start: vi.fn() }),
   };
 });
 
