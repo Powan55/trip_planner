@@ -2441,25 +2441,9 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   @media (max-width: 439px) {
     .head .f--drop { display: none; }
   }
-  /* Outdoor's 18px root widens the mono fields past a 360px phone and the last one clips, so
-     the strip wraps into two columns instead of scrolling. */
-  @media (max-width: 399px) {
-    html[data-tm-legibility='high'] .head {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      overflow-x: visible;
-    }
-    html[data-tm-legibility='high'] .head .f {
-      min-width: 0;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      border-bottom: var(--hair) solid hsl(var(--border));
-    }
-    html[data-tm-legibility='high'] .head .f:nth-child(even) { border-right: 0; }
-    html[data-tm-legibility='high'] .head .f:last-child,
-    html[data-tm-legibility='high'] .head .f:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
-    html[data-tm-legibility='high'] .head .f:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  }
+  /* Outdoor's 18px root widens the mono fields until the last one clips on a phone; wrap
+     the strip onto a second row instead of scrolling. */
+  html[data-tm-legibility='high'] .head { flex-wrap: wrap; }
 
   /* ---- 9.2 · .plate — the photographic plate ---- */
   .plate {
