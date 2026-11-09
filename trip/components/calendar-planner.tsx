@@ -331,8 +331,17 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     wasHidden.current = !!hidden;
   }, [hidden]);
 
+  // Scrim taps are ignored once anything differs from what the editor opened with.
+  const formKey = JSON.stringify([title, category, startMinutes, durationMinutes, location, notes, pin, effectiveEndDate]);
+  const openedKey = useRef(formKey);
+  const dirty = formKey !== openedKey.current;
+  const scrimDown = useRef(false);
+
+  // The editor stays mounted through its exit animation, so a repeated Enter or double tap would add twice.
+  const saved = useRef(false);
+
   const handleSave = () => {
-    if (!title.trim()) return;
+    if (saved.current || !title.trim()) return;
     const next: ItineraryItem = {
       // Spread the original item first so additive source-linkage fields
       // survive an edit of a card-created item.
@@ -385,6 +394,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
       }
     }
     setClashError(null);
+    saved.current = true;
     onSave(next);
   };
 
@@ -477,7 +487,13 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
       // field's state, and visibility:hidden takes the dialog out of hit-testing AND out of
       // the a11y tree, so the map underneath is genuinely reachable by pointer and by AT.
       className={`fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-4 bg-black/70 ${hidden ? 'invisible pointer-events-none' : ''}`}
-      onClick={onClose}
+      onPointerDown={(e: React.PointerEvent) => { scrimDown.current = e.target === e.currentTarget; }}
+      onClick={(e: React.MouseEvent) => {
+        // A drag that starts in a field and ends on the scrim (text selection) is not a scrim tap,
+        // and a tap never throws away typed input.
+        if (e.target === e.currentTarget && scrimDown.current && !dirty) onClose();
+        scrimDown.current = false;
+      }}
     >
       <m.div
         ref={panelRef}
@@ -493,16 +509,22 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         animate={isDesktop ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
         exit={isDesktop ? { scale: 0.9, opacity: 0 } : { y: 40, opacity: 0 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto overscroll-contain scrollbar-hide"
+        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 max-h-[90dvh] flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between shrink-0 px-5 sm:px-6 pt-5 sm:pt-6 pb-4">
           <h3 id={titleId} className="pr pr--l text-ink-hi">{item ? 'Edit item' : 'Add item'}</h3>
           <button type="button" onClick={onClose} aria-label="Close editor" data-testid="calendar-editor-cancel" className="inline-flex items-center justify-center min-h-tap min-w-tap rounded-r1 hover:bg-white/5 hover:text-ink-hi text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><X className="w-5 h-5" /></button>
         </div>
-        <div className="space-y-4">
+        <form
+          noValidate
+          onSubmit={(e: React.FormEvent) => { e.preventDefault(); handleSave(); }}
+          className="flex flex-col flex-1 min-h-0"
+        >
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-5 sm:px-6">
+        <div className="space-y-4 pb-1">
           <div>
             <label htmlFor={titleFieldId} className="pr pr--lo mb-1 block">Title *</label>
-            <input id={titleFieldId} ref={titleInputRef} autoFocus value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Visit Boudhanath Stupa" />
+            <input id={titleFieldId} ref={titleInputRef} autoFocus enterKeyHint="done" value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Visit Boudhanath Stupa" />
           </div>
           <div>
             <span id={categoryLabelId} className="pr pr--lo mb-1 block">Category</span>
@@ -559,7 +581,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           </div>
           <div>
             <label htmlFor={locationFieldId} className="pr pr--lo mb-1 block">Location</label>
-            <input id={locationFieldId} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Thamel, Kathmandu" />
+            <input id={locationFieldId} autoComplete="off" enterKeyHint="done" value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Thamel, Kathmandu" />
           </div>
           {/* Pin an exact location. Typing two decimals was
               the only way to place a pin and nobody knows their coordinates — so the fields
@@ -671,6 +693,9 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           </div>
             </div>
           </details>
+        </div>
+        </div>
+        <div className="shrink-0 border-t-2 border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-5 sm:px-6 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {/* D-316 — the refusal. A BLOCKED user action, so `role="alert"` (assertive),
               not `role="status"`: the pattern backup-restore.tsx/photo-attach.tsx already
               use. Always mounted with a reserved height so the panel never jumps and the
@@ -684,7 +709,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             {clashError}
           </p>
           <button
-            onClick={handleSave}
+            type="submit"
             disabled={!title.trim()}
             data-testid="calendar-editor-save"
             className="btn w-full px-4 focus-visible:outline-none"
@@ -693,6 +718,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             {item ? 'Update item' : 'Add item'}
           </button>
         </div>
+        </form>
       </m.div>
     </m.div>,
     document.body,
