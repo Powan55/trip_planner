@@ -2903,7 +2903,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      narrow, common case and cannot get the rest of the track list wrong. */
   .list .r {
     display: grid;
-    grid-template-columns: var(--cols, var(--lead, 4.5rem) 1fr auto);
+    grid-template-columns: var(--cols, var(--lead, 4.5rem) minmax(0, 1fr) auto);
     gap: 0.7rem;
     align-items: start;
     min-height: var(--tap);
@@ -2944,6 +2944,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     font-size: var(--t-label);
     margin-top: 0.14rem;
     color: var(--text-mid);
+    overflow-wrap: anywhere;
   }
   .list .r[data-mark='hollow'] h3 {
     color: var(--text-lo);

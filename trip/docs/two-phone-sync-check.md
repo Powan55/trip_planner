@@ -152,7 +152,7 @@ Needs the same firebase-configured build, because `isRemoteConfigured()` is inli
    zero serious or critical violations.
 3. **Reduced motion.** Emulate `prefers-reduced-motion: reduce` before navigating, trigger the
    pending pill, and confirm the badge's computed `transform` is the identity matrix (or `none`)
-   and `animationName` is `none` — the same check `e2e/motion.spec.ts` makes on OfflineBanner's
+   and `animationName` is `none` — the same check `e2e/motion.spec.ts` makes on the offline chip's
    identical reveal.
 
 Paste both clients' final state and a clean console into the integration-QA record. Playwright can
