@@ -15,7 +15,6 @@ import {
   markDefaultTripAdopted,
   setDefaultTripShareId,
 } from '@/core/storage/gateway';
-import { outboxDirty } from '@/core/sync/outbox';
 import { replaceLocalPlanCopy } from '@/core/trips/registry';
 import { isRemoteConfigured } from './firebase-config';
 import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from './shared-trip';
@@ -47,30 +46,27 @@ async function accountEmail(): Promise<string | null> {
 
 const MEMBER_EMAILS = new Set<string>(SHARED_TRIP_USERNAMES.map((u) => usernameToEmail(normalizeUsername(u))));
 
-const SYNC_DOMAINS = ['itinerary', 'expenses', 'budget', 'docs', 'places'] as const;
-
 async function settle(): Promise<void> {
   const held = getStoredDefaultTripShareId();
-  if (held !== SHARED_TRIP_ID && (getActiveTripId() !== DEFAULT_TRIP_ID || defaultShareReloadGuard.hasRun())) {
-    return;
-  }
+  if (held !== SHARED_TRIP_ID && getActiveTripId() !== DEFAULT_TRIP_ID) return;
+  const fresh = held === '' && !defaultPackHasSyncedData();
+  // The guard only covers the prompt path below. A fresh device reloads at most once anyway: the
+  // next load holds the id. Left in, a sign-out and back in this session would stay local-only.
+  if (held !== SHARED_TRIP_ID && !fresh && defaultShareReloadGuard.hasRun()) return;
 
   // D-811 — the rules' allowlist, read off the signed-in email. No answer decides nothing.
   const email = await accountEmail();
   if (email === null) return;
   if (!MEMBER_EMAILS.has(email.toLowerCase())) {
-    // A device that got the id before D-811. Its queued writes stay with it until they drain.
-    const pending = SYNC_DOMAINS.some((d) => outboxDirty(d, DEFAULT_TRIP_ID).length > 0);
-    if (held === SHARED_TRIP_ID && !pending && getStoredDefaultTripShareId() === held) {
-      setDefaultTripShareId('');
-    }
+    // A device that got the id before D-811. Clearing drops nothing, and its refused writes would
+    // never drain; with no id the outbox goes dormant.
+    if (held === SHARED_TRIP_ID && getStoredDefaultTripShareId() === held) setDefaultTripShareId('');
     return;
   }
   if (held === SHARED_TRIP_ID) return;
 
-  if (held === '' && !defaultPackHasSyncedData()) {
-    // Nothing on the device to lose. Reload once so this load's sync starts on the shared trip.
-    if (!defaultShareReloadGuard.markRun()) return;
+  if (fresh) {
+    // Nothing on the device to lose. Reload so this load's sync starts on the shared trip.
     setDefaultTripShareId(SHARED_TRIP_ID);
     if (getStoredDefaultTripShareId() === SHARED_TRIP_ID) window.location.reload();
     return;

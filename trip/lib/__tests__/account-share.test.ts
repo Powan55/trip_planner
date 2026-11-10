@@ -37,6 +37,7 @@ import { syncDefaultShare } from '@/lib/account-share';
 import {
   DEFAULT_TRIP_ID,
   STORAGE_KEYS,
+  defaultShareReloadGuard,
   getDefaultTripAdopted,
   getDefaultTripShareId,
   getStoredDefaultTripShareId,
@@ -241,13 +242,29 @@ describe('the default pack moves onto the one shared trip', () => {
     expect(reloads).toBe(0);
   });
 
-  it('#1107: a non-member device with writes still queued keeps the id', async () => {
+  it('#1107: a non-member device with refused writes queued is cleared too, dropping nothing', async () => {
     email = 'stranger@accounts.trip-planner.invalid';
     setDefaultTripShareId(SHARED_TRIP_ID);
     fillPack();
     await syncDefaultShare();
+    expect(getStoredDefaultTripShareId()).toBe('');
+    expect(planKept()).toBe(true);
+    expect(outboxDirty('itinerary')).toEqual(['2026-12-10']); // kept, and dormant with no id
+  });
+
+  it('#1107: a member signing back in this session is recorded even after an earlier reload', async () => {
+    defaultShareReloadGuard.markRun();
+    await syncDefaultShare();
     expect(getStoredDefaultTripShareId()).toBe(SHARED_TRIP_ID);
-    expect(outboxDirty('itinerary')).toEqual(['2026-12-10']);
+    expect(reloads).toBe(1);
+    await syncDefaultShare(); // the next load holds the id, so no second reload
+    expect(reloads).toBe(1);
+  });
+
+  it('#1107: the member check ignores email case', async () => {
+    email = 'Powan@accounts.trip-planner.invalid';
+    await syncDefaultShare();
+    expect(getStoredDefaultTripShareId()).toBe(SHARED_TRIP_ID);
   });
 
   it('#1107: an anonymous session decides nothing', async () => {
