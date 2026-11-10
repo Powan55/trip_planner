@@ -44,6 +44,7 @@
  */
 
 import { useEffect, useRef, useState, type ComponentType } from 'react';
+import MapIslandBoundary from '@/components/map-island-boundary';
 import SectionSkeleton from '@/components/section-skeleton';
 import { useInView } from '@/hooks/use-in-view';
 
@@ -128,7 +129,13 @@ export default function LazyVisible({
     // Instantiate the section ONLY now — this is the first time its element exists, so
     // its chunk was never part of the initial tree / preload manifest. The dynamic
     // component's own `loading:` slot (a sized skeleton) covers the fetch gap.
-    return <Component />;
+    // A throw here (chunk fetch failure, render error) is contained to this panel
+    // instead of reaching app/error.tsx and replacing the whole route.
+    return (
+      <MapIslandBoundary testid="panel-unavailable">
+        <Component />
+      </MapIslandBoundary>
+    );
   }
 
   return (

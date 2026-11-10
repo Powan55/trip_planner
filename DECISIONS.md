@@ -5195,3 +5195,10 @@ An item with a stored conflict (D-801) shows `ConflictNotice` under its row in t
 Updates are same-window only (a custom event); another open tab shows the notice after remount. An empty name reads "someone".
 
 **Changes if:** a second surface (map, print, item sheet) needs the notice, or the slot moves off `local`.
+### D-799 · Hero ring is progress only (issue #1131, 2026-11-10)
+
+**Decision.** The countdown ring no longer prints a number. It is a progress arc with `role="img"` and an `aria-label` of the calendar days left. The `countdown-total-days` and `-unit` test ids stay on a visually hidden span. `computeCountdown` is unchanged (D-313).
+
+**Why.** The tiles show elapsed 24h blocks and the ring showed calendar days, so Home read "29 days 3 hours" next to "30 days".
+
+**Changes if:** the tiles move to calendar days, which would let the ring show its number again.

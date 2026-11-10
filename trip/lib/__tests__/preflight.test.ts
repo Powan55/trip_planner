@@ -8,7 +8,7 @@
 // and must never claim an offline MAP — basemap tiles are cross-origin and never cached, and
 // "offline map ready" is the exact overstatement D-286 exists to kill.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   checkInstalled,
   checkMapShell,
@@ -184,44 +184,40 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
 
 // ── 2. Storage room ─────────────────────────────────────────────────────────────────────────
 
-const fakeStorageManager = (estimate: () => Promise<StorageEstimate>) =>
-  ({ estimate }) as unknown as StorageManager;
+// 1 char = 2 bytes; key 'k' adds 2 more.
+const fillLocal = (bytes: number) => localStorage.setItem('k', 'x'.repeat((bytes - 2) / 2));
 
-describe('#20 · storage room', () => {
+describe('#20 · storage room (localStorage vs ~5 MB cap, #1130)', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
   it('PASS: well under the threshold reports the ratio', async () => {
-    const check = await checkStorage(fakeStorageManager(async () => ({ usage: 42e6, quota: 2.1e9 })));
+    fillLocal(2 * 1024 * 1024);
+    const check = await checkStorage();
     expect(check.state).toBe('ok');
     expect(check.headline).toBe('Room to spare');
-    expect(check.detail).toContain('42 MB of 2.1 GB (2%)');
+    expect(check.detail).toContain('1 MB of 5 MB (20%)');
   });
 
   it('FAIL: at/over the 0.9 threshold (shared with the quota toast) it needs attention', async () => {
-    const check = await checkStorage(fakeStorageManager(async () => ({ usage: 1.9e9, quota: 2.0e9 })));
+    fillLocal(Math.ceil(9.2 * 1024 * 1024 / 2) * 2);
+    const check = await checkStorage();
     expect(check.state).toBe('attention');
     expect(check.headline).toBe('Nearly full');
-    expect(check.detail).toContain('95%');
+    expect(check.detail).toContain("92%");
   });
 
-  it('UNAVAILABLE: no navigator.storage reads as "couldn\'t check"', async () => {
-    const check = await checkStorage(undefined);
+  it('UNAVAILABLE: localStorage throwing reads as "couldn\'t check"', async () => {
+    vi.spyOn(Storage.prototype, 'key').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    localStorage.setItem('a', 'b');
+    const check = await checkStorage();
     expect(check.state).toBe('unknown');
     expect(check.headline).toBe("Couldn't check");
-  });
-
-  it('UNAVAILABLE: a browser that reports no usable quota is unknown, not a pass', async () => {
-    expect((await checkStorage(fakeStorageManager(async () => ({})))).state).toBe('unknown');
-    expect((await checkStorage(fakeStorageManager(async () => ({ usage: 1, quota: 0 })))).state).toBe(
-      'unknown'
-    );
-  });
-
-  it('UNAVAILABLE: estimate() rejecting reads as "couldn\'t check"', async () => {
-    const check = await checkStorage(
-      fakeStorageManager(async () => {
-        throw new Error('nope');
-      })
-    );
-    expect(check.state).toBe('unknown');
   });
 });
 

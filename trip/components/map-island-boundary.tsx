@@ -70,6 +70,8 @@ type Props = {
   title?: string;
   /** Replaces the map-engine body copy for non-map islands. */
   detail?: string;
+  /** Defaults to the map card's id, which the offline specs assert. */
+  testid?: string;
 };
 
 type State = { failed: boolean };
@@ -88,7 +90,7 @@ export default class MapIslandBoundary extends Component<Props, State> {
   render() {
     if (!this.state.failed) return this.props.children;
 
-    const label = this.props.label ?? 'The interactive map';
+    const { label } = this.props;
     return (
       // Real, named copy — NOT a spinner: a spinner here would promise something
       // that is never going to arrive. `role="note"` puts it in the a11y tree as a
@@ -98,20 +100,24 @@ export default class MapIslandBoundary extends Component<Props, State> {
       // The failure is stated in words, on a frame drawn at the size the thing would have
       // occupied. Nothing is captioned as absent; the copy points forward.
       <div
-        data-testid="map-island-unavailable"
+        data-testid={this.props.testid ?? 'map-island-unavailable'}
         role="note"
         className="empty-frame mx-auto w-full max-w-md p-gut py-6 text-center"
       >
-        <p className="pr pr--l err mb-2">{this.props.title ?? 'Map engine not on this device'}</p>
+        <p className="pr pr--l err mb-2">
+          {this.props.title ?? (label ? 'Map engine not on this device' : "This section didn't load")}
+        </p>
         <p className="empty">
-          {this.props.detail ?? (
+          {this.props.detail ?? (!label ? (
+            'Reconnect, then try again. The rest of the page still works and your saved places and itinerary are safe on this device.'
+          ) : (
             <>
               {label} needs its map engine, which isn&apos;t stored on this device — it is
               large, and it would show a blank canvas without cached tiles anyway.
               Reconnect, then try again. Everything else on this page works offline, and your
               saved places and itinerary are safe on this device.
             </>
-          )}
+          ))}
         </p>
         {/* A full reload, not `setState({ failed: false })`: re-rendering the island only
             re-imports the chunk if webpack has evicted the rejected module, so clearing

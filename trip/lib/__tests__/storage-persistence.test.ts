@@ -228,20 +228,26 @@ describe('StoragePersistence — persist()', () => {
 // "page load" — the same isolation the real app gets from a real navigation/reload — so the
 // three quota tests below don't leak the flag into one another.
 describe('StoragePersistence — near-quota warning', () => {
-  it('does NOT toast when usage/quota is below the threshold', async () => {
+  // localStorage bytes vs the 5 MiB cap (#1130); estimate() is no longer consulted.
+  const fillLocal = (ratio: number) =>
+    localStorage.setItem('k', 'x'.repeat(Math.ceil((ratio * 10 * 1024 * 1024) / 2)));
+
+  it('does NOT toast when localStorage is below the threshold', async () => {
     vi.resetModules();
     const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
-    stubStorageManager({ usage: 50, quota: 100, supportsPersist: false }); // 0.5 ratio
+    stubStorageManager({ supportsPersist: false });
+    fillLocal(0.5);
     const r = render(createElement(Fresh));
     await r.settle();
     expect(h.toastCalls.some((c) => c.message.includes('storage is nearly full'))).toBe(false);
     r.unmount();
   });
 
-  it('DOES toast when usage/quota is at/above the 0.9 threshold, with an action pointing at /settings/', async () => {
+  it('DOES toast when localStorage is at/above the 0.9 threshold, with an action pointing at /settings/', async () => {
     vi.resetModules();
     const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
-    stubStorageManager({ usage: 95, quota: 100, supportsPersist: false }); // 0.95 ratio
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false }); // no estimate() needed
+    fillLocal(0.95);
     const r = render(createElement(Fresh));
     await r.settle();
     const call = h.toastCalls.find((c) => c.message.includes('storage is nearly full'));
@@ -261,7 +267,8 @@ describe('StoragePersistence — near-quota warning', () => {
   it('only warns ONCE across mounts in the same module/page load (module-level guard)', async () => {
     vi.resetModules();
     const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
-    stubStorageManager({ usage: 99, quota: 100, supportsPersist: false });
+    stubStorageManager({ supportsPersist: false });
+    fillLocal(0.93);
     const r1 = render(createElement(Fresh));
     await r1.settle();
     r1.unmount();
