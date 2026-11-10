@@ -141,7 +141,6 @@ export default function PhotoAttach({
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           onChange={onPick}
           data-testid="photo-file-input"
           aria-label={`Add a photo to ${heading}`}
