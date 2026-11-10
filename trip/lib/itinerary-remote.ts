@@ -42,6 +42,8 @@ import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { SHARED_TRIP_ID } from './shared-trip';
 import { getActiveTraveler } from './token-auth';
+import { getUserName } from './identity';
+import { recordConflicts } from '@/core/sync/conflict-store';
 import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
@@ -348,6 +350,16 @@ export function subscribeRemote(onDead?: () => void): () => void {
     }
   };
 
+  // Keep what this merge drops from local (D-801). Called BEFORE persist, while loadPlans() is
+  // still the pre-merge view. Must never block the apply, so any failure is swallowed.
+  const keepLosses = (merged: DayPlan[]) => {
+    try {
+      recordConflicts(loadPlans(), merged, getActiveTraveler()?.name ?? getUserName() ?? '');
+    } catch (err) {
+      console.warn('[itinerary-remote] conflict record failed:', err);
+    }
+  };
+
   // AUTHORITATIVE apply.
   // Remote is taken verbatim, INCLUDING empty — this is what makes "A deletes everything → B
   // reflects empty and STAYS empty after reload" true: a deliberately-emptied
@@ -397,6 +409,7 @@ export function subscribeRemote(onDead?: () => void): () => void {
         });
         return changed ? { ...rd, items } : rd;
       });
+      keepLosses(resolved);
       persistAndDispatch(resolved);
       // Same write-ahead + push the seed uses; chunkDiff enqueues only the days that differ.
       void Promise.resolve(itinerarySyncPort.push(remoteDefaulted, resolved)).catch(() => {});
@@ -440,6 +453,7 @@ export function subscribeRemote(onDead?: () => void): () => void {
     // Convergent + conservative: a tombstone one client keeps re-enters via merge until every doc
     // holding it is rewritten past the 365-day horizon (D-567).
     const nowPt = realClock.now().getTime();
+    keepLosses(merged);
     persistAndDispatch(merged.map((d) => gcTombstones(d, nowPt)));
   };
 

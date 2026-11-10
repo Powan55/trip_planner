@@ -595,6 +595,13 @@ export const STORAGE_KEYS = {
    * Shape owned by `core/ice/ice.ts`.
    */
   ice: 'nepal_japan_ice',
+  /**
+   * localStorage — JSON array, itinerary values this device lost to another person's edit in a
+   * merge (sync-conflicts, key 56; D-801). TRIP-SCOPED, DEVICE-ONLY: never on a row or Firestore
+   * doc, left out of the backup, wiped with the other trip-scoped slots. Shape owned by
+   * `core/sync/conflict-store.ts`.
+   */
+  conflicts: 'nepal_japan_sync_conflicts',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -835,7 +842,8 @@ export type TripScopedSlot =
   | 'journalSync'
   | 'journalDraft'
   | 'localRescue'
-  | 'ice';
+  | 'ice'
+  | 'conflicts';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -868,6 +876,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'journalDraft',
   'localRescue',
   'ice',
+  'conflicts',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true

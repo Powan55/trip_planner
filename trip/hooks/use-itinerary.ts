@@ -20,6 +20,7 @@ import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { generateItemId } from '@/lib/item-id';
 import * as itinerary from '@/core/itinerary';
+import { listConflicts, dismissConflict } from '@/core/sync/conflict-store';
 
 /**
  * Shared reactive itinerary store.
@@ -77,6 +78,9 @@ export interface ItineraryStore {
   reorderItems(date: string, orderedIds: string[]): void;
   getDayPlan(date: string): DayPlan;
   findPlacements(sourceId: string): Array<{ date: string; item: ItineraryItem }>;
+  /** Re-apply the values a merge dropped from this item as an ordinary edit, then forget the entry. */
+  restoreConflict(itemId: string): boolean;
+  dismissConflict(itemId: string): void;
 }
 
 // Cross-friend attribution stamping lives in lib/attribution.ts —
@@ -693,6 +697,19 @@ export function useItinerary(): ItineraryStore {
     [plans],
   );
 
+  const restoreConflict = useCallback(
+    (itemId: string) => {
+      const entry = listConflicts().find((e) => e.itemId === itemId);
+      if (!entry) return false;
+      // null in the saved group means the key was absent; undefined drops it on write.
+      const patch = Object.fromEntries(Object.entries(entry.loserFields).map(([k, v]) => [k, v ?? undefined]));
+      if (!updateItem(entry.date, itemId, patch as Partial<ItineraryItem>)) return false;
+      dismissConflict(itemId);
+      return true;
+    },
+    [updateItem],
+  );
+
   return useMemo(
     () => ({
       plans: exposedPlans,
@@ -713,6 +730,8 @@ export function useItinerary(): ItineraryStore {
       reorderItems,
       getDayPlan,
       findPlacements,
+      restoreConflict,
+      dismissConflict,
     }),
     [
       exposedPlans,
@@ -733,6 +752,7 @@ export function useItinerary(): ItineraryStore {
       reorderItems,
       getDayPlan,
       findPlacements,
+      restoreConflict,
     ],
   );
 }
