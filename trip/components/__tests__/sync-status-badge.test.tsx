@@ -183,10 +183,10 @@ describe('D-542 — the local-only state is visible', () => {
     expect(c.querySelector('[data-testid="sync-status-share-cta"]')).toBeNull();
   });
 
-  it('an untouched device with no stored id is on the shared trip and shows nothing', async () => {
+  it('an untouched device with no stored id is local-only too, until a member signs in (D-811)', async () => {
     localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
     const c = await mount();
-    expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
+    expect(c.querySelector('[data-testid="sync-status-badge"]')?.getAttribute('data-state')).toBe('local-only');
   });
 
   it('goes quiet again the moment a share id exists — the offer is not permanent nagging', async () => {

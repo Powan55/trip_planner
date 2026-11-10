@@ -18,7 +18,7 @@ import {
   type TripMeta,
   type TripConfigBlock,
 } from '@/core/trips/registry';
-import { VIBES, DEFAULT_VIBE } from '@/core/trips/custom';
+import { VIBES, NO_VIBE } from '@/core/trips/custom';
 import { LOCAL_CURRENCIES, type CurrencyCode } from '@/core/budget/model';
 import { formatDateLong } from '@/core/dates/trip-dates';
 import {
@@ -153,8 +153,8 @@ export default function TripsHub() {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [forgetId, setForgetId] = useState<string | null>(null);
   const [forgetLoss, setForgetLoss] = useState({ edits: 0, photos: 0 });
-  // Read once after mount: on an untouched device getDefaultTripShareId() writes storage. A device
-  // holding local edits with no id reads '' and stays local-only until account-share moves it.
+  // Read once after mount. A device with no id reads '' and stays local-only until account-share
+  // moves a member's device across (D-811).
   const [defaultSynced, setDefaultSynced] = useState(false);
 
   useEffect(() => {
@@ -299,7 +299,7 @@ export default function TripsHub() {
     if (creating) return; // the button is disabled too, but Enter-in-the-field bypasses that
     const name = createName.trim();
     if (!name) return;
-    // D2 defaults: dates → today..today+30d, vibe → first VIBES key. Destinations have NO default:
+    // D2 defaults: dates → today..today+30d, vibe → NO_VIBE (D-810). Destinations have NO default:
     // the old one was the trip NAME, and destinations[0] is the leg's `fallbackCity`, which
     // `getCityForDate` returns for every day of the trip, which `runVisitAutocount` writes into the
     // LIFETIME visited-cities record — outside the trip namespace and outside `wipeAllTripData()`
@@ -323,7 +323,7 @@ export default function TripsHub() {
       return;
     }
     setCreateError(null);
-    const vibe = createVibe || Object.keys(VIBES)[0] || DEFAULT_VIBE;
+    const vibe = createVibe || NO_VIBE;
     const id = crypto.randomUUID();
     const config: TripConfigBlock = {
       start,
@@ -625,9 +625,9 @@ export default function TripsHub() {
             that Trip Token (or its link) from the list above to invite anyone you want to plan with.
           </p>
           <div className="mt-3 flex flex-col gap-3">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <label htmlFor="trips-hub-create-name" className="sr-only">
-                Name for the new trip
+            <div className="flex flex-col gap-1">
+              <label htmlFor="trips-hub-create-name" className="pr pr--lo">
+                Trip name
               </label>
               <input
                 id="trips-hub-create-name"
@@ -638,7 +638,7 @@ export default function TripsHub() {
                 maxLength={40}
                 required
                 autoComplete="off"
-                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
               />
             </div>
 
@@ -739,11 +739,11 @@ export default function TripsHub() {
                   <button
                     key={key}
                     type="button"
-                    aria-pressed={createVibe ? createVibe === key : key === Object.keys(VIBES)[0]}
+                    aria-pressed={createVibe === key}
                     data-testid={`trips-hub-create-vibe-${key}`}
-                    onClick={() => setCreateVibe(key)}
+                    onClick={() => setCreateVibe((v) => (v === key ? '' : key))}
                     className={`chip min-h-tap px-3 ${
-                      (createVibe ? createVibe === key : key === Object.keys(VIBES)[0])
+                      createVibe === key
                         ? 'chip--struck bg-[rgb(62_216_255/0.10)]'
                         : 'chip--hollow hover:bg-white/[0.05]'
                     }`}

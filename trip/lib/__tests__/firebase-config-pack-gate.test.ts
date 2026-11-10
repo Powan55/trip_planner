@@ -53,17 +53,19 @@ describe('firebase-config sync gate + dynamic trip id (S232 / D-205 / D-210)', (
 
   // ── getTripId() — the REMOTE capability token (D-205 fork 1, amended by #10) ─────────────────
   describe('getTripId() resolves the Firestore path segment per active pack', () => {
-    it('default pack ⇒ the shared trip id, for every account and device', async () => {
+    it("default pack ⇒ '' on a device with no id, and nothing is written (D-811)", async () => {
       const { getTripId } = await loadConfigWithEnv();
-      expect(getTripId()).toBe(SHARED_TRIP_ID);
+      expect(getTripId()).toBe('');
+      expect(localStorage.getItem('nepal_japan_default_trip_share')).toBeNull();
     });
 
-    it('default pack (pointer explicitly written) is still the shared trip — and the retired NEXT_PUBLIC_TRIP_ID env is ignored', async () => {
+    it('default pack (pointer explicitly written) follows the stored id — and the retired NEXT_PUBLIC_TRIP_ID env is ignored', async () => {
       // #10 retired the env read outright: a NEXT_PUBLIC_* value inlines into the public bundle,
       // so it was never the secret its docblock claimed. Stubbing it must change nothing.
       vi.stubEnv('NEXT_PUBLIC_TRIP_ID', 'secret-remote-token-abc');
       const { getTripId } = await loadConfigWithEnv();
       localStorage.setItem('tripPlannerActiveTrip', 'nepal-japan-2026');
+      localStorage.setItem('nepal_japan_default_trip_share', SHARED_TRIP_ID);
       expect(getTripId()).toBe(SHARED_TRIP_ID);
     });
 
@@ -97,9 +99,11 @@ describe('firebase-config sync gate + dynamic trip id (S232 / D-205 / D-210)', (
   // The full matrix: it is `isRemoteConfigured() && getTripId() !== ''`, so every pack follows the
   // web config and a dormant build syncs nothing.
   describe('isTripRemoteConfigured() — config × active-pack matrix', () => {
-    it('config present + DEFAULT pack ⇒ TRUE (it syncs to the shared trip)', async () => {
+    it('config present + DEFAULT pack ⇒ false until a member device records the shared trip (D-811)', async () => {
       const { isTripRemoteConfigured, isRemoteConfigured } = await loadConfigWithEnv();
       expect(isRemoteConfigured()).toBe(true);
+      expect(isTripRemoteConfigured()).toBe(false);
+      localStorage.setItem('nepal_japan_default_trip_share', SHARED_TRIP_ID);
       expect(isTripRemoteConfigured()).toBe(true);
     });
 

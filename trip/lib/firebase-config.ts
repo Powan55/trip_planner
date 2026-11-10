@@ -58,9 +58,9 @@ export function isRemoteConfigured(): boolean {
  * Resolve the Firestore path segment for the ACTIVE pack — the trip's REMOTE capability token.
  * Dynamic, read per call (never cached at module scope) so a pack switch picks up the new id.
  *
- * - Default pack (id-equality with `DEFAULT_TRIP_ID`): the shared trip's id (`SHARED_TRIP_ID`) for
- * every account and device, or the id a device is still on until `lib/account-share.ts` moves it.
- * `''` only for a device holding local edits that have not been moved yet (local-only until then).
+ * - Default pack (id-equality with `DEFAULT_TRIP_ID`): the id stored on this device, which
+ * `lib/account-share.ts` sets to the shared trip's (`SHARED_TRIP_ID`) for a member account only
+ * (D-811). `''` (local-only) until then, and for every other account.
  * - Every other pack: the local pack id IS the capability token — return it verbatim.
  *
  * #476 — either way the id must occupy EXACTLY ONE path segment, or this returns `''`
