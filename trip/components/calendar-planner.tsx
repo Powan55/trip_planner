@@ -528,7 +528,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           </div>
           <div>
             <span id={categoryLabelId} className="pr pr--lo mb-1 block">Category</span>
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
+            <div className="grid grid-cols-2 min-[380px]:grid-cols-3 min-[520px]:grid-cols-4 sm:grid-cols-5 lg:grid-cols-3 gap-2" role="group" aria-labelledby={categoryLabelId}>
               {ALL_CATEGORIES.map((cat) => {
                 const colors = CATEGORY_COLORS[cat];
                 const isActive = category === cat;
@@ -545,7 +545,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
-                    <span className="pr pr--lo capitalize leading-tight text-center break-words w-full text-current">{cat}</span>
+                    <span className="pr pr--lo capitalize leading-tight text-center [overflow-wrap:normal] [hyphens:manual] w-full text-current">{cat}</span>
                   </button>
                 );
               })}
