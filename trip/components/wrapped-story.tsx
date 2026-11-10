@@ -53,7 +53,7 @@ const STATUS_COPY: Record<WrappedStats['status'], { eyebrow: string; title: stri
   mid: {
     eyebrow: 'So far',
     title: 'Your trip, wrapped (so far)',
-    blurb: (s) => `${s.daysElapsed} of ${s.totalTripDays} days in — here&rsquo;s the story building so far.`,
+    blurb: (s) => `${s.daysElapsed} of ${s.totalTripDays} days in — here’s the story building so far.`,
   },
   post: {
     eyebrow: 'The whole journey',
