@@ -5187,3 +5187,10 @@ When the sync apply replaces a content-group value (title, time, duration, notes
 **Why.** The merge picks one value per field group and the other is gone, with nothing to tell the person it happened.
 
 **Changes if:** the merge core, the content groups or the HLC actor change.
+### D-799 · Hero ring is progress only (issue #1131, 2026-11-10)
+
+**Decision.** The countdown ring no longer prints a number. It is a progress arc with `role="img"` and an `aria-label` of the calendar days left. The `countdown-total-days` and `-unit` test ids stay on a visually hidden span. `computeCountdown` is unchanged (D-313).
+
+**Why.** The tiles show elapsed 24h blocks and the ring showed calendar days, so Home read "29 days 3 hours" next to "30 days".
+
+**Changes if:** the tiles move to calendar days, which would let the ring show its number again.

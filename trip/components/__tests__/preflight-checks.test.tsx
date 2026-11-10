@@ -45,11 +45,11 @@ describe('#20 · the night-before block on /checklist', () => {
   it('a browser with no Cache API and no StorageManager reports "couldn\'t check", never a pass', async () => {
     const c = await mount();
     expect(row(c, 'map-shell')?.dataset.state).toBe('unknown');
-    expect(row(c, 'storage')?.dataset.state).toBe('unknown');
+    expect(row(c, 'storage')?.dataset.state).toBe('ok'); // reads localStorage, not StorageManager (#1130)
     expect(row(c, 'installed')?.dataset.state).toBe('unknown'); // jsdom has no matchMedia
     expect(row(c, 'map-shell')?.textContent).toContain("Couldn't check");
     expect(c.querySelector('[data-testid="preflight-tally"]')?.textContent).toContain(
-      "3 couldn't be checked"
+      "2 couldn't be checked"
     );
   });
 

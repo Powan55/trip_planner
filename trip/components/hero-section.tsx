@@ -695,13 +695,14 @@ export default function HeroSection() {
               <CountdownRing
                 fraction={ringFraction(daysLeft, timeLeft.isPast)}
                 reducedMotion={!!prefersReducedMotion}
+                label={`${daysLeft} calendar ${daysLeft === 1 ? 'day' : 'days'} remaining`}
               >
-                <div className="flex flex-col items-center gap-1">
-                  <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
-                    {daysLeft}
-                  </span>
-                  <span data-testid="countdown-total-days-unit" className="text-t-label text-ink-mid leading-none">{daysLeft === 1 ? 'day' : 'days'}</span>
-                </div>
+                {/* Progress only (#1131): the visible number disagreed with the tiles above
+                    (calendar days vs elapsed 24h blocks). Kept for specs and the aria-label. */}
+                <span className="sr-only">
+                  <span data-testid="countdown-total-days">{daysLeft}</span>{' '}
+                  <span data-testid="countdown-total-days-unit">{daysLeft === 1 ? 'day' : 'days'}</span>
+                </span>
               </CountdownRing>
               <p className="text-sm text-ink-mid">until adventure begins</p>
             </div>

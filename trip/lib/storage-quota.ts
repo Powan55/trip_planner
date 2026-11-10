@@ -24,7 +24,28 @@
  */
 
 /**
- * 0.9 (90% of the StorageManager quota). Still the same un-measured heuristic it always was:
- * headroom for one more journal/expense/photo write before the browser starts throwing.
+ * 0.9 of `LOCAL_CAP_BYTES`: headroom for one more journal/expense write before localStorage
+ * starts throwing.
  */
 export const QUOTA_WARN_THRESHOLD = 0.9;
+
+/**
+ * The localStorage cap that actually refuses writes: ~5M UTF-16 chars, i.e. 10 MiB at 2 bytes
+ * each. Not `navigator.storage.estimate()`, whose quota is the whole origin (GBs) and never
+ * reads near full before localStorage does (#1130).
+ */
+export const LOCAL_CAP_BYTES = 10 * 1024 * 1024;
+
+/** localStorage bytes in use (UTF-16: 2 per char, keys included), or null if it can't be read. */
+export function localStorageBytes(): number | null {
+  try {
+    let chars = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)!;
+      chars += key.length + (localStorage.getItem(key) ?? '').length;
+    }
+    return chars * 2;
+  } catch {
+    return null;
+  }
+}
