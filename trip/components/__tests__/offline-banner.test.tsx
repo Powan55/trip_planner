@@ -1,12 +1,10 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { OfflineBanner } from '@/components/offline-banner';
+import { OfflineBanner, OfflineChip } from '@/components/offline-banner';
 
-let pathname = '/';
 let online = true;
 let backOnline = false;
-vi.mock('next/navigation', () => ({ usePathname: () => pathname }));
 vi.mock('@/hooks/use-online', () => ({
   useOnline: () => online,
   useBackOnline: () => backOnline,
@@ -16,7 +14,6 @@ let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  pathname = '/';
   online = true;
   backOnline = false;
   container = document.body.appendChild(document.createElement('div'));
@@ -26,48 +23,54 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
 });
-const render = () => act(() => root.render(<OfflineBanner />));
+const render = () =>
+  act(() =>
+    root.render(
+      <>
+        <OfflineBanner />
+        <OfflineChip />
+      </>,
+    ),
+  );
+const region = () => container.querySelector('[role="status"]');
 
-describe('OfflineBanner route collision', () => {
-  it.each(['/travel', '/travel/', '/travel/day'])('keeps announcements without pills on %s', (path) => {
-    pathname = path;
+describe('offline cue', () => {
+  it('announces through one always-mounted region, with or without a visible chip', () => {
     render();
-    const region = container.querySelector('[role="status"]');
-    expect(region?.textContent).toBe('');
+    const before = region();
+    expect(before?.textContent).toBe('');
     online = false;
     render();
-    expect(container.querySelector('[role="status"]')).toBe(region);
-    expect(region?.getAttribute('aria-live')).toBe('polite');
-    expect(region?.textContent).toContain('lost its network connection');
-    expect(container.querySelector('[data-testid="offline-banner"]')).toBeNull();
+    expect(region()).toBe(before);
+    expect(before?.getAttribute('aria-live')).toBe('polite');
+    expect(before?.getAttribute('aria-label')).toBe('You are offline');
+    expect(before?.textContent).toContain('lost its network connection');
     online = true;
     backOnline = true;
     render();
-    expect(region?.textContent).toBe('Back online');
-    expect(container.querySelector('[data-testid="online-restored"]')).toBeNull();
-    expect(region?.getAttribute('aria-label')).toBeNull();
+    expect(before?.textContent).toBe('Back online');
+    expect(before?.getAttribute('aria-label')).toBeNull();
     backOnline = false;
     render();
-    expect(region?.textContent).toBe('');
+    expect(before?.textContent).toBe('');
   });
 
-  it.each(['/', '/plan/', '/travelogue'])('keeps visual connection cues on %s', (path) => {
-    pathname = path;
+  it('shows the chip only while offline or just back online', () => {
+    render();
+    expect(container.querySelector('[data-testid="offline-banner"]')).toBeNull();
     online = false;
     render();
-    expect(container.querySelector('[data-testid="offline-banner"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="offline-banner"]')?.textContent).toBe('Offline');
     online = true;
     backOnline = true;
     render();
-    expect(container.querySelector('[data-testid="online-restored"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="online-restored"]')?.textContent).toBe('Online');
   });
 
-  it('updates route suppression during an offline spell', () => {
-    pathname = '/travel/';
+  it('never floats over the page (#1066)', () => {
     online = false;
     render();
-    pathname = '/plan/';
-    render();
-    expect(container.querySelector('[data-testid="offline-banner"]')).not.toBeNull();
+    expect(container.querySelector('.fixed, .absolute, .sticky')).toBeNull();
+    expect(container.querySelector('[data-testid="offline-banner"]')?.getAttribute('aria-hidden')).toBe('true');
   });
 });
