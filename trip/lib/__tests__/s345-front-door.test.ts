@@ -270,6 +270,44 @@ describe('S355 — TokenGate opens on the landing, and its CTAs pick the auth pa
   });
 });
 
+describe('#1121 — the auth card has a way back to the landing', () => {
+  const q = (view: { container: HTMLElement }, id: string) =>
+    view.container.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+  const click = (view: { container: HTMLElement }, id: string) =>
+    act(() => {
+      q(view, id)!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+  it('Back returns to the landing and focus lands on its first CTA', async () => {
+    const view = render(createElement(TokenGate));
+    click(view, 'landing-cta-create');
+    expect(q(view, 'landing-page')).toBeNull();
+    click(view, 'token-gate-back');
+    expect(q(view, 'landing-page')).not.toBeNull();
+    expect(q(view, 'token-gate-submit')).toBeNull();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 120));
+    });
+    expect(document.activeElement?.getAttribute('data-testid')).toBe('landing-cta-login');
+    view.unmount();
+  });
+
+  it('Esc steps back from the auth card, and does nothing on the landing', () => {
+    const view = render(createElement(TokenGate));
+    const esc = () =>
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      });
+    esc();
+    expect(q(view, 'landing-page')).not.toBeNull();
+    click(view, 'landing-cta-login');
+    expect(q(view, 'landing-page')).toBeNull();
+    esc();
+    expect(q(view, 'landing-page')).not.toBeNull();
+    view.unmount();
+  });
+});
+
 /**
  * #25 — THE FRONT DOOR IS PHOTOGRAPHIC IN BOTH VIEWS.
  *

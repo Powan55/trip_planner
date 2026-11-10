@@ -118,17 +118,17 @@ describe('D-546 — a default-pack share link keeps the pack', () => {
   });
 
   describe('THE JOINER KEEPS THEIR CLOCKS — the regression this file exists for', () => {
-    it('joining a pack: link stays on the default pack and syncs to the sharer', async () => {
+    it('joining a pack: link stays on the default pack and leaves the share id to account-share', async () => {
       const { joinTrip, getActiveTripId, getDefaultTripShareId, getTripId, isTripRemoteConfigured } =
         await load();
 
       expect(joinTrip(`pack:${SHARED_TRIP_ID}`, 'Shared trip')).toBe(true);
 
       expect(getActiveTripId()).toBe(PACK_ID);
-      expect(getDefaultTripShareId()).toBe(SHARED_TRIP_ID);
-      // …and the pack now points at the shared remote trip, which is the whole point.
-      expect(getTripId()).toBe(SHARED_TRIP_ID);
-      expect(isTripRemoteConfigured()).toBe(true);
+      // The join never writes the id: lib/account-share.ts does, for a member account (D-811).
+      expect(getDefaultTripShareId()).toBe('');
+      expect(getTripId()).toBe('');
+      expect(isTripRemoteConfigured()).toBe(false);
     });
 
     it('both legs keep their offsets: Nepal +345, Japan +540', async () => {

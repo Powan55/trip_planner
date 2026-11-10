@@ -5194,3 +5194,17 @@ When the sync apply replaces a content-group value (title, time, duration, notes
 **Why.** The tiles show elapsed 24h blocks and the ring showed calendar days, so Home read "29 days 3 hours" next to "30 days".
 
 **Changes if:** the tiles move to calendar days, which would let the ring show its number again.
+
+### D-810 · A new trip's vibe is optional (issue #1121, 2026-11-10)
+
+**Decision.** The create form preselects no vibe, and tapping the picked one clears it. With none picked the config stores `vibe: 'none'` (`NO_VIBE`), which paints the fallback gradient and no tagline in the hero.
+
+**Why.** `sanitizeTripConfig` refuses an empty vibe, so leaving the field out would change the stored config shape. Any non-empty string is already legal, and older clients read an unknown key as the fallback vibe, so they still show the city tagline for `'none'`.
+
+### D-811 · Amends D-663 · The default pack syncs only for the shared trip's accounts (issue #1107, 2026-11-10)
+
+**Decision.** `getDefaultTripShareId()` no longer writes the shared trip id on an untouched device; it returns the stored id or `''`. `lib/account-share.ts` writes it, and reloads once, only when the signed-in email is on the shared trip's allowlist (`SHARED_TRIP_USERNAMES`, the list `shared-trip.guard.test.ts` pins to `isAllowlisted()`). A non-member device already holding the id is cleared to `''`, even with writes queued: clearing drops nothing, and with no id the outbox goes dormant, whereas refused chunks never ack and would never drain. An anonymous or offline session decides nothing. Every page load re-checks, so a sign-in is picked up on the load after it. The once-per-session reload guard does not apply to a fresh member device, so signing out and back in within a session still records it; the next load holds the id, so it cannot loop.
+
+**Why.** Every other account was put on the shared trip: the hub said "Shared trip — synced", their edits queued and were refused, and each open spent denied reads.
+
+**Trade-off.** A member's first load on a new device is local-only until the check reloads it. A non-member's queued writes for the shared trip stay on the device, unsent.

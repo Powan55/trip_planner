@@ -16,7 +16,7 @@ import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN, HERO_SIZES } from '@/lib/her
 import { isDefaultTrip } from '@/core/trips';
 import { isPostTrip } from '@/core/recap/model';
 import { getKnownTrip } from '@/core/trips/registry';
-import { vibeFor } from '@/core/trips/custom';
+import { NO_VIBE, vibeFor } from '@/core/trips/custom';
 import { getActiveTripId } from '@/core/storage/gateway';
 import OptimizedImage from '@/components/optimized-image';
 import CountdownRing from '@/components/countdown-ring';
@@ -540,7 +540,9 @@ export default function HeroSection() {
           className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3 [overflow-wrap:anywhere] max-[419px]:[@media(max-height:699px)]:hidden"
         >
           {custom
-            ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')
+            ? [customDestinations, customMeta?.config?.vibe !== NO_VIBE && customVibe?.tagline]
+                .filter(Boolean)
+                .join(' — ')
             : 'From the mystical temples of Kathmandu to the neon-lit streets of Tokyo. A journey across ancient peaks and futuristic cities.'}
         </m.p>
 
@@ -567,12 +569,14 @@ export default function HeroSection() {
               className="inline-flex flex-col items-center gap-2 glass-card rounded-r2 px-6 sm:px-10 py-5 sm:py-6 max-w-full"
             >
               <div className="text-display-xl text-ink-hi">
-                Day{' '}
-                <span data-testid="hero-day-number" className="text-now tabular-nums">
-                  {todayInTrip.dayNumber}
+                <span className="block sm:inline">
+                  Day{' '}
+                  <span data-testid="hero-day-number" className="text-now tabular-nums">
+                    {todayInTrip.dayNumber}
+                  </span>
                 </span>
-                <span className="text-ink-lo mx-2 sm:mx-3">—</span>
-                {todayInTrip.city}
+                <span className="hidden sm:inline text-ink-lo mx-3">—</span>
+                <span className="block sm:inline">{todayInTrip.city}</span>
               </div>
               <p className="pr pr--l pr--lo">{formatDateLong(todayInTrip.date)}</p>
             </div>
