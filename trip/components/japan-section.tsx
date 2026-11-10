@@ -12,6 +12,7 @@ export default function JapanSection() {
       title="Japan Winter"
       subtitle="From Tokyo's neon glow to Kyoto's ancient temples — your ultimate winter Japan guide."
       items={allItems}
+      hideHeading
       categories={JAPAN_CATEGORIES}
     />
   );

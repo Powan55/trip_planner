@@ -567,12 +567,14 @@ export default function HeroSection() {
               className="inline-flex flex-col items-center gap-2 glass-card rounded-r2 px-6 sm:px-10 py-5 sm:py-6 max-w-full"
             >
               <div className="text-display-xl text-ink-hi">
-                Day{' '}
-                <span data-testid="hero-day-number" className="text-now tabular-nums">
-                  {todayInTrip.dayNumber}
+                <span className="block sm:inline">
+                  Day{' '}
+                  <span data-testid="hero-day-number" className="text-now tabular-nums">
+                    {todayInTrip.dayNumber}
+                  </span>
                 </span>
-                <span className="text-ink-lo mx-2 sm:mx-3">—</span>
-                {todayInTrip.city}
+                <span className="hidden sm:inline text-ink-lo mx-3">—</span>
+                <span className="block sm:inline">{todayInTrip.city}</span>
               </div>
               <p className="pr pr--l pr--lo">{formatDateLong(todayInTrip.date)}</p>
             </div>
