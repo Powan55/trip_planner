@@ -26,6 +26,9 @@ interface RecommendationSectionProps {
   subtitle: string;
   items: Recommendation[];
   categories: string[];
+  /** The page already has an h1 + lede saying the same thing: keep the h2 for
+      aria-labelledby but drop it from the layout and close the dead band above the grid. */
+  hideHeading?: boolean;
 }
 
 type SortKey = 'rating' | 'name';
@@ -60,6 +63,17 @@ function RecommendationCard({
   const reduce = useReducedMotion();
   // — pointer/gyro 3D tilt (cards only). Fully disabled under reduced motion.
   const tilt = useCardTilt();
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesClipped, setNotesClipped] = useState(false);
+  const notesRef = useRef<HTMLParagraphElement | null>(null);
+  useEffect(() => {
+    const el = notesRef.current;
+    if (!el || notesOpen) return;
+    const measure = () => setNotesClipped(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [item.notes, notesOpen]);
   return (
     <m.div
       initial={{ opacity: 0, y: 20 }}
@@ -72,7 +86,7 @@ function RecommendationCard({
       onPointerLeave={tilt.onPointerLeave}
       data-testid={`guide-tilt-${item.id}`}
       data-tilt-enabled={tilt.enabled}
-      className="plate relative rounded-r1 overflow-hidden group border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
+      className="plate relative flex flex-col rounded-r1 overflow-hidden group border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
       {/* The ratio lives on the frame as `--plate-ar`, which is what the recipe reads, and
           the grid is what gives the ramp a row to span. */}
@@ -162,12 +176,28 @@ function RecommendationCard({
             ))}
           </span>
         </div>
-        {item.notes && <p className="text-t-sm text-ink-mid mt-2">{item.notes}</p>}
+        {item.notes && (
+          <>
+            <p ref={notesRef} id={`guide-notes-${item.id}`} className={`text-t-sm text-ink-mid mt-2 ${notesOpen ? '' : 'line-clamp-3'}`}>{item.notes}</p>
+            {(notesClipped || notesOpen) && (
+              <button
+                type="button"
+                onClick={() => setNotesOpen((o) => !o)}
+                aria-expanded={notesOpen}
+                aria-controls={`guide-notes-${item.id}`}
+                data-testid={`guide-notes-toggle-${item.id}`}
+                className="relative z-10 min-h-tap pr text-now outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {notesOpen ? 'Less' : 'More'}
+              </button>
+            )}
+          </>
+        )}
       </div>
       {/* Both controls in this row need `relative z-10`: the title button's stretched
           `::after` is a positioned box and would otherwise paint over these static
           siblings and swallow their clicks. */}
-      <div className="p-gut pt-3 flex items-start gap-2">
+      <div className="p-gut pt-3 mt-auto flex items-start gap-2">
         {/* Add-to-plan affordance — additive; a sibling of the details button. */}
         <div className="relative z-10 flex-1 min-w-0">
           <AddToPlanButton source={item} sourceType="recommendation" accentColor="text-now" />
@@ -247,7 +277,7 @@ function FilterSheet({
 }
 
 export default function RecommendationSection({
-  id, title, subtitle, items, categories,
+  id, title, subtitle, items, categories, hideHeading,
 }: RecommendationSectionProps) {
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeCity, setActiveCity] = useState('All');
@@ -418,11 +448,11 @@ export default function RecommendationSection({
   };
 
   return (
-    <section id={id} aria-labelledby={`${id}-heading`} className="py-20 px-4 sm:px-6">
+    <section id={id} aria-labelledby={`${id}-heading`} className={`${hideHeading ? 'pt-6 pb-20 sm:pt-8' : 'py-20'} px-4 sm:px-6`}>
       <div className="max-w-[1200px] mx-auto">
         <SectionHeading
           id={`${id}-heading`}
-          className="mb-10"
+          className={hideHeading ? 'sr-only' : 'mb-10'}
           title={`${title} Guide`}
           subtitle={subtitle}
         />
@@ -430,7 +460,7 @@ export default function RecommendationSection({
         {/* Pinned search + the single "Filters · n" trigger. Search stays visible
             (a query, not a facet); every facet (sort + city + Saved/Planned + category) lives
             one tap away in the sheet so the grid is content-first. */}
-        <div className="flex gap-3 mb-8 max-w-2xl mx-auto">
+        <div className={`flex gap-3 ${hideHeading ? 'mb-6' : 'mb-8'} max-w-2xl mx-auto`}>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo pointer-events-none" />
             <input
