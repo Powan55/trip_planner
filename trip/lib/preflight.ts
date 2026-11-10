@@ -49,7 +49,7 @@ export interface PreflightCheck {
  * of `lib/storage-quota.ts`. One value, still; a cheaper place to reach it.
  */
 export { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
-import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
+import { QUOTA_WARN_THRESHOLD, LOCAL_CAP_BYTES, localStorageBytes } from '@/lib/storage-quota';
 
 /** The service worker's content-hashed precache (`scripts/gen-sw.mjs`). */
 const PRECACHE_PREFIX = 'trip-precache-';
@@ -214,43 +214,36 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
 
 // ── 2. Storage room ─────────────────────────────────────────────────────────────────────────
 /**
- * `navigator.storage.estimate()`, the same read `components/storage-persistence.tsx` already
- * does — this one renders the ratio as a row instead of throwing a toast at 90%.
- * A browser that reports no usable quota is `'unknown'`, never a pass.
+ * localStorage bytes against its ~5 MB cap, the same read the near-quota toast makes (#1130).
+ * Not `estimate()`: that quota is the whole origin and hides a full localStorage. Unreadable
+ * localStorage is `'unknown'`, never a pass.
  */
-export async function checkStorage(storage: StorageManager | undefined): Promise<PreflightCheck> {
+export async function checkStorage(): Promise<PreflightCheck> {
   const base = { id: 'storage', label: 'Storage room' };
-  const cannotTell: PreflightCheck = {
-    ...base,
-    state: 'unknown',
-    headline: "Couldn't check",
-    detail: "This browser doesn't report how much room is left, so we can't confirm there's space.",
-  };
-  if (typeof storage?.estimate !== 'function') return cannotTell;
-  try {
-    const { usage, quota } = await storage.estimate();
-    // Typed guards, not falsiness: `usage` of 0 is a LEGITIMATE answer (a fresh profile, and some
-    // Safari ITP states) and `!usage` reported that as "couldn't check" — the one reading where
-    // having the most room possible looked like having no answer.
-    if (typeof usage !== 'number' || typeof quota !== 'number' || quota <= 0) return cannotTell;
-    const ratio = usage / quota;
-    const used = `Using ${formatBytes(usage)} of ${formatBytes(quota)} (${Math.round(ratio * 100)}%)`;
-    return ratio >= QUOTA_WARN_THRESHOLD
-      ? {
-          ...base,
-          state: 'attention',
-          headline: 'Nearly full',
-          detail: `${used}. Free up space — or export your trip from the Plan page — before you fly.`,
-        }
-      : {
-          ...base,
-          state: 'ok',
-          headline: 'Room to spare',
-          detail: `${used} of what this browser allows the app.`,
-        };
-  } catch {
-    return cannotTell;
+  const bytes = localStorageBytes();
+  if (bytes === null) {
+    return {
+      ...base,
+      state: 'unknown',
+      headline: "Couldn't check",
+      detail: "This browser doesn't let the app read its saved data, so we can't confirm there's space.",
+    };
   }
+  const ratio = bytes / LOCAL_CAP_BYTES;
+  const used = `Using ${formatBytes(bytes / 2)} of ${formatBytes(LOCAL_CAP_BYTES / 2)} (${Math.round(ratio * 100)}%)`;
+  return ratio >= QUOTA_WARN_THRESHOLD
+    ? {
+        ...base,
+        state: 'attention',
+        headline: 'Nearly full',
+        detail: `${used}. Free up space — or export your trip from Settings → Data — before you fly.`,
+      }
+    : {
+        ...base,
+        state: 'ok',
+        headline: 'Room to spare',
+        detail: `${used} of what this browser allows the app.`,
+      };
 }
 
 // ── 3. Clock & time zone ────────────────────────────────────────────────────────────────────
@@ -457,7 +450,7 @@ export function checkInstalled(standalone: boolean | undefined, ios: boolean): P
 export async function runEnvironmentChecks(): Promise<PreflightCheck[]> {
   const [mapShell, storage] = await Promise.all([
     checkMapShell(typeof caches === 'undefined' ? undefined : caches),
-    checkStorage(typeof navigator === 'undefined' ? undefined : navigator.storage),
+    checkStorage(),
   ]);
   const canTell = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
   return [mapShell, storage, checkInstalled(canTell ? isStandalone() : undefined, isIOS()), ...readClockChecks()];
