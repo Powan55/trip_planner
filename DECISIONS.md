@@ -5177,3 +5177,10 @@ Amends D-544 and D-091 wording only. On the first marker-gated snapshot with no 
 **Why.** An edit whose outbox entry was lost (cleared storage slot, refused save) was overwritten by the older server copy on the next load, then never pushed.
 
 **Changes if:** the merge core or HLC ordering changes.
+### D-799 · Hero ring is progress only (issue #1131, 2026-11-10)
+
+**Decision.** The countdown ring no longer prints a number. It is a progress arc with `role="img"` and an `aria-label` of the calendar days left. The `countdown-total-days` and `-unit` test ids stay on a visually hidden span. `computeCountdown` is unchanged (D-313).
+
+**Why.** The tiles show elapsed 24h blocks and the ring showed calendar days, so Home read "29 days 3 hours" next to "30 days".
+
+**Changes if:** the tiles move to calendar days, which would let the ring show its number again.
