@@ -271,6 +271,63 @@ describe('first-snapshot dirty-chunk merge exception (the reload guard)', () => 
     expect(d09.items.map((i) => i.id)).toEqual(['B']);
     unsub();
   });
+
+  describe('#1124: EMPTY outbox, same id on both sides', () => {
+    const firstSnapshot = async (localHlc: string, remoteHlc: string) => {
+      savePlans([day('2026-12-09', [item('A', { title: 'A local', hlc: localHlc, rev: 1 })])]);
+      expect(outboxDirty('itinerary')).toEqual([]);
+      fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+      fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
+        ...day('2026-12-09', [item('A', { title: 'A remote', hlc: remoteHlc, rev: 1 })]),
+      });
+      const unsub = subscribeRemote();
+      await flush();
+      fake.emitServerSnapshot();
+      await flush();
+      unsub();
+      return loadPlans().find((d) => d.date === '2026-12-09')!;
+    };
+
+    it('a strictly newer local row survives and is pushed', async () => {
+      const d09 = await firstSnapshot(hlc(3000, 'me'), hlc(2000, 'friend'));
+      expect(d09.items.map((i) => i.title)).toEqual(['A local']);
+      expect(writeLog).toContain(`tx-set:trips/${TRIP_ID}/days/2026-12-09`);
+      const written = fake.docs.get(`trips/${TRIP_ID}/days/2026-12-09`) as unknown as DayPlan;
+      expect(written.items.map((i) => i.title)).toEqual(['A local']);
+    });
+
+    it('an older local row loses and nothing is pushed', async () => {
+      const d09 = await firstSnapshot(hlc(1000, 'me'), hlc(2000, 'friend'));
+      expect(d09.items.map((i) => i.title)).toEqual(['A remote']);
+      expect(writeLog).toEqual([]);
+      expect(outboxDirty('itinerary')).toEqual([]);
+    });
+
+    it('an empty remote over a non-empty local is still refused by the floor', async () => {
+      savePlans([day('2026-12-09', [item('A', { hlc: hlc(3000, 'me'), rev: 1 })])]);
+      fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+      const unsub = subscribeRemote();
+      await flush();
+      fake.emitServerSnapshot();
+      await flush();
+      expect(loadPlans().find((d) => d.date === '2026-12-09')!.items.map((i) => i.id)).toEqual(['A']);
+      unsub();
+    });
+
+    it('a local-only id is dropped', async () => {
+      savePlans([day('2026-12-09', [item('A', { hlc: hlc(3000, 'me'), rev: 1 })])]);
+      fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+      fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
+        ...day('2026-12-09', [item('B', { hlc: hlc(2000, 'friend'), rev: 1 })]),
+      });
+      const unsub = subscribeRemote();
+      await flush();
+      fake.emitServerSnapshot();
+      await flush();
+      expect(loadPlans().find((d) => d.date === '2026-12-09')!.items.map((i) => i.id)).toEqual(['B']);
+      unsub();
+    });
+  });
 });
 
 describe('#982: an edit the outbox could not record', () => {
