@@ -107,3 +107,14 @@ test.describe('#755 long unbroken text stays inside the viewport', () => {
     expect(await overflow(page)).toBeLessThanOrEqual(0);
   });
 });
+
+test.describe('/safety checklist URL stays inside a 360px viewport', () => {
+  test.use({ viewport: { width: 360, height: 780 }, reducedMotion: 'reduce' });
+
+  test('/safety/ vaccinations row', async ({ page }) => {
+    await seed(page, false);
+    await page.goto('/safety/', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('safety-checklist-vaccinations')).toBeAttached();
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+  });
+});
