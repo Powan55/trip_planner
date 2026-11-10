@@ -62,6 +62,10 @@ export const VIBES: Record<string, Vibe> = {
 /** The fallback vibe when a config carries an unknown key (TOTAL — never returns undefined). */
 export const DEFAULT_VIBE = 'city';
 
+/** Stored when no vibe was picked (D-810): config.vibe must stay a non-empty string. Paints the
+ * fallback gradient with no tagline. */
+export const NO_VIBE = 'none';
+
 /**
  * Resolve a vibe preset by key, falling back to the default. TOTAL.
  *

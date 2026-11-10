@@ -1153,8 +1153,8 @@ function TripGroup() {
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
   // grandfathered default pack; read client-side like the Trip Token below.
   const [onSharedTrip, setOnSharedTrip] = useState(false);
-  // Read once after mount: getDefaultTripShareId() writes storage on an untouched device. A device
-  // holding local edits with no id reads '' and stays local-only until account-share moves it.
+  // Read once after mount. A device with no id reads '' and stays local-only until account-share
+  // moves a member's device across (D-811).
   const [defaultSynced, setDefaultSynced] = useState(false);
   const { copy: copyToClipboard, error: copyError } = useClipboardCopy();
 

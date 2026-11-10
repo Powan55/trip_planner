@@ -685,21 +685,15 @@ export function getStoredDefaultTripShareId(): string {
 }
 
 /**
- * The remote trip id the DEFAULT pack syncs to: the shared trip, for every account and device.
+ * The remote trip id the DEFAULT pack syncs to: the stored id, else `''` (a local-only sample).
  *
- * Two cases hold back from it. A device still on some other id keeps that one until
- * `lib/account-share.ts` has confirmed the shared trip is readable and the person has agreed to
- * replace their plan. A device with no id but local edits reads `''` (local-only) for the same
- * reason: the shared trip's first snapshot would otherwise replace those edits without asking.
+ * D-811 — only `lib/account-share.ts` writes the shared trip's id, and only once the signed-in
+ * account is one of the shared trip's members. A device with no id therefore stays local-only
+ * whoever signs in, instead of sending every other account's reads and writes into refusals.
  * TOTAL, never-throws, SSR-safe (inherited from `readString`).
  */
 export function getDefaultTripShareId(): string {
-  const stored = getStoredDefaultTripShareId();
-  if (stored !== '') return stored;
-  if (defaultPackHasSyncedData()) return '';
-  // Untouched device: record it now, so its first edit cannot turn this into the held-back case.
-  writeString('local', STORAGE_KEYS.defaultTripShare, SHARED_TRIP_ID);
-  return SHARED_TRIP_ID;
+  return getStoredDefaultTripShareId();
 }
 
 const DEFAULT_SHARE_SYNCED_SLOTS = [

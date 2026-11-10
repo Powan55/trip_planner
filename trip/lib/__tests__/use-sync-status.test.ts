@@ -111,6 +111,7 @@ describe('useSyncStatus (S229)', () => {
   });
 
   it('starts at the SSR-safe default {pending:0, lastAckAt:null} and confirms it on mount when nothing is dirty', () => {
+    localStorage.setItem(STORAGE_KEYS.defaultTripShare, 'b2826dc5-d103-4a8c-a053-30531b4fd4b0'); // a member device (D-811)
     const h = renderSyncStatus();
     expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, readDead: false, lastAckAt: null, localOnly: false, signInRequired: false });
     h.unmount();

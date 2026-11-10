@@ -16,7 +16,7 @@ import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN, HERO_SIZES } from '@/lib/her
 import { isDefaultTrip } from '@/core/trips';
 import { isPostTrip } from '@/core/recap/model';
 import { getKnownTrip } from '@/core/trips/registry';
-import { vibeFor } from '@/core/trips/custom';
+import { NO_VIBE, vibeFor } from '@/core/trips/custom';
 import { getActiveTripId } from '@/core/storage/gateway';
 import OptimizedImage from '@/components/optimized-image';
 import CountdownRing from '@/components/countdown-ring';
@@ -540,7 +540,9 @@ export default function HeroSection() {
           className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3 [overflow-wrap:anywhere] max-[419px]:[@media(max-height:699px)]:hidden"
         >
           {custom
-            ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')
+            ? [customDestinations, customMeta?.config?.vibe !== NO_VIBE && customVibe?.tagline]
+                .filter(Boolean)
+                .join(' — ')
             : 'From the mystical temples of Kathmandu to the neon-lit streets of Tokyo. A journey across ancient peaks and futuristic cities.'}
         </m.p>
 

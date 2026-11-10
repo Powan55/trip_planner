@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useId } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { Plane, User, AtSign, Lock, KeyRound, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Plane, User, AtSign, Lock, KeyRound, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
 import {
   signIn,
   DEFAULT_TRAVELER_NAME,
@@ -386,15 +386,25 @@ function TokenGateWall({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallError]);
 
-  // WALL DIVERGENCE: Esc is captured so it never falls through to anything behind the wall, but it
-  // does NOT dismiss.
+  // Only the plain log-in/create form can step back: an upgrade has no landing, and the claim and
+  // stuck-invite states are already signed in.
+  const canGoBack = !upgrade && stage === 'form' && !inviteStuck && !busy;
+  const goBack = () => {
+    setWallError(null);
+    setView('landing');
+  };
+
+  // WALL DIVERGENCE: Esc is captured so it never falls through to anything behind the wall, and it
+  // never dismisses the wall. On the auth card it steps back to the landing (#1121).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') e.preventDefault();
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      if (view === 'auth' && canGoBack) goBack();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  });
 
   // Lightweight Tab-trap inside the panel, queried at keydown time so it follows the current view.
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1014,6 +1024,19 @@ function TokenGateWall({
             </p>
           )}
         </form>
+
+        {!upgrade && stage === 'form' && !inviteStuck && (
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={busy}
+            data-testid="token-gate-back"
+            className="btn btn--2 mt-3 w-full px-4"
+          >
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            Back
+          </button>
+        )}
 
         {/* Not "skip forever": this asks again on the next app load. */}
         {upgrade && onLater && stage === 'form' && (

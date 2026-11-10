@@ -33,7 +33,12 @@ function setValue(el: HTMLInputElement | HTMLSelectElement, value: string, event
   el.dispatchEvent(new Event(event, { bubbles: true }));
 }
 
-async function createTrip(currency?: string, destinations = 'Kochi', dates?: [string, string]): Promise<void> {
+async function createTrip(
+  currency?: string,
+  destinations = 'Kochi',
+  dates?: [string, string],
+  vibeClicks: string[] = [],
+): Promise<void> {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -49,6 +54,9 @@ async function createTrip(currency?: string, destinations = 'Kochi', dates?: [st
     }
     if (currency) setValue(at<HTMLSelectElement>('trips-hub-create-currency'), currency, 'change');
   });
+  for (const v of vibeClicks) {
+    await act(async () => at<HTMLButtonElement>(`trips-hub-create-vibe-${v}`).click());
+  }
   await act(async () => {
     at<HTMLButtonElement>('trips-hub-create').click();
   });
@@ -86,6 +94,35 @@ describe('trips hub create: local currency (#970)', () => {
   it('writes the picked currency into the trip config', async () => {
     await createTrip('NPR');
     expect(created()?.config?.currency).toBe('NPR');
+  });
+});
+
+describe('trips hub create: optional vibe (#1121)', () => {
+  const pressed = () =>
+    [...document.querySelectorAll('[data-testid^="trips-hub-create-vibe-"][aria-pressed="true"]')].length;
+
+  it('starts with no vibe and stores the no-vibe marker', async () => {
+    await createTrip();
+    expect(pressed()).toBe(0);
+    expect(created()?.config?.vibe).toBe('none');
+  });
+
+  it('a picked vibe is stored', async () => {
+    await createTrip(undefined, 'Kochi', undefined, ['beach']);
+    expect(created()?.config?.vibe).toBe('beach');
+  });
+
+  it('tapping the picked vibe again clears it', async () => {
+    await createTrip(undefined, 'Kochi', undefined, ['beach', 'beach']);
+    expect(pressed()).toBe(0);
+    expect(created()?.config?.vibe).toBe('none');
+  });
+
+  it('the trip name has a visible label', async () => {
+    await createTrip();
+    const label = document.querySelector('label[for="trips-hub-create-name"]');
+    expect(label?.textContent?.trim()).toBe('Trip name');
+    expect(label?.classList.contains('sr-only')).toBe(false);
   });
 });
 

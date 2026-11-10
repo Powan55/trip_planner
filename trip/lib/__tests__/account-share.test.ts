@@ -24,8 +24,13 @@ const fs = {
     return { exists: () => sharedDoc === 'exists' };
   },
 };
+const MEMBER = 'powan@accounts.trip-planner.invalid';
+let email: string | null = MEMBER;
 vi.mock('@/lib/firebase-remote', () => ({
-  getAccountRemote: () => (online ? Promise.resolve({ db: {}, fs, uid: 'uid-a' }) : Promise.reject(new Error('offline'))),
+  getAccountRemote: () =>
+    online && email
+      ? Promise.resolve({ db: {}, fs, uid: 'uid-a', auth: { currentUser: { email } } })
+      : Promise.reject(new Error(online ? 'sign in to sync' : 'offline')),
 }));
 
 import { syncDefaultShare } from '@/lib/account-share';
@@ -54,6 +59,7 @@ function asDevice() {
 beforeEach(() => {
   sharedDoc = 'exists';
   online = true;
+  email = MEMBER;
   reads = [];
   reloads = 0;
   asDevice();
@@ -98,12 +104,13 @@ describe('the default pack moves onto the one shared trip', () => {
     expect(reloads).toBe(0);
   });
 
-  it('a device with no id and nothing stored just records the shared trip, without a read or a reload', async () => {
+  it('a member device with no id and nothing stored records the shared trip and reloads once, without a read', async () => {
+    expect(getDefaultTripShareId()).toBe(''); // local-only until a member signs in (D-811)
     await syncDefaultShare();
     expect(getStoredDefaultTripShareId()).toBe(SHARED_TRIP_ID);
     expect(reads).toEqual([]);
     expect(confirmSpy).not.toHaveBeenCalled();
-    expect(reloads).toBe(0);
+    expect(reloads).toBe(1);
   });
 
   it('the shared trip never gets an owner device', async () => {
@@ -213,6 +220,43 @@ describe('the default pack moves onto the one shared trip', () => {
     expect(getStoredDefaultTripShareId()).toBe('');
     expect(planKept()).toBe(true);
     expect(reloads).toBe(0);
+  });
+
+  it('#1107: a fresh device signed in as any other account stays a local-only sample', async () => {
+    email = 'stranger@accounts.trip-planner.invalid';
+    await syncDefaultShare();
+    expect(getDefaultTripShareId()).toBe('');
+    expect(getStoredDefaultTripShareId()).toBe('');
+    expect(reads).toEqual([]);
+    expect(reloads).toBe(0);
+  });
+
+  it('#1107: a non-member device already on the shared trip is taken off it, keeping its plan', async () => {
+    email = 'stranger@accounts.trip-planner.invalid';
+    setDefaultTripShareId(SHARED_TRIP_ID);
+    localStorage.setItem(keyForTrip(DEFAULT_TRIP_ID, 'itinerary'), JSON.stringify(plans));
+    await syncDefaultShare();
+    expect(getStoredDefaultTripShareId()).toBe('');
+    expect(planKept()).toBe(true);
+    expect(reloads).toBe(0);
+  });
+
+  it('#1107: a non-member device with writes still queued keeps the id', async () => {
+    email = 'stranger@accounts.trip-planner.invalid';
+    setDefaultTripShareId(SHARED_TRIP_ID);
+    fillPack();
+    await syncDefaultShare();
+    expect(getStoredDefaultTripShareId()).toBe(SHARED_TRIP_ID);
+    expect(outboxDirty('itinerary')).toEqual(['2026-12-10']);
+  });
+
+  it('#1107: an anonymous session decides nothing', async () => {
+    email = null;
+    await syncDefaultShare();
+    expect(getStoredDefaultTripShareId()).toBe('');
+    setDefaultTripShareId(SHARED_TRIP_ID);
+    await syncDefaultShare();
+    expect(getStoredDefaultTripShareId()).toBe(SHARED_TRIP_ID);
   });
 
   it('moves at most once per session', async () => {
