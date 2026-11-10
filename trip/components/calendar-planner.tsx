@@ -27,6 +27,7 @@ import { useTravelTick } from '@/lib/travel-tick';
 import { setSelectedDay } from '@/lib/selected-day';
 import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
 import { SortableItem, DroppableDay } from '@/components/calendar-sortable-item';
+import { ConflictNotice } from '@/components/conflict-notice';
 import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import { CalendarBulkToolbar } from '@/components/calendar-bulk-toolbar';
@@ -764,6 +765,8 @@ export default function CalendarPlanner() {
     copyDay,
     reorderItems,
     getDayPlan,
+    restoreConflict,
+    dismissConflict,
   } = useItineraryContext();
   // clear-whole-day confirm gate (Radix AlertDialog — reused primitive, not bespoke).
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
@@ -1919,6 +1922,7 @@ export default function CalendarPlanner() {
                             onDuplicate={(targetDate) => handleDuplicateItem(item, targetDate)}
                             onLocate={() => setHighlightId((cur) => (cur === markerId ? null : markerId))}
                           />
+                          <ConflictNotice itemId={item.id} title={item.title} onRestore={restoreConflict} onDismiss={dismissConflict} />
                         </div>
                         );
                       })
