@@ -1815,7 +1815,25 @@ html {
   to   { stroke-dashoffset: 44; }
 }
 .animate-undo-ring {
-  animation: undo-ring 4s linear forwards;
+  animation: undo-ring var(--undo-ms, 7s) linear forwards;
+}
+/* sonner pauses its timer while the toast is hovered or the stack is expanded; the ring follows. */
+[data-sonner-toast]:hover .animate-undo-ring,
+[data-sonner-toaster][data-expanded='true'] .animate-undo-ring {
+  animation-play-state: paused;
+}
+
+/* Close button keeps its 20px glyph; the pseudo-element stretches the hit area to the 44px tap size. */
+[data-sonner-toast] [data-close-button] {
+  z-index: 1;
+}
+[data-sonner-toast] [data-close-button]::before {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 
 /* Drag-lift — a quick "pick up" pop when the dnd overlay spawns. One-shot; the `to`

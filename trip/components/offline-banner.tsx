@@ -40,11 +40,16 @@ import { isTravelRoute } from '@/lib/travel-route';
  * offline is informational (the PWA keeps working from its precache), not a
  * failure, so this stays a `role="status"` live region, never `role="alert"`.
  *
- * Position: fixed, top-center, below the navbar (`--nav-h`, `z-50`). The
- * bottom corners are already claimed (presence bar bottom-left, Sonner toasts
- * bottom-right), so top-center is the one open slot. `z-40` sits under both
- * the navbar (`z-50`) and the token gate (`z-[70]`) — it never covers either.
+ * Position: see `PILL_POS`. The bottom corners are already claimed (presence bar
+ * bottom-left, Sonner toasts bottom-right), so the top edge is the open slot.
  */
+// Under sm the pill sits in the navbar's own row (the page title and day tabs start right under
+// it), above the navbar (z-50) but under the token gate (z-70). It is pinned just left of the
+// two right-hand navbar buttons (2 x 44px + gap + gutter) so it clears the brand at 360px; sm+
+// keeps the centred slot below the navbar. Never takes pointer events: it must not eat taps.
+const PILL_POS =
+  'pointer-events-none fixed right-28 top-[calc(0.875rem+var(--safe-top))] z-[51] w-fit sm:inset-x-0 sm:top-[calc(5rem+var(--safe-top))] sm:z-40 sm:mx-auto sm:max-w-[calc(100vw-2rem)]';
+
 export function OfflineBanner() {
   const online = useOnline();
   const backOnline = useBackOnline();
@@ -75,14 +80,16 @@ export function OfflineBanner() {
           data-testid="offline-banner"
           // Centred with auto margins, not left-1/2 + translate: the y animation writes an
           // inline transform that would overwrite a translate-x utility.
-          className="fixed inset-x-0 top-[calc(5rem+var(--safe-top))] z-40 mx-auto w-fit max-w-[calc(100vw-2rem)]"
+          className={PILL_POS}
         >
           {/* The running head's offline field, printed: solid stock, a 2px rule, mono
               caps. NOT glass and NOT red — being offline is a condition of the network,
               stated in words, and the app keeps working from its precache. */}
-          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1">
-            <WifiOff className="h-3 w-3 shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
-            <span className="pr whitespace-nowrap">Net · Offline · Cached</span>
+          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2 py-1.5 rounded-r1 sm:px-2.5">
+            <WifiOff className="h-3 w-3 shrink-0 text-[color:var(--text-lo)] max-sm:hidden" aria-hidden="true" />
+            <span className="pr whitespace-nowrap">
+              <span className="max-sm:hidden">Net · </span>Offline<span className="max-sm:hidden"> · Cached</span>
+            </span>
             <span className="sr-only">
               Your device has lost its network connection. The app keeps working from cached
               data, and this message will disappear automatically once you&apos;re back online.
@@ -98,10 +105,10 @@ export function OfflineBanner() {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
           data-testid="online-restored"
-          className="fixed inset-x-0 top-[calc(5rem+var(--safe-top))] z-40 mx-auto w-fit max-w-[calc(100vw-2rem)]"
+          className={PILL_POS}
         >
-          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1">
-            <Wifi className="h-3 w-3 shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
+          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2 py-1.5 rounded-r1 sm:px-2.5">
+            <Wifi className="h-3 w-3 shrink-0 text-[color:var(--text-lo)] max-sm:hidden" aria-hidden="true" />
             <span className="pr whitespace-nowrap">Back online</span>
           </div>
         </m.div>

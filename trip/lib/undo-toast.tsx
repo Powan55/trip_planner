@@ -7,12 +7,12 @@
 // with the caller's store method, not here. This only owns the toast + action wiring.
 //
 // micro-interaction — undo progress ring: the toast's icon is a small SVG ring
-// that depletes over the (default 4s) undo window as a subtle "time left to undo" cue.
-// PRESENTATIONAL ONLY: it does NOT set or change the toast's duration/timing (sonner's
-// default lifetime is unchanged), so undo behavior is byte-identical to before. The ring
-// sweep is a CSS keyframe (`.animate-undo-ring`) that is hard-neutralized under
+// that depletes over the undo window (UNDO_MS, also the toast duration) as a subtle "time
+// left to undo" cue. It pauses with sonner's timer while the toast is hovered or expanded
+// (globals.css). The ring sweep is a CSS keyframe (`.animate-undo-ring`) that is hard-neutralized under
 // prefers-reduced-motion (globals.css) → the ring simply rests FULL/static, no motion.
 import { toast } from 'sonner';
+import { UNDO_MS } from '@/lib/toast-duration';
 
 /** Depleting ring shown as the undo toast's icon. Decorative → aria-hidden. */
 function UndoRing() {
@@ -39,7 +39,7 @@ function UndoRing() {
         strokeLinecap="round"
         strokeDasharray="44"
         className="animate-undo-ring"
-        style={{ strokeDashoffset: 0 }}
+        style={{ strokeDashoffset: 0, '--undo-ms': `${UNDO_MS}ms` } as React.CSSProperties}
       />
     </svg>
   );
@@ -65,6 +65,7 @@ export function showUndoToast(message: string, onUndo: () => void, onSettled?: (
   );
   toast.success(body, {
     icon: <UndoRing />,
+    duration: UNDO_MS,
     action: {
       label: 'Undo',
       onClick: () => {

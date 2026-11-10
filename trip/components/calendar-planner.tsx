@@ -20,6 +20,7 @@ import {
 import { generateItemId } from '@/lib/item-id';
 import { buildItineraryStops, stopMarkerFor } from '@/lib/itinerary-map';
 import { showUndoToast } from '@/lib/undo-toast';
+import { readMs } from '@/lib/toast-duration';
 import { bulkMoveWithUndo } from '@/lib/bulk-move-undo';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
@@ -989,7 +990,8 @@ export default function CalendarPlanner() {
       offsetForCountry(getCountryForDate(targetDate)),
     );
     if (clash) {
-      toast.error(`Can’t copy to ${formatDate(targetDate)} — overlaps ${describeClash(clash)}.`);
+      const msg = `Can’t copy to ${formatDate(targetDate)} — overlaps ${describeClash(clash)}.`;
+      toast.error(msg, { duration: readMs(msg) });
       return;
     }
     addItem(targetDate, copy);
@@ -1152,9 +1154,8 @@ export default function CalendarPlanner() {
     for (const moved of moving) {
       const clash = firstClashWith(moved, targetItems, targetDate, targetOffset);
       if (clash) {
-        toast.error(
-          `Can’t move ${moving.length} item${moving.length === 1 ? '' : 's'} to ${formatDate(targetDate)} — “${moved.title}” overlaps ${describeClash(clash)}.`,
-        );
+        const msg = `Can’t move ${moving.length} item${moving.length === 1 ? '' : 's'} to ${formatDate(targetDate)} — “${moved.title}” overlaps ${describeClash(clash)}.`;
+        toast.error(msg, { duration: readMs(msg) });
         return;
       }
     }
@@ -1174,9 +1175,8 @@ export default function CalendarPlanner() {
     for (const source of getDayPlan(selectedDate).items ?? []) {
       const clash = firstClashWith(freshCopyOf(source), targetItems, targetDate, targetOffset);
       if (clash) {
-        toast.error(
-          `Can’t copy this day to ${formatDate(targetDate)} — “${source.title}” overlaps ${describeClash(clash)}.`,
-        );
+        const msg = `Can’t copy this day to ${formatDate(targetDate)} — “${source.title}” overlaps ${describeClash(clash)}.`;
+        toast.error(msg, { duration: readMs(msg) });
         return;
       }
     }

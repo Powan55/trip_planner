@@ -64,7 +64,7 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     expect(await region.getAttribute('aria-label')).toBeNull();
   });
 
-  test('pill is centred on one line at 393 wide, then shows a Back online cue', async ({
+  test('pill sits in the navbar row on one line at 393 wide, then shows a Back online cue', async ({
     page,
     context,
   }) => {
@@ -74,14 +74,12 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     const banner = page.getByTestId('offline-banner');
     await expect(banner).toBeVisible();
     // let the 0.3s reveal settle before measuring
-    await expect
-      .poll(async () => {
-        const b = await banner.boundingBox();
-        return b ? Math.abs(b.x + b.width / 2 - 393 / 2) : 999;
-      })
-      .toBeLessThan(2);
+    await page.waitForTimeout(400);
     const box = (await banner.boundingBox())!;
     expect(box.height, 'single line').toBeLessThan(40);
+    // Inside the navbar row (64px), so it cannot cover the page title or day tabs under it.
+    expect(box.y + box.height).toBeLessThanOrEqual(64);
+    expect(await banner.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none');
 
     await context.setOffline(false);
     await expect(page.getByTestId('online-restored')).toBeVisible();
@@ -130,6 +128,32 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     await expect(page.getByTestId('offline-banner')).toBeVisible();
     await expect(page.getByTestId('online-restored')).toHaveCount(0);
     await context.setOffline(false);
+  });
+
+  test('on /plan the pill clears the brand and the navbar buttons at 360 and 390', async ({
+    page,
+    context,
+  }) => {
+    for (const width of [360, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await goto(page, '/plan/');
+      await context.setOffline(true);
+      await expect(page.getByTestId('offline-banner')).toBeVisible();
+      await page.waitForTimeout(400);
+      const edges = await page.evaluate(() => {
+        const r = (el: Element) => el.getBoundingClientRect();
+        const pill = r(document.querySelector('[data-testid="offline-banner"]')!);
+        const brand = r(document.querySelector('[data-testid="navbar-brand"]')!);
+        const first = [...document.querySelectorAll('[data-testid="navbar"] button')]
+          .map(r)
+          .filter((b) => b.width > 0)[0];
+        return { pillLeft: pill.left, pillRight: pill.right, pillBottom: pill.bottom, brandRight: brand.right, btnLeft: first.left };
+      });
+      expect(edges.pillLeft, `brand clear at ${width}`).toBeGreaterThanOrEqual(edges.brandRight);
+      expect(edges.pillRight, `buttons clear at ${width}`).toBeLessThanOrEqual(edges.btnLeft);
+      expect(edges.pillBottom).toBeLessThanOrEqual(64);
+      await context.setOffline(false);
+    }
   });
 
   test('renders on a second route too (mounted once at the root layout)', async ({
