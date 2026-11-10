@@ -206,7 +206,7 @@
             {
               "id": "medications-packed",
               "section": "dayzero",
-              "label": "Prescription meds + basics packed",
+              "label": "Prescription meds + basics packed (destination medicine rules checked)",
               "checked": false
             },
             {
