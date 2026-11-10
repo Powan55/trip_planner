@@ -112,7 +112,7 @@ async function shareWrapped(stats: WrappedStats) {
     await navigator.clipboard.writeText(url ? `${text} ${url}` : text);
     toast.success('Copied your wrapped summary to the clipboard');
   } catch {
-    toast.error('Could not copy — your browser blocked clipboard access');
+    toast.error('Could not copy — your browser blocked clipboard access', { duration: 5000 });
   }
 }
 

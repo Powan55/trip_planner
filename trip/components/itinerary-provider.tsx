@@ -29,6 +29,7 @@ import { withBasePath } from '@/lib/utils';
 import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 import { syncPriorNames } from '@/lib/prior-names-sync';
 import { toast } from 'sonner';
+import { readMs } from '@/lib/toast-duration';
 import TokenGate from '@/components/token-gate';
 import PresenceBar from '@/components/presence-bar';
 import FirstRunTour from '@/components/first-run-tour';
@@ -347,11 +348,10 @@ export function runTripMembership(): () => void {
   if (!getActiveTraveler()) return noop; // guest / signed-out never enrols
 
   const onAccessPending = () => {
-    toast(
-      'You don’t have access to this trip yet — ask a member to add this device (Settings → Trip access).',
-      // One toast, even if the event were ever to fire twice in a load (a dev double-mount).
-      { id: 'trip-access-pending' },
-    );
+    const msg =
+      'You don’t have access to this trip yet — ask a member to add this device (Settings → Trip access).';
+    // One toast, even if the event were ever to fire twice in a load (a dev double-mount).
+    toast(msg, { id: 'trip-access-pending', duration: readMs(msg) });
   };
   window.addEventListener('trip:access-pending', onAccessPending);
 
