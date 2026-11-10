@@ -71,8 +71,14 @@ function RecommendationCard({
     if (!el || notesOpen) return;
     const measure = () => setNotesClipped(el.scrollHeight > el.clientHeight + 1);
     measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    let live = true;
+    document.fonts?.ready.then(() => live && measure());
+    return () => {
+      live = false;
+      ro?.disconnect();
+    };
   }, [item.notes, notesOpen]);
   return (
     <m.div
@@ -178,7 +184,13 @@ function RecommendationCard({
         </div>
         {item.notes && (
           <>
-            <p ref={notesRef} id={`guide-notes-${item.id}`} className={`text-t-sm text-ink-mid mt-2 ${notesOpen ? '' : 'line-clamp-3'}`}>{item.notes}</p>
+            <p
+              ref={notesRef}
+              id={`guide-notes-${item.id}`}
+              className={`text-t-sm text-ink-mid mt-2 ${notesOpen ? '' : 'line-clamp-3'}`}
+            >
+              {item.notes}
+            </p>
             {(notesClipped || notesOpen) && (
               <button
                 type="button"
@@ -189,6 +201,7 @@ function RecommendationCard({
                 className="relative z-10 min-h-tap pr text-now outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {notesOpen ? 'Less' : 'More'}
+                <span className="sr-only"> about {item.name}</span>
               </button>
             )}
           </>
@@ -454,7 +467,7 @@ export default function RecommendationSection({
           id={`${id}-heading`}
           className={hideHeading ? 'sr-only' : 'mb-10'}
           title={`${title} Guide`}
-          subtitle={subtitle}
+          subtitle={hideHeading ? undefined : subtitle}
         />
 
         {/* Pinned search + the single "Filters · n" trigger. Search stays visible
