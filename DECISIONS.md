@@ -5177,3 +5177,13 @@ Amends D-544 and D-091 wording only. On the first marker-gated snapshot with no 
 **Why.** An edit whose outbox entry was lost (cleared storage slot, refused save) was overwritten by the older server copy on the next load, then never pushed.
 
 **Changes if:** the merge core or HLC ordering changes.
+
+### D-801 · Values a merge drops are kept on the device (issue #1124, 2026-11-10)
+
+When the sync apply replaces a content-group value (title, time, duration, notes, location) of an item that exists on both sides with another person's, local's value is saved in a device-only slot (storage key 56, `conflicts`), up to 50 entries, pruned when the item is deleted. Restore is an ordinary edit with a fresh stamp; it syncs like any other. Only a value stamped by this person is kept, and only when the winning stamp is someone else's; the whole group is stored, with null for an absent key, so a restore can clear it. The merge itself is unchanged, and the slot is never on a row, a Firestore doc, an export or a backup.
+
+**Limits.** From (local, merged) alone, a later sequential overwrite looks the same as a concurrent edit, so both are kept. The dirty-outbox branch of the first-snapshot apply records nothing (the offline-edit path; accepted). The slot is deliberately not in `DEVICE_ONLY_SLOTS`: it is ephemeral, so forgetting a trip does not warn about it.
+
+**Why.** The merge picks one value per field group and the other is gone, with nothing to tell the person it happened.
+
+**Changes if:** the merge core, the content groups or the HLC actor change.
