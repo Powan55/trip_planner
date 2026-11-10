@@ -5169,3 +5169,11 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The old lookup sent every code that was not USD or NPR to the JPY rate, so a code added only to the type would have converted at about 159 per dollar with no error. Older clients keep an unknown `rates.<CODE>` through the union merge (D-374, D-403, D-509) and only mislabel the amount with a dollar sign.
 
 **Changes if:** the converter in `lib/currency-convert.ts` widens, or home currency needs a fourth code, which needs a rollout plan for older clients.
+
+### D-800 · First snapshot with a clean outbox merges per id (issue #1124, 2026-11-10)
+
+Amends D-544 and D-091 wording only. On the first marker-gated snapshot with no dirty dates, remote is still the shape: its days and ids are taken, an empty remote over a non-empty local is still refused by the D-544 floor, and an id held only locally is not kept, so delete-all stays empty and nothing is resurrected. The one change: an id present on both sides resolves with `resolvePair` (default hlc policy), so a local row (or field, tick, or position) that wins that merge survives, and any day whose merged result differs from remote is pushed through the outbox-decorated port.
+
+**Why.** An edit whose outbox entry was lost (cleared storage slot, refused save) was overwritten by the older server copy on the next load, then never pushed.
+
+**Changes if:** the merge core or HLC ordering changes.

@@ -46,6 +46,7 @@ import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import { outboxDirty } from '@/core/sync/outbox';
+import { resolvePair, DEFAULT_POLICY } from '@/core/sync/merge-items';
 // D-544 — the seed pushes through the outbox-decorated port. Safe direction for the dormant
 // gate: itinerary-ports is firebase-free, and ITS edge back to this module is a dynamic
 // `import()` inside pushChunk, so this static import adds no module-init cycle.
@@ -377,10 +378,28 @@ export function subscribeRemote(onDead?: () => void): () => void {
     // EMPTY ⇒ this takes the plain authoritative branch below ⇒ byte-identical to today.
     const dirty = outboxDirty('itinerary');
     if (dirty.length === 0) {
-      // Default v1 items on read so the local store holds valid v2-shaped items, but do
-      // NOT merge — remote is authoritative here, verbatim incl. empty. An empty
-      // remote defaults to empty (no items to seed), so delete-all-stays-empty is preserved.
-      persistAndDispatch(plans.map(defaultDayForMerge));
+      // Remote is the shape: its days and its ids, incl. empty (delete-all-stays-empty), and an id
+      // only local holds is NOT kept (no resurrection). The one exception is an id on BOTH sides
+      // where the local row has a strictly newer HLC (an edit the outbox no longer remembers):
+      // it wins per row and its day is pushed (#1124).
+      const remoteDefaulted = plans.map(defaultDayForMerge);
+      const localByDate = new Map(loadPlans().map((d) => [d.date, d]));
+      const resolved = remoteDefaulted.map((rd) => {
+        const localById = new Map((localByDate.get(rd.date)?.items ?? []).map((i) => [i.id, i]));
+        let changed = false;
+        const items = (rd.items ?? []).map((r) => {
+          const l = localById.get(r.id);
+          if (!l) return r;
+          const w = resolvePair(l, r, DEFAULT_POLICY);
+          if (JSON.stringify(w) === JSON.stringify(r)) return r;
+          changed = true;
+          return w;
+        });
+        return changed ? { ...rd, items } : rd;
+      });
+      persistAndDispatch(resolved);
+      // Same write-ahead + push the seed uses; chunkDiff enqueues only the days that differ.
+      void Promise.resolve(itinerarySyncPort.push(remoteDefaulted, resolved)).catch(() => {});
       return true;
     }
     // Some dates are dirty: apply remote authoritatively for NON-dirty dates, and merge the
