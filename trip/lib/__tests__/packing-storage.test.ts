@@ -37,10 +37,10 @@ describe('packing checklist storage (gateway key 21, D-097)', () => {
     expect(new Set(values).size).toBe(values.length);
   });
 
-  it('loadPacking returns the built-in 29-item template when the key is absent (fresh visitor, no empty state)', () => {
+  it('loadPacking returns the built-in 30-item template when the key is absent (fresh visitor, no empty state)', () => {
     const loaded = loadPacking();
     expect(loaded).toEqual(DEFAULT_TEMPLATE);
-    expect(loaded).toHaveLength(29);
+    expect(loaded).toHaveLength(30);
     expect(loaded.every((i) => i.checked === false)).toBe(true);
   });
 
@@ -120,7 +120,7 @@ describe('loadPacking — trip-aware fallback (D-355, A-15/#102)', () => {
     sessionStorage.clear();
   });
 
-  it('default trip (unset pointer): absent slot seeds the full 29-item DEFAULT_TEMPLATE, incl. nepal/japan items', () => {
+  it('default trip (unset pointer): absent slot seeds the full 30-item DEFAULT_TEMPLATE, incl. nepal/japan items', () => {
     const loaded = loadPacking();
     expect(loaded).toEqual(DEFAULT_TEMPLATE);
     expect(loaded.some((i) => i.category === 'nepal')).toBe(true);
@@ -180,7 +180,7 @@ describe('#328 — an EMPTY list is a real value, not an absent one', () => {
 
   it('emptying one item at a time never writes back a row the caller dropped', () => {
     let items = loadPacking();
-    expect(items).toHaveLength(29);
+    expect(items).toHaveLength(30);
     while (items.length > 0) {
       items = items.slice(1);
       savePacking(items);
@@ -189,7 +189,7 @@ describe('#328 — an EMPTY list is a real value, not an absent one', () => {
     expect(JSON.parse(window.localStorage.getItem(KEY) as string)).toEqual([]);
   });
 
-  it('an emptied list can still be added to — the next save is 1 item, not 29', () => {
+  it('an emptied list can still be added to — the next save is 1 item, not 30', () => {
     savePacking([]);
     savePacking([{ id: 'custom-1', label: 'Ear plugs', category: 'universal', checked: false }]);
     const back = loadPacking();

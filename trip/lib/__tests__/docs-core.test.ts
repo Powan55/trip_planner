@@ -82,7 +82,7 @@ describe('UNIVERSAL_TEMPLATE (A-15/#102, D-355)', () => {
     const byId = new Map(UNIVERSAL_TEMPLATE.map((i) => [i.id, i.label]));
     expect(byId.get('flight-tickets')).toBe('Flight e-tickets saved offline');
     expect(byId.get('cards-cash')).toBe('Payment cards + emergency cash');
-    expect(byId.get('passport-validity')).toBe('Passport valid 6+ months beyond your return date');
+    expect(byId.get('passport-validity')).toBe('Passport valid 6+ months from entry, 2 blank pages');
     expect(byId.get('chargers-adapters')).toBe('Chargers, cables & power adapters');
     for (const label of byId.values()) {
       expect(label).not.toMatch(/Nepal|Japan|Kathmandu|2027/i);

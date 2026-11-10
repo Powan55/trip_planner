@@ -236,7 +236,7 @@
             {
               "id": "passport-validity",
               "section": "critical",
-              "label": "Passport valid 6+ months from your Nepal arrival in Dec 2026 (confirm at immigration.gov.np; Japan only for your stay)",
+              "label": "Passport valid 6+ months from Nepal entry, 2 blank pages (confirm at immigration.gov.np; Japan only for your stay)",
               "checked": true,
               "updatedBy": "Powan",
               "rev": 2,

@@ -33,7 +33,7 @@ export function isPackingCategory(v: unknown): v is PackingCategory {
 }
 
 /**
- * The built-in packing template (29 items — 10 universal, 9 Nepal-leg, 10 Japan-leg), all
+ * The built-in packing template (30 items — 10 universal, 10 Nepal-leg, 10 Japan-leg), all
  * unchecked. Realistic gear/clothing/toiletries for a Dec 9 Nepal → Japan trip (-style
  * static content, no live data). Ids are stable kebab-case strings — the persistence key.
  * The template only seeds an ABSENT slot (see `loadPacking`); a row added here reaches fresh
@@ -66,6 +66,7 @@ export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   { id: 'nepal-sun-hat', label: 'Sun hat + buff', category: 'nepal', checked: false },
   { id: 'nepal-sunscreen', label: 'High-SPF sunscreen', category: 'nepal', checked: false },
   { id: 'nepal-cash-npr', label: 'Nepali rupees (cash)', category: 'nepal', checked: false },
+  { id: 'nepal-warm-hat-gloves', label: 'Warm hat + light gloves (Nepal dawn starts, often near freezing)', category: 'nepal', checked: false },
   // ── Japan leg ─────────────────────────────────────────────────────────────
   { id: 'japan-winter-coat', label: 'Warm winter coat', category: 'japan', checked: false },
   { id: 'japan-thermal-layers', label: 'Thermal underlayers', category: 'japan', checked: false },

@@ -368,8 +368,8 @@ const rawChecklist: ChecklistItem[] = [
   {
     id: 'passport-validity',
     group: 'Before you go',
-    label: 'Passport valid 6+ months from your Nepal arrival',
-    detail: 'Nepal requires six months. Sources differ on whether it counts from arrival or departure, so confirm at immigration.gov.np. Japan only needs it valid for the length of your stay.',
+    label: 'Passport valid 6+ months from Nepal entry, 2 blank pages',
+    detail: 'Nepal asks for six months validity from the date you enter, plus at least two blank visa pages. Confirm at immigration.gov.np. Japan only needs it valid for your stay.',
   },
   {
     id: 'nepal-visa',

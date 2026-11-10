@@ -9,8 +9,8 @@ import type { Page } from '@playwright/test';
  * wall (D-241) — the signed-in token passes it.
  *
  * Proves, on real rendered output against the served static `out/` build (never `next dev`):
- *   1. The built-in template renders (no empty state) — Nepal / Japan / Universal groups, 29
- *      items, progress starts at 0/29.
+ *   1. The built-in template renders (no empty state) — Nepal / Japan / Universal groups, 30
+ *      items, progress starts at 0/30.
  *   2. Checking an item updates the progress indicator live.
  *   3. Check -> reload -> persists: the S206 hard guarantee (same bar as itinerary CRUD).
  *   4. Unchecking an item persists too (the full toggle round trip).
@@ -36,17 +36,17 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
 }
 
 test.describe('S206 packing checklist — the built-in template renders, no empty state', () => {
-  test('Nepal / Japan / Universal groups render with 29 items total, progress starts 0/29', async ({ page }) => {
+  test('Nepal / Japan / Universal groups render with 30 items total, progress starts 0/30', async ({ page }) => {
     await gotoAsTraveler(page, '/packing/');
     await expect(page.getByTestId('packing-checklist')).toBeVisible();
-    await expect(page.getByTestId('packing-progress')).toHaveText('0/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/30 packed');
 
     await expect(page.getByTestId('packing-group-nepal')).toBeVisible();
     await expect(page.getByTestId('packing-group-japan')).toBeVisible();
     await expect(page.getByTestId('packing-group-universal')).toBeVisible();
 
     const checkboxes = page.locator('[data-testid^="packing-item-"]');
-    await expect(checkboxes).toHaveCount(29);
+    await expect(checkboxes).toHaveCount(30);
     // A representative item from each category is present and unchecked.
     await expect(page.getByTestId('packing-item-nepal-trekking-boots')).not.toBeChecked();
     await expect(page.getByTestId('packing-item-japan-winter-coat')).not.toBeChecked();
@@ -61,13 +61,13 @@ test.describe('S206 packing checklist — check/uncheck updates progress live', 
 
     await page.getByTestId('packing-item-nepal-trekking-boots').check();
     await expect(page.getByTestId('packing-item-nepal-trekking-boots')).toBeChecked();
-    await expect(page.getByTestId('packing-progress')).toHaveText('1/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('1/30 packed');
 
     await page.getByTestId('packing-item-japan-winter-coat').check();
-    await expect(page.getByTestId('packing-progress')).toHaveText('2/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('2/30 packed');
 
     await page.getByTestId('packing-item-nepal-trekking-boots').uncheck();
-    await expect(page.getByTestId('packing-progress')).toHaveText('1/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('1/30 packed');
   });
 });
 
@@ -78,11 +78,11 @@ test.describe('S206 packing checklist — check -> reload -> persists (the hard 
 
     await page.getByTestId('packing-item-universal-passport-copies').check();
     await page.getByTestId('packing-item-japan-ic-card').check();
-    await expect(page.getByTestId('packing-progress')).toHaveText('2/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('2/30 packed');
 
     await page.reload({ waitUntil: 'load' });
     await expect(page.getByTestId('packing-checklist')).toBeVisible();
-    await expect(page.getByTestId('packing-progress')).toHaveText('2/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('2/30 packed');
     await expect(page.getByTestId('packing-item-universal-passport-copies')).toBeChecked();
     await expect(page.getByTestId('packing-item-japan-ic-card')).toBeChecked();
     // An untouched item stays unchecked (the write didn't clobber other items).
@@ -95,10 +95,10 @@ test.describe('S206 packing checklist — check -> reload -> persists (the hard 
 
     await page.getByTestId('packing-item-nepal-sunscreen').check();
     await page.getByTestId('packing-item-nepal-sunscreen').uncheck();
-    await expect(page.getByTestId('packing-progress')).toHaveText('0/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/30 packed');
 
     await page.reload({ waitUntil: 'load' });
-    await expect(page.getByTestId('packing-progress')).toHaveText('0/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/30 packed');
     await expect(page.getByTestId('packing-item-nepal-sunscreen')).not.toBeChecked();
   });
 });
@@ -151,10 +151,10 @@ test.describe('S206 packing checklist — an emptied list stays empty across a r
     await expect(page.getByTestId('packing-empty')).toBeVisible();
 
     await page.getByTestId('packing-restore-template').click();
-    await expect(page.getByTestId('packing-progress')).toHaveText('0/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/30 packed');
 
     await page.reload({ waitUntil: 'load' });
-    await expect(page.getByTestId('packing-progress')).toHaveText('0/29 packed');
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/30 packed');
     await expect(page.getByTestId('packing-item-nepal-trekking-boots')).toBeVisible();
   });
 });
