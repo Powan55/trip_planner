@@ -43,12 +43,13 @@ import { isTravelRoute } from '@/lib/travel-route';
  * Position: see `PILL_POS`. The bottom corners are already claimed (presence bar
  * bottom-left, Sonner toasts bottom-right), so the top edge is the open slot.
  */
-// Under sm the pill sits in the navbar's own row (the page title and day tabs start right under
+// Under md the pill sits in the navbar's own row (the page title and day tabs start right under
 // it), above the navbar (z-50) but under the token gate (z-70). It is pinned just left of the
-// two right-hand navbar buttons (2 x 44px + gap + gutter) so it clears the brand at 360px; sm+
-// keeps the centred slot below the navbar. Never takes pointer events: it must not eat taps.
+// two right-hand navbar buttons (2 x 44px + gap + gutter) so it clears the default brand at
+// 360px; md+ keeps the centred slot below the navbar. A custom brand is capped to the same
+// width in navbar.tsx (calc(100vw-252px)) so it never slides under the pill. Never takes pointer events: it must not eat taps.
 const PILL_POS =
-  'pointer-events-none fixed right-28 top-[calc(0.875rem+var(--safe-top))] z-[51] w-fit sm:inset-x-0 sm:top-[calc(5rem+var(--safe-top))] sm:z-40 sm:mx-auto sm:max-w-[calc(100vw-2rem)]';
+  'pointer-events-none fixed right-28 sm:right-36 top-[calc(0.875rem+var(--safe-top))] z-[51] w-fit md:inset-x-0 md:top-[calc(5rem+var(--safe-top))] md:z-40 md:mx-auto md:max-w-[calc(100vw-2rem)]';
 
 export function OfflineBanner() {
   const online = useOnline();
@@ -85,10 +86,10 @@ export function OfflineBanner() {
           {/* The running head's offline field, printed: solid stock, a 2px rule, mono
               caps. NOT glass and NOT red — being offline is a condition of the network,
               stated in words, and the app keeps working from its precache. */}
-          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2 py-1.5 rounded-r1 sm:px-2.5">
-            <WifiOff className="h-3 w-3 shrink-0 text-[color:var(--text-lo)] max-sm:hidden" aria-hidden="true" />
+          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2 py-1.5 rounded-r1 md:px-2.5">
+            <WifiOff className="h-3 w-3 shrink-0 text-[color:var(--text-lo)] max-md:hidden" aria-hidden="true" />
             <span className="pr whitespace-nowrap">
-              <span className="max-sm:hidden">Net · </span>Offline<span className="max-sm:hidden"> · Cached</span>
+              <span className="max-md:hidden">Net · </span>Offline<span className="max-md:hidden"> · Cached</span>
             </span>
             <span className="sr-only">
               Your device has lost its network connection. The app keeps working from cached
@@ -107,8 +108,8 @@ export function OfflineBanner() {
           data-testid="online-restored"
           className={PILL_POS}
         >
-          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2 py-1.5 rounded-r1 sm:px-2.5">
-            <Wifi className="h-3 w-3 shrink-0 text-[color:var(--text-lo)] max-sm:hidden" aria-hidden="true" />
+          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2 py-1.5 rounded-r1 md:px-2.5">
+            <Wifi className="h-3 w-3 shrink-0 text-[color:var(--text-lo)] max-md:hidden" aria-hidden="true" />
             <span className="pr whitespace-nowrap">Back online</span>
           </div>
         </m.div>

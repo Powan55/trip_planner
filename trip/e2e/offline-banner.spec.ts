@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 /**
  * S154 — app-wide offline banner E2E pack.
@@ -31,6 +31,19 @@ async function goto(page: Page, path: string) {
     .catch(() => {
       /* no SW / already stable — proceed */
     });
+}
+
+/** Wait out the 0.3s reveal: poll until the pill's top edge stops moving. */
+async function settled(el: Locator) {
+  let last = NaN;
+  await expect
+    .poll(async () => {
+      const y = (await el.boundingBox())?.y ?? NaN;
+      const done = y === last;
+      last = y;
+      return done;
+    })
+    .toBe(true);
 }
 
 test.describe('S154 · offline banner (navigator.onLine)', () => {
@@ -73,8 +86,7 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     await context.setOffline(true);
     const banner = page.getByTestId('offline-banner');
     await expect(banner).toBeVisible();
-    // let the 0.3s reveal settle before measuring
-    await page.waitForTimeout(400);
+    await settled(banner);
     const box = (await banner.boundingBox())!;
     expect(box.height, 'single line').toBeLessThan(40);
     // Inside the navbar row (64px), so it cannot cover the page title or day tabs under it.
@@ -130,16 +142,16 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     await context.setOffline(false);
   });
 
-  test('on /plan the pill clears the brand and the navbar buttons at 360 and 390', async ({
+  test('on /plan the pill clears the brand and the navbar buttons at 360, 390 and 700', async ({
     page,
     context,
   }) => {
-    for (const width of [360, 390]) {
+    for (const width of [360, 390, 700]) {
       await page.setViewportSize({ width, height: 844 });
       await goto(page, '/plan/');
       await context.setOffline(true);
       await expect(page.getByTestId('offline-banner')).toBeVisible();
-      await page.waitForTimeout(400);
+      await settled(page.getByTestId('offline-banner'));
       const edges = await page.evaluate(() => {
         const r = (el: Element) => el.getBoundingClientRect();
         const pill = r(document.querySelector('[data-testid="offline-banner"]')!);

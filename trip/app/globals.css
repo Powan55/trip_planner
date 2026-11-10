@@ -1817,16 +1817,13 @@ html {
 .animate-undo-ring {
   animation: undo-ring var(--undo-ms, 7s) linear forwards;
 }
-/* sonner pauses its timer while the toast is hovered or the stack is expanded; the ring follows. */
-[data-sonner-toast]:hover .animate-undo-ring,
-[data-sonner-toaster][data-expanded='true'] .animate-undo-ring {
+/* sonner pauses its timer while the toast is hovered or the stack is expanded; the ring follows
+   (data-expanded is set on hover and focus). Tab-hidden or press-and-hold can still desync it. */
+[data-sonner-toast][data-expanded='true'] .animate-undo-ring {
   animation-play-state: paused;
 }
 
 /* Close button keeps its 20px glyph; the pseudo-element stretches the hit area to the 44px tap size. */
-[data-sonner-toast] [data-close-button] {
-  z-index: 1;
-}
 [data-sonner-toast] [data-close-button]::before {
   content: '';
   position: absolute;

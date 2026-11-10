@@ -185,7 +185,7 @@ export default function Navbar() {
               {/* on a custom trip the brand is the trip's own name (mount-safe — Navbar
                   never SSRs, see the primaryItems/brand comment above). Default trip: unchanged. */}
               {brand ? (
-                <span data-testid="navbar-brand" className="truncate max-w-[40vw] font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
+                <span data-testid="navbar-brand" className="truncate max-w-[calc(100vw-252px)] md:max-w-[40vw] font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
                   {brand}
                 </span>
               ) : (
