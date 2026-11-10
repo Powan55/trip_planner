@@ -5,7 +5,6 @@ import { m } from 'framer-motion';
 import { AlertTriangle, Check, CloudOff, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { usePresence } from '@/hooks/use-presence';
-import { useBackOnline, useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/base-path';
@@ -68,10 +67,9 @@ function TripAccessLink(props: {
  * can arrive with nothing else pending — which is why `isBlocked` OR's the two rather than treating
  * `blocked` as the whole story.
  *
- * Position: fixed, top-right, below the navbar (mirrors `OfflineBanner`'s top-CENTER placement,
- * shifted to the one open corner — top-center is the offline banner, bottom-left is the presence
- * bar, bottom-right is the mobile quick-add FAB / Sonner toasts). `z-40`, same layer as those
- * three; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
+ * Position: fixed, top-right, below the navbar (bottom-left is the presence bar, bottom-right is
+ * the mobile quick-add FAB / Sonner toasts). `z-40`, same layer as those
+ * two; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
  */
 export function SyncStatusBadge() {
   const { pending, blocked, readBlocked, readDead, lastAckAt, localOnly, signInRequired } = useSyncStatus();
@@ -88,12 +86,7 @@ export function SyncStatusBadge() {
    * which the Firestore SDK multiplexes onto one listen target.
    */
   const peers = usePresence();
-  // OfflineBanner owns top-center at the same `top-20`, and at 360-414px its centred pill
-  // overlaps this right-anchored one — which is exactly when both are showing (offline with
-  // unsynced edits). Drop a row while it is up (#129).
-  const online = useOnline();
   const summaryId = useId();
-  const backOnline = useBackOnline();
 
   // #753: journal and prefs otherwise only retry while their own view is mounted. One-shot pushes,
   // no listener, so this spends no reads when nothing is dirty.
@@ -207,7 +200,7 @@ export function SyncStatusBadge() {
                       ? 'synced'
                       : 'synced-alone'
             }
-            className={`fixed ${online && !backOnline ? 'top-[calc(5rem+var(--safe-top))]' : 'top-[calc(8rem+var(--safe-top))]'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
+            className="fixed top-[calc(5rem+var(--safe-top))] right-4 z-40 max-w-[calc(100vw-2rem)]"
           >
             {/* Printed stock, not glass. The FILL grammar carries the state: a struck
                 (solid) rule when synced, a hollow dashed one when the sync has not

@@ -2173,7 +2173,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   right: 0;
   bottom: 0;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 0.75rem;
   padding: 0.5rem max(1rem, env(safe-area-inset-right)) calc(0.5rem + env(safe-area-inset-bottom))
     max(1rem, env(safe-area-inset-left));
@@ -2185,11 +2185,11 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
    the fixed band never sits on top of the last card. Inert while the band is empty (every dormant
    build today), so the collapsed-band layout above is unchanged. */
 .travel-mode-root:has(> .tm-thumb-zone > *) {
-  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(max(4rem, var(--tap) + 1rem) + env(safe-area-inset-bottom));
 }
 .tm-thumb-zone > * {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--tap);
+  min-height: var(--tap);
 }
 
 /* iOS Safari auto-zooms the page when a focused form control's font-size < 16px. App-wide
@@ -2441,6 +2441,9 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   @media (max-width: 439px) {
     .head .f--drop { display: none; }
   }
+  /* Outdoor's 18px root widens the mono fields until the last one clips on a phone; wrap
+     the strip onto a second row instead of scrolling. */
+  html[data-tm-legibility='high'] .head { flex-wrap: wrap; }
 
   /* ---- 9.2 · .plate — the photographic plate ---- */
   .plate {
@@ -2900,7 +2903,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      narrow, common case and cannot get the rest of the track list wrong. */
   .list .r {
     display: grid;
-    grid-template-columns: var(--cols, var(--lead, 4.5rem) 1fr auto);
+    grid-template-columns: var(--cols, var(--lead, 4.5rem) minmax(0, 1fr) auto);
     gap: 0.7rem;
     align-items: start;
     min-height: var(--tap);
@@ -2942,6 +2945,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     margin-top: 0.14rem;
     overflow-wrap: anywhere;
     color: var(--text-mid);
+    overflow-wrap: anywhere;
   }
   .list .r[data-mark='hollow'] h3 {
     color: var(--text-lo);

@@ -11,7 +11,7 @@
 // require one — a one-shot pointerdown/keydown listener that self-removes). Quiet no-op on
 // unsupported/denied/error — no toast, nothing written (persisted() IS the durable signal;
 // there's nothing to remember locally).
-// 2. NEAR-QUOTA WARNING: `navigator.storage.estimate()` checked once on mount; above
+// 2. NEAR-QUOTA WARNING: localStorage bytes vs its ~5 MB cap, checked once on mount; above
 // threshold, ONE sonner toast pointing at the Settings → Data Backup & Restore export (it lived
 // on /plan until BackupRestore moved; /plan has had no export control since). At most once
 // per page session (a module-level flag, not sessionStorage — it only needs to survive one
@@ -25,7 +25,7 @@
 // 4. REACTIVE WRITE-FAILURE TOAST: listens for the gateway's `trip:quota-exceeded`
 // `window` `CustomEvent`, fired (defensively, never-throw) from `core/storage/gateway.ts`'s
 // `writeString` and the itinerary Vault's `saveItinerary` when a write is rejected because
-// storage is actually full. This is the REACTIVE complement to #2's PROACTIVE `estimate()`
+// storage is actually full. This is the REACTIVE complement to #2's PROACTIVE localStorage-size
 // warning — #2 warns near the quota BEFORE a write fails; this fires AFTER one already has.
 // At most one toast per page session (same module-level-flag discipline as #2).
 // 5. BACKUP NUDGE ON LEG CHANGE (issue #222): a dismissable sonner toast suggesting a manual
@@ -61,7 +61,7 @@ import { getActiveTrip } from '@/core/trips';
 // From lib/storage-quota.ts, NOT lib/preflight.ts — this component is mounted in app/layout.tsx,
 // and until #757 importing the constant from preflight put that module's `maplibregl` marker into the root
 // layout's chunk. See the header of lib/storage-quota.ts; e2e/pwa.spec.ts:651 is the proof.
-import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
+import { QUOTA_WARN_THRESHOLD, LOCAL_CAP_BYTES, localStorageBytes } from '@/lib/storage-quota';
 import { isIOS, isStandalone } from '@/lib/standalone';
 
 // Per-page-load guard for the quota toast. Deliberately a module-level flag, not sessionStorage:
@@ -103,30 +103,23 @@ export function StoragePersistence() {
     }
 
     // ── 2. Near-quota warning ──
-    if (!quotaWarnedThisLoad && typeof navigator !== 'undefined' && navigator.storage?.estimate) {
-      navigator.storage
-        .estimate()
-        .then(({ usage, quota }) => {
-          if (!usage || !quota || quota <= 0) return;
-          if (usage / quota >= QUOTA_WARN_THRESHOLD) {
-            quotaWarnedThisLoad = true;
-            toast('Your device storage is nearly full', {
-              description:
-                'Back up your trip from Settings → Data so your itinerary, journal, and photos stay safe.',
-              duration: 10000,
-              action: {
-                label: 'Back up now',
-                // `/settings/`, not `/plan`: BackupRestore moved out of app/plan into the Settings
-                // Data group, so these two toasts — the app's ONLY recovery affordance when
-                // storage is full — were landing the user on a page with nothing to press.
-                onClick: () => router.push('/settings/'),
-              },
-            });
-          }
-        })
-        .catch(() => {
-          /* quiet no-op — estimate is best-effort */
+    if (!quotaWarnedThisLoad) {
+      const bytes = localStorageBytes();
+      if (bytes !== null && bytes / LOCAL_CAP_BYTES >= QUOTA_WARN_THRESHOLD) {
+        quotaWarnedThisLoad = true;
+        toast('Your device storage is nearly full', {
+          description:
+            'Back up your trip from Settings → Data so your itinerary, journal, and photos stay safe.',
+          duration: 10000,
+          action: {
+            label: 'Back up now',
+            // `/settings/`, not `/plan`: BackupRestore moved out of app/plan into the Settings
+            // Data group, so these two toasts — the app's ONLY recovery affordance when
+            // storage is full — were landing the user on a page with nothing to press.
+            onClick: () => router.push('/settings/'),
+          },
         });
+      }
     }
 
     // ── 3. Install-to-Home education (once ever, dismissable) ────────────

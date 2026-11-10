@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, assertConciergeWired } from './fixtures';
 import type { ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -104,6 +104,38 @@ test.describe('S189 · ≥44px hit target', () => {
     expect(box).not.toBeNull();
     expect(box!.width).toBeGreaterThanOrEqual(44);
     expect(box!.height).toBeGreaterThanOrEqual(44);
+  });
+});
+
+test.describe('Outdoor at 360px', () => {
+  test.use({ viewport: { width: 360, height: 740 } });
+
+  test('the sync strip is not clipped, online or offline', async ({ page, context }) => {
+    await goto(page);
+    await page.getByTestId('travel-legibility-toggle').click();
+    await expect(page.getByTestId('travel-legibility-toggle')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('html')).toHaveAttribute('data-tm-legibility', 'high');
+    const strip = page.getByTestId('travel-sync-line');
+    const clipped = () => strip.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(await clipped()).toBeLessThanOrEqual(0);
+
+    await context.setOffline(true);
+    await expect(strip).toHaveAttribute('data-online', 'false');
+    await expect(strip.getByText('Cached')).toBeVisible();
+    expect(await clipped()).toBeLessThanOrEqual(0);
+  });
+
+  test('the concierge trigger follows --tap and sits clear of the left two thirds', async ({ page }) => {
+    await goto(page);
+    await assertConciergeWired(page);
+    const trigger = page.getByTestId('concierge-trigger');
+    await page.getByTestId('travel-legibility-toggle').click();
+    await expect(page.getByTestId('travel-legibility-toggle')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('html')).toHaveAttribute('data-tm-legibility', 'high');
+    const box = (await trigger.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(52);
+    expect(box.width).toBeGreaterThanOrEqual(52);
+    expect(box.x).toBeGreaterThan(360 * (2 / 3));
   });
 });
 

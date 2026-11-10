@@ -40,7 +40,6 @@ vi.mock('framer-motion', async () => {
     return rest;
   };
   return {
-    useDragControls: () => ({ start: () => {} }),
     m: { div: (props: any) => React.createElement('div', strip(props)) },
     AnimatePresence: ({ children, onExitComplete }: any) => {
       const wasOpen = React.useRef(false);
