@@ -93,7 +93,7 @@ describe('status live regions are mounted before they have anything to announce'
       window.dispatchEvent(new Event('offline'));
     });
 
-    expect(r.container.querySelector('[data-testid="offline-banner"]')).not.toBeNull();
+    expect(r.region()?.textContent).toContain('lost its network connection');
     expect(r.region()?.getAttribute('aria-label')).toBe('You are offline');
     // The announcement depends on this being a MUTATION of `before`, not a new region.
     expect(r.region()).toBe(before);
