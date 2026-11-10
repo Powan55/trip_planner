@@ -5187,3 +5187,11 @@ When the sync apply replaces a content-group value (title, time, duration, notes
 **Why.** The merge picks one value per field group and the other is gone, with nothing to tell the person it happened.
 
 **Changes if:** the merge core, the content groups or the HLC actor change.
+
+### D-802 · The conflict notice on an itinerary item (issue #1124, 2026-11-10)
+
+An item with a stored conflict (D-801) shows `ConflictNotice` under its row in the day list: "Changed by {name}. Your version: ..." with "Put mine back" (`restoreConflict`) and "Dismiss" (`dismissConflict`). It is a polite `role="status"` block, no focus move, no animation, two ordinary 44px buttons whose names include the item title. Every write to the slot fires `trip:conflicts-changed` on the window and `useItemConflict(itemId)` re-reads on it; nothing else subscribes. Restore failing (item gone) leaves the notice.
+
+Updates are same-window only (a custom event); another open tab shows the notice after remount. An empty name reads "someone".
+
+**Changes if:** a second surface (map, print, item sheet) needs the notice, or the slot moves off `local`.
