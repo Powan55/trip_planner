@@ -82,22 +82,22 @@ export const MAP_ATTRIBUTION =
 const GROUND = {
   water: '#04030c',
   park: '#0f0d20',
-  building: '#13112a',
-  roadMinor: '#1b1930',
-  roadMajor: '#27253d',
-  motorway: '#333049',
-  rail: '#211f36',
-  border: '#3a3752',
-  borderState: '#28263c',
-  label: '#7d7a93',
-  labelDim: '#5d5a73',
+  building: '#1f1c3d',
+  roadMinor: '#4a4766',
+  roadMajor: '#6b6890',
+  motorway: '#8c89b0',
+  rail: '#3d3a5a',
+  border: '#5a5778',
+  borderState: '#3d3a58',
+  label: '#b4b1c9',
+  labelDim: '#9a97b3',
 } as const;
 
 const LATIN_NAME = ['get', 'name:latin'];
 const LABEL_PAINT = {
   'text-color': GROUND.label,
   'text-halo-color': BRAND.navy900,
-  'text-halo-width': 1.2,
+  'text-halo-width': 1.6,
 };
 
 function roadLayer(id: string, classes: string[], color: string, minzoom: number, widths: number[]) {
@@ -203,7 +203,7 @@ export function buildMapStyle(): Record<string, unknown> {
         minzoom: 13,
         paint: { 'fill-color': GROUND.building, 'fill-opacity': 0.7 },
       },
-      roadLayer('road-minor', ['minor', 'service'], GROUND.roadMinor, 12, [12, 0.5, 17, 6]),
+      roadLayer('road-minor', ['minor', 'service'], GROUND.roadMinor, 12, [12, 0.5, 14, 1.6, 17, 6]),
       roadLayer('road-major', ['primary', 'secondary', 'tertiary', 'trunk'], GROUND.roadMajor, 7, [7, 0.4, 12, 1.5, 17, 10]),
       roadLayer('road-motorway', ['motorway'], GROUND.motorway, 5, [5, 0.4, 12, 2, 17, 12]),
       roadLayer('rail', ['rail', 'transit'], GROUND.rail, 10, [10, 0.5, 17, 2]),
@@ -234,7 +234,7 @@ export function buildMapStyle(): Record<string, unknown> {
           'symbol-placement': 'line',
           'text-field': LATIN_NAME,
           'text-font': ['Noto Sans Regular'],
-          'text-size': 10,
+          'text-size': 12,
         },
         paint: { ...LABEL_PAINT, 'text-color': GROUND.labelDim },
       },
@@ -245,7 +245,7 @@ export function buildMapStyle(): Record<string, unknown> {
         'source-layer': 'place',
         minzoom: 11,
         filter: ['match', ['get', 'class'], ['village', 'suburb', 'neighbourhood', 'quarter', 'hamlet'], true, false],
-        layout: { 'text-field': LATIN_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 10 },
+        layout: { 'text-field': LATIN_NAME, 'text-font': ['Noto Sans Regular'], 'text-size': 12 },
         paint: { ...LABEL_PAINT, 'text-color': GROUND.labelDim },
       },
       {
@@ -257,7 +257,7 @@ export function buildMapStyle(): Record<string, unknown> {
         layout: {
           'text-field': LATIN_NAME,
           'text-font': ['Noto Sans Regular'],
-          'text-size': ['match', ['get', 'class'], 'city', 13, 11],
+          'text-size': ['match', ['get', 'class'], 'city', 15, 13],
           'symbol-sort-key': ['get', 'rank'],
         },
         paint: LABEL_PAINT,
