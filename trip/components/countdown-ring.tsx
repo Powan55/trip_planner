@@ -19,8 +19,11 @@ export default function CountdownRing({
   size = 128,
   strokeWidth = 6,
   reducedMotion,
+  label,
   children,
 }: {
+  /** Text alternative; the ring is exposed as an image with this name. */
+  label?: string;
   /** 0..1 progress fraction (see `ringFraction`). Clamped defensively here too. */
   fraction: number;
   size?: number;
@@ -38,6 +41,8 @@ export default function CountdownRing({
     <div
       className="relative inline-flex items-center justify-center shrink-0"
       style={{ width: size, height: size }}
+      role={label ? 'img' : undefined}
+      aria-label={label}
       data-testid="countdown-ring"
       data-fraction={clamped.toFixed(3)}
     >
