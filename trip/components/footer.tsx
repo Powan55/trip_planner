@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { TRIP_DATE_LABEL } from '@/lib/trip-data';
 import { isTravelRoute } from '@/lib/travel-route';
 import { getActiveTrip } from '@/core/trips';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import LegalLinks from '@/components/legal-links';
 
 /**
@@ -31,7 +32,16 @@ export function FooterWordmark({ legs }: { legs: { countryLabel: string }[] }) {
 export default function Footer() {
   // chrome-free Travel Mode — the app footer renders null under `/travel`.
   const pathname = usePathname();
+  const { traveler } = useActiveTraveler();
   if (isTravelRoute(pathname)) return null;
+  // Signed out (legal pages only): no trip name or dates, just the links.
+  if (!traveler) {
+    return (
+      <footer className="px-gutter py-8 border-t-2 border-[hsl(var(--border))]">
+        <LegalLinks />
+      </footer>
+    );
+  }
 
   return (
     // The colophon: the imprint line at the foot of a printed form. A 2px rule across the

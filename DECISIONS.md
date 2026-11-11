@@ -5271,3 +5271,5 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Decision.** `/privacy/`, `/terms/` and `/contact/` are plain static routes linked from the footer and the sign-in landing. `TokenGate` renders nothing on them (`lib/legal-route.ts`), so a signed-out visitor can read what the app collects before creating an account. Contact is the GitHub issues page only; no personal address is published.
 
 **Changes if:** a real support address or a data-deletion flow (#1110) exists, or a route is added that must be readable signed-out.
+
+**Amendment (provider gate).** `ItineraryProvider` withholds all children until someone is signed in, so the wall stepping aside alone left these routes blank. The provider now also passes children through when `isLegalRoute(pathname)` is true (exact match, with or without a trailing slash). Trip chrome (navbar, tab bar, quick-add, expense host) is wrapped in `TravelerOnly` in `app/layout.tsx` so it stays out of the signed-out DOM, and `Footer` renders only the legal links when signed out. No trip data reaches a signed-out visitor.

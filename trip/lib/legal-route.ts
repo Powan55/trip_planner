@@ -3,5 +3,5 @@ const LEGAL = ['/privacy', '/terms', '/contact'];
 
 export function isLegalRoute(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
-  return LEGAL.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return LEGAL.some((p) => pathname === p || pathname === `${p}/`);
 }

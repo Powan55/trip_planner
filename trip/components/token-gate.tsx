@@ -25,6 +25,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { usePathname } from 'next/navigation';
 import { isLegalRoute } from '@/lib/legal-route';
 import LandingPage from '@/components/landing-page';
+import LegalLinks from '@/components/legal-links';
 import OptimizedImage from '@/components/optimized-image';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import type { AccountUpgrade } from '@/lib/firebase-remote';
@@ -1041,6 +1042,8 @@ function TokenGateWall({
             Back
           </button>
         )}
+
+        {!upgrade && stage === 'form' && <LegalLinks className="mt-2" />}
 
         {/* Not "skip forever": this asks again on the next app load. */}
         {upgrade && onLater && stage === 'form' && (

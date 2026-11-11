@@ -46,8 +46,8 @@ export default function PrivacyPage() {
         <LegalSection title="AI concierge">
           <p>
             When you send a message to the concierge, it goes to a Cloudflare Worker run for this app, together
-            with a summary of your trip (dates, cities and itinerary) and recent chat history. The Worker
-            forwards it to an AI provider: Groq by default, or NVIDIA-hosted Kimi if you pick that model, with
+            with a summary of your trip (dates, cities and itinerary), recent chat history, and the sign-in
+            token that proves your account. The Worker may keep request logs briefly. It forwards the message to an AI provider: Groq by default, or NVIDIA-hosted Kimi if you pick that model, with
             Groq as fallback. Do not put anything in a message you would not want a third-party AI provider to
             see. The concierge can be wrong; check anything that matters.
           </p>
@@ -57,7 +57,8 @@ export default function PrivacyPage() {
           <ul>
             <li>Open-Meteo: weather and air quality for trip cities (the city&apos;s coordinates, not yours).</li>
             <li>Frankfurter: currency exchange rates.</li>
-            <li>OpenFreeMap and OpenStreetMap: map tiles. Nominatim: the place search text you type.</li>
+            <li>OpenFreeMap: map tiles for the part of the map you are viewing.</li>
+            <li>Nominatim (OpenStreetMap): the place search text you type.</li>
             <li>Google (Firebase) scripts and APIs for sign-in and sync, as above.</li>
           </ul>
           <p>
@@ -69,8 +70,8 @@ export default function PrivacyPage() {
         <LegalSection title="Location">
           <p>
             During the trip, the app may ask for your browser location once a day to confirm you are in a
-            planned city. The check runs on your device; your coordinates are not sent anywhere. Saying no
-            changes nothing else.
+            planned city, and the map&apos;s &ldquo;where am I&rdquo; control uses it when you tap it. Both
+            run on your device; your coordinates are not sent anywhere. Saying no changes nothing else.
           </p>
         </LegalSection>
 

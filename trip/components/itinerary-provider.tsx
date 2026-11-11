@@ -28,6 +28,8 @@ import { placesSyncPort, placesOutboxSync, myPlacesStoragePort } from '@/lib/pla
 import { withBasePath } from '@/lib/utils';
 import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 import { syncPriorNames } from '@/lib/prior-names-sync';
+import { usePathname } from 'next/navigation';
+import { isLegalRoute } from '@/lib/legal-route';
 import { toast } from 'sonner';
 import { readMs } from '@/lib/toast-duration';
 import TokenGate from '@/components/token-gate';
@@ -379,6 +381,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // real traveler read decides. Reactive via identity:changed, so sign-in mounts the app live
   // and sign-out unmounts it at once.
   const { traveler } = useActiveTraveler();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -503,7 +506,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
       {/* #10 — children render ONLY for an identified traveler (mount-gated, see above). The
           pre-#10 behavior ("content stays mounted BEHIND the wall") left the whole app — trip
           name, dates, itinerary — in a logged-out visitor's DOM under a mere overlay. */}
-      {mounted && traveler ? children : null}
+      {mounted && (traveler || isLegalRoute(pathname)) ? children : null}
       {/* Trip Token landing gate. No guest mode since
           — every logged-out visitor sees this wall. Mounted UNCONDITIONALLY —
           the component derives its state from useActiveTraveler() alone (`show = mounted &&
