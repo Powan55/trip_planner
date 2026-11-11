@@ -1,4 +1,5 @@
 import {
+  dayZoneOffsetMin,
   effectiveStartMinutes,
   effectiveDurationMinutes,
   effectiveOffsetMin,
@@ -66,9 +67,10 @@ export function unplannedGapsByItemId(
   dayOffsetMin: number,
 ): Map<string, number> {
   const sorted = sortItemsByTime(items, dayDate, dayOffsetMin);
+  const zoneOffsetMin = dayZoneOffsetMin(items, dayDate, dayOffsetMin);
   const gaps = new Map<string, number>();
   for (let i = 1; i < sorted.length; i++) {
-    const gap = unplannedGapMinutes(sorted[i - 1], sorted[i], dayDate, dayOffsetMin);
+    const gap = unplannedGapMinutes(sorted[i - 1], sorted[i], dayDate, zoneOffsetMin);
     if (gap !== null) gaps.set(sorted[i].id, gap);
   }
   return gaps;

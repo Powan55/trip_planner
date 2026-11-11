@@ -1,5 +1,6 @@
 import type { ItineraryItem } from '@/lib/trip-data';
 import {
+  dayZoneOffsetMin,
   effectiveDurationMinutes,
   effectiveOffsetMin,
   effectiveStartMinutes,
@@ -38,6 +39,7 @@ export function sortItemsByTime(
   dayDate: string,
   dayOffsetMin: number,
 ): ItineraryItem[] {
+  dayOffsetMin = dayZoneOffsetMin(items, dayDate, dayOffsetMin);
   const key = (item: ItineraryItem): number => {
     const min = effectiveStartMinutes(item);
     if (min === undefined) return Infinity; // untimed → sinks, stably
@@ -130,6 +132,7 @@ export function firstClashWith(
   dayDate: string,
   dayOffsetMin: number,
 ): ItineraryItem | undefined {
+  dayOffsetMin = dayZoneOffsetMin(dayItems, dayDate, dayOffsetMin);
   const c = toInterval(candidate, dayDate, dayOffsetMin);
   if (!c) return undefined;
   return dayItems.find((other) => {
@@ -196,6 +199,7 @@ export function clashingItemIds(
   dayDate: string,
   dayOffsetMin: number,
 ): Set<string> {
+  dayOffsetMin = dayZoneOffsetMin(items, dayDate, dayOffsetMin);
   const timed = items
     .map((item) => toInterval(item, dayDate, dayOffsetMin))
     .filter((x): x is Interval => x !== null);

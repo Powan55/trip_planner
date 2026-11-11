@@ -16,7 +16,12 @@
 // only while every item on a day shares one offset, which the Jan-9 date-line day does not.
 
 import type { ItineraryItem } from '@/lib/trip-data';
-import { effectiveOffsetMin, effectiveStartMinutes, placeWallClockToUtcMs } from '@/core/dates';
+import {
+  dayZoneOffsetMin,
+  effectiveOffsetMin,
+  effectiveStartMinutes,
+  placeWallClockToUtcMs,
+} from '@/core/dates';
 
 /** The resolved-clock context for a single trip day (all injected — no clock read here). */
 export interface NextUpContext {
@@ -48,6 +53,7 @@ export interface NextUpContext {
 export function nextUp(items: ItineraryItem[], ctx: NextUpContext): ItineraryItem | null {
   let best: ItineraryItem | null = null;
   let bestMs = Infinity;
+  const dayOffsetMin = dayZoneOffsetMin(items, ctx.dayDate, ctx.placeOffsetMin);
   for (const item of items) {
     if (item.done === true) continue;
     const min = effectiveStartMinutes(item);
@@ -57,7 +63,7 @@ export function nextUp(items: ItineraryItem[], ctx: NextUpContext): ItineraryIte
     // a day holds items in different zones, which the Jan-9 date-line
     // crossing now does. `startMs < now` IS the whole past-gate, computed once. That
     // also deleted the `isPastAtPlace` helper this line had superseded.
-    const startMs = placeWallClockToUtcMs(ctx.dayDate, min, effectiveOffsetMin(item, ctx.placeOffsetMin));
+    const startMs = placeWallClockToUtcMs(ctx.dayDate, min, effectiveOffsetMin(item, dayOffsetMin));
     if (startMs < ctx.nowUtcMs) continue; // passed (an item exactly AT now is still upcoming)
     if (startMs < bestMs) {
       best = item;
