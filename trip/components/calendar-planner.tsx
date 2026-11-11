@@ -349,7 +349,12 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
   const saved = useRef(false);
 
   const handleSave = () => {
-    if (saved.current || !title.trim()) return;
+    if (saved.current) return;
+    if (!title.trim()) {
+      setClashError('Add a title to save');
+      titleInputRef.current?.focus();
+      return;
+    }
     const next: ItineraryItem = {
       // Spread the original item first so additive source-linkage fields
       // survive an edit of a card-created item.
@@ -532,7 +537,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         <div className="space-y-4 pb-1">
           <div>
             <label htmlFor={titleFieldId} className="pr pr--lo mb-1 block">Title *</label>
-            <input id={titleFieldId} ref={titleInputRef} autoFocus enterKeyHint="done" value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Visit Boudhanath Stupa" />
+            <input id={titleFieldId} ref={titleInputRef} autoFocus enterKeyHint="done" value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setTitle(e.target.value); setClashError(null); }} data-testid="calendar-editor-title-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Visit Boudhanath Stupa" />
           </div>
           <div>
             <span id={categoryLabelId} className="pr pr--lo mb-1 block">Category</span>
@@ -707,8 +712,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           {/* D-316 — the refusal. A BLOCKED user action, so `role="alert"` (assertive),
               not `role="status"`: the pattern backup-restore.tsx/photo-attach.tsx already
               use. Always mounted with a reserved height so the panel never jumps and the
-              live region exists before it has anything to say. Focus is deliberately NOT
-              moved — it is already on the save button the user just pressed. */}
+              live region exists before it has anything to say. Focus stays on the save
+              button for a clash; an empty title moves it to the field instead. */}
           <p
             role="alert"
             data-testid="calendar-editor-clash-error"
@@ -718,7 +723,6 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           </p>
           <button
             type="submit"
-            disabled={!title.trim()}
             data-testid="calendar-editor-save"
             className="btn w-full px-4 focus-visible:outline-none"
           >

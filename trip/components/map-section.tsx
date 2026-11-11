@@ -67,7 +67,7 @@ type FilterValue = MarkerCategory | 'All';
 // when it is off. No filter spends an --accent fill — that answers one question only, "what
 // is now?", which on this screen is the selected day.
 const FACET =
-  'chip min-h-tap px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+  'chip min-h-tap min-w-tap justify-center px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
 
 // ── MapSection: the /map page chrome that re-composes <TripMap> ─────────
