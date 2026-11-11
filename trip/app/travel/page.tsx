@@ -24,7 +24,7 @@ import {
 } from './sections';
 
 export const metadata = {
-  title: 'Travel Mode · Nepal × Japan Journey',
+  title: 'Travel Mode · Trip Journey',
   description: 'A focused, chrome-free companion for the day you are travelling.',
 };
 

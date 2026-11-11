@@ -19,7 +19,7 @@ import { Reveal } from '@/components/reveal';
 import { PassportStamps } from './sections';
 
 export const metadata = {
-  title: 'Passport · Nepal × Japan Journey',
+  title: 'Passport · Trip Journey',
   description:
     'Every country you have been to, stamped into one page — a lifetime record kept on this device.',
 };

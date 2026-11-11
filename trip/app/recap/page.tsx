@@ -11,7 +11,7 @@ import RecapHeader from '@/components/recap-header';
 import { TripStoryRecap, WrappedStory } from './sections';
 
 export const metadata = {
-  title: 'Trip Story · Nepal × Japan Journey',
+  title: 'Trip Story · Trip Journey',
   description: 'The whole trip, day by day — plan vs. actual, journal reflections, and spend, woven into one story.',
 };
 

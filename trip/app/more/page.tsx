@@ -7,7 +7,7 @@ import MoreList from './more-list';
 // mobile home for sign-out. Static (output:'export'): a Server Component with metadata; the
 // trip-dependent list is the client `MoreList` island (mount-gated → no hydration mismatch).
 export const metadata = {
-  title: 'More · Nepal × Japan Journey',
+  title: 'More · Trip Journey',
   description: 'Everything else — flights, packing, documents, safety, journal, trips, settings, and sign out.',
 };
 

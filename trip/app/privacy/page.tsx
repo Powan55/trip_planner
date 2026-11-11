@@ -3,7 +3,7 @@ import PageHeader from '@/components/page-header';
 import LegalSection from '@/components/legal-section';
 
 export const metadata = {
-  title: 'Privacy · Nepal × Japan Journey',
+  title: 'Privacy · Trip Journey',
   description: 'What this trip planner stores, where it goes, and which outside services it talks to.',
 };
 

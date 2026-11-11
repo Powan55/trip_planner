@@ -12,7 +12,7 @@ import GuideCards from '@/components/guide-cards';
 import { SafetyKit } from './sections';
 
 export const metadata = {
-  title: 'Travel Safety Kit · Nepal × Japan Journey',
+  title: 'Travel Safety Kit · Trip Journey',
   description: 'Emergency and embassy numbers, a Nepali/Japanese phrasebook, and a document checklist — available offline.',
 };
 

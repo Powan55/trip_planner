@@ -1228,7 +1228,7 @@ function CompactCountdown() {
   if (cd.isPast) {
     return (
       <p className="text-t-body text-ink-hi text-center">
-        {getNow() > TRIP_END ? 'The trip has ended.' : 'The journey has begun.'}
+        {getNow() > TRIP_END ? 'The trip has ended.' : 'The trip is under way.'}
       </p>
     );
   }
