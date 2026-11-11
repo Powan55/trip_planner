@@ -160,4 +160,29 @@ test.describe('tap targets ≥44×44 outside /travel', () => {
     inside(await add.boundingBox(), cb!, 'add-to-plan in popup');
     inside(cb, frame!, 'popup after scroll');
   });
+  test('/map All chip, /guides jump links, attribution toggle hit area', async ({ page }) => {
+    await goto(page, '/guides/', PHONE);
+    const links = page.locator('a[data-testid^="guides-nepal-"], a[data-testid^="guides-japan-"]');
+    await expect(links.first()).toBeVisible({ timeout: 20_000 });
+    const n = await links.count();
+    expect(n, 'guides jump links render').toBeGreaterThan(0);
+    for (let i = 0; i < n; i++) await expectTapFloor(links.nth(i), `guides link ${i}`);
+
+    await goto(page, '/map/', PHONE);
+    await expectTapFloor(page.getByTestId('map-filter-all'), 'map-filter-all');
+    await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 20_000 });
+    // The toggle glyph stays 24px; its ::before stretches the hit area, so probe points 20px
+    // from its centre (outside the glyph, inside the 44px box) and expect the toggle to win.
+    const hit = await page.locator('.maplibregl-ctrl-attrib-button').evaluate((el) => {
+      el.scrollIntoView({ block: 'center' });
+      const r = el.getBoundingClientRect();
+      const cx = r.x + r.width / 2;
+      const cy = r.y + r.height / 2;
+      return [[-20, 0], [20, 0], [0, -20], [0, 20]].map(([dx, dy]) => {
+        const hitEl = document.elementFromPoint(cx + dx, cy + dy);
+        return hitEl === el;
+      });
+    });
+    expect(hit, 'attribution toggle hit area reaches 44px').toEqual([true, true, true, true]);
+  });
 });

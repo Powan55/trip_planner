@@ -36,13 +36,16 @@ for (const [name, width] of [['phone', 360], ['desktop', 1280]] as const) {
 
       await expect(editor).toBeVisible();
       await title.fill('');
-      await expect(save).toBeDisabled();
+      await expect(save).toBeEnabled();
       await expect(details).not.toHaveAttribute('open');
 
       // Closed disclosure descendants must not become phantom last Tab stops.
       await more.focus();
       await page.keyboard.press('Tab');
+      await expect(save).toBeFocused();
+      await page.keyboard.press('Tab');
       await expect(close).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
       await page.keyboard.press('Shift+Tab');
       await expect(more).toBeFocused();
 
@@ -53,9 +56,10 @@ for (const [name, width] of [['phone', 360], ['desktop', 1280]] as const) {
       await expect(editor.getByTestId('calendar-editor-duration-input')).toBeFocused();
       await close.focus();
       await page.keyboard.press('Shift+Tab');
+      await expect(save).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
       await expect(editor.getByTestId('calendar-editor-notes-input')).toBeFocused();
 
-      // With Save enabled it becomes the last stop instead.
       await title.fill('Updated visit');
       await save.focus();
       await page.keyboard.press('Tab');
@@ -63,3 +67,19 @@ for (const [name, width] of [['phone', 360], ['desktop', 1280]] as const) {
     });
   }
 }
+
+test('Save with an empty title explains itself and focuses the field', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/plan/', { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-testid^="calendar-day-"]').first().waitFor({ state: 'attached' });
+  await page.getByTestId('calendar-add-item').click();
+  const editor = page.getByTestId('calendar-editor');
+  const title = editor.getByTestId('calendar-editor-title-input');
+  await title.fill('');
+  await editor.getByTestId('calendar-editor-save').click();
+  await expect(editor.getByTestId('calendar-editor-clash-error')).toHaveText('Add a title to save');
+  await expect(title).toBeFocused();
+  await expect(editor).toBeVisible();
+  await title.fill('x');
+  await expect(editor.getByTestId('calendar-editor-clash-error')).toHaveText('');
+});

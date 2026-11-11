@@ -166,6 +166,14 @@ test.describe('S155 — first-run tour keyboard + a11y', () => {
     await expect(page.getByTestId('tour-skip')).toBeFocused(); // wraps back to first
   });
 
+  test('closing the tour lands focus on #main, not body', async ({ page }) => {
+    await gotoFreshHome(page);
+    await expectTourVisible(page);
+    await page.getByTestId('tour-dialog').getByRole('button', { name: /skip/i }).first().click();
+    await expect(page.getByTestId('tour-dialog')).toBeHidden();
+    await expect(page.locator('#main')).toBeFocused();
+  });
+
   test('Esc skips the tour from any step', async ({ page }) => {
     await gotoFreshHome(page);
     await expectTourVisible(page);

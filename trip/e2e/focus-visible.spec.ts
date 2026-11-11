@@ -156,3 +156,13 @@ test.describe('focus ring — swept across the surfaces that carried the defect'
     expect(hasVisibleRing(ring), fmt(ring)).toBe(true);
   });
 });
+
+test('smooth scroll is off while keyboard focus is visible, on for pointer', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'load' });
+  await expect(page.locator('main a[href], #main a[href]').first()).toBeAttached();
+  const sb = () => page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior);
+  await page.mouse.click(5, 5);
+  expect(await sb()).toBe('smooth');
+  await page.keyboard.press('Tab');
+  expect(await sb()).toBe('auto');
+});
