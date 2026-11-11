@@ -602,6 +602,12 @@ export const STORAGE_KEYS = {
    * `core/sync/conflict-store.ts`.
    */
   conflicts: 'nepal_japan_sync_conflicts',
+  /**
+   * localStorage — JSON `{ meta: tripId[], list?: syncCode }`, trip renames and the trip list
+   * whose push has not landed yet (trip-sync-queue, key 58; D-880). APP-SCOPED, wiped on sign-out.
+   * Shape owned by `core/trips/registry.ts` (read) and `lib/trips-remote.ts` (write).
+   */
+  tripSyncQueue: 'nepal_japan_trip_sync_queue',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -968,6 +974,7 @@ export function wipeAllTripData(): void {
   removeKey('local', STORAGE_KEYS.defaultTripAdopted);
   removeKey('local', STORAGE_KEYS.tripsCreatedHere);
   removeKey('local', STORAGE_KEYS.personPrefs);
+  removeKey('local', STORAGE_KEYS.tripSyncQueue);
 }
 
 /**

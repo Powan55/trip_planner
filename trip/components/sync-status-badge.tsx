@@ -89,12 +89,13 @@ export function SyncStatusBadge() {
   const summaryId = useId();
 
   // #753: journal and prefs otherwise only retry while their own view is mounted. One-shot pushes,
-  // no listener, so this spends no reads when nothing is dirty.
+  // no listener, so this spends no reads when nothing is dirty. #1125: trip renames and the trip
+  // list retry here too.
   useEffect(() => {
     const flush = () => {
       if (!isRemoteConfigured() || document.visibilityState !== 'visible' || !navigator.onLine) return;
-      void Promise.all([import('@/lib/journal-remote'), import('@/lib/account-prefs-remote')])
-        .then(([j, p]) => Promise.all([j.flushPendingJournal(), p.flushPendingPrefs()]))
+      void Promise.all([import('@/lib/journal-remote'), import('@/lib/account-prefs-remote'), import('@/lib/trips-remote')])
+        .then(([j, p, t]) => Promise.all([j.flushPendingJournal(), p.flushPendingPrefs(), t.flushPendingTripSync()]))
         .catch((err) => console.warn('[sync-status] flush unavailable:', err));
     };
     flush();

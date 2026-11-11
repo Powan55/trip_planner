@@ -155,6 +155,20 @@ test.describe('S219 wrapped — exact stats against a known seed (mid-trip)', ()
     await expect(page.getByTestId('wrapped-stat-journal')).toContainText('1');
   });
 
+  test('#1122 — pre-trip: share is locked, post-trip: share is offered', async ({ page }) => {
+    await seedTraveler(page);
+    await gotoRecapWithClock(page, '2026-11-01');
+    await settleWrapped(page);
+    expect(await page.getAttribute('[data-testid="wrapped-story"]', 'data-wrapped-status')).toBe('pre');
+    await expect(page.getByTestId('wrapped-share')).toHaveCount(0);
+    await expect(page.getByTestId('wrapped-share-locked')).toBeVisible();
+
+    await gotoRecapWithClock(page, POST_TRIP_DAY);
+    await settleWrapped(page);
+    await expect(page.getByTestId('wrapped-share')).toBeVisible();
+    await expect(page.getByTestId('wrapped-story')).toContainText('wrapped up in numbers');
+  });
+
   test('post-trip clock flips status to "post" and days-lived covers all 32', async ({ page }) => {
     await seedTraveler(page);
     await gotoRecapWithClock(page, POST_TRIP_DAY);

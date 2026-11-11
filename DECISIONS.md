@@ -5226,6 +5226,13 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Limits.** A day that starts in the leg zone and ends on a zoned overnight trip would read earlier hand-added rows in the trip zone; no such day exists. Two zoned items crossing that midnight resolve to the first in array order. Editing the overnight row itself checks clash against its stored footprint. The single-item zone badge still shows no label on such rows. A zone picker in the add/edit form is the full fix and would change what is stored.
 
 **Changes if:** items gain a stored zone field, or a seeded day starts in the leg zone and ends zoned.
+### D-880 · Trip renames and the trip list retry until they land (issue #1125, 2026-11-10)
+
+**Decision.** `pushTripMeta` and `pushTripList` queue their target in key 58 (`tripSyncQueue`: `{ meta: tripId[], list?: syncCode }`) before writing and dequeue it on success. `flushPendingTripSync` retries the queue from the current registry entry on the sync badge's existing triggers (mount, `online`, tab return), next to the journal and prefs queues. The badge counts queued renames for every trip, not just the active one, plus the list. A retried rename reads `meta/info` in a transaction and skips the write when the doc's `updatedAt` is the same as or newer than ours (D-600; an equal stamp means the doc already holds this version); an explicit rename writes as before. A refused push stays queued and blocked, with one attempt per page load, until the trip is forgotten. Sign-out flushes the queue under its existing 8s cap, counts it in the unsynced warning, then wipes the key. Doc shapes are unchanged.
+
+**Why.** A failed push only logged a warning, so a rename made offline never reached the other travellers.
+
+**Trade-off.** Not a real outbox domain: no per-chunk sequence, and an earlier list push can clear a later one's queue entry when the two run in different tabs.
 
 ### D-870 · Home currency accepts every leg currency (issue #1119, 2026-11-10)
 
