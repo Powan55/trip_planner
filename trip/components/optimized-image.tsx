@@ -197,6 +197,8 @@ export default function OptimizedImage({
           src={blur}
           alt=""
           aria-hidden="true"
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
           className={className}
           style={{
             ...(fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%' } : {}),

@@ -70,6 +70,15 @@ interface LazyVisibleProps {
   rootMargin?: string;
   /** Optional testid on the pending-placeholder wrapper. */
   testId?: string;
+  /** Props handed to the component on mount. */
+  props?: Record<string, unknown>;
+  /** Anchor id on the placeholder, so #hash links land before the section mounts. */
+  id?: string;
+  /**
+   * Post-hydration idle mount (default true). Pass false for tall sections far down a long
+   * page so they stay out of the DOM until scrolled near; the observer is then the only trigger.
+   */
+  idle?: boolean;
 }
 
 export default function LazyVisible({
@@ -77,6 +86,9 @@ export default function LazyVisible({
   minHeight,
   rootMargin = '600px 0px',
   testId,
+  props,
+  id,
+  idle = true,
 }: LazyVisibleProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -92,13 +104,33 @@ export default function LazyVisible({
     if (inView) setMounted(true);
   }, [inView]);
 
+  // OR-3: the URL hash targets this section. Mount now and hold the scroll on it for a few
+  // seconds, because the sections above it are still loading and growing (the browser's own
+  // hash scroll ran against the short pre-load layout). Any user scroll input ends the hold.
+  useEffect(() => {
+    if (!id || window.location.hash !== `#${id}`) return;
+    setMounted(true);
+    const pin = () => document.getElementById(id)?.scrollIntoView({ behavior: 'instant' });
+    pin();
+    const iv = setInterval(pin, 250);
+    const stop = () => clearInterval(iv);
+    const t = setTimeout(stop, 5000);
+    const evts = ['wheel', 'touchstart', 'keydown'] as const;
+    evts.forEach((e) => window.addEventListener(e, stop, { once: true, passive: true }));
+    return () => {
+      stop();
+      clearTimeout(t);
+      evts.forEach((e) => window.removeEventListener(e, stop));
+    };
+  }, [id]);
+
   // OR-2: post-hydration idle fallback — mount even without a scroll, once the main
   // thread is idle, so tall-viewport users and no-scroll E2E assertions still get the
   // real section. Does NOT re-add the chunk to First Load JS (it is absent from the
   // initial preload manifest); it merely fetches a beat after hydration.
   const idleRef = useRef(false);
   useEffect(() => {
-    if (mounted || idleRef.current) return;
+    if (!idle || mounted || idleRef.current) return;
     idleRef.current = true;
 
     type IdleWindow = Window & {
@@ -133,13 +165,13 @@ export default function LazyVisible({
     // instead of reaching app/error.tsx and replacing the whole route.
     return (
       <MapIslandBoundary testid="panel-unavailable">
-        <Component />
+        <Component {...props} />
       </MapIslandBoundary>
     );
   }
 
   return (
-    <div ref={ref} data-testid={testId} data-lazy-visible="pending">
+    <div ref={ref} id={id} data-testid={testId} data-lazy-visible="pending">
       <SectionSkeleton height={minHeight} />
     </div>
   );
