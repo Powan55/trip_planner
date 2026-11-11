@@ -241,6 +241,17 @@ for (const vp of VIEWPORTS) {
       await gotoSettled(page, '/share/');
       const footer = page.locator('footer');
       await footer.scrollIntoViewIfNeeded();
+      if (vp.name === 'mobile') {
+        // At 390px the footer box is fractional (y=594.33, h=186) and an element shot rounds it
+        // outward to 187px. Clip to an integer box instead.
+        const box = (await footer.boundingBox())!;
+        await expect(page).toHaveScreenshot(`footer-${vp.name}.png`, {
+          ...SHOT,
+          clip: { x: 0, y: Math.floor(box.y), width: 390, height: 186 },
+          mask: footerYearMask(page),
+        });
+        return;
+      }
       await expect(footer).toHaveScreenshot(`footer-${vp.name}.png`, {
         ...SHOT,
         mask: footerYearMask(page),
