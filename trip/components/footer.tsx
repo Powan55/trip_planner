@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { TRIP_DATE_LABEL } from '@/lib/trip-data';
 import { isTravelRoute } from '@/lib/travel-route';
 import { getActiveTrip } from '@/core/trips';
+import LegalLinks from '@/components/legal-links';
 
 /**
  * The wordmark's JSX — DEFAULT trip renders "Nepal × Japan Journey" (byte-identical to the
@@ -53,6 +54,7 @@ export default function Footer() {
           {' '}&middot;{' '}
           v{process.env.NEXT_PUBLIC_APP_VERSION}
         </p>
+        <LegalLinks />
       </div>
     </footer>
   );

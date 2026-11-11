@@ -5264,3 +5264,10 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Order.** Unknown-id fallback first, then the content predicate and resolver with static imports (no behaviour change on either current trip shape), then moving the remaining direct imports behind the resolver. Lazy loading waits for a second content pack and must keep the bundle in the offline precache. The per-leg guide URL (`/guides/<leg>/`, with `/nepal/` and `/japan/` kept as permanent client redirects) is a public-URL change and waits until after the trip.
 
 **Changes if:** a custom trip ever authors its own guide content (the bundle then needs a persisted, versioned home), or the built-in pack stops being a local-only sample.
+
+
+## D-900 · (2026-11-11) · Privacy, Terms and Contact are static pages that the sign-in wall steps aside for
+
+**Decision.** `/privacy/`, `/terms/` and `/contact/` are plain static routes linked from the footer and the sign-in landing. `TokenGate` renders nothing on them (`lib/legal-route.ts`), so a signed-out visitor can read what the app collects before creating an account. Contact is the GitHub issues page only; no personal address is published.
+
+**Changes if:** a real support address or a data-deletion flow (#1110) exists, or a route is added that must be readable signed-out.
