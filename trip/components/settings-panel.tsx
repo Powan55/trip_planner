@@ -335,6 +335,7 @@ function IdentityGroup({ name }: { name: string | null }) {
       {name && <RenameIdentity current={name} />}
       {/* (Q3) — claim the items you stamped under a name you used to go by. */}
       {name && <ClaimOldName current={name} />}
+      {name && <ExportAccount />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
           deletes every locally-stored photo (IndexedDB, app-scoped) and the lifetime travel
           history (D-503). Gated on `name` like Rename
@@ -359,6 +360,57 @@ function IdentityGroup({ name }: { name: string | null }) {
           </SignOutConfirm>
         </div>
       )}
+    </div>
+  );
+}
+
+function ExportAccount() {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const run = async () => {
+    setBusy(true);
+    setStatus('Preparing your file…');
+    try {
+      const { downloadAccountExport } = await import('@/lib/account-export');
+      const { errors } = await downloadAccountExport();
+      setStatus(
+        errors[0]?.path === '(server)'
+          ? 'Downloaded. Server unreachable; the file has only this browser’s data.'
+          : errors.length
+          ? `Downloaded. ${errors.length} item${errors.length === 1 ? '' : 's'} could not be read and ${errors.length === 1 ? 'is' : 'are'} listed in the file.`
+          : 'Downloaded.',
+      );
+    } catch {
+      setStatus('Could not build the file. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="border-hair border-border bg-surface-raised px-gut py-4">
+      <h3 className="pr pr--l text-ink-hi">Export all my data</h3>
+      <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
+        Downloads one JSON file with your account, every trip you belong to (including what other
+        travellers added to shared trips), your journal, and what this browser stores. Photos are
+        not included; use the trip backup for those.
+      </p>
+      <p className="mt-2 max-w-2xl text-t-body text-ink-hi">
+        This file contains your account key and trip links. Anyone who has it can open and edit
+        your trips, so keep it private and don&rsquo;t attach it to messages.
+      </p>
+      <button
+        type="button"
+        onClick={() => void run()}
+        disabled={busy}
+        data-testid="settings-export-account"
+        className="btn btn--2 mt-3 px-4"
+      >
+        <Download className="h-4 w-4" aria-hidden="true" />
+        Export all my data
+      </button>
+      <p role="status" data-testid="settings-export-account-status" className="mt-2 text-t-body text-ink-mid">
+        {status}
+      </p>
     </div>
   );
 }
