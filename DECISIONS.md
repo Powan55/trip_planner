@@ -5226,3 +5226,11 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Limits.** A day that starts in the leg zone and ends on a zoned overnight trip would read earlier hand-added rows in the trip zone; no such day exists. Two zoned items crossing that midnight resolve to the first in array order. Editing the overnight row itself checks clash against its stored footprint. The single-item zone badge still shows no label on such rows. A zone picker in the add/edit form is the full fix and would change what is stored.
 
 **Changes if:** items gain a stored zone field, or a seeded day starts in the leg zone and ends zoned.
+
+### D-870 · Home currency accepts every leg currency (issue #1119, 2026-11-10)
+
+**Decision.** `CURRENCIES` (the home/display choice) is now the same list as `LOCAL_CURRENCIES`: USD, NPR, JPY, EUR, GBP, INR, AUD, CAD, THB. `normalizeCurrency` and `normalizeLegCurrency` share one set and fall back to USD for anything else. Rates are unchanged: each extra keeps its own additive `rates.<CODE>` path and seed, so no doc shape or storage key moves. The Currency settings show a rate field for the chosen home extra even when no leg uses it. KRW, CNY, SGD and CHF are not added: there is no seed or rate path for them.
+
+**Rollout.** Amends D-798, which kept home to three codes so an older client never read a home it cannot name. An older client reads an unknown home as USD (its `normalizeCurrency`), so a person who picks EUR shows USD on a stale bundle until it updates. Ships with the next release; no data repair.
+
+**Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
