@@ -787,7 +787,7 @@ function TokenGateWall({
               id={titleId}
               className="font-sans text-n-sm font-semibold tracking-tight text-ink-hi leading-tight truncate"
             >
-              Nepal × Japan Journey
+              Trip Journey
             </h2>
           </div>
         </div>
