@@ -236,9 +236,9 @@ for (const vp of VIEWPORTS) {
     });
 
     test('footer (shared chrome, year masked)', async () => {
-      // Screenshot from any route; use /nepal/ where the footer sits below a short,
-      // static page so it is reachable without heavy lazy content in between.
-      await gotoSettled(page, '/nepal/');
+      // /share/ is a near-empty min-h-screen page, so the footer's offset is the viewport height,
+      // not content height. On a content route every copy edit moved it a fraction of a pixel.
+      await gotoSettled(page, '/share/');
       const footer = page.locator('footer');
       await footer.scrollIntoViewIfNeeded();
       await expect(footer).toHaveScreenshot(`footer-${vp.name}.png`, {
