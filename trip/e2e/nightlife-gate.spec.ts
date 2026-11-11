@@ -48,11 +48,17 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await expect(page.locator('h1').first()).toBeVisible();
 }
 
+/** Nightlife mounts lazily (LazyVisible); scroll its anchor into range before asserting. */
+async function mountNightlife(page: Page) {
+  await page.locator('#nightlife').scrollIntoViewIfNeeded();
+}
+
 test.describe('nightlife visibility gate — signed-in traveler (real Trip Token)', () => {
   for (const path of GATED_ROUTES) {
     test(`signed-in traveler SEES nightlife section on ${path}`, async ({ page }) => {
       await gotoAsTraveler(page, path);
       await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      await mountNightlife(page);
       await expect(page.getByTestId('nightlife-section')).toBeVisible();
       await expect(page.locator('#nightlife-heading')).toBeVisible();
     });
@@ -70,6 +76,7 @@ test.describe('nightlife visibility gate — signed-in traveler (real Trip Token
     page,
   }) => {
     await gotoAsTraveler(page, '/nepal/');
+    await mountNightlife(page);
     const section = page.getByTestId('nightlife-section');
     await expect(section).toBeVisible();
 
@@ -106,6 +113,7 @@ test.describe('S138 · nightlife "Added" feedback (D-146)', () => {
     page,
   }) => {
     await gotoAsTraveler(page, '/nepal/');
+    await mountNightlife(page);
     await expect(page.getByTestId('nightlife-section')).toBeVisible();
 
     // S257: the seed itinerary back-links nl1 (Purple Haze, planned Dec 11), so its
@@ -146,6 +154,7 @@ test.describe('S138 · nightlife "Added" feedback (D-146)', () => {
     // Reload: the badge survives (localStorage persistence, D-018 shape).
     await page.reload({ waitUntil: 'load' });
     await expect(page.locator('h1').first()).toBeVisible();
+    await mountNightlife(page);
     await expect(page.getByTestId('nightlife-section')).toBeVisible();
     await expect(cardBadge).toBeVisible();
     await expect(cardBadge).toContainText('Added');

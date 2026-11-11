@@ -169,9 +169,9 @@ export type FogRiskLevel = 'low' | 'moderate' | 'severe';
  * < 5 km, clear beyond that).
  */
 export function fogRiskLabel(visibilityM: number): { level: FogRiskLevel; label: string } {
-  if (visibilityM < 1000) return { level: 'severe', label: 'Severe fog — under 1 km visibility' };
-  if (visibilityM < 5000) return { level: 'moderate', label: 'Some haze — under 5 km visibility' };
-  return { level: 'low', label: 'Low fog risk — clear visibility' };
+  if (visibilityM < 1000) return { level: 'severe', label: 'Fog now — under 1 km visibility' };
+  if (visibilityM < 5000) return { level: 'moderate', label: 'Visibility now: hazy — under 5 km' };
+  return { level: 'low', label: 'Visibility now: clear' };
 }
 
 /**
