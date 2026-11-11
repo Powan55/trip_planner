@@ -1399,8 +1399,8 @@ function CurrencyGroup() {
   };
 
   const home = model.homeCurrency;
-  // Leg currencies beyond NPR/JPY (custom trips only) each get their own rate field.
-  const legExtras = EXTRA_CURRENCIES.filter((c) => LEGS.some((l) => legCurrency(l) === c));
+  // Extras used by a leg, or picked as the home currency, each get their own rate field.
+  const legExtras = EXTRA_CURRENCIES.filter((c) => c === home || LEGS.some((l) => legCurrency(l) === c));
   const showBase = isDefaultTrip() || home !== 'USD';
 
   return (
