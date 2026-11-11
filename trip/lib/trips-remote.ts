@@ -100,7 +100,7 @@ export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promi
 
 /**
  * The one `meta/info` writer. Rejects on failure. `retry` reads the doc first and skips the write
- * when its `updatedAt` is newer than ours: D-600's last-writer rule, applied before a queued push
+ * when its `updatedAt` is the same as or newer than ours: D-600's last-writer rule, applied before a queued push
  * lands so it cannot overwrite a peer's later rename. An explicit edit writes as it always has.
  */
 async function writeTripMeta(tripId: string, meta: TripMetaPayload, retry: boolean): Promise<void> {
@@ -123,7 +123,9 @@ async function writeTripMeta(tripId: string, meta: TripMetaPayload, retry: boole
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const remoteAt = snap.exists() ? (snap.data() as Record<string, unknown>).updatedAt : undefined;
-    if (typeof remoteAt === 'number' && remoteAt > (meta.updatedAt ?? 0)) return;
+    // Equal stamp: the doc already holds this version, and rewriting it from our sanitised copy
+    // could drop fields a newer build added.
+    if (typeof remoteAt === 'number' && remoteAt >= (meta.updatedAt ?? 0)) return;
     tx.set(ref, payload, opts);
   });
 }

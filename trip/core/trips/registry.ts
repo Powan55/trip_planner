@@ -604,7 +604,11 @@ export function replaceLocalPlanCopy(lead: string = REPLACE_LOCAL_PLAN_COPY): st
  * `wipeAllTripData()` clears the default pack's outbox AND every `trip:{id}:syncOutbox`, not just
  * the active one, so the warning shown before that wipe sums `listKnownTrips()` the same way. */
 export function unsyncedEditCount(): number {
-  return listKnownTrips().reduce((sum, t) => sum + unsyncedEditCountFor(t.id), personPrefsDirty());
+  const q = readTripSyncQueue(); // #1125: the wipe drops queued renames and the trip list too
+  return listKnownTrips().reduce(
+    (sum, t) => sum + unsyncedEditCountFor(t.id),
+    personPrefsDirty() + q.meta.length + (q.list ? 1 : 0),
+  );
 }
 
 /** One trip's unsynced edits (outbox + journal); forgetting it wipes both (#712). */
