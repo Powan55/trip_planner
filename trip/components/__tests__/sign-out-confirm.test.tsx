@@ -27,6 +27,8 @@ vi.mock('@/lib/firebase-remote', () => ({
   clearRemoteCache,
   isPasswordSession: async () => session.password,
 }));
+const downloadTripBackup = vi.hoisted(() => vi.fn(async (): Promise<{ missing?: number; omitted?: number } | void> => ({})));
+vi.mock('@/lib/trip-backup', () => ({ downloadTripBackup }));
 const flushAllDomains = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock('@/hooks/use-domain-sync', () => ({ flushAllDomains }));
 const flushJournal = vi.hoisted(() => vi.fn(async () => {}));
@@ -178,6 +180,23 @@ describe('SignOutConfirm — teardown', () => {
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 
+  it('lazy-loaded backup runs while the data is still on disk, before the wipe', async () => {
+    let tokenAtBackup: string | null = 'unset';
+    downloadTripBackup.mockImplementationOnce(async () => {
+      tokenAtBackup = window.localStorage.getItem(TOKEN_KEY);
+      return {};
+    });
+    await mount();
+
+    await click('t-backup');
+    expect(downloadTripBackup).toHaveBeenCalledTimes(1);
+    expect(tokenAtBackup).toBe('Uttam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+
+    await click('t-confirm');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
   // #401 / D-503 — the lifetime keys survive every teardown except this one.
   const LIFETIME = [
     'tripPlannerLifetimeVisits',
@@ -215,6 +234,15 @@ describe('SignOutConfirm — teardown', () => {
     await click('t-confirm');
     expect(clearRemoteCache).toHaveBeenLastCalledWith({ signOutAuth: true });
     expect(clearRemoteCache).toHaveBeenCalledTimes(2);
+  });
+
+  it('still signs out when every lazy chunk fails to load (offline)', async () => {
+    flushAllDomains.mockRejectedValueOnce(new Error('chunk'));
+    flushJournal.mockRejectedValueOnce(new Error('chunk'));
+    clearRemoteCache.mockRejectedValueOnce(new Error('chunk'));
+    await mount({ forgetDevice: true });
+    await click('t-confirm');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 
   it('never loads the remote module when remote is not configured', async () => {

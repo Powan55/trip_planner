@@ -25,7 +25,10 @@ export default function DefaultTripOnly({
   children,
   quiet,
   pending,
+  custom,
 }: {
+  /** Shown on a custom trip instead of the empty-state card. */
+  custom?: ReactNode;
   children: ReactNode;
   /** Render nothing (no card) on a custom trip; for Home's below-fold bands. */
   quiet?: boolean;
@@ -46,6 +49,7 @@ export default function DefaultTripOnly({
 
   if (quiet) return isDefault === null ? <>{pending}</> : isDefault ? <>{children}</> : null;
   if (isDefault !== false) return <>{children}</>;
+  if (custom) return <>{custom}</>;
 
   // Switch the active trip back to the default pack, then full-reload so this guide (and every
   // config-reading surface) re-hydrates with its content. Gateway is loaded LAZILY inside the
