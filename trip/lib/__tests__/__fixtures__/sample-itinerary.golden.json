@@ -971,7 +971,7 @@
         "category": "food",
         "time": "18:30",
         "duration": "2h",
-        "notes": "Dinner down the narrow riverside lane — obanzai (Kyoto home cooking) or a casual yudofu hot-pot to warm up; reserve ahead if possible",
+        "notes": "Dinner down the narrow riverside lane — obanzai (Kyoto home cooking) or a casual yudofu hot-pot to warm up; Dec 24 is the biggest restaurant night of the year, so book by early December (many places take bookings by phone only, in Japanese)",
         "location": "Pontocho, Kyoto",
         "sourceId": "nightlife-nl15"
       },
@@ -998,7 +998,7 @@
         "category": "photography",
         "time": "06:30",
         "duration": "2.5h",
-        "notes": "Thousands of vermillion torii winding up the mountain; arrive before 7 AM for empty tunnel shots, use the gates as leading lines",
+        "notes": "Thousands of vermilion torii winding up the mountain; arrive before 7 AM for empty tunnel shots, use the gates as leading lines",
         "location": "Fushimi, Kyoto",
         "sourceId": "ja2"
       },
@@ -1412,7 +1412,7 @@
         "category": "shopping",
         "time": "10:30",
         "duration": "3h",
-        "notes": "Anime stores, the Pokémon Center, gashapon walls and character-goods pop-ups; holiday and New Year limited-edition merch appears in early January",
+        "notes": "Anime stores, the Pokemon Center, gashapon walls and character-goods pop-ups; holiday and New Year limited-edition merch appears in early January",
         "location": "Ikebukuro, Tokyo"
       },
       {
@@ -1570,11 +1570,11 @@
     "items": [
       {
         "id": "j19-1",
-        "title": "TeamLab (Borderless or Planets)",
+        "title": "teamLab (Borderless or Planets)",
         "category": "sightseeing",
         "time": "10:00",
         "duration": "3h",
-        "notes": "Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colours for the best effect",
+        "notes": "Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colors for the best effect",
         "location": "Azabudai Hills / Toyosu, Tokyo",
         "sourceId": "jp-teamlab-borderless"
       },
@@ -1593,7 +1593,7 @@
         "category": "food",
         "time": "18:00",
         "duration": "1.5h",
-        "notes": "Pick the neighbourhood based on tonight's best event",
+        "notes": "Pick the neighborhood based on tonight's best event",
         "location": "Tokyo"
       },
       {
