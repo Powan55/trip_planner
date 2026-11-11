@@ -5241,3 +5241,17 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Rollout.** Amends D-798, which kept home to three codes so an older client never read a home it cannot name. An older client reads an unknown home as USD (its `normalizeCurrency`), so a person who picks EUR shows USD on a stale bundle until it updates. Ships with the next release; no data repair.
 
 **Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
+
+### D-884 · Built-in guide content is resolved from `contentRef`, not from "is this the default trip" (issue #1126, 2026-11-10, proposed)
+
+**Decision.** `isDefaultTrip()` answers one question only: is the active pointer the built-in pack. That is identity, and it stays the gate for the unprefixed storage keys (`keyForTrip`), the sample itinerary seed, the traveller roster and the share id. Whether a trip has guides, map pins, safety notes and phrases is a separate question, answered by `getTripContent(config.contentRef)`, which returns a `TripContent` bundle or `null` (for `'empty'` and unknown refs). Screens and nav gates that hide N×J material ask the content question.
+
+`TripContent` is editorial only: per-leg guides keyed by `TripLeg.contentKey`, map pins, safety and phrases. Bookings (`lib/booking-data.ts`) are trip data, not content; they move to a trip-scoped store under #1118 rather than into this bundle.
+
+`getTripConfig` stops falling back to the built-in pack for an id it cannot resolve. An unknown id gets the placeholder single-leg config custom trips already use, so a broken pointer shows an empty trip instead of another trip's dates over this one's storage namespace.
+
+**Invariants.** Leg ids (`nepal`, `japan`) and every content item id stay byte-identical; stored days, visited places, pins and badges key off them. `contentRef` is synthesized and never persisted, so nothing here changes a stored or Firestore shape, and an older client reading newer data sees no difference.
+
+**Order.** Unknown-id fallback first, then the content predicate and resolver with static imports (no behaviour change on either current trip shape), then moving the remaining direct imports behind the resolver. Lazy loading waits for a second content pack and must keep the bundle in the offline precache. The per-leg guide URL (`/guides/<leg>/`, with `/nepal/` and `/japan/` kept as permanent client redirects) is a public-URL change and waits until after the trip.
+
+**Changes if:** a custom trip ever authors its own guide content (the bundle then needs a persisted, versioned home), or the built-in pack stops being a local-only sample.
