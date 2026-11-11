@@ -50,7 +50,11 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
 
 /** Nightlife mounts lazily (LazyVisible); scroll its anchor into range before asserting. */
 async function mountNightlife(page: Page) {
-  await page.locator('#nightlife').scrollIntoViewIfNeeded();
+  // The placeholder div#nightlife is swapped for the real section, so scroll in-page and retry.
+  await expect(async () => {
+    await page.evaluate(() => document.getElementById('nightlife')?.scrollIntoView({ behavior: 'instant' }));
+    await expect(page.locator('#nightlife-heading')).toBeAttached({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 test.describe('nightlife visibility gate — signed-in traveler (real Trip Token)', () => {
