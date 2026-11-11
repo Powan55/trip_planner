@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import OptimizedImage from '@/components/optimized-image';
+import LegalLinks from '@/components/legal-links';
 import { entranceFor } from '@/lib/motion';
 
 /**
@@ -690,6 +691,7 @@ export default function LandingPage({
         <span className="pr pr--lo">
           Trip Journey &middot; plan together, even offline
         </span>
+        <LegalLinks className="mt-2" />
       </div>
     </div>
   );

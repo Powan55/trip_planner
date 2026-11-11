@@ -5274,6 +5274,14 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 
 **Changes if:** a custom trip ever authors its own guide content (the bundle then needs a persisted, versioned home), or the built-in pack stops being a local-only sample.
 
+
+## D-900 · (2026-11-11) · Privacy, Terms and Contact are static pages that the sign-in wall steps aside for
+
+**Decision.** `/privacy/`, `/terms/` and `/contact/` are plain static routes linked from the footer and the sign-in landing. `TokenGate` renders nothing on them (`lib/legal-route.ts`), so a signed-out visitor can read what the app collects before creating an account. Contact is the GitHub issues page only; no personal address is published.
+
+**Changes if:** a real support address or a data-deletion flow (#1110) exists, or a route is added that must be readable signed-out.
+
+**Amendment (provider gate).** `ItineraryProvider` withholds all children until someone is signed in, so the wall stepping aside alone left these routes blank. The provider now also passes children through when `isLegalRoute(pathname)` is true (exact match, with or without a trailing slash). Trip chrome (navbar, tab bar, quick-add, expense host) is wrapped in `TravelerOnly` in `app/layout.tsx` so it stays out of the signed-out DOM, and `Footer` renders only the legal links when signed out. No trip data reaches a signed-out visitor.
 ### D-902 · Account export is one client-built JSON file (issue #1110, 2026-11-11)
 
 **Decision.** Settings → Identity → "Export all my data" (`lib/account-export.ts`) downloads one JSON file: the auth uid/email, `users/{uid}`, the account's `profile/{identity,tripList,prefs,journal_*}`, and for every trip in the local registry plus the remote trip list, the trip doc, `meta/info`, `budget/model`, `docs/checklist`, `places/list`, and the `days` and `expenses` collections. It also carries this browser's app keys (`STORAGE_KEYS` values and `trip:*` only, since the origin is shared). Presence and invites are left out. Photos are left out; the trip backup carries them. A refused or failed read goes into `errors` and the rest still exports. No server, no new storage key, no doc shape change.

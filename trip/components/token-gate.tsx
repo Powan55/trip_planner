@@ -22,7 +22,10 @@ import { TRIP_START, TRIP_END } from '@/lib/trip-data';
 import { TRIP_DATE_LABEL, TRIP_DATES_PENDING } from '@/core/dates';
 import { getNow } from '@/lib/trip-now';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
+import { usePathname } from 'next/navigation';
+import { isLegalRoute } from '@/lib/legal-route';
 import LandingPage from '@/components/landing-page';
+import LegalLinks from '@/components/legal-links';
 import OptimizedImage from '@/components/optimized-image';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import type { AccountUpgrade } from '@/lib/firebase-remote';
@@ -109,7 +112,9 @@ export default function TokenGate() {
     };
   }, [mounted, signedIn]);
 
-  const show = mounted && (held || !traveler || upgrade);
+  // The legal pages stay readable to a signed-out visitor; the wall is linked to them.
+  const onLegalRoute = isLegalRoute(usePathname());
+  const show = mounted && !onLegalRoute && (held || !traveler || upgrade);
 
   return (
     <AnimatePresence>
@@ -1037,6 +1042,8 @@ function TokenGateWall({
             Back
           </button>
         )}
+
+        {!upgrade && stage === 'form' && <LegalLinks className="mt-2" />}
 
         {/* Not "skip forever": this asks again on the next app load. */}
         {upgrade && onLater && stage === 'form' && (

@@ -10,6 +10,7 @@ import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
 import { ClockOverrideBanner } from '@/components/clock-override-banner'
 import { RouteFocus } from '@/components/route-focus'
+import TravelerOnly from '@/components/traveler-only'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
 import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
@@ -188,7 +189,9 @@ export default function RootLayout({
             </a>
             {/* App chrome: one persistent navbar/footer around the routed
                 page content. TokenGate + PresenceBar render inside the provider. */}
-            <Navbar />
+            <TravelerOnly>
+              <Navbar />
+            </TravelerOnly>
             <RouteFocus />
             {/* routed content + footer must clear the fixed mobile
                 tab bar; 64px fallback = the bar's published height contract. */}
@@ -198,15 +201,19 @@ export default function RootLayout({
               {children}
               <Footer />
             </div>
-            <BottomTabBar />
-            <QuickAddFab />
-            <QuickAddHost />
-            {/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
-            <ExpenseLogHost />
+            <TravelerOnly>
+              <BottomTabBar />
+              <QuickAddFab />
+              <QuickAddHost />
+              {/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
+              <ExpenseLogHost />
+            </TravelerOnly>
           </ItineraryProvider>
           {/* ⌘K / Ctrl+K command palette. Mounted once
               at the app root so the shortcut works from anywhere. */}
-          <CommandPalette />
+          <TravelerOnly>
+            <CommandPalette />
+          </TravelerOnly>
           {/* `?trip=` shared-link join handshake. Renders null unless a
               `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
           <TripJoinHandshake />

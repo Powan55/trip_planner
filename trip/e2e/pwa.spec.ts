@@ -369,6 +369,18 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     anchor: '[data-testid="trip-story-recap"]',
     what: 'the TripStoryRecap island (app/recap/sections.tsx -> @/components/trip-story-recap)',
   },
+  '/privacy/': {
+    anchor: 'main h1:text-is("Privacy")',
+    what: 'the legal page body, which the provider only mounts after hydration (app/privacy/page.tsx)',
+  },
+  '/terms/': {
+    anchor: 'main h1:text-is("Terms")',
+    what: 'the legal page body, which the provider only mounts after hydration (app/terms/page.tsx)',
+  },
+  '/contact/': {
+    anchor: 'main h1:text-is("Contact")',
+    what: 'the legal page body, which the provider only mounts after hydration (app/contact/page.tsx)',
+  },
   '/safety/': {
     anchor: '[data-testid="safety-kit"]',
     what: 'the TravelSafetyKit island (app/safety/sections.tsx -> @/components/travel-safety-kit)',
