@@ -42,7 +42,10 @@ async function settleSW(page: Page) {
 
 /** Sections below the fold mount lazily (LazyVisible); scroll the anchor so the heading exists. */
 async function mountPhotography(page: Page) {
-  await page.locator('#photography').scrollIntoViewIfNeeded();
+  await expect(async () => {
+    await page.evaluate(() => document.getElementById('photography')?.scrollIntoView());
+    await expect(page.locator('#photography-heading')).toBeAttached({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 async function gotoSettled(page: Page, path: string) {
@@ -103,6 +106,7 @@ test.describe('S214 · Reveal — the scroll-driven CSS path is actually live on
     // This Chromium must support the feature — otherwise this test proves nothing.
     expect(await page.evaluate(() => CSS.supports('animation-timeline: view()'))).toBe(true);
 
+    await mountPhotography(page);
     const wrapper = page.locator('#nepal-heading').locator('xpath=ancestor::div[@data-scroll-driven][1]');
     await expect(wrapper).toHaveAttribute('data-scroll-driven', 'css');
     await expect(wrapper).toHaveClass(/reveal-view-css/);

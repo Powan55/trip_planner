@@ -61,10 +61,14 @@ test.describe('tap targets ≥44×44 outside /travel', () => {
       ['photography search clear', page.getByLabel('Search photography guide')],
     ];
     for (const [label, input] of cases) {
-      // nightlife + photography mount lazily; bring them into range first
-      await page.locator('#nightlife').scrollIntoViewIfNeeded();
-      await page.locator('#photography').scrollIntoViewIfNeeded();
-      await expect(input).toBeVisible({ timeout: 20_000 });
+      // Lazy sections swap a placeholder for the real element under the same id, so a locator
+      // action on the id races the swap. Scroll in the page and retry until the input exists.
+      await expect(async () => {
+        await page.evaluate(() => {
+          for (const id of ['photography', 'nightlife']) document.getElementById(id)?.scrollIntoView();
+        });
+        await expect(input).toBeVisible({ timeout: 1_000 });
+      }).toPass({ timeout: 20_000 });
       await expectTapFloor(await clearButtonAfterTyping(input), label);
     }
   });
