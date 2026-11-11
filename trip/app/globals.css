@@ -2958,6 +2958,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     font-weight: 500;
     font-size: var(--t-label);
     margin-top: 0.14rem;
+    overflow-wrap: anywhere;
     color: var(--text-mid);
     overflow-wrap: anywhere;
   }
