@@ -82,7 +82,7 @@ export const DEFAULT_TEMPLATE: readonly DocItem[] = [
   { id: 'boarding-passes-offline', section: 'dayzero', label: 'Boarding passes saved offline', checked: false },
   { id: 'esim-data', section: 'dayzero', label: 'eSIM / data plan activated', checked: false },
   { id: 'home-utilities', section: 'dayzero', label: 'Home power, water & gas shut off', checked: false },
-  { id: 'medications-packed', section: 'dayzero', label: 'Prescription meds + basics packed', checked: false },
+  { id: 'medications-packed', section: 'dayzero', label: 'Prescription meds + basics packed (destination medicine rules checked)', checked: false },
   { id: 'chargers-adapters', section: 'dayzero', label: 'Chargers, cables & plug adapters (Nepal 230 V type C/D/M, Japan 100 V type A/B)', checked: false },
   { id: 'luggage-weighed', section: 'dayzero', label: 'Luggage weighed against airline limits', checked: false },
   { id: 'airport-transfer', section: 'dayzero', label: 'Airport transfer / pickup booked', checked: false },

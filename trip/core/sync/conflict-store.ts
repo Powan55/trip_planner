@@ -21,6 +21,8 @@ export interface ConflictEntry {
 }
 
 export const MAX_CONFLICTS = 50;
+/** Fired on this window after every write to the slot, so the UI can re-read. */
+export const CONFLICTS_CHANGED_EVENT = 'trip:conflicts-changed';
 
 interface PlanLike {
   date: string;
@@ -94,6 +96,7 @@ export function listConflicts(): ConflictEntry[] {
 
 function save(list: ConflictEntry[]): void {
   writeJson('local', keyFor('conflicts'), list.slice(-MAX_CONFLICTS));
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(CONFLICTS_CHANGED_EVENT));
 }
 
 /**

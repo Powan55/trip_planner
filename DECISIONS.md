@@ -5187,6 +5187,14 @@ When the sync apply replaces a content-group value (title, time, duration, notes
 **Why.** The merge picks one value per field group and the other is gone, with nothing to tell the person it happened.
 
 **Changes if:** the merge core, the content groups or the HLC actor change.
+
+### D-802 · The conflict notice on an itinerary item (issue #1124, 2026-11-10)
+
+An item with a stored conflict (D-801) shows `ConflictNotice` under its row in the day list: "Changed by {name}. Your version: ..." with "Put mine back" (`restoreConflict`) and "Dismiss" (`dismissConflict`). It is a polite `role="status"` block, no focus move, no animation, two ordinary 44px buttons whose names include the item title. Every write to the slot fires `trip:conflicts-changed` on the window and `useItemConflict(itemId)` re-reads on it; nothing else subscribes. Restore failing (item gone) leaves the notice.
+
+Updates are same-window only (a custom event); another open tab shows the notice after remount. An empty name reads "someone".
+
+**Changes if:** a second surface (map, print, item sheet) needs the notice, or the slot moves off `local`.
 ### D-799 · Hero ring is progress only (issue #1131, 2026-11-10)
 
 **Decision.** The countdown ring no longer prints a number. It is a progress arc with `role="img"` and an `aria-label` of the calendar days left. The `countdown-total-days` and `-unit` test ids stay on a visually hidden span. `computeCountdown` is unchanged (D-313).
@@ -5208,3 +5216,12 @@ When the sync apply replaces a content-group value (title, time, duration, notes
 **Why.** Every other account was put on the shared trip: the hub said "Shared trip — synced", their edits queued and were refused, and each open spent denied reads.
 
 **Trade-off.** A member's first load on a new device is local-only until the check reloads it. A non-member's queued writes for the shared trip stay on the device, unsent.
+
+
+### D-870 · Home currency accepts every leg currency (issue #1119, 2026-11-10)
+
+**Decision.** `CURRENCIES` (the home/display choice) is now the same list as `LOCAL_CURRENCIES`: USD, NPR, JPY, EUR, GBP, INR, AUD, CAD, THB. `normalizeCurrency` and `normalizeLegCurrency` share one set and fall back to USD for anything else. Rates are unchanged: each extra keeps its own additive `rates.<CODE>` path and seed, so no doc shape or storage key moves. The Currency settings show a rate field for the chosen home extra even when no leg uses it. KRW, CNY, SGD and CHF are not added: there is no seed or rate path for them.
+
+**Rollout.** Amends D-798, which kept home to three codes so an older client never read a home it cannot name. An older client reads an unknown home as USD (its `normalizeCurrency`), so a person who picks EUR shows USD on a stale bundle until it updates. Ships with the next release; no data repair.
+
+**Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
