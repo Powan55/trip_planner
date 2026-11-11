@@ -28,7 +28,7 @@ import {
 import { toast } from 'sonner';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
-import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
+import { itemMatchesAuthor, itemAuthors, type AuthorFilter } from '@/lib/author-filter';
 import { syncPriorNames } from '@/lib/prior-names-sync';
 import {
   getActiveTripId,
@@ -1024,6 +1024,16 @@ function ClaimOldName({ current }: { current: string }) {
   }, [plans, expenses, docItems, from, isSelf]);
 
   const matches = counts.total;
+
+  // Nothing stamped with any name but the current one = nothing anyone could claim (#1122).
+  const hasClaimable = useMemo(
+    () =>
+      plans.some((p) => (p.items ?? []).some((i) => itemAuthors(i).some((a) => !!a && a !== current))) ||
+      expenses.some((e) => [e.createdBy, e.updatedBy].some((a) => !!a && a !== current)) ||
+      docItems.some((d) => d.deleted !== true && !!d.updatedBy && d.updatedBy !== current),
+    [plans, expenses, docItems, current],
+  );
+  if (!hasClaimable && claimed === null) return null;
 
   const status = isSelf
     ? `“${current}” is your current name. Enter the name you used before.`

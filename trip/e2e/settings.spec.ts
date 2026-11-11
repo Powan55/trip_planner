@@ -114,6 +114,12 @@ test.describe('S146 settings — structure + discoverability', () => {
     await expect(page.getByTestId('backup-import-trigger')).toBeVisible();
   });
 
+  test('#1122 — no Claim block when nothing is stamped under another name', async ({ page }) => {
+    await gotoSettings(page);
+    await expect(page.getByTestId('settings-panel')).toBeVisible();
+    await expect(page.getByTestId('settings-claim-old-name')).toHaveCount(0);
+  });
+
   test('#10 — Trip access is ABSENT on a build with no sync configured', async ({ page }) => {
     await gotoSettings(page);
     // This build has no firebase config, so there is no device identity and no roster to read.

@@ -82,7 +82,7 @@ export function subscribeAuthorFilter(onChange: () => void): () => void {
  * nickname — see `lib/trip-data.ts`), so treating it as attribution is not a widening of the
  * data model, it is reading the field that was already there.
  */
-function itemAuthors(item: ItineraryItem): (string | undefined)[] {
+export function itemAuthors(item: ItineraryItem): (string | undefined)[] {
   return [item.updatedBy, item.createdBy, item.doneBy];
 }
 
