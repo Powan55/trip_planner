@@ -42,7 +42,8 @@ function VenueCard({
     <m.div
       whileHover={{ y: -4 }}
       data-leg={isNepal ? 'nepal' : 'japan'}
-      className="relative p-gut rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)] overflow-hidden"
+      // #1078: same offscreen skip as the place cards, at this grid's measured 390px median.
+      className="[content-visibility:auto] [contain-intrinsic-height:auto_250px] relative p-gut rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)] overflow-hidden"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
