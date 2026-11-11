@@ -5251,6 +5251,15 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 
 **Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
 
+### D-882 · A custom trip's flights and stays are its Transportation and Hotel items (issue #1118, 2026-11-10)
+
+**Decision.** `/flights` on a custom trip lists the trip's non-deleted `transportation` and `hotel` itinerary items by date and time (`selectTripBookings`), with a link to the planner to add more. The route is no longer default-only in the nav and palette. The bundled bookings page stays default-pack only.
+
+**Why.** "Tonight's stay" already reads hotel items, so those are the stays; a second booking store would need its own sync shape and merge rules. Nothing new is stored, so there is no rules or old-client impact.
+
+**Not covered.** Structured flight fields (carrier, terminals, seats, layovers), the travel-mode hero, and multi-country trips.
+
+**Changes if:** structured bookings get their own per-trip doc.
 ### D-884 · Built-in guide content is resolved from `contentRef`, not from "is this the default trip" (issue #1126, 2026-11-10, proposed)
 
 **Decision.** `isDefaultTrip()` answers one question only: is the active pointer the built-in pack. That is identity, and it stays the gate for the unprefixed storage keys (`keyForTrip`), the sample itinerary seed, the traveller roster and the share id. Whether a trip has guides, map pins, safety notes and phrases is a separate question, answered by `getTripContent(config.contentRef)`, which returns a `TripContent` bundle or `null` (for `'empty'` and unknown refs). Screens and nav gates that hide N×J material ask the content question.
