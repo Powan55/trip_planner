@@ -167,6 +167,9 @@ export const TIER_3_SURFACES: readonly string[] = [
   '/safety',
   '/share',
   '/travel',
+  '/privacy',
+  '/terms',
+  '/contact',
   // `/profile` (issue #4). D-292's Tier 1 line names "passport/profile", and this is the
   // narrower reading on purpose: that clause describes the STAGE surface — the passport, its
   // stamps, the collection — while this route is a data-entry form and nothing else, which the
