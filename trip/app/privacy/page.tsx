@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         <LegalSection title="Stored on your device">
           <p>
             Your itinerary, budget and expenses, favorites, journal, packing and checklist state, display
-            preferences and a random device id are kept in your browser&apos;s local storage. Photos you attach
+            preferences and a random device id are kept in your browser&apos;s local storage (the device id is also the name of your presence record in Firestore). Photos you attach
             stay on your device in browser storage and are never uploaded. The service worker caches the app
             and its pages so it works offline. You can export or clear this data from Settings.
           </p>
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
           <p>
             When you send a message to the concierge, it goes to a Cloudflare Worker run for this app, together
             with a summary of your trip (dates, cities and itinerary), recent chat history, and the sign-in
-            token that proves your account. The Worker may keep request logs briefly. It forwards the message to an AI provider: Groq by default, or NVIDIA-hosted Kimi if you pick that model, with
+            token that proves your account. The Worker may keep request logs briefly. Map or place links you paste to import a place are also sent to the Worker, which opens them to find the place. It forwards the message to an AI provider: Groq by default, or NVIDIA-hosted Kimi if you pick that model, with
             Groq as fallback. Do not put anything in a message you would not want a third-party AI provider to
             see. The concierge can be wrong; check anything that matters.
           </p>

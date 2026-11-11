@@ -211,7 +211,9 @@ export default function RootLayout({
           </ItineraryProvider>
           {/* ⌘K / Ctrl+K command palette. Mounted once
               at the app root so the shortcut works from anywhere. */}
-          <CommandPalette />
+          <TravelerOnly>
+            <CommandPalette />
+          </TravelerOnly>
           {/* `?trip=` shared-link join handshake. Renders null unless a
               `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
           <TripJoinHandshake />
