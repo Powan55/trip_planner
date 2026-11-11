@@ -63,6 +63,11 @@ import {
 import { setActiveTripId, STORAGE_KEYS } from '@/core/storage/gateway';
 import { setTripConfig, renameKnownTrip } from '@/core/trips/registry';
 
+// A failed stall test must not leave every later test hanging on the token refresh.
+beforeEach(() => {
+  workerAuth.stall = false;
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -87,6 +92,9 @@ interface Handle {
   provider: ConciergeProvider;
   setProvider: (p: ConciergeProvider) => void;
   reset: () => void;
+  stop: () => string;
+  /** Starts a send without waiting for it; await the returned promise inside `act` later. */
+  start: (m: string) => Promise<void>;
   unmount: () => void;
 }
 
@@ -146,6 +154,20 @@ function renderConciergeChat(fetchImpl: typeof fetch): Handle {
     },
     reset() {
       act(() => ref.current!.reset());
+    },
+    stop() {
+      let text = '';
+      act(() => {
+        text = ref.current!.stop();
+      });
+      return text;
+    },
+    start(m: string) {
+      let p: Promise<void> = Promise.resolve();
+      act(() => {
+        p = ref.current!.send(m);
+      });
+      return p;
     },
     unmount() {
       act(() => root.unmount());
@@ -257,6 +279,58 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
 
     timeoutSpy.mockRestore();
     workerAuth.stall = false;
+    h.unmount();
+  });
+
+  it('#1093 — Stop during the auth stage: nothing that runs after it reports an error', async () => {
+    workerAuth.stall = true;
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'late', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    // Too big to send, so once the auth race resolves the turn would take the "too long" exit.
+    const p = h.start('x'.repeat(20_000));
+    expect(h.status).toBe('streaming');
+
+    expect(h.stop()).toBe('x'.repeat(20_000));
+    await act(async () => {
+      await p;
+    });
+    expect(h.status).toBe('idle');
+    expect(h.error).toBeNull();
+    expect(h.messages).toEqual([]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    workerAuth.stall = false;
+    h.unmount();
+  });
+
+  it('#1093 — a timeout that fires after Stop changes nothing', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => {
+      const c = new AbortController();
+      setTimeout(() => c.abort(new DOMException('signal timed out', 'TimeoutError')), 10);
+      return c.signal;
+    });
+    const fetchImpl = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const s = init.signal as AbortSignal;
+          s.addEventListener('abort', () => reject(s.reason), { once: true });
+        }),
+    ) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    const p = h.start('hello');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    h.stop();
+    await act(async () => {
+      await p;
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(h.status).toBe('idle');
+    expect(h.error).toBeNull();
+    expect(h.messages).toEqual([]);
+
+    timeoutSpy.mockRestore();
     h.unmount();
   });
 

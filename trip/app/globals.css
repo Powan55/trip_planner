@@ -934,6 +934,11 @@ html {
   overscroll-behavior-y: contain;
 }
 
+/* Smooth anchor scrolling is for pointer clicks; animating keyboard focus jumps is slow and disorienting. */
+html:has(:focus-visible) {
+  scroll-behavior: auto;
+}
+
 /* Bottom tab bar only exists below md (bottom-tab-bar.tsx is md:hidden), so the
    scroll-padding it needs would over-reserve space on desktop otherwise. */
 @media (max-width: 767.98px) {
@@ -2082,6 +2087,12 @@ body:has(form:focus-within) .door-kb {
   color: #7dd3fc !important; /* sky-300 — ≥7.5:1 on the pill, keeps link affordance */
   text-decoration: underline;
 }
+/* 24px toggle: stretch the hit area to the 44px tap size without moving the glyph. */
+.maplibregl-ctrl-attrib-button::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
 /* The compact "ⓘ" toggle button: keep its glyph legible on the dark pill. */
 .maplibregl-ctrl-attrib-button {
   background-color: rgba(255, 255, 255, 0.82) !important;
@@ -2958,6 +2969,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     font-weight: 500;
     font-size: var(--t-label);
     margin-top: 0.14rem;
+    overflow-wrap: anywhere;
     color: var(--text-mid);
     overflow-wrap: anywhere;
   }

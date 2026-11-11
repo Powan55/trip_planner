@@ -175,6 +175,7 @@ export default function FirstRunTour() {
     tourStore.markTourSeen();
     setOpen(false);
     window.dispatchEvent(new Event('trip:tour-done'));
+    document.getElementById('main')?.focus({ preventScroll: true });
   }
 
   function handleNext() {
