@@ -5273,3 +5273,17 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Order.** Unknown-id fallback first, then the content predicate and resolver with static imports (no behaviour change on either current trip shape), then moving the remaining direct imports behind the resolver. Lazy loading waits for a second content pack and must keep the bundle in the offline precache. The per-leg guide URL (`/guides/<leg>/`, with `/nepal/` and `/japan/` kept as permanent client redirects) is a public-URL change and waits until after the trip.
 
 **Changes if:** a custom trip ever authors its own guide content (the bundle then needs a persisted, versioned home), or the built-in pack stops being a local-only sample.
+
+### D-902 · Account export is one client-built JSON file (issue #1110, 2026-11-11)
+
+**Decision.** Settings → Identity → "Export all my data" (`lib/account-export.ts`) downloads one JSON file: the auth uid/email, `users/{uid}`, the account's `profile/{identity,tripList,prefs,journal_*}`, and for every trip in the local registry plus the remote trip list, the trip doc, `meta/info`, `budget/model`, `docs/checklist`, `places/list`, and the `days` and `expenses` collections. It also carries this browser's app keys (`STORAGE_KEYS` values and `trip:*` only, since the origin is shared). Presence and invites are left out. Photos are left out; the trip backup carries them. A refused or failed read goes into `errors` and the rest still exports. No server, no new storage key, no doc shape change.
+
+**Why.** Shared trips are exported whole because the person can already read them; this is a copy of what they see, not a claim of ownership.
+
+**The file is a bearer credential.** It carries the account key (`tripPlannerSyncCode`, `tripPlannerToken`) and every trip id, and whoever holds it can open and edit those trips. The card says so in plain words next to the button.
+
+### D-902a · Account deletion rule (issue #1110, 2026-11-11, proposed, not built)
+
+**Rule.** Deleting an account removes what only that account owns and never another member's data: `trips/{accountId}/profile/*`, `accountClaims/{accountId}`, `users/{uid}`, then the auth user. For each trip: if the account is the only member, delete the trip's subtree and doc; if others remain, leave the trip and remove only its own roster key (an owner hands ownership to another member first, since the last owner cannot leave); an open (no-roster) trip someone else may hold is left alone. Firestore goes first and the auth user last, so a failure midway leaves a working account that can retry, never an auth-less orphan. Requires a recent sign-in (`auth/requires-recent-login` → re-enter password) and a typed confirmation.
+
+**Blocked on rules.** The current rules refuse every account-level delete: `users/{uid}` and `accountClaims/{id}` are get/create only, `profile/identity` and `profile/tripList` are excluded from delete, and a member-gated trip doc cannot be deleted (#856). Shipping the client half alone would delete the auth user and leave the username, account id, name and trip list behind, so it waits for a rules change.
