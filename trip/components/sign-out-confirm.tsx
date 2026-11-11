@@ -3,13 +3,11 @@
 import { useRef, useState } from 'react';
 import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
-import { downloadTripBackup } from '@/lib/trip-backup';
 import { isRemoteConfigured } from '@/lib/firebase-config';
-import { defaultBlobStore } from '@/core/photos/blob-store';
 import { sanitizePhotos } from '@/core/photos/model';
+import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, readJson, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import { unsyncedEditCount } from '@/core/trips/registry';
-import { flushAllDomains } from '@/hooks/use-domain-sync';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import {
   AlertDialog,
@@ -100,6 +98,8 @@ export default function SignOutConfirm({
 
   const handleBackup = async () => {
     try {
+      // Loaded on click: the backup/gzip code stays out of the pages that only render the trigger.
+      const { downloadTripBackup } = await import('@/lib/trip-backup');
       const { missing = 0, omitted = 0 } = (await downloadTripBackup()) ?? {};
       const left = missing + omitted;
       setBackupMsg(left > 0 ? `${left} photo${left === 1 ? ' was' : 's were'} left out of the backup.` : '');
@@ -134,7 +134,10 @@ export default function SignOutConfirm({
           // best-effort: sign-out proceeds
         }
       };
-      await Promise.race([Promise.all([flushAllDomains(), flushRemote()]), new Promise((r) => (cap = setTimeout(r, 8000)))]);
+      // A failed chunk load (offline) must not block sign-out, same as flushRemote.
+      const flushDomains = () =>
+        import('@/hooks/use-domain-sync').then(({ flushAllDomains }) => flushAllDomains()).catch(() => {});
+      await Promise.race([Promise.all([flushDomains(), flushRemote()]), new Promise((r) => (cap = setTimeout(r, 8000)))]);
       clearTimeout(cap);
       setFlushing(false);
       if (forgetDevice) {

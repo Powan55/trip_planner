@@ -171,9 +171,9 @@ const ROW_ICON = 'h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]';
 const GROUP = 'p-0 [&_[cmdk-group-heading]]:px-gut [&_[cmdk-group-heading]]:py-2';
 
 // (Plan D10): routes that only exist for the default N×J trip — dropped from the
-// palette on a custom trip (Nepal/Japan/Flights/Safety, plus their #photography/#nightlife
+// palette on a custom trip (Nepal/Japan/Safety, plus their #photography/#nightlife
 // sub-anchors which target /nepal/, and Home's #inspiration gallery).
-const DEFAULT_TRIP_ONLY_ROUTES = new Set(['/nepal/', '/japan/', '/flights/', '/safety/']);
+const DEFAULT_TRIP_ONLY_ROUTES = new Set(['/nepal/', '/japan/', '/safety/']);
 export const isDefaultTripOnlySection = (s: { route: string; hash?: string }) =>
   DEFAULT_TRIP_ONLY_ROUTES.has(s.route) || s.hash === '#inspiration';
 

@@ -77,7 +77,7 @@ export default function PackingChecklist() {
 
   if (!hydrated) {
     return (
-      <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="mx-auto w-full max-w-3xl px-gut pb-16">
+      <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="mx-auto w-full max-w-3xl px-gut pb-16" style={{ minHeight: '110rem' }}>
         <h2 id="packing-heading" className="sr-only">
           Packing checklist
         </h2>

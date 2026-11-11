@@ -11,6 +11,9 @@ export const FlightsSection = dynamic(() => import('@/components/flights-section
   loading: () => <SectionSkeleton height="clamp(30rem, 80vh, 46rem)" />,
 });
 
+// What a custom trip sees here instead of the "not on this trip" card.
+export const TripBookings = dynamic(() => import('@/components/trip-bookings'), { ssr: false });
+
 // Home / Kathmandu / Tokyo wall clocks. Own ssr:false island so it stays off the initial chunk;
 // the placeholder is sized for the two rows the three clocks wrap to at 375px.
 export const WorldClockStrip = dynamic(() => import('@/components/world-clock-strip'), {
