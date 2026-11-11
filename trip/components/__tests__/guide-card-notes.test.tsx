@@ -47,4 +47,28 @@ describe('guide card notes toggle', () => {
     expect(btn.getAttribute('aria-expanded')).toBe('true');
     expect(btn.textContent).toMatch(/^Less/);
   });
+
+  it('measures from the ResizeObserver callback, not on mount', () => {
+    const callbacks: Array<() => void> = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          callbacks.push(cb);
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    try {
+      expect(render(120, 60)).toBeNull();
+      expect(callbacks.length).toBeGreaterThan(0);
+      act(() => callbacks.forEach((cb) => cb()));
+      const root = document.body.lastElementChild!;
+      expect(root.querySelector('[data-testid^="guide-notes-toggle-"]')).not.toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

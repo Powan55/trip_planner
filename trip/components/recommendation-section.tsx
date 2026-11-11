@@ -101,9 +101,9 @@ function RecommendationCard({
       onPointerLeave={tilt.onPointerLeave}
       data-testid={`guide-tilt-${item.id}`}
       data-tilt-enabled={tilt.enabled}
-      // #1078: offscreen cards skip layout/paint but stay in the DOM, so find-in-page, the
-      // a11y tree and Tab order are untouched. Height only (width stays the grid track's), at
-      // the measured 390px median; `auto` swaps in the real height once a card has rendered.
+      // #1078: offscreen cards skip layout/paint but stay in the DOM (find-in-page, a11y tree
+      // and Tab order unchanged). The height is a rough midpoint of the 390px medians on
+      // /japan (532) and /nepal (469); `auto` swaps in the real height once rendered.
       className="[content-visibility:auto] [contain-intrinsic-height:auto_500px] plate relative flex flex-col rounded-r1 overflow-hidden group border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
       {/* The ratio lives on the frame as `--plate-ar`, which is what the recipe reads, and
