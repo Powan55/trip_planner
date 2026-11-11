@@ -56,8 +56,8 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
-  title: 'Nepal × Japan Journey | Dec 2026 - Jan 2027',
-  description: 'Premium travel planner for an epic Nepal and Japan adventure. Explore Kathmandu, Tokyo, Kyoto, and beyond.',
+  title: 'Trip Journey',
+  description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
   icons: {
     icon: withBasePath('/favicon.svg'),
     shortcut: withBasePath('/favicon.svg'),
@@ -74,11 +74,11 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Nepal×Japan',
+    title: 'Trip Journey',
   },
   openGraph: {
-    title: 'Nepal × Japan Journey',
-    description: 'Premium travel planner for an epic Nepal and Japan adventure.',
+    title: 'Trip Journey',
+    description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
     // NOTE: pass a bare root-relative path here — do NOT wrap in
     // withBasePath(). Next resolves metadata image URLs against metadataBase,
     // and metadataBase already carries the basePath segment via
@@ -90,8 +90,8 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nepal × Japan Journey',
-    description: 'Premium travel planner for an epic Nepal and Japan adventure.',
+    title: 'Trip Journey',
+    description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
     images: ['/og-image.png'],
   },
 }

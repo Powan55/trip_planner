@@ -47,7 +47,7 @@ import type { Page } from '@playwright/test';
 // the Home shell".
 const TRAVEL_TITLE = 'Travel Mode · Nepal × Japan Journey';
 const PLAN_TITLE = 'Plan · Nepal × Japan Journey';
-const HOME_TITLE_MARK = 'Dec 2026 - Jan 2027'; // only in the Home/app-root shell <title>
+const HOME_TITLE_MARK = 'Trip Journey'; // only in the Home/app-root shell <title>
 
 async function waitForControllingSW(page: Page): Promise<void> {
   await page.waitForFunction(

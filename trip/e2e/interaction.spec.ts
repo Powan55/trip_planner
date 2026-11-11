@@ -620,7 +620,10 @@ test.describe('S248 · glance-able "added" state on the guides (/nepal/)', () =>
     await goto(page, '/nepal/');
     await waitForGuide(page);
 
-    await page.locator('#photography').scrollIntoViewIfNeeded();
+    await expect(async () => {
+      await page.evaluate(() => document.getElementById('photography')?.scrollIntoView({ behavior: 'instant' }));
+      await expect(page.locator('#photography-heading')).toBeAttached({ timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
     await expect(page.locator('#photography-heading')).toBeVisible();
     await expect(page.getByTestId(`photo-added-${PHOTO_ID}`)).toHaveCount(0);
 
