@@ -21,15 +21,15 @@ export const NepalSection = dynamic(() => import('@/components/nepal-section'), 
 // initial DOM. The placeholder carries the anchor id for /guides links and #hash nav.
 const Photography = dynamic(() => import('@/components/photography-guide'), {
   ssr: false,
-  loading: () => <SectionSkeleton />,
+  loading: () => <SectionSkeleton height="2800px" />,
 });
 const Nightlife = dynamic(() => import('@/components/nightlife-section'), {
   ssr: false,
-  loading: () => <SectionSkeleton />,
+  loading: () => <SectionSkeleton height="2000px" />,
 });
 const Essentials = dynamic(() => import('@/components/country-essentials'), {
   ssr: false,
-  loading: () => <SectionSkeleton />,
+  loading: () => <SectionSkeleton height="1500px" />,
 });
 type CountryProps = { country: string };
 export const PhotographyGuide = ({ country }: CountryProps) => (

@@ -18,15 +18,15 @@ export const JapanSection = dynamic(() => import('@/components/japan-section'), 
 // initial DOM. The placeholder carries the anchor id for /guides links and #hash nav.
 const Photography = dynamic(() => import('@/components/photography-guide'), {
   ssr: false,
-  loading: () => <SectionSkeleton />,
+  loading: () => <SectionSkeleton height="5800px" />,
 });
 const Nightlife = dynamic(() => import('@/components/nightlife-section'), {
   ssr: false,
-  loading: () => <SectionSkeleton />,
+  loading: () => <SectionSkeleton height="6500px" />,
 });
 const Essentials = dynamic(() => import('@/components/country-essentials'), {
   ssr: false,
-  loading: () => <SectionSkeleton />,
+  loading: () => <SectionSkeleton height="1700px" />,
 });
 type CountryProps = { country: string };
 export const PhotographyGuide = ({ country }: CountryProps) => (

@@ -115,7 +115,7 @@ export default function LazyVisible({
     const iv = setInterval(pin, 250);
     const stop = () => clearInterval(iv);
     const t = setTimeout(stop, 5000);
-    const evts = ['wheel', 'touchstart', 'keydown'] as const;
+    const evts = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
     evts.forEach((e) => window.addEventListener(e, stop, { once: true, passive: true }));
     return () => {
       stop();

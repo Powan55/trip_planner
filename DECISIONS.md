@@ -5226,6 +5226,7 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Limits.** A day that starts in the leg zone and ends on a zoned overnight trip would read earlier hand-added rows in the trip zone; no such day exists. Two zoned items crossing that midnight resolve to the first in array order. Editing the overnight row itself checks clash against its stored footprint. The single-item zone badge still shows no label on such rows. A zone picker in the add/edit form is the full fix and would change what is stored.
 
 **Changes if:** items gain a stored zone field, or a seeded day starts in the leg zone and ends zoned.
+
 ### D-881 · Country pages mount photography, nightlife and essentials on scroll (issue #1078, 2026-11-10)
 
 **Decision.** On `/japan` and `/nepal` the three lower sections sit behind `LazyVisible` with `idle={false}`: no post-hydration mount, only the 600px observer. The placeholder carries the `#photography`, `#nightlife` and `#essentials` ids and reserves a desktop-measured height. A URL hash that matches the id mounts the section at once and holds the scroll on it for 5s (until wheel, touch or key input), since the lead section above is still growing. The lead section's skeleton is now tall (15000px Japan, 10000px Nepal) so the observer does not fire on the short pre-load layout. The blurred placeholder `<img>` in `OptimizedImage` gets `loading` and `decoding="async"`.
