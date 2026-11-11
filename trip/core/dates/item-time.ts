@@ -149,6 +149,40 @@ export function effectiveOffsetMin(item: ItineraryItem, dayOffsetMin: number): n
 }
 
 /**
+ * The offset an item WITHOUT its own `tzOffsetMin` should be read at (#1120). Nothing in the UI
+ * sets a zone on a hand-added item, so it falls back to the day's leg offset — wrong on a day the
+ * traveller never reaches that leg, like Dec 9, spent entirely at SYR/JFK on a Nepal-leg day.
+ *
+ * Read at query time, nothing stored: if a zoned item is still running at the midnight that ends
+ * the day, in leg time (half-open), the traveller is not in the leg zone that day, so its zone
+ * becomes the day's. Otherwise the leg offset is returned unchanged. The seed only trips this on
+ * Dec 9, which holds no unzoned rows, so seeded behaviour is identical.
+ *
+ * Callers must pass the FULL stored day, never a filtered or partial list: dropping the row that
+ * sets the zone silently reverts the rest to the leg offset.
+ *
+ * KNOWN CEILING: a day that starts in the leg zone and ends on a zoned overnight transit would
+ * read its earlier unzoned rows in the transit zone; two zoned rows crossing midnight resolve to
+ * the first in array order. No such day exists; a per-item zone control is the real fix.
+ */
+export function dayZoneOffsetMin(
+  items: readonly ItineraryItem[],
+  dayDate: string,
+  dayOffsetMin: number,
+): number {
+  const midnightMs = placeWallClockToUtcMs(dayDate, 1440, dayOffsetMin);
+  for (const item of items) {
+    if (typeof item.tzOffsetMin !== 'number' || item.deleted === true) continue;
+    const start = effectiveStartMinutes(item);
+    const dur = effectiveDurationMinutes(item);
+    if (start === undefined || dur === undefined) continue;
+    const startMs = placeWallClockToUtcMs(dayDate, start, item.tzOffsetMin);
+    if (startMs < midnightMs && midnightMs < startMs + dur * 60000) return item.tzOffsetMin;
+  }
+  return dayOffsetMin;
+}
+
+/**
  * The ONE shared time-string parser — used by BOTH the Vault v4→v5 migration AND
  * the runtime fallback (`effectiveStartMinutes`), because sync-ingested / seed items reach
  * the runtime with a `time` but no `startMinutes` forever in a mixed fleet; the two paths

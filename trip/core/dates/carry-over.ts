@@ -13,6 +13,7 @@
  */
 import type { ItineraryItem } from '@/lib/trip-data';
 import {
+  dayZoneOffsetMin,
   effectiveDurationMinutes,
   effectiveOffsetMin,
   effectiveStartMinutes,
@@ -25,6 +26,7 @@ export function hasItemInProgress(
   dayOffsetMin: number,
   nowUtcMs: number,
 ): boolean {
+  dayOffsetMin = dayZoneOffsetMin(items, dayDate, dayOffsetMin);
   return items.some((item) => {
     if (item.done === true) return false;
     const startMin = effectiveStartMinutes(item);

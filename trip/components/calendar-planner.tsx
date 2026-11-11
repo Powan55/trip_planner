@@ -51,7 +51,13 @@ import { buildMapsPlaceUrl } from '@/lib/maps-link';
 import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
-import { effectiveDurationMinutes, effectiveStartMinutes, formatTimeAmPm, offsetForCountry } from '@/core/dates';
+import {
+  dayZoneOffsetMin,
+  effectiveDurationMinutes,
+  effectiveStartMinutes,
+  formatTimeAmPm,
+  offsetForCountry,
+} from '@/core/dates';
 import { daySunTimes } from '@/lib/sun-times';
 import { unplannedGapsByItemId } from '@/lib/unplanned-gap';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
@@ -1246,7 +1252,13 @@ export default function CalendarPlanner() {
   // The day's place offset, for every instant-level derivation below (the grouping sort, the
   // clash badge and the unplanned rules all take it). Declared here because the phase grouping
   // is the first consumer — it used to sit further down, next to the clash badge alone.
-  const dayOffsetMin = offsetForCountry(getCountryForDate(selectedDate));
+  // The zone comes from the FULL stored day: under the author filter the seeded rows that set it
+  // are hidden, and the visible rows would fall back to the leg offset (#1120).
+  const dayOffsetMin = dayZoneOffsetMin(
+    currentPlan.items,
+    selectedDate,
+    offsetForCountry(getCountryForDate(selectedDate)),
+  );
   const daySun = useMemo(
     () => daySunTimes(selectedDate, currentPlan.city, currentPlan.country),
     [selectedDate, currentPlan.city, currentPlan.country],
@@ -1279,7 +1291,8 @@ export default function CalendarPlanner() {
   const firstStartInfo = firstTimedItem ? describeItemTime(firstTimedItem, selectedDate) : null;
   // warn-only clash badge, presentation-only — it never writes and never affects ordering.
   // computed over the VISIBLE set. A badge warning about a collision with an item that is
-  // not on screen is unreadable; clash detection is order-independent so this is a pure narrowing.
+  // not on screen is unreadable. Narrowing the rows is safe; the zone is not narrowed, it comes
+  // from the full day via `dayOffsetMin` above.
   // The overlap is judged on the absolute instant, so the day and its offset
   // come along (`dayOffsetMin`, declared above the grouping) — a day can hold items in
   // another zone.

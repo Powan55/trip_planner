@@ -5217,6 +5217,15 @@ Updates are same-window only (a custom event); another open tab shows the notice
 
 **Trade-off.** A member's first load on a new device is local-only until the check reloads it. A non-member's queued writes for the shared trip stay on the device, unsent.
 
+### D-850 · Hand-added items read in the zone of a still-running zoned item (issue #1120, 2026-11-10)
+
+An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 9, Nepal +5:45, every seeded row in New York time) that read a hand-added JFK row 10h45m off and hid it from next-up and the overlap check. `dayZoneOffsetMin(items, dayDate, legOffset)` now returns the zone of a zoned item still running at the midnight that ends the day, in leg time, else the leg offset, worked out at read time over the day's items. Callers must compute the zone over the full stored day, never a filtered or partial list: the author-filtered calendar view and the hero's next-up pool (which drops the current row) both resolve it from the whole day. Nothing stored changes: no doc shape, no sync change, no key, no UI. Seeded days behave as before (a test walks every seed day).
+
+**Why.** The traveller has not reached the leg that day, so a row without a zone belongs to the zone they are still in.
+
+**Limits.** A day that starts in the leg zone and ends on a zoned overnight trip would read earlier hand-added rows in the trip zone; no such day exists. Two zoned items crossing that midnight resolve to the first in array order. Editing the overnight row itself checks clash against its stored footprint. The single-item zone badge still shows no label on such rows. A zone picker in the add/edit form is the full fix and would change what is stored.
+
+**Changes if:** items gain a stored zone field, or a seeded day starts in the leg zone and ends zoned.
 ### D-880 · Trip renames and the trip list retry until they land (issue #1125, 2026-11-10)
 
 **Decision.** `pushTripMeta` and `pushTripList` queue their target in key 58 (`tripSyncQueue`: `{ meta: tripId[], list?: syncCode }`) before writing and dequeue it on success. `flushPendingTripSync` retries the queue from the current registry entry on the sync badge's existing triggers (mount, `online`, tab return), next to the journal and prefs queues. The badge counts queued renames for every trip, not just the active one, plus the list. A retried rename reads `meta/info` in a transaction and skips the write when the doc's `updatedAt` is the same as or newer than ours (D-600; an equal stamp means the doc already holds this version); an explicit rename writes as before. A refused push stays queued and blocked, with one attempt per page load, until the trip is forgotten. Sign-out flushes the queue under its existing 8s cap, counts it in the unsynced warning, then wipes the key. Doc shapes are unchanged.
