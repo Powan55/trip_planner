@@ -70,14 +70,23 @@ function RecommendationCard({
     const el = notesRef.current;
     if (!el || notesOpen) return;
     const measure = () => setNotesClipped(el.scrollHeight > el.clientHeight + 1);
-    measure();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    ro?.observe(el);
+    // #1078: reading sizes here forced a layout per card on load. The observer's callback
+    // runs after the browser's own layout, and re-observing after the font swap re-measures.
+    if (typeof ResizeObserver === 'undefined') {
+      measure();
+      return;
+    }
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
     let live = true;
-    document.fonts?.ready.then(() => live && measure());
+    document.fonts?.ready.then(() => {
+      if (!live) return;
+      ro.unobserve(el);
+      ro.observe(el);
+    });
     return () => {
       live = false;
-      ro?.disconnect();
+      ro.disconnect();
     };
   }, [item.notes, notesOpen]);
   return (
@@ -92,7 +101,10 @@ function RecommendationCard({
       onPointerLeave={tilt.onPointerLeave}
       data-testid={`guide-tilt-${item.id}`}
       data-tilt-enabled={tilt.enabled}
-      className="plate relative flex flex-col rounded-r1 overflow-hidden group border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
+      // #1078: offscreen cards skip layout/paint but stay in the DOM (find-in-page, a11y tree
+      // and Tab order unchanged). The height is a rough midpoint of the 390px medians on
+      // /japan (532) and /nepal (469); `auto` swaps in the real height once rendered.
+      className="[content-visibility:auto] [contain-intrinsic-height:auto_500px] plate relative flex flex-col rounded-r1 overflow-hidden group border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
       {/* The ratio lives on the frame as `--plate-ar`, which is what the recipe reads, and
           the grid is what gives the ramp a row to span. */}
