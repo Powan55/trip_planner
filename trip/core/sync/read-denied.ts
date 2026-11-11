@@ -66,7 +66,7 @@ const queueDenied = new Set<string>();
 function markQueueDenied(key: string): void {
   if (queueDenied.has(key)) return;
   queueDenied.add(key);
-  console.warn('[sync] a journal or prefs push was refused by the rules — not retrying it this page load');
+  console.warn('[sync] a queued push was refused by the rules — not retrying it this page load');
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
 }
 
@@ -79,3 +79,11 @@ export const isJournalDenied = (code: string, tripId: string, date: string) =>
   queueDenied.has(journalKey(code, tripId, date));
 export const markPrefsDenied = (code: string) => markQueueDenied(prefsKey(code));
 export const isPrefsDenied = (code: string) => queueDenied.has(prefsKey(code));
+
+// #1125: trip renames (by trip id) and the trip list (by account code), same rule.
+const tripMetaKey = (tripId: string) => JSON.stringify(['tripMeta', tripId]);
+const tripListKey = (code: string) => JSON.stringify(['tripList', code]);
+export const markTripMetaDenied = (tripId: string) => markQueueDenied(tripMetaKey(tripId));
+export const isTripMetaDenied = (tripId: string) => queueDenied.has(tripMetaKey(tripId));
+export const markTripListDenied = (code: string) => markQueueDenied(tripListKey(code));
+export const isTripListDenied = (code: string) => queueDenied.has(tripListKey(code));

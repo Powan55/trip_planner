@@ -17,10 +17,12 @@ import {
   isReadDead,
   isReadDenied,
   isSignInRequired,
+  isTripListDenied,
+  isTripMetaDenied,
 } from '@/core/sync/read-denied';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
-import { journalDirtyDates, personPrefsDirty } from '@/core/trips/registry';
+import { journalDirtyDates, personPrefsDirty, readTripSyncQueue } from '@/core/trips/registry';
 
 /**
  * Reactive read over the offline-push outbox — the data behind
@@ -97,9 +99,15 @@ function readStatus(): SyncStatus {
   const queuedOn = isRemoteConfigured() && getActiveTraveler() !== null && isSafeTripSegment(code);
   const days = queuedOn ? journalDirtyDates(tripId) : [];
   const prefs = queuedOn ? personPrefsDirty() : 0;
+  // #1125: queued trip renames and the trip list. A rename needs no account code, so only the
+  // traveller gate applies to it.
+  const tripQ = isRemoteConfigured() && getActiveTraveler() !== null ? readTripSyncQueue() : { meta: [] };
+  const tripPending = tripQ.meta.length + (tripQ.list ? 1 : 0);
+  const tripBlocked =
+    tripQ.meta.filter((id) => isTripMetaDenied(id)).length + (tripQ.list && isTripListDenied(tripQ.list) ? 1 : 0);
   const queuedBlocked =
-    days.filter((d) => isJournalDenied(code, tripId, d)).length + (isPrefsDenied(code) ? prefs : 0);
-  const pending = Object.values(dirty).flat().length + days.length + prefs;
+    days.filter((d) => isJournalDenied(code, tripId, d)).length + (isPrefsDenied(code) ? prefs : 0) + tripBlocked;
+  const pending = Object.values(dirty).flat().length + days.length + prefs + tripPending;
   // Read off the same `SYNC_OUTBOX_CHANGED_EVENT` tick as everything else — `markDenied` (and
   // #271's `setReadDenied`) dispatch it, so a refusal re-renders the badge without a reload,
   // exactly like an enqueue or an ack.
@@ -134,7 +142,8 @@ export function useSyncStatus(): SyncStatus {
         e.key === null ||
         e.key === keyFor('syncOutbox') ||
         e.key === keyFor('journalSync') ||
-        e.key === STORAGE_KEYS.personPrefs
+        e.key === STORAGE_KEYS.personPrefs ||
+        e.key === STORAGE_KEYS.tripSyncQueue
       )
         reread();
     };

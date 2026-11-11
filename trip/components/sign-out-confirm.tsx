@@ -124,11 +124,12 @@ export default function SignOutConfirm({
       const flushRemote = async () => {
         if (!isRemoteConfigured()) return;
         try {
-          const [{ flushJournal }, { flushPrefs }] = await Promise.all([
+          const [{ flushJournal }, { flushPrefs }, { flushPendingTripSync }] = await Promise.all([
             import('@/lib/journal-remote'),
             import('@/lib/account-prefs-remote'),
+            import('@/lib/trips-remote'),
           ]);
-          await Promise.all([flushJournal(), flushPrefs()]);
+          await Promise.all([flushJournal(), flushPrefs(), flushPendingTripSync()]);
         } catch {
           // best-effort: sign-out proceeds
         }
