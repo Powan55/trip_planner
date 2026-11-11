@@ -458,9 +458,11 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
 
   // Seconds since the turn started. Visual only: a per-second change must never reach a live region.
   const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(0);
   useEffect(() => {
     if (!busy) return;
     const start = Date.now();
+    startRef.current = start;
     setElapsed(0);
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(id);
@@ -514,6 +516,8 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
   };
 
   const handleStop = () => {
+    // Stop takes Send's place, so the second tap of a double-tap on Send would land on it.
+    if (Date.now() - startRef.current < 400) return;
     const text = stop();
     // Hand the message back, unless the traveller has already started typing the next one.
     if (text) setDraft((d) => (d.trim() ? d : text));

@@ -358,7 +358,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
   // The in-flight turn's controller. `stop()` nulls it before aborting, so a send whose controller is
   // no longer current knows it was cancelled and drops whatever arrives late.
   const abortRef = useRef<AbortController | null>(null);
-  const [provider,setProviderState] = useState<ConciergeProvider>('groq');
+  const [provider, setProviderState] = useState<ConciergeProvider>('groq');
   // Switching trips is a full reload today, so this is mount in practice; keyed anyway so a thread
   // can never be shown under the wrong trip.
   const tripId = getActiveTripId();
@@ -444,6 +444,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       // round trip with this: there is now no expression anywhere below that can put a machine
       // string into `setError`).
       const fail = (reason: string) => {
+        if (stopped()) return; // Stop already cleaned up; this bubble may now be the next send's
         setStatus('error');
         setError(reason);
         // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.

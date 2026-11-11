@@ -183,7 +183,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
   it('an ack that does not change the state leaves the live region untouched', async () => {
     const r = render(createElement(SyncStatusBadge));
     const region = r.q('[role="status"]')!;
-    expect(region.textContent).toBe('Saved');
+    expect(region.textContent).toBe('Synced');
     expect(region.contains(r.q('[data-testid="sync-status-badge"]'))).toBe(false);
     expect(r.summary()).not.toMatch(/ago|confirmed/);
 
@@ -195,13 +195,17 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
     r.rerender(createElement(SyncStatusBadge));
     h.sync = { ...h.sync, lastAckAt: new Date().toISOString() };
     r.rerender(createElement(SyncStatusBadge));
-    await Promise.resolve(); // MutationObserver delivers on a microtask
-    expect(seen).toHaveLength(0);
-
+    // A peer joining moves the pill to "Synced · 1 here", but the announced word stays put.
     h.presence = [peer('Uttam')];
     r.rerender(createElement(SyncStatusBadge));
+    await Promise.resolve(); // MutationObserver delivers on a microtask
+    expect(r.text()).toBe('Synced · 1 here');
+    expect(seen).toHaveLength(0);
+
+    h.sync = { ...h.sync, pending: 1 };
+    r.rerender(createElement(SyncStatusBadge));
     await Promise.resolve();
-    expect(region.textContent).toBe('Synced');
+    expect(region.textContent).toBe('Changes waiting to sync');
     expect(seen.length).toBeGreaterThan(0);
     mo.disconnect();
     r.unmount();

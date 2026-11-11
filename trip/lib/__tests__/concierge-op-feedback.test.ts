@@ -383,6 +383,8 @@ describe('the concierge Stop button', () => {
     expect(elapsed?.getAttribute('aria-hidden')).toBe('true');
     expect(elapsed?.closest('[aria-live]')).toBeNull();
 
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 1000); // past the double-tap guard
     await act(async () => {
       document.querySelector<HTMLButtonElement>('[data-testid="concierge-stop"]')!.click();
     });
@@ -407,6 +409,23 @@ describe('the concierge Stop button', () => {
     expect(h.turns().map((t) => t.textContent)).toEqual(['next one', 'on time']);
     expect(JSON.stringify({ ...localStorage })).not.toContain('too late');
     expect(JSON.stringify({ ...localStorage })).toContain('on time');
+    clock.mockRestore();
+    h.unmount();
+  });
+
+  it('ignores a Stop tap in the first moment, so a double-tap on Send does not cancel it', async () => {
+    let signal: AbortSignal | undefined;
+    const fetchImpl = vi.fn((_url: string, init: RequestInit) => {
+      signal = init.signal!;
+      return new Promise<Response>(() => {});
+    });
+    const h = await mount([], fetchImpl as unknown as () => Promise<Response>);
+    await h.send('slow one');
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[data-testid="concierge-stop"]')!.click();
+    });
+    expect(signal?.aborted).toBe(false);
+    expect(document.querySelector('[data-testid="concierge-stop"]')).not.toBeNull();
     h.unmount();
   });
 });

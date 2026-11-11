@@ -253,8 +253,9 @@ const ANNOUNCEMENTS = {
   dead: 'Not receiving updates',
   pending: 'Changes waiting to sync',
   'local-only': 'This device only',
+  // One word for both, so a peer joining or leaving is not announced.
   synced: 'Synced',
-  'synced-alone': 'Saved',
+  'synced-alone': 'Synced',
 } as const;
 
 export default SyncStatusBadge;
