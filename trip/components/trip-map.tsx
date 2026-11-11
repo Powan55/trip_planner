@@ -732,7 +732,12 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         map.easeTo({ center: [marker.lng, marker.lat], zoom, offset: POPUP_VIEW_OFFSET, duration: 0 });
         openPopup(maplibregl, marker);
       } else {
-        map.flyTo({ center: [marker.lng, marker.lat], zoom, offset: POPUP_VIEW_OFFSET, duration: 900 });
+        // Near target (on screen, <=1.5 zoom levels away): short ease. Far: flyTo.
+        const near =
+          map.getBounds().contains([marker.lng, marker.lat]) && Math.abs(zoom - map.getZoom()) <= 1.5;
+        const move = { center: [marker.lng, marker.lat] as [number, number], zoom, offset: POPUP_VIEW_OFFSET };
+        if (near) map.easeTo({ ...move, duration: 350 });
+        else map.flyTo({ ...move, duration: 700 });
         map.once('moveend', () => openPopup(maplibregl, marker));
       }
     },
