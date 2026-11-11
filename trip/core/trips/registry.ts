@@ -667,6 +667,15 @@ export function personPrefsDirty(): number {
   return Object.values(prefs).filter((e) => (e as { dirty?: unknown } | null)?.dirty === true).length;
 }
 
+/** Trip renames and the trip list waiting to push (key 58, D-880). Malformed reads as empty. */
+export type TripSyncQueue = { meta: string[]; list?: string };
+
+export function readTripSyncQueue(): TripSyncQueue {
+  const raw = readJson<{ meta?: unknown; list?: unknown } | null>('local', STORAGE_KEYS.tripSyncQueue, null);
+  const meta = Array.isArray(raw?.meta) ? raw.meta.filter((id): id is string => typeof id === 'string') : [];
+  return typeof raw?.list === 'string' && raw.list ? { meta, list: raw.list } : { meta };
+}
+
 /** Journal days waiting to push (#631). They queue in key 50, not the outbox, and the wipe drops them too. */
 export function journalDirty(id: string): number {
   return journalDirtyDates(id).length;
