@@ -240,6 +240,8 @@ for (const vp of VIEWPORTS) {
       // not content height. On a content route every copy edit moved it a fraction of a pixel.
       await gotoSettled(page, '/share/');
       const footer = page.locator('footer');
+      // At 390px the footer box is fractional and the shot flipped 185/186px; pin it to the baseline height.
+      if (vp.name === 'mobile') await page.addStyleTag({ content: 'footer{box-sizing:border-box;height:186px}' });
       await footer.scrollIntoViewIfNeeded();
       await expect(footer).toHaveScreenshot(`footer-${vp.name}.png`, {
         ...SHOT,
