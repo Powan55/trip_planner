@@ -5,6 +5,7 @@ import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { sanitizePhotos } from '@/core/photos/model';
+import { defaultBlobStore } from '@/core/photos/blob-store';
 import { getSyncCode, readJson, removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import { unsyncedEditCount } from '@/core/trips/registry';
 import UserTokenShowOnce from '@/components/user-token-show-once';
@@ -140,7 +141,6 @@ export default function SignOutConfirm({
       clearTimeout(cap);
       setFlushing(false);
       if (forgetDevice) {
-        const { defaultBlobStore } = await import('@/core/photos/blob-store');
         await defaultBlobStore.clear();
         // D-503: the lifetime keys stay out of `wipeAllTripData()` on purpose (D-314/D-320);
         // this is the one path that clears them, for a device changing hands.

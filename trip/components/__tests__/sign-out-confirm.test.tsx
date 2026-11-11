@@ -236,6 +236,15 @@ describe('SignOutConfirm — teardown', () => {
     expect(clearRemoteCache).toHaveBeenCalledTimes(2);
   });
 
+  it('still signs out when every lazy chunk fails to load (offline)', async () => {
+    flushAllDomains.mockRejectedValueOnce(new Error('chunk'));
+    flushJournal.mockRejectedValueOnce(new Error('chunk'));
+    clearRemoteCache.mockRejectedValueOnce(new Error('chunk'));
+    await mount({ forgetDevice: true });
+    await click('t-confirm');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
   it('never loads the remote module when remote is not configured', async () => {
     clearRemoteCache.mockClear();
     remoteGate.on = false;
