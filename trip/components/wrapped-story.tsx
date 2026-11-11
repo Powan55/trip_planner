@@ -62,6 +62,12 @@ const STATUS_COPY: Record<WrappedStats['status'], { eyebrow: string; title: stri
   },
 };
 
+const FOOTER_COPY: Record<WrappedStats['status'], string> = {
+  pre: 'Nothing to count yet.',
+  mid: 'The trip is still being written.',
+  post: 'That’s the trip, wrapped up in numbers.',
+};
+
 /** A compact, human, TEXT-only share summary. Emoji fine, no markdown. */
 function buildShareText(stats: WrappedStats): string {
   const parts: string[] = [];
@@ -196,15 +202,21 @@ export default function WrappedStory() {
               <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-t-lead leading-relaxed text-ink-mid">
                 {copy.blurb(stats)}
               </p>
-              <button
-                type="button"
-                data-testid="wrapped-share"
-                onClick={() => void shareWrapped(stats)}
-                className="btn mx-auto mt-6 px-5"
-              >
-                <Share2 className="h-4 w-4" aria-hidden="true" />
-                Share your wrapped
-              </button>
+              {stats.status === 'pre' ? (
+                <p data-testid="wrapped-share-locked" className="mx-auto mt-6 text-t-sm text-ink-mid">
+                  Sharing unlocks once the trip wraps.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="wrapped-share"
+                  onClick={() => void shareWrapped(stats)}
+                  className="btn mx-auto mt-6 px-5"
+                >
+                  <Share2 className="h-4 w-4" aria-hidden="true" />
+                  Share your wrapped
+                </button>
+              )}
             </div>
           </div>
         </Reveal>
@@ -265,7 +277,7 @@ export default function WrappedStory() {
 
         <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-t-sm text-ink-mid">
           <Sparkles className="h-3.5 w-3.5 text-ink-lo" aria-hidden="true" />
-          That&rsquo;s the trip, wrapped up in numbers.
+          {FOOTER_COPY[stats.status]}
         </footer>
       </div>
     </section>
