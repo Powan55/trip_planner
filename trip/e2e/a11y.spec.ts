@@ -82,6 +82,13 @@ async function gotoSettled(page: Page, path: string) {
  */
 async function waitForRouteContent(page: Page) {
   await expect(page.locator('h1').first()).toBeVisible({ timeout: 15_000 });
+  // Below-the-fold sections mount lazily (LazyVisible); walk them in so axe scans the real DOM.
+  const pending = page.locator('[data-lazy-visible="pending"]');
+  while (await pending.count()) {
+    await pending.first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(150);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
   await settleAnimations(page);
 }
 

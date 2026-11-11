@@ -155,7 +155,7 @@ export default function LazyVisible({
       }
       if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
     };
-  }, [mounted]);
+  }, [mounted, idle]);
 
   if (mounted) {
     // Instantiate the section ONLY now — this is the first time its element exists, so

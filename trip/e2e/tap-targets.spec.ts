@@ -61,6 +61,9 @@ test.describe('tap targets ≥44×44 outside /travel', () => {
       ['photography search clear', page.getByLabel('Search photography guide')],
     ];
     for (const [label, input] of cases) {
+      // nightlife + photography mount lazily; bring them into range first
+      await page.locator('#nightlife').scrollIntoViewIfNeeded();
+      await page.locator('#photography').scrollIntoViewIfNeeded();
       await expect(input).toBeVisible({ timeout: 20_000 });
       await expectTapFloor(await clearButtonAfterTyping(input), label);
     }
