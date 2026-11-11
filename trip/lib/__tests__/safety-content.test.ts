@@ -89,8 +89,8 @@ describe('safety content — valid data parses', () => {
   // #969 — corrected passport, visa fee and vaccine facts.
   it('DOCUMENT_CHECKLIST: passport, Nepal visa fee and vaccine rows carry the corrected facts (#969)', () => {
     const detail = (id: string) => DOCUMENT_CHECKLIST.find((i) => i.id === id)?.detail;
-    expect(detail('passport-validity')).toMatch(/Nepal requires six months/);
-    expect(detail('passport-validity')).toMatch(/Japan only needs .* length of your stay/);
+    expect(detail('passport-validity')).toMatch(/six months validity from the date you enter.*two blank visa pages/);
+    expect(detail('passport-validity')).toMatch(/Japan only needs it valid for your stay/);
     expect(detail('nepal-visa')).toMatch(/USD 30/);
     expect(detail('nepal-visa')).toMatch(/immigration\.gov\.np/);
     expect(detail('vaccinations')).toMatch(/hepatitis A and typhoid/);
