@@ -40,6 +40,14 @@ async function settleSW(page: Page) {
     });
 }
 
+/** Sections below the fold mount lazily (LazyVisible); scroll the anchor so the heading exists. */
+async function mountPhotography(page: Page) {
+  await expect(async () => {
+    await page.evaluate(() => document.getElementById('photography')?.scrollIntoView());
+    await expect(page.locator('#photography-heading')).toBeAttached({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 async function gotoSettled(page: Page, path: string) {
   await page.goto(path, { waitUntil: 'load' });
   await settleSW(page);
@@ -61,6 +69,7 @@ test.describe('S214 · Reveal — content routes render/reveal correctly (defaul
     await expect(nepalHeading).toBeVisible();
     await expect(nepalHeading).toHaveText(/Nepal Destinations/);
 
+    await mountPhotography(page);
     const photoHeading = page.locator('#photography-heading');
     await photoHeading.scrollIntoViewIfNeeded();
     await expect(photoHeading).toBeVisible();
@@ -81,6 +90,7 @@ test.describe('S214 · Reveal — content routes render/reveal correctly (defaul
     const japanHeading = page.locator('#japan-heading');
     await expect(japanHeading).toBeVisible();
 
+    await mountPhotography(page);
     const photoHeading = page.locator('#photography-heading');
     await photoHeading.scrollIntoViewIfNeeded();
     await expect(photoHeading).toBeVisible();
@@ -96,6 +106,7 @@ test.describe('S214 · Reveal — the scroll-driven CSS path is actually live on
     // This Chromium must support the feature — otherwise this test proves nothing.
     expect(await page.evaluate(() => CSS.supports('animation-timeline: view()'))).toBe(true);
 
+    await mountPhotography(page);
     const wrapper = page.locator('#nepal-heading').locator('xpath=ancestor::div[@data-scroll-driven][1]');
     await expect(wrapper).toHaveAttribute('data-scroll-driven', 'css');
     await expect(wrapper).toHaveClass(/reveal-view-css/);
@@ -126,6 +137,7 @@ test.describe('S214 · Reveal — reduced motion: CSS path NEVER renders (D-007/
     const wrapper = page.locator('#nepal-heading').locator('xpath=ancestor::div[@data-scroll-driven][1]');
     await expect(wrapper).toHaveAttribute('data-scroll-driven', 'js');
 
+    await mountPhotography(page);
     const photoHeading = page.locator('#photography-heading');
     await photoHeading.scrollIntoViewIfNeeded();
     await expect(photoHeading).toBeVisible();
@@ -168,6 +180,12 @@ test.describe('S354 · Reveal — reduced motion rests at FULL opacity (D-246 fl
   }) => {
     await gotoReducedSettled(page, '/nepal/');
 
+    // Park the section just below the fold: inside LazyVisible's 600px margin (so it mounts)
+    // but with its heading off-screen, so whileInView has still not fired.
+    await page.evaluate(() => {
+      const top = document.getElementById('photography')!.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, top - window.innerHeight - 300);
+    });
     const photoWrapper = page
       .locator('#photography-heading')
       .locator('xpath=ancestor::div[@data-scroll-driven][1]');

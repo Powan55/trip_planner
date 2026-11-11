@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
+import { walkLazySections } from './walk-lazy';
 
 /**
  * S211 — route-by-route reduced-motion audit (the PERMANENT motion regression net).
@@ -169,6 +170,7 @@ async function assertNoMotion(page: Page, path: string, label = path) {
   await expect(page.locator('h1, [data-testid$="-root"]').first()).toBeVisible({ timeout: 15_000 });
   const ready = READY[path];
   if (ready) await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15_000 });
+  await walkLazySections(page);
   await expectNoPersistentMotion(page, label);
 }
 

@@ -33,3 +33,36 @@ describe('LazyVisible error containment', () => {
     container.remove();
   });
 });
+
+describe('LazyVisible anchor + idle={false}', () => {
+  it('stays pending with its id, and mounts with props when the hash matches', async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    Element.prototype.scrollIntoView = vi.fn();
+    const Probe = ({ country }: { country: string }) => <p data-testid="probe">{country}</p>;
+    const mount = async () => {
+      const container = document.body.appendChild(document.createElement('div'));
+      const root = createRoot(container);
+      act(() =>
+        root.render(<LazyVisible id="nightlife" idle={false} component={Probe} props={{ country: 'Japan' }} />),
+      );
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 400));
+      });
+      return { container, done: () => { act(() => root.unmount()); container.remove(); } };
+    };
+
+    window.location.hash = '';
+    const a = await mount();
+    expect(a.container.querySelector('#nightlife[data-lazy-visible="pending"]')).not.toBeNull();
+    expect(a.container.querySelector('[data-testid="probe"]')).toBeNull();
+    a.done();
+
+    window.location.hash = '#nightlife';
+    const b = await mount();
+    expect(b.container.querySelector('[data-testid="probe"]')?.textContent).toBe('Japan');
+    b.done();
+    window.location.hash = '';
+    vi.unstubAllGlobals();
+  });
+});
