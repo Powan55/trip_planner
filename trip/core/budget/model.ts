@@ -39,8 +39,7 @@ import type { ItineraryCategory } from '@/lib/trip-data';
 import { getActiveTrip } from '@/core/trips';
 
 // ── Types ───────────────────────────────────────────────────────────────────
-/** Leg-local-only currencies. NEVER a `homeCurrency` (CURRENCIES stays USD/NPR/JPY), so an older
- * build that cannot name these never reads one out of the home slot. */
+/** Currencies beyond the original USD/NPR/JPY. Usable as a leg currency or a home currency (D-870). */
 export type ExtraCurrency = 'EUR' | 'GBP' | 'INR' | 'AUD' | 'CAD' | 'THB';
 export type CurrencyCode = 'NPR' | 'JPY' | 'USD' | ExtraCurrency;
 // a leg id is a generic `string` (=== DayPlan.country). The DEFAULT pack's ids are still
@@ -69,18 +68,17 @@ export function isLeg(value: unknown): value is Leg {
   return typeof value === 'string' && LEGS.includes(value);
 }
 
-/** The three HOME/display-currency choices, in a stable order for the toggle. */
-export type HomeCurrency = 'USD' | 'NPR' | 'JPY';
-export const CURRENCIES: readonly HomeCurrency[] = ['USD', 'NPR', 'JPY'] as const;
+export type HomeCurrency = CurrencyCode;
 
-/** Every currency a trip LEG may use: the home three plus the extras. Leg pickers only. */
+/** Every currency a trip leg or the home/display choice may use, in toggle order. */
 export const LOCAL_CURRENCIES: readonly CurrencyCode[] = [
-  ...CURRENCIES,
+  'USD', 'NPR', 'JPY',
   'EUR', 'GBP', 'INR', 'AUD', 'CAD', 'THB',
 ];
+export const CURRENCIES: readonly HomeCurrency[] = LOCAL_CURRENCIES;
 
-/** The leg-only extras, each stored as an additive `rates.<CODE>` path. */
-export const EXTRA_CURRENCIES = LOCAL_CURRENCIES.slice(CURRENCIES.length) as readonly ExtraCurrency[];
+/** The extras beyond USD/NPR/JPY, each stored as an additive `rates.<CODE>` path. */
+export const EXTRA_CURRENCIES = LOCAL_CURRENCIES.slice(3) as readonly ExtraCurrency[];
 
 /** Currencies shown/entered with cents (USD-style); the rest are whole units. */
 const CENT_CURRENCIES: readonly CurrencyCode[] = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
@@ -390,14 +388,14 @@ function line(
 
 /** Coerce an unknown into a valid CurrencyCode, defaulting to USD. */
 export function normalizeCurrency(value: unknown): CurrencyCode {
-  return value === 'NPR' || value === 'JPY' || value === 'USD' ? value : 'USD';
-}
-
-/** Like `normalizeCurrency` but for a LEG's currency: also accepts the extras. Home stays strict. */
-export function normalizeLegCurrency(value: unknown): CurrencyCode {
   return typeof value === 'string' && LOCAL_CURRENCIES.includes(value as CurrencyCode)
     ? (value as CurrencyCode)
     : 'USD';
+}
+
+/** A leg's currency: same set and fallback as the home currency. */
+export function normalizeLegCurrency(value: unknown): CurrencyCode {
+  return normalizeCurrency(value);
 }
 
 /** Coerce an unknown into valid rates: NPR/JPY seed-defaulted; an extra kept only if valid. */
