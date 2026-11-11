@@ -1,0 +1,32 @@
+name: Uptime
+
+# Live-site uptime check (issue #1117). Fails when the site stops returning 200 or the built app shell is missing.
+# Scheduled failures email whoever last edited this file, same as tile-probe.yml.
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uptime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check live site returns 200 with app shell
+        run: |
+          set -euo pipefail
+          URL='https://powan55.github.io/trip_planner/'
+          MARKER='trip_planner/_next/static/'
+          body=$(mktemp)
+          if ! curl -fsS --max-time 20 -o "$body" "$URL"; then
+            echo "::error::$URL did not return a success status"
+            exit 1
+          fi
+          if ! grep -qF "$MARKER" "$body"; then
+            echo "::error::$URL body is missing marker '$MARKER'"
+            exit 1
+          fi
+          echo "OK: $URL is up and serves the app shell"

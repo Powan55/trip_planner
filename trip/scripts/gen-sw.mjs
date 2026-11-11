@@ -805,10 +805,10 @@ function toPrecacheUrl(rel) {
 // -------------------------------------------------------------------------
 async function buildManifest() {
   const manifest = {
-    name: 'Nepal × Japan Journey',
-    short_name: 'Nepal×Japan',
+    name: 'Trip Journey',
+    short_name: 'Trip Journey',
     description:
-      'Premium offline-capable travel planner for an epic Nepal and Japan adventure.',
+      'Offline-ready trip planner: itinerary, map, bookings and a shared plan for your whole group.',
     start_url: withBase('/'),
     scope: withBase('/'),
     display: 'standalone',
