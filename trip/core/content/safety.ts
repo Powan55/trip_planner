@@ -432,7 +432,7 @@ const rawChecklist: ChecklistItem[] = [
     id: 'medications',
     group: 'Carry with you',
     label: 'Prescription medications in original packaging',
-    detail: "Keep medicines in original labelled packaging with a doctor's letter. Japan allows about a 1-month supply of prescription drugs without paperwork; more than that needs an Import Confirmation from the MHLW before you fly, and narcotic or stimulant-type medicines need prior permission. Some medicines are restricted whatever the quantity, so check the MHLW personal-import page (mhlw.go.jp, search 'personal import medicines') or email the regional bureau before packing: yakkan@mhlw.go.jp for Narita/Haneda, kiyakuji@mhlw.go.jp for Kansai.",
+    detail: "Keep medicines in original labelled packaging with a doctor's letter. Japan allows about a 1-month supply of prescription drugs without paperwork; more than that needs an Import Confirmation (Yunyu Kakunin-sho) from the MHLW before you fly, and it can take several weeks, so apply now. Stimulant medicines such as Adderall are banned, narcotic-type medicines need prior permission, and cold medicines containing pseudoephedrine are restricted. Sources disagree on thresholds, so ask first: check the MHLW personal-import page (mhlw.go.jp, search 'personal import medicines') or email the regional bureau before packing: yakkan@mhlw.go.jp for Narita/Haneda, kiyakuji@mhlw.go.jp for Kansai.",
   },
   {
     id: 'currency-cards',

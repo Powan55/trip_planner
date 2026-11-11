@@ -131,7 +131,7 @@ describe('status live regions are mounted before they have anything to announce'
     expect(r.container.querySelector('[data-testid="sync-status-text"]')?.textContent).toBe(
       '1 not syncing',
     );
-    expect(r.region()?.getAttribute('aria-label')).toBe('1 not syncing');
+    expect(r.region()?.textContent).toBe('Not syncing');
     // The actionable sentence is the sr-only one, not the pill: say what to do about it.
     expect(r.container.querySelector('.sr-only')?.textContent).toContain('Trip access');
 
