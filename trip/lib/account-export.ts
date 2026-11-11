@@ -16,6 +16,7 @@ import { listKnownTrips } from '@/core/trips/registry';
 import { isRemoteConfigured } from './firebase-config';
 import type { RemoteHandle } from './firebase-remote';
 import { downloadBlob } from './download-blob';
+import { SHARED_TRIP_ID } from './shared-trip';
 
 type Data = Record<string, unknown>;
 type Handle = Pick<RemoteHandle, 'db' | 'fs'> & { auth: { currentUser: { uid: string; email: string | null } | null } };
@@ -96,21 +97,31 @@ export async function buildAccountExport(h: Handle, now = new Date()): Promise<A
   if (accountId) {
     for (const id of ['identity', 'tripList', 'prefs']) profile[id] = await read('trips', accountId, 'profile', id);
   }
-  const tripIds = tripIdsFrom(profile.tripList ?? null);
+  // The shared trip only answers a password session, so an anonymous one would just log a refusal.
+  const tripIds = tripIdsFrom(profile.tripList ?? null).filter((id) => user?.email || id !== SHARED_TRIP_ID);
   if (accountId) {
-    for (const id of tripIds) {
-      const journal = await read('trips', accountId, 'profile', `journal_${id}`);
-      if (journal) profile[`journal_${id}`] = journal;
-    }
+    await Promise.all(
+      tripIds.map(async (id) => {
+        const journal = await read('trips', accountId, 'profile', `journal_${id}`);
+        if (journal) profile[`journal_${id}`] = journal;
+      }),
+    );
   }
 
   const trips: AccountExport['trips'] = {};
-  for (const id of tripIds) {
-    const trip: Record<string, unknown> = { trip: await read('trips', id) };
-    for (const path of TRIP_DOCS) trip[path] = await read('trips', id, ...path.split('/'));
-    for (const col of TRIP_COLLECTIONS) trip[col] = await readAll('trips', id, col);
-    trips[id] = trip;
-  }
+  await Promise.all(
+    tripIds.map(async (id) => {
+      const [trip, docs, cols] = await Promise.all([
+        read('trips', id),
+        Promise.all(TRIP_DOCS.map((path) => read('trips', id, ...path.split('/')))),
+        Promise.all(TRIP_COLLECTIONS.map((col) => readAll('trips', id, col))),
+      ]);
+      const out: Record<string, unknown> = { trip };
+      TRIP_DOCS.forEach((path, i) => (out[path] = docs[i]));
+      TRIP_COLLECTIONS.forEach((col, i) => (out[col] = cols[i]));
+      trips[id] = out;
+    }),
+  );
 
   return {
     format: 'trip-planner-account-export',
@@ -126,16 +137,12 @@ export async function buildAccountExport(h: Handle, now = new Date()): Promise<A
 
 /** Build and download the export. Offline or unsynced, the file still carries this browser's data. */
 export async function downloadAccountExport(): Promise<AccountExport> {
-  let data: AccountExport | null = null;
+  let handle: Handle | null = null;
   if (isRemoteConfigured()) {
-    try {
-      const { getAuthHandle } = await import('./firebase-remote');
-      data = await buildAccountExport(await getAuthHandle());
-    } catch {
-      /* no handle: fall through to the local-only file */
-    }
+    const { getAuthHandle } = await import('./firebase-remote');
+    handle = await getAuthHandle().catch(() => null);
   }
-  data ??= {
+  const data: AccountExport = handle ? await buildAccountExport(handle) : {
     format: 'trip-planner-account-export',
     version: 1,
     exportedAt: new Date().toISOString(),

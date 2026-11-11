@@ -374,7 +374,9 @@ function ExportAccount() {
       const { downloadAccountExport } = await import('@/lib/account-export');
       const { errors } = await downloadAccountExport();
       setStatus(
-        errors.length
+        errors[0]?.path === '(server)'
+          ? 'Downloaded. Server unreachable; the file has only this browser’s data.'
+          : errors.length
           ? `Downloaded. ${errors.length} item${errors.length === 1 ? '' : 's'} could not be read and ${errors.length === 1 ? 'is' : 'are'} listed in the file.`
           : 'Downloaded.',
       );
@@ -391,6 +393,10 @@ function ExportAccount() {
         Downloads one JSON file with your account, every trip you belong to (including what other
         travellers added to shared trips), your journal, and what this browser stores. Photos are
         not included; use the trip backup for those.
+      </p>
+      <p className="mt-2 max-w-2xl text-t-body text-ink-hi">
+        This file contains your account key and trip links. Anyone who has it can open and edit
+        your trips, so keep it private and don&rsquo;t attach it to messages.
       </p>
       <button
         type="button"

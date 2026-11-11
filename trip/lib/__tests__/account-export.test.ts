@@ -1,7 +1,18 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
-import { buildAccountExport } from '@/lib/account-export';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+let authHandle: () => Promise<unknown> = () => Promise.reject(new Error('unset'));
+const downloads: string[] = [];
+vi.mock('@/lib/firebase-config', async (orig) => ({
+  ...(await orig<typeof import('@/lib/firebase-config')>()),
+  isRemoteConfigured: () => true,
+}));
+vi.mock('@/lib/firebase-remote', () => ({ getAuthHandle: () => authHandle() }));
+vi.mock('@/lib/download-blob', () => ({ downloadBlob: (_b: Blob, name: string) => downloads.push(name) }));
+
+import { buildAccountExport, downloadAccountExport } from '@/lib/account-export';
 import { STORAGE_KEYS, setSyncCode } from '@/core/storage/gateway';
+import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 const ACCOUNT = '11111111-2222-4333-8444-555555555555';
 const store: Record<string, Record<string, unknown>> = {};
@@ -33,6 +44,7 @@ const handle = (email: string | null) =>
 beforeEach(() => {
   for (const k of Object.keys(store)) delete store[k];
   denied.clear();
+  downloads.length = 0;
   localStorage.clear();
   store['users/uid-a'] = { username: 'powan', accountId: ACCOUNT };
   store[`trips/${ACCOUNT}/profile/identity`] = { name: 'Powan' };
@@ -63,10 +75,8 @@ describe('buildAccountExport', () => {
     denied.add('trips/trip-a');
     denied.add('trips/trip-a/days');
     const out = await buildAccountExport(handle('powan@accounts.trip-planner.invalid'));
-    expect(out.errors).toEqual([
-      { path: 'trips/trip-a', code: 'permission-denied' },
-      { path: 'trips/trip-a/days', code: 'permission-denied' },
-    ]);
+    expect(out.errors.map((e) => e.path).sort()).toEqual(['trips/trip-a', 'trips/trip-a/days']);
+    expect(out.errors.every((e) => e.code === 'permission-denied')).toBe(true);
     expect(out.trips['trip-b']['meta/info']).toEqual({ name: 'B' });
   });
 
@@ -76,5 +86,25 @@ describe('buildAccountExport', () => {
     expect(out.account.link).toBeNull();
     expect(out.account.accountId).toBe(ACCOUNT);
     expect(out.profile.identity).toEqual({ name: 'Powan' });
+  });
+
+  it('an anonymous session skips the shared trip instead of logging its refusal', async () => {
+    setSyncCode(ACCOUNT);
+    store[`trips/${ACCOUNT}/profile/tripList`] = { trips: [{ id: SHARED_TRIP_ID }] };
+    denied.add(`trips/${SHARED_TRIP_ID}`);
+    const out = await buildAccountExport(handle(null));
+    expect(out.trips[SHARED_TRIP_ID]).toBeUndefined();
+    expect(out.errors).toEqual([]);
+  });
+});
+
+describe('downloadAccountExport', () => {
+  it('with no server, still downloads this browser’s data and says why', async () => {
+    authHandle = () => Promise.reject(new Error('offline'));
+    localStorage.setItem(STORAGE_KEYS.userName, 'Powan');
+    const out = await downloadAccountExport();
+    expect(out.errors).toEqual([{ path: '(server)', code: 'unavailable' }]);
+    expect(out.local).toEqual({ [STORAGE_KEYS.userName]: 'Powan' });
+    expect(downloads).toHaveLength(1);
   });
 });

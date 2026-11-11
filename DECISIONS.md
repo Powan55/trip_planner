@@ -5271,6 +5271,8 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 
 **Why.** Shared trips are exported whole because the person can already read them; this is a copy of what they see, not a claim of ownership.
 
+**The file is a bearer credential.** It carries the account key (`tripPlannerSyncCode`, `tripPlannerToken`) and every trip id, and whoever holds it can open and edit those trips. The card says so in plain words next to the button.
+
 ### D-902a · Account deletion rule (issue #1110, 2026-11-11, proposed, not built)
 
 **Rule.** Deleting an account removes what only that account owns and never another member's data: `trips/{accountId}/profile/*`, `accountClaims/{accountId}`, `users/{uid}`, then the auth user. For each trip: if the account is the only member, delete the trip's subtree and doc; if others remain, leave the trip and remove only its own roster key (an owner hands ownership to another member first, since the last owner cannot leave); an open (no-roster) trip someone else may hold is left alone. Firestore goes first and the auth user last, so a failure midway leaves a working account that can retry, never an auth-less orphan. Requires a recent sign-in (`auth/requires-recent-login` → re-enter password) and a typed confirmation.
