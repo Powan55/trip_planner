@@ -131,13 +131,14 @@ describe('navItemsForActiveTrip / primaryItemsForActiveTrip (S252)', () => {
     expect(primaryItemsForActiveTrip()).toEqual(PRIMARY_NAV_ITEMS);
   });
 
-  it('on a custom trip, navItemsForActiveTrip drops the defaultTripOnly Guides/Flights/Safety and nothing else', () => {
+  it('on a custom trip, navItemsForActiveTrip drops the defaultTripOnly Guides/Safety and nothing else', () => {
     mockIsDefault = false;
     const labels = navItemsForActiveTrip().map((i) => i.label);
     expect(labels).toEqual([
       'Today',
       'Plan',
       'Map',
+      'Flights',
       'Journal',
       'Recap',
       'Packing',

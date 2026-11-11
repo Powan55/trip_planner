@@ -5241,3 +5241,13 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Rollout.** Amends D-798, which kept home to three codes so an older client never read a home it cannot name. An older client reads an unknown home as USD (its `normalizeCurrency`), so a person who picks EUR shows USD on a stale bundle until it updates. Ships with the next release; no data repair.
 
 **Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
+
+### D-882 · A custom trip's flights and stays are its Transportation and Hotel items (issue #1118, 2026-11-10)
+
+**Decision.** `/flights` on a custom trip lists the trip's non-deleted `transportation` and `hotel` itinerary items by date and time (`selectTripBookings`), with a link to the planner to add more. The route is no longer default-only in the nav and palette. The bundled bookings page stays default-pack only.
+
+**Why.** "Tonight's stay" already reads hotel items, so those are the stays; a second booking store would need its own sync shape and merge rules. Nothing new is stored, so there is no rules or old-client impact.
+
+**Not covered.** Structured flight fields (carrier, terminals, seats, layovers), the travel-mode hero, and multi-country trips.
+
+**Changes if:** structured bookings get their own per-trip doc.

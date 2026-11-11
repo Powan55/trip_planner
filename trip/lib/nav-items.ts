@@ -69,7 +69,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Plan', href: '/plan/', icon: Calendar },
   { label: 'Map', href: '/map/', icon: Map },
   { label: 'Guides', href: '/guides/', icon: BookMarked, defaultTripOnly: true }, // — fronts Nepal/Japan
-  { label: 'Flights', href: '/flights/', icon: Plane, primary: false, defaultTripOnly: true },
+  { label: 'Flights', href: '/flights/', icon: Plane, primary: false },
   { label: 'Journal', href: '/journal/', icon: BookOpen, primary: false, customPrimary: true },
   // defaultTripOnly: the kit is Nepal Police 100 / Japan 110 / the Kathmandu embassy
   // switchboards and a Nepali/Japanese phrasebook — safety-critical content that is not this
