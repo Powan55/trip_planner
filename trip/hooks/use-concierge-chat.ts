@@ -355,6 +355,9 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
   // the SAME stale `status` closure value and both slip past a state-only check. A ref mutates
   // immediately, so the second call in the same tick is reliably rejected.
   const sendingRef = useRef(false);
+  // The in-flight turn's controller. `stop()` nulls it before aborting, so a send whose controller is
+  // no longer current knows it was cancelled and drops whatever arrives late.
+  const abortRef = useRef<AbortController | null>(null);
   const [provider, setProviderState] = useState<ConciergeProvider>('groq');
   // Switching trips is a full reload today, so this is mount in practice; keyed anyway so a thread
   // can never be shown under the wrong trip.
@@ -419,6 +422,9 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         return;
       }
       sendingRef.current = true;
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const stopped = () => abortRef.current !== ctrl;
 
       const history = historyRef.current;
       const userTurn: ChatTurn = { role: 'user', content: trimmed };
@@ -438,6 +444,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       // round trip with this: there is now no expression anywhere below that can put a machine
       // string into `setError`).
       const fail = (reason: string) => {
+        if (stopped()) return; // Stop already cleaned up; this bubble may now be the next send's
         setStatus('error');
         setError(reason);
         // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.
@@ -454,7 +461,10 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         // `error` still null so no "Try again" row ever mounts, and only a reload recovers. That is
         // the exact state CHAT_TIMEOUT_MS exists to prevent, on the exact connection (captive
         // portal, dead cell handoff) this file's other comments already treat as the normal case.
-        const signal = AbortSignal.timeout(provider === 'kimi' ? KIMI_TIMEOUT_MS : CHAT_TIMEOUT_MS);
+        // The timeout feeds the same controller Stop aborts, keeping its TimeoutError reason.
+        const timeout = AbortSignal.timeout(provider === 'kimi' ? KIMI_TIMEOUT_MS : CHAT_TIMEOUT_MS);
+        timeout.addEventListener('abort', () => ctrl.abort(timeout.reason), { once: true });
+        const signal = ctrl.signal;
         const context = buildTripDigest();
         const trip = buildTripDescriptor();
         // #10 — a Firebase ID token when there is a session to attach, nothing when there is not:
@@ -504,6 +514,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           // specifically because of this. Do not "tidy" it into `${CONCIERGE_URL}/chat`.
           signal,
         });
+        if (stopped()) return;
 
         // Issue #13 — the body is not read at all. It used to be parsed and its `error` string
         // rendered verbatim, which put whatever the Worker (or anything in front of it) wrote in
@@ -522,6 +533,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           ops?: unknown;
           model?: unknown;
         };
+        if (stopped()) return;
         // A 2xx whose body is not the envelope is a FAILED turn, and used to render as a successful
         // one: the parse failure was swallowed, `reply` defaulted to '', status went 'idle' and
         // `error` stayed null — so the panel showed a blank grey bubble with no error row and no
@@ -575,6 +587,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         conciergeChatStore.set(tripId, saved.slice(-STORED_TURN_CAP));
         setStatus('idle');
       } catch (err) {
+        if (stopped()) return; // the traveller pressed Stop; `stop()` already cleaned up
         // A CHAT_TIMEOUT_MS abort surfaces as a DOMException whose raw message ("signal timed out")
         // is useless to a traveler — swap in a friendly, actionable one.
         // Matched on `.name` WITHOUT an `instanceof Error` guard on purpose: whether a DOMException
@@ -596,11 +609,34 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
             : 'The concierge couldn’t be reached. Check your connection and try again.',
         );
       } finally {
-        sendingRef.current = false;
+        // A stopped turn must not clear the flags of a send that started after it.
+        if (!stopped()) {
+          sendingRef.current = false;
+          abortRef.current = null;
+        }
       }
     },
     [fetchImpl, provider, tripId],
   );
+
+  // Cancels the in-flight turn: drops it from the thread, leaves no error, and returns the message
+  // so the caller can put it back in the input. A reply that lands afterwards is ignored.
+  const stop = useCallback((): string => {
+    const ctrl = abortRef.current;
+    if (!ctrl) return '';
+    abortRef.current = null;
+    sendingRef.current = false;
+    ctrl.abort();
+    const text = lastMessageRef.current;
+    setMessages((prev) => {
+      const next = prev.slice(0, -1); // the in-flight assistant bubble
+      const last = next[next.length - 1];
+      return last?.role === 'user' && last.content === text ? next.slice(0, -1) : next;
+    });
+    setStatus('idle');
+    setError(null);
+    return text;
+  }, []);
 
   // ONE retry control: re-send the last turn the user tried. Deliberately not a backoff
   // policy, a queue, or an auto-retry — the traveller decides when they are back on a signal.
@@ -617,5 +653,5 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
     setError(null);
   }, [tripId]);
 
-  return { messages, status, error, send, retry, reset, provider, setProvider };
+  return { messages, status, error, send, retry, reset, stop, provider, setProvider };
 }

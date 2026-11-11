@@ -111,12 +111,12 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
     r.unmount();
   });
 
-  it('counts more than one, and the region is LABELLED with what it says', () => {
+  it('counts more than one, and the region announces the state', () => {
     h.presence = [peer('Uttam'), peer('Sabin')];
     const r = render(createElement(SyncStatusBadge));
 
     expect(r.text()).toBe('Synced · 2 here');
-    expect(r.q('[role="status"]')?.getAttribute('aria-label')).toBe('Synced · 2 here');
+    expect(r.q('[role="status"]')?.textContent).toBe('Synced');
     expect(r.summary()).toContain('2 other travellers are on it right now');
     r.unmount();
   });
@@ -175,7 +175,39 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
     const r = render(createElement(SyncStatusBadge));
 
     expect(r.q('[data-testid="sync-status-badge"]')).toBeNull();
-    expect(r.q('[role="status"]')?.getAttribute('aria-label')).toBeNull();
+    expect(r.q('[role="status"]')?.textContent).toBe('');
+    r.unmount();
+  });
+
+  // #1093: every ack moved the relative time, and the region re-read a ~40-word paragraph.
+  it('an ack that does not change the state leaves the live region untouched', async () => {
+    const r = render(createElement(SyncStatusBadge));
+    const region = r.q('[role="status"]')!;
+    expect(region.textContent).toBe('Synced');
+    expect(region.contains(r.q('[data-testid="sync-status-badge"]'))).toBe(false);
+    expect(r.summary()).not.toMatch(/ago|confirmed/);
+
+    const seen: MutationRecord[] = [];
+    const mo = new MutationObserver((m) => seen.push(...m));
+    mo.observe(region, { subtree: true, childList: true, characterData: true, attributes: true });
+
+    h.sync = { ...h.sync, lastAckAt: new Date(Date.parse(ACKED) - 3_600_000).toISOString() };
+    r.rerender(createElement(SyncStatusBadge));
+    h.sync = { ...h.sync, lastAckAt: new Date().toISOString() };
+    r.rerender(createElement(SyncStatusBadge));
+    // A peer joining moves the pill to "Synced · 1 here", but the announced word stays put.
+    h.presence = [peer('Uttam')];
+    r.rerender(createElement(SyncStatusBadge));
+    await Promise.resolve(); // MutationObserver delivers on a microtask
+    expect(r.text()).toBe('Synced · 1 here');
+    expect(seen).toHaveLength(0);
+
+    h.sync = { ...h.sync, pending: 1 };
+    r.rerender(createElement(SyncStatusBadge));
+    await Promise.resolve();
+    expect(region.textContent).toBe('Changes waiting to sync');
+    expect(seen.length).toBeGreaterThan(0);
+    mo.disconnect();
     r.unmount();
   });
 });

@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { m } from 'framer-motion';
-import { MessageSquare, Send, AlertTriangle, Check, WifiOff, X } from 'lucide-react';
+import { MessageSquare, Send, Square, AlertTriangle, Check, WifiOff, X } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -398,7 +398,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
   const tripLabel = defaultTrip ? '' : getActiveTrip().label;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
-  const { messages, status, error, send, retry, reset, provider, setProvider } = useConciergeChat();
+  const { messages, status, error, send, retry, reset, stop, provider, setProvider } = useConciergeChat();
   const busy = status === 'streaming';
   // The app-wide offline banner is `fixed` at z-40 and this panel's overlay is z-50, so while the
   // sheet is open that banner is behind it and invisible — this surface has to state the condition
@@ -456,6 +456,18 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
     if (!active || active === document.body || (inPanel && inPanel.contains(active))) el.focus();
   }, [status]);
 
+  // Seconds since the turn started. Visual only: a per-second change must never reach a live region.
+  const [elapsed, setElapsed] = useState(0);
+  const startRef = useRef(0);
+  useEffect(() => {
+    if (!busy) return;
+    const start = Date.now();
+    startRef.current = start;
+    setElapsed(0);
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [busy]);
+
   if (!isConciergeConfigured() || !traveler) return null;
 
   const opKey = (turnIndex: number, op: Op) => `${turnIndex}::${JSON.stringify(op)}`;
@@ -501,6 +513,14 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
     const toSend = draft;
     setDraft('');
     void send(toSend);
+  };
+
+  const handleStop = () => {
+    // Stop takes Send's place, so the second tap of a double-tap on Send would land on it.
+    if (Date.now() - startRef.current < 400) return;
+    const text = stop();
+    // Hand the message back, unless the traveller has already started typing the next one.
+    if (text) setDraft((d) => (d.trim() ? d : text));
   };
 
   return (
@@ -933,15 +953,36 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
             aria-describedby={PRIVACY_NOTE_ID}
             className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-3 text-t-body text-ink-hi outline-none placeholder:text-ink-lo focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <button
-            type="submit"
-            data-testid="concierge-send"
-            disabled={!draft.trim() || busy}
-            aria-label="Send message"
-            className="btn min-w-tap shrink-0 px-3"
-          >
-            <Send className="h-4 w-4" aria-hidden="true" />
-          </button>
+          {busy && (
+            <span
+              data-testid="concierge-elapsed"
+              aria-hidden="true"
+              className="shrink-0 font-machine text-t-micro tabular-nums text-ink-mid"
+            >
+              {elapsed}s
+            </span>
+          )}
+          {busy ? (
+            <button
+              type="button"
+              data-testid="concierge-stop"
+              onClick={handleStop}
+              aria-label="Stop waiting for the reply"
+              className="btn min-w-tap shrink-0 px-3"
+            >
+              <Square className="h-4 w-4" aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              data-testid="concierge-send"
+              disabled={!draft.trim()}
+              aria-label="Send message"
+              className="btn min-w-tap shrink-0 px-3"
+            >
+              <Send className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
         </form>
 
         {/* (owner ruling Q5, second half) — the small privacy label, sited at the input
