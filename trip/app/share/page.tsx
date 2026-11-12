@@ -10,7 +10,7 @@ import PageHeader from '@/components/page-header';
 import { ShareInbox } from './sections';
 
 export const metadata = {
-  title: 'Shared Links · Nepal × Japan Journey',
+  title: 'Shared Links · Trip Journey',
   description: 'Links and notes shared to the trip planner from your phone, ready to slot into your itinerary — saved on this device.',
 };
 

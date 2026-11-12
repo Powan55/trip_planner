@@ -57,6 +57,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   title: 'Trip Journey',
+  robots: { index: false, follow: false },
   description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
   icons: {
     icon: withBasePath('/favicon.svg'),

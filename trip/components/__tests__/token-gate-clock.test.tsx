@@ -77,13 +77,13 @@ describe('token-gate CompactCountdown', () => {
     expect(timer.querySelector('[role="status"], [aria-live]')).toBeNull();
   });
 
-  it('says the journey has begun mid-trip and that it has ended afterwards', () => {
+  it('says the trip is under way mid-trip and that it has ended afterwards', () => {
     openAuthView(new Date(TRIP_START.getTime() + 86_400_000));
-    expect(container.textContent).toContain('The journey has begun.');
+    expect(container.textContent).toContain('The trip is under way.');
     act(() => root.unmount());
     container.remove();
     openAuthView(new Date(TRIP_END.getTime() + 86_400_000));
     expect(container.textContent).toContain('The trip has ended.');
-    expect(container.textContent).not.toContain('The journey has begun.');
+    expect(container.textContent).not.toContain('The trip is under way.');
   });
 });

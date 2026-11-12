@@ -40,14 +40,12 @@ import type { Page } from '@playwright/test';
  * lets the net idle).
  */
 
-// Distinctive per-route <title>s baked into each static route HTML (identity
-// markers). The Home/app-root shell's title carries the date range; the two
-// deep routes carry a "·"-joined page name and NEVER the date range — that is
-// the tell that distinguishes "served the real route shell" from "fell back to
-// the Home shell".
-const TRAVEL_TITLE = 'Travel Mode · Nepal × Japan Journey';
-const PLAN_TITLE = 'Plan · Nepal × Japan Journey';
-const HOME_TITLE_MARK = 'Trip Journey'; // only in the Home/app-root shell <title>
+// Per-route <title>s baked into each static route HTML. The Home/app-root shell is the bare
+// product name; the deep routes carry a "·"-joined page name. That distinguishes "served the
+// real route shell" from "fell back to the Home shell".
+const TRAVEL_TITLE = 'Travel Mode · Trip Journey';
+const PLAN_TITLE = 'Plan · Trip Journey';
+const HOME_TITLE = 'Trip Journey';
 
 async function waitForControllingSW(page: Page): Promise<void> {
   await page.waitForFunction(
@@ -85,19 +83,19 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
     // page's, and it does NOT carry the Home-shell date marker.
     await page.goto('/travel/', { waitUntil: 'load' });
     expect(await page.title()).toBe(TRAVEL_TITLE);
-    expect(await page.title()).not.toContain(HOME_TITLE_MARK);
+    expect(await page.title()).not.toBe(HOME_TITLE);
     await expect(page.locator('h1').first()).toHaveText('Travel Mode');
 
     // /plan/ likewise resolves to its own real shell.
     await page.goto('/plan/', { waitUntil: 'load' });
     expect(await page.title()).toBe(PLAN_TITLE);
-    expect(await page.title()).not.toContain(HOME_TITLE_MARK);
+    expect(await page.title()).not.toBe(HOME_TITLE);
 
     // Control: an UNCACHED route DOES fall back to the Home/app-root shell — so
     // the two assertions above are meaningful (the deep routes are genuinely
     // served their own shells, not accidentally the Home fallback everywhere).
     await page.goto('/this-route-never-precached/', { waitUntil: 'load' });
-    expect(await page.title()).toContain(HOME_TITLE_MARK);
+    expect(await page.title()).toBe(HOME_TITLE);
 
     await context.setOffline(false);
   });
@@ -134,7 +132,7 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
     // precache. Reusing the warm page would let a runtime-cached payload answer and
     // prove nothing about the install list.
     await page.goto('/', { waitUntil: 'load' });
-    expect(await page.title()).toContain(HOME_TITLE_MARK);
+    expect(await page.title()).toBe(HOME_TITLE);
 
     await page.evaluate(() => {
       (window as unknown as { __swNavMarker?: string }).__swNavMarker = 'same-document';
@@ -147,7 +145,7 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
     await page.waitForLoadState('load');
 
     await expect(page).toHaveTitle(PLAN_TITLE);
-    expect(await page.title()).not.toContain(HOME_TITLE_MARK);
+    expect(await page.title()).not.toBe(HOME_TITLE);
 
     expect(
       await page.evaluate(

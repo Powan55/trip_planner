@@ -12,7 +12,7 @@ import OptimizedImage from '@/components/optimized-image';
 // DefaultTripOnly (an N×J gate that shows an honest empty-state on a custom trip) and
 // OptimizedImage.
 export const metadata = {
-  title: 'Guides · Nepal × Japan Journey',
+  title: 'Guides · Trip Journey',
   description:
     'Choose a destination guide — the Kathmandu Valley (Nepal) or Japan — for photography spots, nightlife, local foods, and cultural essentials.',
 };

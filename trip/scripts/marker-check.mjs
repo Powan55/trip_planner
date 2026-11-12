@@ -109,9 +109,6 @@ const ALLOWED_LINES = [
   // it already ships inside lib/concierge-config.ts. It is not a private
   // address, even though it contains the account handle.
   ['owner-pii', /trip-planner-concierge\.official-shadowverse\.workers\.dev/],
-  // The site credit in components/footer.tsx is deliberate, and it is JSX text
-  // rather than a comment. Kept narrow so any OTHER use of the name still fails.
-  ['owner-name', /getFullYear\(\)\} Lax/],
   // SVG keyword and the npm package name, neither related to work-slicing.
   ['process-prose', /xMidYMax slice|prototype\.slice/],
   // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md,

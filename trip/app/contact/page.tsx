@@ -2,7 +2,7 @@ import PageHeader from '@/components/page-header';
 import LegalSection from '@/components/legal-section';
 
 export const metadata = {
-  title: 'Contact · Nepal × Japan Journey',
+  title: 'Contact · Trip Journey',
   description: 'How to report a problem or ask about your data.',
 };
 
