@@ -324,9 +324,12 @@ test.describe('S271 · Part C — nav backfill caches a missed route on a succes
       async () => (await fetch('/sw.js', { cache: 'no-store' })).text(),
     );
 
-    const putKeys = await page.evaluate((src) => {
+    const buildId = /const BUILD_ID = "([^"]+)"/.exec(swSource)?.[1] ?? '';
+    expect(buildId).not.toBe('');
+
+    const putKeys = await page.evaluate(([src, buildId]) => {
       // Drive the shipped `fetch` handler once with a controlled navigate event.
-      function runNav(fetchOutcome: 'ok-basic' | 'ok-opaque' | 'error') {
+      function runNav(fetchOutcome: 'ok-basic' | 'ok-nobuild' | 'ok-opaque' | 'error') {
         const handlers: Record<string, (e: unknown) => void> = {};
         const committed: string[] = [];
         const fakeSelf = {
@@ -346,7 +349,8 @@ test.describe('S271 · Part C — nav backfill caches a missed route on a succes
         const fakeFetch = async () => {
           if (fetchOutcome === 'error') throw new Error('offline');
           const type = fetchOutcome === 'ok-opaque' ? 'opaque' : 'basic';
-          return { ok: true, status: 200, type, clone() { return this; } };
+          const body = fetchOutcome === 'ok-nobuild' ? '<html>portal</html>' : '"buildId":"' + buildId + '"';
+          return { ok: true, status: 200, type, redirected: false, clone() { return this; }, text: async () => body };
         };
         new Function('self', 'caches', 'fetch', 'Response', 'location', src)(
           fakeSelf,
@@ -375,13 +379,15 @@ test.describe('S271 · Part C — nav backfill caches a missed route on a succes
           handlers.fetch(evt);
         });
       }
-      return Promise.all([runNav('ok-basic'), runNav('ok-opaque'), runNav('error')]).then(
-        ([basic, opaque, error]) => ({ basic, opaque, error }),
+      return Promise.all([runNav('ok-basic'), runNav('ok-nobuild'), runNav('ok-opaque'), runNav('error')]).then(
+        ([basic, nobuild, opaque, error]) => ({ basic, nobuild, opaque, error }),
       );
-    }, swSource);
+    }, [swSource, buildId] as const);
 
     // OK 'basic' → backfilled under the NORMALIZED path.
     expect(putKeys.basic).toContain('/backfill-me/');
+    // An OK basic page without this build's id (rewriting network) is not stored.
+    expect(putKeys.nobuild).toEqual([]);
     // Opaque and network-error responses are NEVER backfilled into the shell.
     expect(putKeys.opaque).toEqual([]);
     expect(putKeys.error).toEqual([]);
