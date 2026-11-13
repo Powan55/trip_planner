@@ -612,6 +612,8 @@ test.describe('TM visual · per-state hero baselines (device-real)', { tag: '@vi
   /** Frozen-clock + reduced-motion nav that settles past the D-073 first-load SW reload and fonts. */
   async function gotoHeroShot(page: Page, query: string) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
+    // The world clock strip above the hero wraps by the hour and moves it a sub-pixel.
+    await page.clock.setFixedTime(new Date('2026-11-12T05:40:00Z'));
     await page.goto(`/travel/${query}`, { waitUntil: 'load' });
     await page
       .waitForFunction(() => !('serviceWorker' in navigator) || navigator.serviceWorker.controller !== null, null, { timeout: 15_000 })
