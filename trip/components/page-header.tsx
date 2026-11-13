@@ -66,7 +66,7 @@ export default function PageHeader({
           state until those callers are swept. */}
       <div
         className={cn(
-          'relative mx-auto max-w-[1200px] overflow-hidden border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-8 sm:px-10 sm:py-12',
+          'relative mx-auto max-w-[1200px] overflow-hidden border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-5 sm:px-10 sm:py-12',
           className,
         )}
       >
@@ -82,7 +82,7 @@ export default function PageHeader({
           <h1 id={titleId} className="text-display-lg text-[color:var(--text-hi)]">
             {title}
           </h1>
-          <p className="mt-3 max-w-2xl text-t-lead text-[color:var(--text-mid)]">
+          <p className="mt-3 max-w-2xl text-t-body sm:text-t-lead text-[color:var(--text-mid)]">
             {description}
           </p>
         </div>

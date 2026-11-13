@@ -232,7 +232,7 @@ export default function PackingChecklist() {
                               toggleItem(item.id);
                               haptic();
                             }}
-                            className="h-5 w-5 flex-shrink-0 rounded-r1 border-[color:var(--border-ui)] bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="chk"
                           />
                         </span>
                         <span className="min-w-0">
