@@ -533,6 +533,25 @@ describe('images: the content-hashed precache wins over the durable runtime cach
   });
 });
 
+describe('navigation backfill only stores pages that carry this build id (#1094)', () => {
+  const nav = makeRequest('/new-route/', { mode: 'navigate', destination: 'document' });
+  const backfilled = async (html: string) => {
+    const { caches, put } = makeCaches({ [PRECACHE]: { '/': 'HOME' } });
+    const res = await runFetch(instantiate(caches, async () => new FakeResponse(html)), nav);
+    expect(res?.body).toBe(html);
+    return put.some((p) => p.key === '/new-route/');
+  };
+
+  it('stores a page with the build id', async () => {
+    expect(await backfilled(`"buildId":"${BUILD_ID}"`)).toBe(true);
+  });
+
+  it('does not store a rewritten or foreign-build page', async () => {
+    expect(await backfilled('<html>portal</html>')).toBe(false);
+    expect(await backfilled('"buildId":"BUILD_NEWER"')).toBe(false);
+  });
+});
+
 describe('a rejecting Cache Storage degrades, it does not take the response down', () => {
   // An exception inside respondWith rejects the response and the browser paints its
   // network-error page — for a route the precache is holding.

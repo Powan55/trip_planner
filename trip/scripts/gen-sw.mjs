@@ -1371,9 +1371,15 @@ self.addEventListener('fetch', (event) => {
           // responses — never backfill an error/opaque/redirect response into
           // the precache. Fire-and-forget (mirrors cacheFirst) so it never
           // delays the navigation response.
-          if (res && res.ok && res.type === 'basic') {
+          // Same body check repairPrecache applies: a rewriting network's 200 page
+          // (no build id) or a redirected one must not become the route shell.
+          if (res && res.ok && res.type === 'basic' && !res.redirected) {
             const copy = res.clone(); // clone NOW, before the browser locks the body
-            caches.open(PRECACHE).then((cache) => cache.put(normalized, copy)).catch(() => {});
+            copy
+              .clone()
+              .text()
+              .then((text) => (text.includes(BUILD_ID) ? caches.open(PRECACHE).then((cache) => cache.put(normalized, copy)) : undefined))
+              .catch(() => {});
           }
           return res;
         } catch (err) {
