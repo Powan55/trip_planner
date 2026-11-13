@@ -601,6 +601,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   // Issue #502 — set when the WebGL2 context can't be created; renders the
   // unavailable message in place of the canvas instead of leaving it blank.
   const [mapUnavailable, setMapUnavailable] = useState(false);
+  const [engineError, setEngineError] = useState<unknown>(null);
   // Basemap source failed on a connection that is otherwise up; cleared when it loads.
   const [basemapFailed, setBasemapFailed] = useState(false);
   const online = useOnline();
@@ -769,7 +770,15 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     let map: MLMap | null = null;
 
     (async () => {
-      const maplibregl: MapLibreNS = await import('maplibre-gl');
+      let maplibregl: MapLibreNS;
+      try {
+        maplibregl = await import('maplibre-gl');
+      } catch (err) {
+        // Offline the one-shot chunk reload cannot fetch the engine; hand it to MapIslandBoundary.
+        if (navigator.onLine !== false) throw err;
+        if (!cancelled) setEngineError(err);
+        return;
+      }
       if (cancelled || !containerRef.current) return;
       mapLibreRef.current = maplibregl;
 
@@ -1300,6 +1309,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       map.setPaintProperty('itin-stop', 'circle-stroke-width', casePaint(3, 2));
     }
   }, [highlightId, mapReady, routeStops]);
+
+  if (engineError) throw engineError;
 
   return (
     <>
