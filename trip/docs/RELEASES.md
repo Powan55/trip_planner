@@ -12,6 +12,25 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.10.0 (app) · 2026-11-13 · worker at v1.11.3
+
+**For travellers:** update every phone before departure. Open the app on wifi, tap Refresh on the update prompt, and check that the footer reads v7.10.0. Then open Map once while online until the pins show, and open Journal once. This update replaces the map code saved on the phone, so Map shows "Map engine not on this device" offline until it has been opened online once.
+
+- Sync: when someone else's edit overrides yours, this device keeps your values and shows a notice on the item so you can restore them (#1124). The first load merges the itinerary item by item instead of taking the server copy whole (#1124). A failed trip rename or trip list push stays queued and retries (#1125).
+- Offline: when the service worker fills in a route missing from its cache, it no longer saves a redirected page or a page from another build, so a captive-portal sign-in page cannot be stored as that route (#1173). A missing journal-sync or map-engine chunk no longer forces a reload while offline, and the map shows its engine-missing card instead of loading forever (#1179). A panel that fails to load shows a retry card (#1127), and the storage-full warning measures localStorage instead of the origin quota (#1130).
+- Custom trips: /flights lists the trip's Transportation and Hotel items and is back in More and the command palette (#1118). Structured flight fields and multi-country trips are still open. Home currency can be any supported trip currency (#1119), and hand-added items are read in the day's own time zone (#1120).
+- Settings has Export all my data: one JSON file with your account, every trip you belong to, your journal and what this browser stores (#1110). Photos are not in it, and the file carries your account key, so keep it private. Account deletion is not in this release.
+- Privacy, terms and contact pages, readable while signed out (#1111). Landing, sign-in, page titles, footer and metadata describe the app instead of one trip, and pages are noindex (#1108). Sign-up has a way back and the vibe step is optional; only the trip's own accounts join the shared trip, and any other account keeps a local-only sample (#1107, #1121).
+- Phone layout: the home countdown shows live numbers from the first frame (#1065) and the hero ring shows progress only (#1131). The offline pill no longer covers the page title or day tabs, and undo toasts last 7 seconds (#1066, #1067, #1081). The sync pill says why it is not syncing (#1076). Swipe-down closes bottom sheets (#1075). The plan editor saves on Enter with a pinned Save button (#1071), and plan row actions show on touch screens (#1068, #1079). /safety no longer scrolls sideways (#1069, #1070). Hero headings and place cards wrap properly (#1074, #1077), and Travel Mode's outdoor strip no longer clips (#1073, #1080). The photo input can pick from the library (#1105, #1106). Roads and labels on the dark map are lighter (#1072). Recap and Settings follow the trip phase (#1122).
+- Accessibility: the concierge has a Stop button and shows how long it has waited, sync status announcements are shorter, the map All chip and attribution toggle reach 44px, and keyboard focus scroll is no longer animated (#1093).
+- /japan and /nepal mount sections below the fold on scroll and do less layout work on load (#1078).
+- Content: Japan medication import rules, vaccine timing, Nepal bite and water notes and the tax-free flow (#1082–#1084, #1091). Fire and Ice states its 23:00 closing time (#1085), the Phulchowki day starts with a 04:15 pickup (#1086), plus smaller itinerary and wording fixes (#1087–#1090, #1095).
+- A scheduled uptime check probes the live site and the concierge gate (#1117, #1175).
+
+**Deploy targets:** GitHub Pages. No Firestore rules change and no worker change in this release.
+
+---
+
 ## v7.9.0 (app) · 2026-11-08 · worker at v1.11.3
 
 - A restore rolls back when the sync outbox refuses the write, instead of losing the restored data on reload (#1045). A refused outbox write stays in memory (#982), and a slot written by a newer build now shows a toast instead of silently reverting synced edits (#1046). Older builds no longer strip fields a newer build adds to journal, photo and outbox data (#986).
