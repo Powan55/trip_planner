@@ -6,8 +6,13 @@ import { loadJournal, saveJournal, journalStoragePort } from '@/core/journal/sto
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 
+// Online, a failed chunk must still reach the one-shot reload; offline that reload cannot help.
+const offlineOnly = (e: unknown) => {
+  if (navigator.onLine !== false) throw e;
+};
+
 function pushLater(date: string): void {
-  if (isRemoteConfigured()) void import('@/lib/journal-remote').then((m) => m.pushJournalEntry(date));
+  if (isRemoteConfigured()) void import('@/lib/journal-remote').then((m) => m.pushJournalEntry(date), offlineOnly);
 }
 import {
   getEntry as getEntryCore,
@@ -64,7 +69,7 @@ export function useJournal(): JournalStore {
     let release: (() => void) | null = null;
     void import('@/lib/journal-remote').then((m) => {
       if (!cancelled) release = m.retainJournalSync();
-    });
+    }, offlineOnly);
     return () => {
       cancelled = true;
       release?.();

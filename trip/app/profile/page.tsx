@@ -19,7 +19,7 @@ import PageHeader from '@/components/page-header';
 import { IceCard, VisitedPlaces } from './sections';
 
 export const metadata = {
-  title: 'Profile · Nepal × Japan Journey',
+  title: 'Profile · Trip Journey',
   description:
     'The countries and cities you had already been to before this trip, so your travel totals count a lifetime rather than one holiday. Stored on this device.',
 };

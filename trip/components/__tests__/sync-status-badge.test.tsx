@@ -33,7 +33,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 });
 
 import SyncStatusBadge from '@/components/sync-status-badge';
-import { setReadDenied } from '@/core/sync/read-denied';
+import { setReadDenied, setReadDead } from '@/core/sync/read-denied';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 
 let container: HTMLDivElement;
@@ -63,6 +63,7 @@ afterEach(() => {
   act(() => root.unmount());
   document.body.innerHTML = '';
   setReadDenied('itinerary', false); // module-singleton flag — reset between tests
+  setReadDead('itinerary', false);
   vi.restoreAllMocks();
 });
 
@@ -124,6 +125,36 @@ describe('#271 — SyncStatusBadge reflects a permission-denied read, not just a
   });
 });
 
+// #1076 — the reason and the way out used to live only in an sr-only span.
+describe('#1076 — a failed sync explains itself to sighted users', () => {
+  const hintOf = (c: HTMLElement) => c.querySelector('[data-testid="sync-status-hint"]');
+
+  it('blocked: visible hint, and the pill links to Trip access; sr-only summary kept', async () => {
+    await act(async () => {
+      setReadDenied('itinerary', true);
+    });
+    const c = await mount();
+    expect(hintOf(c)?.textContent).toMatch(/add this device/);
+    expect(hintOf(c)?.closest('.sr-only')).toBeNull();
+    const link = c.querySelector('[data-testid="sync-status-badge"] a');
+    expect(link?.getAttribute('href')).toMatch(/\/settings\/#trip-access$/);
+    expect(link?.getAttribute('aria-label')).toBe('Not syncing, open Trip access');
+    const described = link?.getAttribute('aria-describedby');
+    expect(c.querySelector(`[id="${described}"]`)?.textContent).toMatch(/Trip access/);
+    expect(c.querySelector('.sr-only')?.textContent).toMatch(/Trip access/);
+  });
+
+  it('dead: visible hint, no link', async () => {
+    await act(async () => {
+      setReadDead('itinerary', true);
+    });
+    const c = await mount();
+    expect(c.querySelector('[data-testid="sync-status-badge"]')?.getAttribute('data-state')).toBe('dead');
+    expect(hintOf(c)?.textContent).toMatch(/connection/);
+    expect(c.querySelector('[data-testid="sync-status-badge"] a')).toBeNull();
+  });
+});
+
 const holdLocalEdits = () => localStorage.setItem(STORAGE_KEYS.itinerary, '[]');
 
 /**
@@ -152,10 +183,10 @@ describe('D-542 — the local-only state is visible', () => {
     expect(c.querySelector('[data-testid="sync-status-share-cta"]')).toBeNull();
   });
 
-  it('an untouched device with no stored id is on the shared trip and shows nothing', async () => {
+  it('an untouched device with no stored id is local-only too, until a member signs in (D-811)', async () => {
     localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
     const c = await mount();
-    expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
+    expect(c.querySelector('[data-testid="sync-status-badge"]')?.getAttribute('data-state')).toBe('local-only');
   });
 
   it('goes quiet again the moment a share id exists — the offer is not permanent nagging', async () => {

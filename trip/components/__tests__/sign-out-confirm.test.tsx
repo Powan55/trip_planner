@@ -27,12 +27,16 @@ vi.mock('@/lib/firebase-remote', () => ({
   clearRemoteCache,
   isPasswordSession: async () => session.password,
 }));
+const downloadTripBackup = vi.hoisted(() => vi.fn(async (): Promise<{ missing?: number; omitted?: number } | void> => ({})));
+vi.mock('@/lib/trip-backup', () => ({ downloadTripBackup }));
 const flushAllDomains = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock('@/hooks/use-domain-sync', () => ({ flushAllDomains }));
 const flushJournal = vi.hoisted(() => vi.fn(async () => {}));
 const flushPrefs = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock('@/lib/journal-remote', () => ({ flushJournal }));
 vi.mock('@/lib/account-prefs-remote', () => ({ flushPrefs }));
+const flushPendingTripSync = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('@/lib/trips-remote', () => ({ flushPendingTripSync }));
 vi.mock('@/lib/firebase-config', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/firebase-config')>()),
   isRemoteConfigured: () => remoteGate.on,
@@ -176,6 +180,23 @@ describe('SignOutConfirm — teardown', () => {
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 
+  it('lazy-loaded backup runs while the data is still on disk, before the wipe', async () => {
+    let tokenAtBackup: string | null = 'unset';
+    downloadTripBackup.mockImplementationOnce(async () => {
+      tokenAtBackup = window.localStorage.getItem(TOKEN_KEY);
+      return {};
+    });
+    await mount();
+
+    await click('t-backup');
+    expect(downloadTripBackup).toHaveBeenCalledTimes(1);
+    expect(tokenAtBackup).toBe('Uttam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+
+    await click('t-confirm');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
   // #401 / D-503 — the lifetime keys survive every teardown except this one.
   const LIFETIME = [
     'tripPlannerLifetimeVisits',
@@ -215,6 +236,15 @@ describe('SignOutConfirm — teardown', () => {
     expect(clearRemoteCache).toHaveBeenCalledTimes(2);
   });
 
+  it('still signs out when every lazy chunk fails to load (offline)', async () => {
+    flushAllDomains.mockRejectedValueOnce(new Error('chunk'));
+    flushJournal.mockRejectedValueOnce(new Error('chunk'));
+    clearRemoteCache.mockRejectedValueOnce(new Error('chunk'));
+    await mount({ forgetDevice: true });
+    await click('t-confirm');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
   it('never loads the remote module when remote is not configured', async () => {
     clearRemoteCache.mockClear();
     remoteGate.on = false;
@@ -244,13 +274,15 @@ describe('SignOutConfirm — teardown', () => {
   });
 
   // #816: journal days and account prefs queue outside the outbox; the wipe must wait for them too.
-  it('also waits for the journal and prefs flushers before clearing', async () => {
+  it('also waits for the journal, prefs and trip-sync flushers before clearing', async () => {
     clearRemoteCache.mockClear();
+    flushPendingTripSync.mockClear();
     let release!: () => void;
     flushJournal.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
     await mount();
     await click('t-confirm');
     expect(flushPrefs).toHaveBeenCalled();
+    expect(flushPendingTripSync).toHaveBeenCalled();
     expect(clearRemoteCache).not.toHaveBeenCalled();
     expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
     await act(async () => release());
@@ -385,6 +417,12 @@ describe('SignOutConfirm — unsynced-edit warning', () => {
     );
     await mount();
     expect(at('t-unsynced')!.textContent).toBe('3 changes on this device haven\'t synced yet and will be lost.');
+  });
+
+  it('counts queued trip renames and the trip list (#1125)', async () => {
+    window.localStorage.setItem('nepal_japan_trip_sync_queue', JSON.stringify({ meta: ['trip-x', 'trip-y'], list: CODE }));
+    await mount();
+    expect(at('t-unsynced')!.textContent).toBe("3 changes on this device haven't synced yet and will be lost.");
   });
 
   it('a clean outbox shows no warning', async () => {

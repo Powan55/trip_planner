@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { TRIP_DATE_LABEL } from '@/lib/trip-data';
 import { isTravelRoute } from '@/lib/travel-route';
 import { getActiveTrip } from '@/core/trips';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
+import LegalLinks from '@/components/legal-links';
 
 /**
  * The wordmark's JSX — DEFAULT trip renders "Nepal × Japan Journey" (byte-identical to the
@@ -30,7 +32,16 @@ export function FooterWordmark({ legs }: { legs: { countryLabel: string }[] }) {
 export default function Footer() {
   // chrome-free Travel Mode — the app footer renders null under `/travel`.
   const pathname = usePathname();
+  const { traveler } = useActiveTraveler();
   if (isTravelRoute(pathname)) return null;
+  // Signed out (legal pages only): no trip name or dates, just the links.
+  if (!traveler) {
+    return (
+      <footer className="px-gutter py-8 border-t-2 border-[hsl(var(--border))]">
+        <LegalLinks />
+      </footer>
+    );
+  }
 
   return (
     // The colophon: the imprint line at the foot of a printed form. A 2px rule across the
@@ -49,10 +60,11 @@ export default function Footer() {
         {/* The copyright/version note qualifies the wordmark above rather than being the
             footer's subject, so it sits a tier down. */}
         <p className="pr pr--lo tabular-nums">
-          &copy; {new Date().getFullYear()} Lax
+          &copy; {new Date().getFullYear()} Trip Journey
           {' '}&middot;{' '}
           v{process.env.NEXT_PUBLIC_APP_VERSION}
         </p>
+        <LegalLinks />
       </div>
     </footer>
   );

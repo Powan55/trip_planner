@@ -604,7 +604,11 @@ export function replaceLocalPlanCopy(lead: string = REPLACE_LOCAL_PLAN_COPY): st
  * `wipeAllTripData()` clears the default pack's outbox AND every `trip:{id}:syncOutbox`, not just
  * the active one, so the warning shown before that wipe sums `listKnownTrips()` the same way. */
 export function unsyncedEditCount(): number {
-  return listKnownTrips().reduce((sum, t) => sum + unsyncedEditCountFor(t.id), personPrefsDirty());
+  const q = readTripSyncQueue(); // #1125: the wipe drops queued renames and the trip list too
+  return listKnownTrips().reduce(
+    (sum, t) => sum + unsyncedEditCountFor(t.id),
+    personPrefsDirty() + q.meta.length + (q.list ? 1 : 0),
+  );
 }
 
 /** One trip's unsynced edits (outbox + journal); forgetting it wipes both (#712). */
@@ -665,6 +669,15 @@ export function personPrefsDirty(): number {
   const prefs = readJson<unknown>('local', STORAGE_KEYS.personPrefs, null);
   if (typeof prefs !== 'object' || prefs === null) return 0;
   return Object.values(prefs).filter((e) => (e as { dirty?: unknown } | null)?.dirty === true).length;
+}
+
+/** Trip renames and the trip list waiting to push (key 58, D-880). Malformed reads as empty. */
+export type TripSyncQueue = { meta: string[]; list?: string };
+
+export function readTripSyncQueue(): TripSyncQueue {
+  const raw = readJson<{ meta?: unknown; list?: unknown } | null>('local', STORAGE_KEYS.tripSyncQueue, null);
+  const meta = Array.isArray(raw?.meta) ? raw.meta.filter((id): id is string => typeof id === 'string') : [];
+  return typeof raw?.list === 'string' && raw.list ? { meta, list: raw.list } : { meta };
 }
 
 /** Journal days waiting to push (#631). They queue in key 50, not the outbox, and the wipe drops them too. */

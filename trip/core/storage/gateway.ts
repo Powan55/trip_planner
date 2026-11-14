@@ -595,6 +595,19 @@ export const STORAGE_KEYS = {
    * Shape owned by `core/ice/ice.ts`.
    */
   ice: 'nepal_japan_ice',
+  /**
+   * localStorage — JSON array, itinerary values this device lost to another person's edit in a
+   * merge (sync-conflicts, key 56; D-801). TRIP-SCOPED, DEVICE-ONLY: never on a row or Firestore
+   * doc, left out of the backup, wiped with the other trip-scoped slots. Shape owned by
+   * `core/sync/conflict-store.ts`.
+   */
+  conflicts: 'nepal_japan_sync_conflicts',
+  /**
+   * localStorage — JSON `{ meta: tripId[], list?: syncCode }`, trip renames and the trip list
+   * whose push has not landed yet (trip-sync-queue, key 58; D-880). APP-SCOPED, wiped on sign-out.
+   * Shape owned by `core/trips/registry.ts` (read) and `lib/trips-remote.ts` (write).
+   */
+  tripSyncQueue: 'nepal_japan_trip_sync_queue',
 } as const;
 
 function tripsCreatedHere(): unknown[] {
@@ -685,21 +698,15 @@ export function getStoredDefaultTripShareId(): string {
 }
 
 /**
- * The remote trip id the DEFAULT pack syncs to: the shared trip, for every account and device.
+ * The remote trip id the DEFAULT pack syncs to: the stored id, else `''` (a local-only sample).
  *
- * Two cases hold back from it. A device still on some other id keeps that one until
- * `lib/account-share.ts` has confirmed the shared trip is readable and the person has agreed to
- * replace their plan. A device with no id but local edits reads `''` (local-only) for the same
- * reason: the shared trip's first snapshot would otherwise replace those edits without asking.
+ * D-811 — only `lib/account-share.ts` writes the shared trip's id, and only once the signed-in
+ * account is one of the shared trip's members. A device with no id therefore stays local-only
+ * whoever signs in, instead of sending every other account's reads and writes into refusals.
  * TOTAL, never-throws, SSR-safe (inherited from `readString`).
  */
 export function getDefaultTripShareId(): string {
-  const stored = getStoredDefaultTripShareId();
-  if (stored !== '') return stored;
-  if (defaultPackHasSyncedData()) return '';
-  // Untouched device: record it now, so its first edit cannot turn this into the held-back case.
-  writeString('local', STORAGE_KEYS.defaultTripShare, SHARED_TRIP_ID);
-  return SHARED_TRIP_ID;
+  return getStoredDefaultTripShareId();
 }
 
 const DEFAULT_SHARE_SYNCED_SLOTS = [
@@ -835,7 +842,8 @@ export type TripScopedSlot =
   | 'journalSync'
   | 'journalDraft'
   | 'localRescue'
-  | 'ice';
+  | 'ice'
+  | 'conflicts';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -868,6 +876,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'journalDraft',
   'localRescue',
   'ice',
+  'conflicts',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -965,6 +974,7 @@ export function wipeAllTripData(): void {
   removeKey('local', STORAGE_KEYS.defaultTripAdopted);
   removeKey('local', STORAGE_KEYS.tripsCreatedHere);
   removeKey('local', STORAGE_KEYS.personPrefs);
+  removeKey('local', STORAGE_KEYS.tripSyncQueue);
 }
 
 /**

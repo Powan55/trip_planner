@@ -83,7 +83,8 @@ beforeEach(() => {
 
 describe('S234 Part A — remote write path targets trips/{token} for the active pack', () => {
   it('DEFAULT pack: getTripId() is the shared trip, and the trip-scoped gate follows the web config', () => {
-    // No pointer → getActiveTripId() === DEFAULT_TRIP_ID → the one shared trip's id.
+    // No pointer → getActiveTripId() === DEFAULT_TRIP_ID → the stored share id.
+    localStorage.setItem(STORAGE_KEYS.defaultTripShare, SHARED_TRIP_ID);
     expect(getTripId()).toBe(SHARED_TRIP_ID);
     expect(isTripRemoteConfigured()).toBe(false); // no firebase env in tests
   });

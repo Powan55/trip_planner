@@ -55,7 +55,7 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     await expect(region).toHaveAttribute('role', 'status');
     await expect(region).toHaveAttribute('aria-live', 'polite');
     await expect(region).toHaveAttribute('aria-label', 'You are offline');
-    await expect(banner.locator('.sr-only')).toContainText('lost its network connection');
+    await expect(region.locator('.sr-only')).toContainText('lost its network connection');
 
     // 3) Restore the network — the banner clears itself, no dismiss needed. The empty region
     // stays, and drops its label with the pill: while online it claims nothing.
@@ -64,56 +64,37 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     expect(await region.getAttribute('aria-label')).toBeNull();
   });
 
-  test('pill is centred on one line at 393 wide, then shows a Back online cue', async ({
-    page,
-    context,
-  }) => {
-    await page.setViewportSize({ width: 393, height: 852 });
-    await goto(page, '/');
-    await context.setOffline(true);
-    const banner = page.getByTestId('offline-banner');
-    await expect(banner).toBeVisible();
-    // let the 0.3s reveal settle before measuring
-    await expect
-      .poll(async () => {
-        const b = await banner.boundingBox();
-        return b ? Math.abs(b.x + b.width / 2 - 393 / 2) : 999;
-      })
-      .toBeLessThan(2);
-    const box = (await banner.boundingBox())!;
-    expect(box.height, 'single line').toBeLessThan(40);
-
-    await context.setOffline(false);
-    await expect(page.getByTestId('online-restored')).toBeVisible();
-    await expect(page.getByTestId('online-restored')).toHaveCount(0, { timeout: 6000 });
-  });
-
-  // The sync badge is dormant in this build (no firebase env), so its box can't be measured.
-  // It sits at top 8rem + safe-top while offline / just back online; assert both pills end
-  // above that line at the narrowest widths.
+  // #1066: the cue used to float over the page title and day tabs. It now lives in the navbar
+  // row, so it must sit inside the navbar box and never take a tap.
   for (const width of [360, 393]) {
-    test(`offline and back-online pills stay above the sync badge row at ${width}`, async ({
+    test(`chip sits inside the navbar on one line at ${width}, then shows a Back online cue`, async ({
       page,
       context,
     }) => {
       await page.setViewportSize({ width, height: 852 });
-      await goto(page, '/');
-      const badgeTop = await page.evaluate(
-        () => 8 * parseFloat(getComputedStyle(document.documentElement).fontSize),
-      );
+      await goto(page, '/plan/');
       await context.setOffline(true);
-      const off = page.getByTestId('offline-banner');
-      await expect(off).toBeVisible();
+      const banner = page.getByTestId('offline-banner');
+      await expect(banner).toBeVisible();
       await page.waitForTimeout(400);
-      const o = (await off.boundingBox())!;
-      expect(o.y + o.height).toBeLessThanOrEqual(badgeTop);
+      const box = (await banner.boundingBox())!;
+      const nav = (await page.getByTestId('navbar').boundingBox())!;
+      expect(box.height, 'single line').toBeLessThan(40);
+      expect(box.y).toBeGreaterThanOrEqual(nav.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(nav.y + nav.height);
+      const firstButtonX = await page.evaluate(() =>
+        Math.min(
+          ...[...document.querySelectorAll('[data-testid="navbar"] button')]
+            .map((b) => b.getBoundingClientRect())
+            .filter((r) => r.width > 0)
+            .map((r) => r.x),
+        ),
+      );
+      expect(box.x + box.width, 'clear of the navbar buttons').toBeLessThanOrEqual(firstButtonX);
 
       await context.setOffline(false);
-      const on = page.getByTestId('online-restored');
-      await expect(on).toBeVisible();
-      await page.waitForTimeout(400);
-      const b = (await on.boundingBox())!;
-      expect(b.y + b.height).toBeLessThanOrEqual(badgeTop);
+      await expect(page.getByTestId('online-restored')).toBeVisible();
+      await expect(page.getByTestId('online-restored')).toHaveCount(0, { timeout: 6000 });
     });
   }
 

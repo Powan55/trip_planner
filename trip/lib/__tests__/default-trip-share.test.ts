@@ -41,11 +41,12 @@ describe('D-542 — the default pack can be shared without moving its data', () 
   });
 
   describe('the gate', () => {
-    it('absent share id and nothing stored ⇒ the shared trip, and sync is on', async () => {
+    it("absent share id and nothing stored ⇒ '' until account-share records a member's device (D-811)", async () => {
       const { getTripId, isTripRemoteConfigured, isRemoteConfigured } = await loadWithEnv();
       expect(isRemoteConfigured()).toBe(true);
-      expect(getTripId()).toBe(SHARED_TRIP_ID);
-      expect(isTripRemoteConfigured()).toBe(true);
+      expect(getTripId()).toBe('');
+      expect(isTripRemoteConfigured()).toBe(false);
+      expect(localStorage.getItem(SHARE_KEY)).toBeNull();
     });
 
     it("absent share id but local edits ⇒ '' until they are moved, so the shared trip cannot replace them", async () => {
@@ -82,12 +83,12 @@ describe('D-542 — the default pack can be shared without moving its data', () 
       expect(getTripId()).toBe(ID);
     });
 
-    it("clearing with '' removes the key and returns the trip to the shared one", async () => {
+    it("clearing with '' removes the key and leaves the pack local-only", async () => {
       const { getTripId, setDefaultTripShareId } = await loadWithEnv();
       setDefaultTripShareId(ID);
       setDefaultTripShareId('   ');
       expect(localStorage.getItem(SHARE_KEY)).toBeNull();
-      expect(getTripId()).toBe(SHARED_TRIP_ID);
+      expect(getTripId()).toBe('');
     });
   });
 
@@ -180,7 +181,7 @@ describe('D-542 — the default pack can be shared without moving its data', () 
       wipeAllTripData();
 
       expect(localStorage.getItem(SHARE_KEY)).toBeNull();
-      expect(getTripId()).toBe(SHARED_TRIP_ID);
+      expect(getTripId()).toBe('');
     });
   });
 });

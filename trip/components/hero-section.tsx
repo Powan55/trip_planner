@@ -16,11 +16,10 @@ import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN, HERO_SIZES } from '@/lib/her
 import { isDefaultTrip } from '@/core/trips';
 import { isPostTrip } from '@/core/recap/model';
 import { getKnownTrip } from '@/core/trips/registry';
-import { vibeFor } from '@/core/trips/custom';
+import { NO_VIBE, vibeFor } from '@/core/trips/custom';
 import { getActiveTripId } from '@/core/storage/gateway';
 import OptimizedImage from '@/components/optimized-image';
 import CountdownRing from '@/components/countdown-ring';
-import { useCountUp } from '@/hooks/use-count-up';
 import { useEnterTravelMode } from '@/hooks/use-travel-mode';
 import { haptic } from '@/lib/haptics';
 import { crossedIntoComplete } from '@/lib/celebration';
@@ -44,35 +43,7 @@ const COUNTDOWN_CLOCK_UNITS = [
   { key: 'seconds', label: 'Seconds' },
 ] as const;
 
-/**
- * One-time eased count-up reveal for a single hero countdown number, then a clean
- * handoff to the LIVE value. PRESENTATIONAL ONLY — `live` is the exact value
- * computed by `computeCountdown`; this never recomputes anything.
- *
- * While revealing, the eased fraction tracks the current `live` value so the final
- * frame lands on it exactly; once `done`, we render `live` directly so the ticking
- * value (e.g. seconds) passes through with no desync (the live tick is never
- * throttled or delayed). Under reduced motion the hook reports `done` immediately,
- * so `live` shows at once with no count-up.
- *
- * `format` keeps each surface's exact presentation — `padStart(2,'0')` for the
- * six unit cells, identity for the ring's days-to-go digit.
- */
-function CountUpNumber({
-  live,
-  active,
-  format,
-}: {
-  live: number;
-  active: boolean;
-  format: (n: number) => string | number;
-}) {
-  const { value, done } = useCountUp(live, active);
-  return <>{format(done ? live : value)}</>;
-}
-
 const padUnit = (n: number) => String(n).padStart(2, '0');
-const identity = (n: number) => n;
 
 /**
  * Per-FRAME crop and highlight cap for the hero photograph (issue #89), keyed by the
@@ -163,7 +134,6 @@ const itemVariantsReduced = {
 };
 
 export default function HeroSection() {
-  const [mounted, setMounted] = useState(false);
   const [heroImgError, setHeroImgError] = useState(false);
   // Seeded from the REAL clock in a lazy initializer, not from a zeroed placeholder that the
   // mount effect then corrects (issue #54 D). A zeroed countdown renders no months/weeks/days
@@ -190,8 +160,7 @@ export default function HeroSection() {
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(() => getTodayInTrip());
   // — countdown-hits-zero micro-celebration + haptic pulse. Fires only on an OBSERVED
   // "not arrived" → "arrived" edge (the countdown grid → Day-N panel swap, live, while
-  // watching). The ref starts null and the effect skips until `mounted` (the first real clock
-  // read), so a page loaded ALREADY mid-trip only seeds the baseline — it must not celebrate
+  // watching). The ref starts null, so a page loaded ALREADY mid-trip only seeds the baseline — it must not celebrate
   // on every Home visit for the whole trip window — and later 1s ticks never re-fire.
   const hadArrivedRef = useRef<boolean | null>(null);
   const everInTripRef = useRef(false);
@@ -205,7 +174,6 @@ export default function HeroSection() {
   const enterTravel = useEnterTravelMode();
 
   useEffect(() => {
-    setMounted(true);
     // Clock reads flow through getNow() so `?today=` drives the hero. computeCountdown and
     // daysToGo stay pure — we pass the clock in, and ONE reading per tick feeds both, so the
     // grid and the ring can never be a tick apart.
@@ -221,10 +189,8 @@ export default function HeroSection() {
   }, []);
 
   // — arrival edge detection (see hadArrivedRef above), separate from the 1s clock tick.
-  // `mounted` and `todayInTrip` are set together in the mount effect (batched), so the first
-  // run past this guard sees the REAL clock state and only seeds the null baseline.
+  // `todayInTrip` is seeded from the real clock, so the first run only seeds the null baseline.
   useEffect(() => {
-    if (!mounted) return;
     const arrived = todayInTrip != null;
     // A day already seen in-trip never celebrates again: crossing the dateline can drop the day to
     // null for a tick and bring it back on landing (#791).
@@ -238,7 +204,7 @@ export default function HeroSection() {
       return () => clearTimeout(t);
     }
     hadArrivedRef.current = arrived;
-  }, [mounted, todayInTrip]);
+  }, [todayInTrip]);
 
   // Scroll-linked parallax. `scrollYProgress` runs 0 → 1 as the hero scrolls
   // from "pinned at the top of the viewport" to "fully scrolled out the top"
@@ -268,18 +234,16 @@ export default function HeroSection() {
   // #98 — the third hero state, POST-trip. Pre-trip and post-trip both leave `todayInTrip`
   // null, so without this the countdown-grid branch below ran for both and post-trip showed
   // a permanently zeroed clock ("00:00:00", 0 total days) under "Countdown to day one" —
-  // wrong once the trip is over. Mount-gated for the same hydration reason as `custom` above.
+  // wrong once the trip is over.
   // Reads `getTripDayDate()` (#822), the SAME trip-day clock the recap unlock and passport read, so
   // the countdown can never zero out while the recap is unlocked (a device east of Tokyo on Jan 10).
   // It replaced `getNowAtTrip().date`, A-22's
   // `trip-recap.tsx` fix and `trip-story-recap.tsx`/`core/recap/wrapped.ts` already read) —
   // no new device-local date helper.
-  const postTrip = mounted && !todayInTrip && isPostTrip(getTripDayDate());
+  const postTrip = !todayInTrip && isPostTrip(getTripDayDate());
 
   // — custom (non-default-pack) trips get a versatile vibe hero: no Nepal×Japan art/copy.
-  // Mount-gated (SSR always renders the default pack's prerendered content,/SSG hydration
-  // note) so `isDefaultTrip()` — a client-only gateway read — never causes a hydration mismatch.
-  const custom = mounted && !isDefaultTrip();
+  const custom = !isDefaultTrip();
   const customMeta = custom ? getKnownTrip(getActiveTripId()) : undefined;
   const customVibe = custom ? vibeFor(customMeta?.config?.vibe) : undefined;
   const customName = customMeta?.name ?? 'Your Trip';
@@ -295,10 +259,6 @@ export default function HeroSection() {
   // The hero photograph follows the LEG you are actually on: the Himalaya peak through the Nepal
   // leg (and every day outside the trip window), the Tokyo skyline through the Japan leg. Mapping
   // lives in `lib/hero-image.ts` so it is testable without React.
-  //
-  // Mount-gated exactly like `custom` above, and for the same reason: `todayInTrip` comes from a
-  // clock read whose `?today=` override only resolves CLIENT-side, so the server and the first
-  // paint must both render the default, or hydration mismatches.
   //
   // Home preloads the default responsive AVIF before this client-only island mounts.
   // Japan-leg loads can still fetch that default before the client clock selects Tokyo.
@@ -318,7 +278,7 @@ export default function HeroSection() {
   // Wikimedia, credited in public/images/CREDITS.md, and the no-new-assets rule elsewhere
   // (`lib/__tests__/content-validation.test.ts`) is scoped to the inspiration gallery and is
   // untouched by this.
-  const heroSrc = heroImageForLeg(mounted ? todayInTrip?.country : undefined);
+  const heroSrc = heroImageForLeg(todayInTrip?.country);
   // Crop + cap for whichever frame that resolved to. Keyed off `heroSrc`, NOT off a second read
   // of `todayInTrip.country`: two independent answers to "which leg" is how the cap ends up
   // Nepal-warm over the Tokyo skyline for one render.
@@ -532,7 +492,7 @@ export default function HeroSection() {
 
       {/* Hero content —: a single staggered entrance (container staggers its
           children; each rises + fades with a premium ease, or opacity-only under
-          reduced motion). The countdown numbers inside remain the live CountUpNumber. */}
+          reduced motion). The countdown numbers inside print the live value from first paint. */}
       <m.div
         variants={containerVariants}
         initial="hidden"
@@ -580,20 +540,20 @@ export default function HeroSection() {
           className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3 [overflow-wrap:anywhere] max-[419px]:[@media(max-height:699px)]:hidden"
         >
           {custom
-            ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')
+            ? [customDestinations, customMeta?.config?.vibe !== NO_VIBE && customVibe?.tagline]
+                .filter(Boolean)
+                .join(' — ')
             : 'From the mystical temples of Kathmandu to the neon-lit streets of Tokyo. A journey across ancient peaks and futuristic cities.'}
         </m.p>
 
         {/* the decorative quote was dropped to keep the hero calm and content-first
             (one obvious action, less above-fold noise). The subtitle above carries the mood. */}
 
-        {/* Countdown ⇄ Travel mode ⇄ Post-trip. All three are gated behind `mounted` so the
-            client-only clock never renders on the server (no hydration mismatch — none of
-            these panels appears pre-mount). When the app clock is inside the trip window,
+        {/* Countdown ⇄ Travel mode ⇄ Post-trip. When the app clock is inside the trip window,
             `todayInTrip` is non-null and the "Day N — {city}" panel replaces the countdown
             grid; off-trip and past the last trip day (#98), a static "trip complete" panel
             replaces it instead; otherwise (pre-trip) the live countdown shows. */}
-        {mounted && (todayInTrip ? (
+        {todayInTrip ? (
           <m.div variants={reveal} className="relative mb-10">
             <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" celebrationId="hero-arrival" />
             {/* ink-mid, NOT `text-muted-foreground`: this line sits OVER THE PHOTOGRAPH
@@ -609,12 +569,14 @@ export default function HeroSection() {
               className="inline-flex flex-col items-center gap-2 glass-card rounded-r2 px-6 sm:px-10 py-5 sm:py-6 max-w-full"
             >
               <div className="text-display-xl text-ink-hi">
-                Day{' '}
-                <span data-testid="hero-day-number" className="text-now tabular-nums">
-                  {todayInTrip.dayNumber}
+                <span className="block sm:inline">
+                  Day{' '}
+                  <span data-testid="hero-day-number" className="text-now tabular-nums">
+                    {todayInTrip.dayNumber}
+                  </span>
                 </span>
-                <span className="text-ink-lo mx-2 sm:mx-3">—</span>
-                {todayInTrip.city}
+                <span className="hidden sm:inline text-ink-lo mx-3">—</span>
+                <span className="block sm:inline">{todayInTrip.city}</span>
               </div>
               <p className="pr pr--l pr--lo">{formatDateLong(todayInTrip.date)}</p>
             </div>
@@ -704,7 +666,7 @@ export default function HeroSection() {
                       live ? 'text-gradient-sakura' : 'text-foreground'
                     }`}
                   >
-                    <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
+                    {padUnit(timeLeft[key] ?? 0)}
                   </div>
                   {/* --t-label (12.75px), the same size sm:text-xs already gave wider screens.
                       Issue #781 lifted this off the shipped 10px: it was the smallest text in
@@ -737,25 +699,26 @@ export default function HeroSection() {
               <CountdownRing
                 fraction={ringFraction(daysLeft, timeLeft.isPast)}
                 reducedMotion={!!prefersReducedMotion}
+                label={`${daysLeft} calendar ${daysLeft === 1 ? 'day' : 'days'} remaining`}
               >
-                <div className="flex flex-col items-center gap-1">
-                  <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
-                    <CountUpNumber live={daysLeft} active={mounted} format={identity} />
-                  </span>
-                  <span data-testid="countdown-total-days-unit" className="text-t-label text-ink-mid leading-none">{daysLeft === 1 ? 'day' : 'days'}</span>
-                </div>
+                {/* Progress only (#1131): the visible number disagreed with the tiles above
+                    (calendar days vs elapsed 24h blocks). Kept for specs and the aria-label. */}
+                <span className="sr-only">
+                  <span data-testid="countdown-total-days">{daysLeft}</span>{' '}
+                  <span data-testid="countdown-total-days-unit">{daysLeft === 1 ? 'day' : 'days'}</span>
+                </span>
               </CountdownRing>
               <p className="text-sm text-ink-mid">until adventure begins</p>
             </div>
           </m.div>
-        ))}
+        )}
 
         {/* — ONE obvious action (was 4 competing CTAs). Pre-/post-trip the single
             primary is "Open Planner" → the itinerary, the useful next step before you travel.
             In-trip this is suppressed: the on-trip card above already carries the single
             Travel Mode action for that state. Every other former CTA (Explore/Dashboard/
             Travel Mode) is reachable from the tab bar, so nothing is stranded. */}
-        {!(mounted && todayInTrip) && (
+        {!todayInTrip && (
           <m.div variants={reveal} className="flex justify-center">
             <Link href="/plan/" className="btn px-6">
               <Calendar className="w-4 h-4" />

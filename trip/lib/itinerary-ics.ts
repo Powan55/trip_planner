@@ -1,5 +1,6 @@
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 import {
+  dayZoneOffsetMin,
   effectiveDurationMinutes,
   effectiveOffsetMin,
   effectiveStartMinutes,
@@ -103,7 +104,7 @@ function eventLines(day: DayPlan, item: ItineraryItem, dtstamp: string): string[
     const startMs = placeWallClockToUtcMs(
       day.date,
       startMin,
-      effectiveOffsetMin(item, offsetForCountry(day.country)),
+      effectiveOffsetMin(item, dayZoneOffsetMin(day.items, day.date, offsetForCountry(day.country))),
     );
     const durationMin = effectiveDurationMinutes(item) ?? DEFAULT_DURATION_MIN;
     lines.push(`DTSTART:${formatUtcStamp(startMs)}`);

@@ -21,6 +21,7 @@
 
 import type { ItineraryItem } from '@/lib/trip-data';
 import {
+  dayZoneOffsetMin,
   effectiveDurationMinutes,
   effectiveOffsetMin,
   effectiveStartMinutes,
@@ -107,8 +108,9 @@ interface Current {
  * comparison here is now on the UTC instant.
  */
 function currentActivity(timed: Timed[], ctx: NextUpContext): Current | null {
+  const dayOffsetMin = dayZoneOffsetMin(timed.map((t) => t.item), ctx.dayDate, ctx.placeOffsetMin);
   const startMsOf = (t: Timed): number =>
-    placeWallClockToUtcMs(ctx.dayDate, t.startMin, effectiveOffsetMin(t.item, ctx.placeOffsetMin));
+    placeWallClockToUtcMs(ctx.dayDate, t.startMin, effectiveOffsetMin(t.item, dayOffsetMin));
   const sortedStartMs = timed.map(startMsOf).sort((a, b) => a - b);
   let best: Current | null = null;
   let bestStartMs = -Infinity;
@@ -155,7 +157,11 @@ export function deriveTravelHero(items: ItineraryItem[], ctx: NextUpContext): Tr
   // Exclude the current item from the "next" search so a single-instant start/now overlap can't
   // list the same item as both now AND next (nextUp is `>=` inclusive at exactly-now).
   const nextPool = cur ? items.filter((i) => i !== cur.item) : items;
-  const next = nextUp(nextPool, ctx);
+  // Zone from the full day: dropping the current row could drop the one that sets it (#1120).
+  const next = nextUp(nextPool, {
+    ...ctx,
+    placeOffsetMin: dayZoneOffsetMin(items, ctx.dayDate, ctx.placeOffsetMin),
+  });
 
   if (cur) {
     return {
@@ -189,12 +195,13 @@ export type TravelRowPhase =
 export function deriveRowPhases(items: ItineraryItem[], ctx: NextUpContext): TravelRowPhase[] {
   const timed = timedItems(items);
   const cur = currentActivity(timed, ctx);
+  const dayOffsetMin = dayZoneOffsetMin(items, ctx.dayDate, ctx.placeOffsetMin);
   return items.map((item) => {
     if (item.done === true) return 'done';
     if (cur && cur.item === item) return 'now';
     const startMin = effectiveStartMinutes(item);
     if (startMin === undefined) return 'untimed';
-    const startMs = placeWallClockToUtcMs(ctx.dayDate, startMin, effectiveOffsetMin(item, ctx.placeOffsetMin));
+    const startMs = placeWallClockToUtcMs(ctx.dayDate, startMin, effectiveOffsetMin(item, dayOffsetMin));
     return startMs > ctx.nowUtcMs ? 'upcoming' : 'past';
   });
 }

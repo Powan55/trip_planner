@@ -221,6 +221,7 @@ describe('expense backup trip matching (#705)', () => {
 
   it.each(['default-to-joined', 'joined-to-default'])('restores the same real shared trip across local aliases (%s)', (direction) => {
     vi.spyOn(firebaseConfig, 'isTripRemoteConfigured').mockReturnValue(true);
+    localStorage.setItem(STORAGE_KEYS.defaultTripShare, 'b2826dc5-d103-4a8c-a053-30531b4fd4b0'); // a member device (D-811)
     const sharedId = firebaseConfig.getTripId();
     expect(sharedId).not.toBe('');
     expect(sharedId).not.toBe(DEFAULT_TRIP_ID);

@@ -7,11 +7,9 @@
 // either name for a different purpose).
 //
 // WRITE (local → remote): `pushTripMeta(tripId, meta)` — best-effort `setDoc`; never rejects
-// (failures are swallowed to console.warn). NO outbox domain (unlike itinerary/expenses/
-// budget/docs). A lost write has two recovery paths: (A) the next rename/config change
-// re-pushes it (trips-hub `saveRename` — this one WORKS, and is why renaming a broken trip
-// fixes it), and (B) the fetch-based self-heal below, which retries on each page load
-// until it finds the doc.
+// (failures are swallowed to console.warn). Not an outbox domain, but a failed push stays queued
+// in key 58 (#1125, D-880) and `flushPendingTripSync` retries it from the registry's current
+// entry on the same triggers as the journal and prefs queues. The trip list queues the same way.
 //
 // ⚠ — AWAIT IT IF YOU ARE ABOUT TO NAVIGATE. This used to read "callers must NOT
 // await this for correctness", and that instruction shipped the defect: `window.location.
@@ -46,16 +44,31 @@ import {
   mergeTripLists,
   importRemoteTrips,
   isLegacyAccountKey,
+  getKnownTrip,
+  readTripSyncQueue,
+  SHARED_NAME,
   type TripConfigBlock,
   type TripMeta,
   type RemovedTrip,
+  type TripSyncQueue,
 } from '@/core/trips/registry';
 import {
   DEFAULT_TRIP_ID,
+  STORAGE_KEYS,
   getActiveTripId,
+  getSyncCode,
   isSafeTripSegment,
+  removeKey,
   wasTripCreatedHere,
+  writeJson,
 } from '@/core/storage/gateway';
+import { SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
+import {
+  isTripListDenied,
+  isTripMetaDenied,
+  markTripListDenied,
+  markTripMetaDenied,
+} from '@/core/sync/read-denied';
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
@@ -65,34 +78,123 @@ export type TripMetaPayload = { name: string; config?: TripConfigBlock; updatedA
 
 /**
  * Best-effort push of a trip's name/config to `trips/{tripId}/meta/info`. Never rejects to the
- * caller (a failed push is swallowed to console.warn — no outbox, per Plan D7). `tripId` is
- * caller-supplied (NOT read from the active-trip pointer) because a rename can target any known
- * trip row, not only the currently-active one.
+ * caller (a failed push is swallowed to console.warn). The trip is queued in key 58 before the
+ * write and dequeued once a push of its current entry lands, so `flushPendingTripSync` retries a
+ * failure (#1125). `tripId` is caller-supplied (NOT read from the active-trip pointer) because a
+ * rename can target any known trip row, not only the currently-active one.
  *
  * The returned promise settles only after the lazy firebase load AND the `setDoc` ack, so a caller
  * that is about to unload the page must await it under a timeout.
  */
 export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return;
+  queueTripSync((q) => ({ ...q, meta: [...new Set([...q.meta, tripId])] }));
   try {
-    const { db, fs } = await getRemote();
-    const { doc, setDoc } = fs;
-    const ref = doc(db, 'trips', tripId, 'meta', 'info');
-    const payload: Record<string, unknown> = { name: meta.name };
-    // D-600: the entry's own client-clock stamp, the same clock the synced trip list compares on.
-    if (typeof meta.updatedAt === 'number' && Number.isFinite(meta.updatedAt)) payload.updatedAt = meta.updatedAt;
-    // JSON round-trip both clones and strips `undefined`-valued optional fields (`currency`),
-    // which Firestore's setDoc rejects — same defensive move as docs-remote's sanitizeRowsForWrite.
-    if (meta.config) payload.config = JSON.parse(JSON.stringify(meta.config));
-    // merge:true ONLY when config is absent — a joiner's device has no local `config`
-    // (getKnownTrip returns none), so its rename must not blow away the creator's synced
-    // config field (#543). But merge:true deep-merges nested maps, so a caller that DOES
-    // have a config (the creator, editing it) must send a plain overwrite, or a key the
-    // creator just deleted inside config would survive merged in from the old doc.
-    await setDoc(ref, payload, meta.config ? {} : { merge: true });
+    await writeTripMeta(tripId, meta, false);
+    settleTripMeta(tripId, meta.updatedAt);
   } catch (err) {
-    console.warn('[trips-remote] trip meta push failed, staying local-only:', err);
+    if (isPermissionDenied(err)) markTripMetaDenied(tripId);
+    console.warn('[trips-remote] trip meta push failed, queued for retry:', err);
   }
+}
+
+/**
+ * The one `meta/info` writer. Rejects on failure. `retry` reads the doc first and skips the write
+ * when its `updatedAt` is the same as or newer than ours: D-600's last-writer rule, applied before a queued push
+ * lands so it cannot overwrite a peer's later rename. An explicit edit writes as it always has.
+ */
+async function writeTripMeta(tripId: string, meta: TripMetaPayload, retry: boolean): Promise<void> {
+  const { db, fs } = await getRemote();
+  const { doc, setDoc, runTransaction } = fs;
+  const ref = doc(db, 'trips', tripId, 'meta', 'info');
+  const payload: Record<string, unknown> = { name: meta.name };
+  // D-600: the entry's own client-clock stamp, the same clock the synced trip list compares on.
+  if (typeof meta.updatedAt === 'number' && Number.isFinite(meta.updatedAt)) payload.updatedAt = meta.updatedAt;
+  // JSON round-trip both clones and strips `undefined`-valued optional fields (`currency`),
+  // which Firestore's setDoc rejects — same defensive move as docs-remote's sanitizeRowsForWrite.
+  if (meta.config) payload.config = JSON.parse(JSON.stringify(meta.config));
+  // merge:true ONLY when config is absent — a joiner's device has no local `config`
+  // (getKnownTrip returns none), so its rename must not blow away the creator's synced
+  // config field (#543). But merge:true deep-merges nested maps, so a caller that DOES
+  // have a config (the creator, editing it) must send a plain overwrite, or a key the
+  // creator just deleted inside config would survive merged in from the old doc.
+  const opts = meta.config ? {} : { merge: true };
+  if (!retry) return setDoc(ref, payload, opts);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const remoteAt = snap.exists() ? (snap.data() as Record<string, unknown>).updatedAt : undefined;
+    // Equal stamp: the doc already holds this version, and rewriting it from our sanitised copy
+    // could drop fields a newer build added.
+    if (typeof remoteAt === 'number' && remoteAt >= (meta.updatedAt ?? 0)) return;
+    tx.set(ref, payload, opts);
+  });
+}
+
+// ── #1125: the retry queue for trip meta and the trip list (key 58, D-880). ──────────────────
+// A failed push used to be swallowed and forgotten, so a rename made offline never reached the
+// other travellers. Like the journal and prefs queues, the record is WHICH thing is unsynced, not
+// a payload: a retry re-reads the current registry entry (or list), so the newest local state is
+// what lands. Cleared only on success. A refusal is skipped for the rest of the page load and
+// stays queued (read-denied.ts), the same rule as the outbox's #267.
+
+function queueTripSync(edit: (q: TripSyncQueue) => TripSyncQueue): void {
+  const q = edit(readTripSyncQueue());
+  if (q.meta.length === 0 && !q.list) removeKey('local', STORAGE_KEYS.tripSyncQueue);
+  else writeJson('local', STORAGE_KEYS.tripSyncQueue, q);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
+}
+
+const dropMeta = (tripId: string) => queueTripSync((q) => ({ ...q, meta: q.meta.filter((id) => id !== tripId) }));
+
+/** Dequeue only if the entry has not been edited since the pushed copy; a newer edit stays queued. */
+function settleTripMeta(tripId: string, pushedAt: number | undefined): void {
+  if (getKnownTrip(tripId)?.updatedAt === pushedAt) dropMeta(tripId);
+}
+
+// A later list push in this tab owns the queue entry; an earlier one landing must not clear it.
+// KNOWN CEILING: per tab. A list push in another tab can still clear this tab's entry.
+let listPushes = 0;
+
+let tripSyncFlush: Promise<void> | null = null;
+
+/**
+ * Retry every queued trip rename and the queued trip list. Called by the sync badge on mount,
+ * `online` and tab return. One run at a time; refused entries are skipped. Never rejects, and an
+ * empty queue costs nothing (no firebase load).
+ */
+export function flushPendingTripSync(): Promise<void> {
+  if (!isRemoteConfigured()) return Promise.resolve();
+  if (tripSyncFlush) return tripSyncFlush;
+  const q = readTripSyncQueue();
+  if (q.meta.length === 0 && !q.list) return Promise.resolve();
+  tripSyncFlush = (async () => {
+    for (const id of q.meta) {
+      if (isTripMetaDenied(id)) continue;
+      const k = getKnownTrip(id);
+      // Forgotten, or a placeholder name the self-heal would not push either: nothing to send.
+      if (!k || id === DEFAULT_TRIP_ID || !isSafeTripSegment(id) || k.name === SHARED_NAME) {
+        dropMeta(id);
+        continue;
+      }
+      try {
+        await writeTripMeta(id, { name: k.name, config: k.config, updatedAt: k.updatedAt }, true);
+        settleTripMeta(id, k.updatedAt);
+      } catch (err) {
+        if (isPermissionDenied(err)) markTripMetaDenied(id);
+        else console.warn('[trips-remote] trip meta retry failed, still queued:', err);
+      }
+    }
+    if (q.list) {
+      // The list belongs to the account that queued it; after an account change it is not ours.
+      if ((getSyncCode()?.trim() ?? '') !== q.list) queueTripSync((f) => (f.list === q.list ? { meta: f.meta } : f));
+      else if (!isTripListDenied(q.list)) await pushTripList(q.list);
+    }
+  })()
+    .catch((err) => console.warn('[trips-remote] trip sync flush failed:', err))
+    .finally(() => {
+      tripSyncFlush = null;
+    });
+  return tripSyncFlush;
 }
 
 /**
@@ -659,7 +761,8 @@ function docToRemoved(data: Record<string, unknown>): RemovedTrip[] {
 /**
  * Best-effort push of THIS browser's known-trips list to `trips/{syncCode}/profile/tripList`: read
  * the remote doc, additive-union it with the local list, write the union back. Fire-and-forget —
- * never rejects to the caller (a failed push stays local-only via console.warn, no outbox). The JSON
+ * never rejects to the caller (a failed push stays queued in key 58 for `flushPendingTripSync`,
+ * #1125). The JSON
  * round-trip strips `undefined`-valued optional fields (config/updatedAt/currency) Firestore rejects.
  *
  * Transactional, like every sibling push (`pushDayMerged`, `pushBudgetMerged`, `pushChecklistMerged`,
@@ -670,6 +773,8 @@ function docToRemoved(data: Record<string, unknown>): RemovedTrip[] {
  */
 export async function pushTripList(code: string): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
+  const push = ++listPushes;
+  queueTripSync((q) => ({ ...q, list: code }));
   try {
     const { db, fs } = await getRemote();
     const { doc, runTransaction } = fs;
@@ -690,8 +795,10 @@ export async function pushTripList(code: string): Promise<void> {
         removed: JSON.parse(JSON.stringify(removed)),
       });
     });
+    if (push === listPushes) queueTripSync((q) => (q.list === code ? { meta: q.meta } : q));
   } catch (err) {
-    console.warn('[trips-remote] trip list push failed, staying local-only:', err);
+    if (isPermissionDenied(err)) markTripListDenied(code);
+    console.warn('[trips-remote] trip list push failed, queued for retry:', err);
   }
 }
 

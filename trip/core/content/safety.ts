@@ -21,12 +21,12 @@ import { z } from 'zod';
  * for that service (Nepal Police 100 / Ambulance 102 / Fire 101; Japan Police 110 /
  * Fire+Ambulance 119). These have been stable for decades and are corroborated by every
  * government and embassy travel-safety page; high confidence.
- * - `verified: false` — a specific switchboard/hotline digit string (a tourist-police line,
- * an embassy main number, a tourist-info hotline) that this build environment could NOT
- * re-confirm against a LIVE fetch (no web-browsing tool was available this session) — each
- * carries a `note` telling the traveler to reconfirm on the linked official page before
- * relying on it. Flagged explicitly in the for a human spot-check. DO NOT
- * flip `verified` to `true` without an actual live check against `sourceUrl`.
+ * - `verified: true` also covers the Nepal tourist-police line (1144) and the JNTO Japan
+ * Visitor Hotline, both checked live against their `sourceUrl` on 2026-11-10.
+ * - `verified: false` — the two embassy main numbers, which could NOT be re-confirmed
+ * against a LIVE fetch — each carries a `note` telling the traveler to reconfirm on the
+ * linked official page before relying on it. DO NOT flip `verified` to `true` without an
+ * actual live check against `sourceUrl`.
  */
 
 // ── Emergency & embassy contacts ────────────────────────────────────────────────────────────
@@ -83,8 +83,8 @@ const rawEmergencyContacts: EmergencyContact[] = [
     number: '1144',
     tel: '1144',
     sourceUrl: 'https://tourismdepartment.gov.np/pages/tourist-police/',
-    verified: false,
-    note: 'Toll-free. Head office line: +977-01-5347041. Confirm both on the Department of Tourism page before relying on them.',
+    verified: true,
+    note: 'Toll-free. Head office line: +977-01-5347041.',
   },
   {
     id: 'np-us-embassy',
@@ -121,8 +121,8 @@ const rawEmergencyContacts: EmergencyContact[] = [
     number: '050-3816-2787',
     tel: '+815038162787',
     sourceUrl: 'https://www.japan.travel/en/plan/hotline/',
-    verified: false,
-    note: 'Confirm this number on the official JNTO site before relying on it.',
+    verified: true,
+    note: 'English, Chinese and Korean, 24/7.',
   },
   {
     id: 'jp-us-embassy',
@@ -178,6 +178,18 @@ const rawHazardNotes: HazardNote[] = [
     country: 'Nepal',
     title: 'Common tourist scams',
     body: 'Insist on the meter or agree a taxi fare before you get in. Expect to be asked for money after a "photo with a sadhu" — agree a price first or decline. Be wary of gem shops that promise resale profit abroad; do not buy.',
+  },
+  {
+    id: 'np-animal-bites',
+    country: 'Nepal',
+    title: 'Monkeys, dogs & bites',
+    body: "Macaques around Swayambhunath can grab food and bite, and rabies is common in Nepal's dogs. Don't feed or touch animals and keep food out of sight. If bitten or scratched, wash the wound with soap and clean water, then see a doctor right away about rabies treatment (CDC says Kathmandu clinics for foreigners usually stock it).",
+  },
+  {
+    id: 'np-water-food',
+    country: 'Nepal',
+    title: 'Water & food',
+    body: "Tap water isn't safe to drink: use boiled or bottled water. Typhoid and hepatitis A come from food and water, and the vaccines aren't fully protective, so wash hands and be choosy about what you eat.",
   },
 ];
 
@@ -368,8 +380,8 @@ const rawChecklist: ChecklistItem[] = [
   {
     id: 'passport-validity',
     group: 'Before you go',
-    label: 'Passport valid 6+ months from your Nepal arrival',
-    detail: 'Nepal requires six months. Sources differ on whether it counts from arrival or departure, so confirm at immigration.gov.np. Japan only needs it valid for the length of your stay.',
+    label: 'Passport valid 6+ months from Nepal entry, 2 blank pages',
+    detail: 'Nepal asks for six months validity from the date you enter, plus at least two blank visa pages. Confirm at immigration.gov.np. Japan only needs it valid for your stay.',
   },
   {
     id: 'nepal-visa',
@@ -397,7 +409,7 @@ const rawChecklist: ChecklistItem[] = [
     id: 'vaccinations',
     group: 'Before you go',
     label: 'Vaccinations / health certificates up to date',
-    detail: 'CDC for Nepal: routine shots and MMR up to date for everyone; Hepatitis A and typhoid for most travellers; Hepatitis B if unvaccinated; rabies if animal exposure. Book a travel clinic now, at least 1 month before departure (wwwnc.cdc.gov/travel/destinations/nepal).',
+    detail: 'CDC for Nepal: routine shots and MMR up to date; hepatitis A and typhoid are the two key travel vaccines; hepatitis B if unvaccinated; ask about rabies. CDC advises a clinic visit at least a month before travel, so book one now and tell them your dates (wwwnc.cdc.gov/travel/destinations/nepal).',
   },
   {
     id: 'carry-passport-japan',
@@ -420,7 +432,7 @@ const rawChecklist: ChecklistItem[] = [
     id: 'medications',
     group: 'Carry with you',
     label: 'Prescription medications in original packaging',
-    detail: "Bring a doctor's note for any controlled substances.",
+    detail: "Keep medicines in original labelled packaging with a doctor's letter. Japan allows about a 1-month supply of prescription drugs without paperwork; more than that needs an Import Confirmation (Yunyu Kakunin-sho) from the MHLW before you fly, and it can take several weeks, so apply now. Stimulant medicines such as Adderall are banned, narcotic-type medicines need prior permission, and cold medicines containing pseudoephedrine are restricted. Sources disagree on thresholds, so ask first: check the MHLW personal-import page (mhlw.go.jp, search 'personal import medicines') or email the regional bureau before packing: yakkan@mhlw.go.jp for Narita/Haneda, kiyakuji@mhlw.go.jp for Kansai.",
   },
   {
     id: 'currency-cards',

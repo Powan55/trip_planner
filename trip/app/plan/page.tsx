@@ -22,7 +22,7 @@ import PlanHero from '@/components/plan-hero';
 import { CalendarPlanner, PlanActivity, BudgetPanel, PrintItinerary } from './sections';
 
 export const metadata = {
-  title: 'Plan · Nepal × Japan Journey',
+  title: 'Plan · Trip Journey',
   description: 'Day-by-day itinerary planner for the Nepal and Japan trip — add, edit, and reorder activities across all 32 days.',
 };
 

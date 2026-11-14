@@ -1,0 +1,53 @@
+name: Uptime
+
+# Live-site uptime check (issue #1117). Fails when the site stops returning 200 or the built app shell is missing.
+# Scheduled failures email whoever last edited this file, same as tile-probe.yml.
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uptime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check live site returns 200 with app shell
+        run: |
+          set -euo pipefail
+          URL='https://powan55.github.io/trip_planner/'
+          MARKER='trip_planner/_next/static/'
+          body=$(mktemp)
+          if ! curl -fsS --max-time 20 -o "$body" "$URL"; then
+            echo "::error::$URL did not return a success status"
+            exit 1
+          fi
+          if ! grep -qF "$MARKER" "$body"; then
+            echo "::error::$URL body is missing marker '$MARKER'"
+            exit 1
+          fi
+          echo "OK: $URL is up and serves the app shell"
+
+      # Membership gate (issue #1175): a POST with no bearer must answer 401 (missing trip token).
+      # 200 means the gate is off; 000 or 5xx means the Worker is down.
+      - name: Concierge Worker rejects requests without a bearer
+        env:
+          CONCIERGE_URL: ${{ vars.NEXT_PUBLIC_CONCIERGE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CONCIERGE_URL//[[:space:]]/}" ]; then
+            echo "::error::NEXT_PUBLIC_CONCIERGE_URL repository variable is not set"
+            exit 1
+          fi
+          # POST with an allowed Origin: a bare GET is refused for origin, and GET with Origin gives 405.
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
+            -H 'Content-Type: application/json' -H 'Origin: https://powan55.github.io' \
+            -d '{}' "$CONCIERGE_URL") || CODE=000
+          if [ "$CODE" != "401" ]; then
+            echo "::error::$CONCIERGE_URL answered $CODE with no bearer, expected 401"
+            exit 1
+          fi
+          echo "OK: $CONCIERGE_URL gate answers 401 without a bearer"

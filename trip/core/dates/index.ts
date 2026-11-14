@@ -35,6 +35,7 @@ export {
   formatHomeClock,
   formatZoneClock,
   effectiveOffsetMin,
+  dayZoneOffsetMin,
   parseTimeString,
   parseDurationText,
   effectiveStartMinutes,

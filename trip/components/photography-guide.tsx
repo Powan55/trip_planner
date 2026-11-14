@@ -33,7 +33,8 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
       whileHover={reduce ? undefined : { y: -6 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
       data-leg={isNepal ? 'nepal' : 'japan'}
-      className="plate group relative rounded-r1 p-gut border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
+      // #1078: see RecommendationCard. 390px medians: /japan 418, /nepal 549.
+      className="[content-visibility:auto] [contain-intrinsic-height:auto_450px] plate group relative rounded-r1 p-gut border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
       {/* The ratio lives on the frame as `--plate-ar`, which is what the recipe reads. An
           `aspect-[16/10]` on `.fig` was (0,1,0) under a (0,2,0) recipe, and with no grid

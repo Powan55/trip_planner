@@ -236,11 +236,26 @@ for (const vp of VIEWPORTS) {
     });
 
     test('footer (shared chrome, year masked)', async () => {
-      // Screenshot from any route; use /nepal/ where the footer sits below a short,
-      // static page so it is reachable without heavy lazy content in between.
-      await gotoSettled(page, '/nepal/');
+      // /share/ is a near-empty min-h-screen page, so the footer's offset is the viewport height,
+      // not content height. On a content route every copy edit moved it a fraction of a pixel.
+      await gotoSettled(page, '/share/');
       const footer = page.locator('footer');
+      // The mask box is as wide as the text under it, so a longer version string moves its edges.
+      await page.locator('footer p').last().evaluate((p) => {
+        p.textContent = '© 0000 Trip Journey · v0.0.0';
+      });
       await footer.scrollIntoViewIfNeeded();
+      if (vp.name === 'mobile') {
+        // At 390px the footer box is fractional (y=594.33, h=186) and an element shot rounds it
+        // outward to 187px. Clip to an integer box instead.
+        const box = (await footer.boundingBox())!;
+        await expect(page).toHaveScreenshot(`footer-${vp.name}.png`, {
+          ...SHOT,
+          clip: { x: 0, y: Math.floor(box.y), width: 390, height: 186 },
+          mask: footerYearMask(page),
+        });
+        return;
+      }
       await expect(footer).toHaveScreenshot(`footer-${vp.name}.png`, {
         ...SHOT,
         mask: footerYearMask(page),

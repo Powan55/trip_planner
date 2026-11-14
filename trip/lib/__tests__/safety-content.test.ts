@@ -65,7 +65,7 @@ describe('safety content — valid data parses', () => {
 
   // #255 — Japan earthquake + Nepal aftershock/bandh notes; #939 added a nightlife and a scam note.
   it('HAZARD_NOTES: both countries covered, all parse', () => {
-    expect(HAZARD_NOTES.length).toBe(4);
+    expect(HAZARD_NOTES.length).toBe(6);
     expect(HAZARD_NOTES.some((n) => n.country === 'Japan')).toBe(true);
     expect(HAZARD_NOTES.some((n) => n.country === 'Nepal')).toBe(true);
     for (const n of HAZARD_NOTES) {
@@ -89,12 +89,12 @@ describe('safety content — valid data parses', () => {
   // #969 — corrected passport, visa fee and vaccine facts.
   it('DOCUMENT_CHECKLIST: passport, Nepal visa fee and vaccine rows carry the corrected facts (#969)', () => {
     const detail = (id: string) => DOCUMENT_CHECKLIST.find((i) => i.id === id)?.detail;
-    expect(detail('passport-validity')).toMatch(/Nepal requires six months/);
-    expect(detail('passport-validity')).toMatch(/Japan only needs .* length of your stay/);
+    expect(detail('passport-validity')).toMatch(/six months validity from the date you enter.*two blank visa pages/);
+    expect(detail('passport-validity')).toMatch(/Japan only needs it valid for your stay/);
     expect(detail('nepal-visa')).toMatch(/USD 30/);
     expect(detail('nepal-visa')).toMatch(/immigration\.gov\.np/);
-    expect(detail('vaccinations')).toMatch(/Hepatitis A and typhoid/);
-    expect(detail('vaccinations')).toMatch(/at least 1 month before departure/);
+    expect(detail('vaccinations')).toMatch(/hepatitis A and typhoid/);
+    expect(detail('vaccinations')).toMatch(/book one now and tell them your dates/);
   });
 
   // #936/#939 — tourist police dials the toll-free 1144; Japan needs the original passport on you.

@@ -12,7 +12,7 @@ import PackingHeader from '@/components/packing-header';
 import { PackingChecklist } from './sections';
 
 export const metadata = {
-  title: 'Packing Checklist · Nepal × Japan Journey',
+  title: 'Packing Checklist · Trip Journey',
   description: 'Country-specific packing checklist for the Nepal and Japan legs — check off items as you pack, saved on this device.',
 };
 

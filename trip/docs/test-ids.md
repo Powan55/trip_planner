@@ -664,16 +664,18 @@ AA-at-rest floor; `tel:` links are ≥44px tall.
 
 ## 26. Offline banner: `components/offline-banner.tsx` (all routes, mounted in `app/layout.tsx`)
 
-S154. An app-wide `navigator.onLine` indicator (`hooks/use-online.ts`): a fixed,
-top-center pill that renders nothing while online (including on the server and first
-client paint, no SSR mismatch) and appears the instant the browser goes offline,
-clearing itself automatically when connectivity returns. No dismiss control. Mirrors
-`presence-bar.tsx`'s live-region pill pattern; visual language mirrors
-`weather-card.tsx`'s existing `weather-cached-indicator` (calm, not red/alert).
+S154. An app-wide `navigator.onLine` indicator (`hooks/use-online.ts`). The always-mounted live region
+lives in `OfflineBanner`; the visible chip (`OfflineChip`) sits in the navbar row beside
+the brand (#1066), so it never floats over page content. Both render nothing visible
+while online (including on the server and first client paint, no SSR mismatch); the
+chip appears the instant the browser goes offline and clears itself when connectivity
+returns. No dismiss control. Calm, not red/alert.
 
 | testid | element | notes |
 |---|---|---|
-| `offline-banner` | the pill root `<div role="status" aria-live="polite">` | Present only while `useOnline()` reports offline; absent (`toHaveCount(0)`) online. `aria-label="You are offline"`. Contains a visible "Offline — showing cached content" line + `WifiOff` icon (`aria-hidden`) + an `sr-only` full-sentence summary. |
+| `offline-banner-region` | `<div role="status" aria-live="polite">` | Always mounted, empty while online. `aria-label="You are offline"` only while offline; holds the `sr-only` full-sentence summary. |
+| `offline-banner` | the navbar chip (`aria-hidden`) | Present only while `useOnline()` reports offline; absent (`toHaveCount(0)`) online. Visible "Offline". |
+| `online-restored` | the same chip slot | "Online" for a few seconds after a real offline spell. |
 
 Deliberately not built in S154: a per-guide or per-map stale-cache badge. Guides are
 static SW-precached content with nothing that can go stale; the map's stale-tile
@@ -999,7 +1001,7 @@ The group is entirely absent (not just empty) when dormant
 
 A passive, live pill over the offline-push outbox (`core/sync/outbox.ts`, S141/D-150) reporting a
 pending-chunk count or a calm "synced Xm ago" resting state (`hooks/use-sync-status.ts`). Fixed
-top-right, below the navbar (`OfflineBanner` owns top-center, `PresenceBar` bottom-left, the
+top-right, below the navbar (`PresenceBar` bottom-left, the
 mobile FAB/Sonner toasts bottom-right). Entirely absent, not just empty, when dormant
 (`!isRemoteConfigured()`) or before a traveler is signed in (mirrors the
 `isRemoteConfigured() && getActiveTraveler()` gate used at `hooks/use-presence.ts:85` /

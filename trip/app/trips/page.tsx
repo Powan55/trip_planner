@@ -9,7 +9,7 @@ import PageHeader from '@/components/page-header';
 import { TripsHub } from './sections';
 
 export const metadata = {
-  title: 'Trips · Nepal × Japan Journey',
+  title: 'Trips · Trip Journey',
   description:
     'Switch between the trips this browser knows, start a brand-new one with its own shareable key, or join a trip someone shared with you.',
 };

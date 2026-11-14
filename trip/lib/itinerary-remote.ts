@@ -42,10 +42,13 @@ import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { SHARED_TRIP_ID } from './shared-trip';
 import { getActiveTraveler } from './token-auth';
+import { getUserName } from './identity';
+import { recordConflicts } from '@/core/sync/conflict-store';
 import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import { outboxDirty } from '@/core/sync/outbox';
+import { resolvePair, DEFAULT_POLICY } from '@/core/sync/merge-items';
 // D-544 — the seed pushes through the outbox-decorated port. Safe direction for the dormant
 // gate: itinerary-ports is firebase-free, and ITS edge back to this module is a dynamic
 // `import()` inside pushChunk, so this static import adds no module-init cycle.
@@ -347,6 +350,16 @@ export function subscribeRemote(onDead?: () => void): () => void {
     }
   };
 
+  // Keep what this merge drops from local (D-801). Called BEFORE persist, while loadPlans() is
+  // still the pre-merge view. Must never block the apply, so any failure is swallowed.
+  const keepLosses = (merged: DayPlan[]) => {
+    try {
+      recordConflicts(loadPlans(), merged, getActiveTraveler()?.name ?? getUserName() ?? '');
+    } catch (err) {
+      console.warn('[itinerary-remote] conflict record failed:', err);
+    }
+  };
+
   // AUTHORITATIVE apply.
   // Remote is taken verbatim, INCLUDING empty — this is what makes "A deletes everything → B
   // reflects empty and STAYS empty after reload" true: a deliberately-emptied
@@ -377,10 +390,34 @@ export function subscribeRemote(onDead?: () => void): () => void {
     // EMPTY ⇒ this takes the plain authoritative branch below ⇒ byte-identical to today.
     const dirty = outboxDirty('itinerary');
     if (dirty.length === 0) {
-      // Default v1 items on read so the local store holds valid v2-shaped items, but do
-      // NOT merge — remote is authoritative here, verbatim incl. empty. An empty
-      // remote defaults to empty (no items to seed), so delete-all-stays-empty is preserved.
-      persistAndDispatch(plans.map(defaultDayForMerge));
+      // Remote is the shape: its days and its ids, incl. empty (delete-all-stays-empty), and an id
+      // only local holds is NOT kept (no resurrection). The one exception is an id on BOTH sides
+      // where the local row has a strictly newer HLC (an edit the outbox no longer remembers):
+      // it wins per row and its day is pushed (#1124).
+      const remoteDefaulted = plans.map(defaultDayForMerge);
+      const localByDate = new Map(loadPlans().map((d) => [d.date, d]));
+      // The winner can equal remote with its keys in another order; that is not a change to push.
+      const canon = (_k: string, v: unknown) =>
+        v && typeof v === 'object' && !Array.isArray(v)
+          ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)))
+          : v;
+      const resolved = remoteDefaulted.map((rd) => {
+        const localById = new Map((localByDate.get(rd.date)?.items ?? []).map((i) => [i.id, i]));
+        let changed = false;
+        const items = (rd.items ?? []).map((r) => {
+          const l = localById.get(r.id);
+          if (!l) return r;
+          const w = resolvePair(l, r, DEFAULT_POLICY);
+          if (JSON.stringify(w, canon) === JSON.stringify(r, canon)) return r;
+          changed = true;
+          return w;
+        });
+        return changed ? { ...rd, items } : rd;
+      });
+      keepLosses(resolved);
+      persistAndDispatch(resolved);
+      // Same write-ahead + push the seed uses; chunkDiff enqueues only the days that differ.
+      void Promise.resolve(itinerarySyncPort.push(remoteDefaulted, resolved)).catch(() => {});
       return true;
     }
     // Some dates are dirty: apply remote authoritatively for NON-dirty dates, and merge the
@@ -421,6 +458,7 @@ export function subscribeRemote(onDead?: () => void): () => void {
     // Convergent + conservative: a tombstone one client keeps re-enters via merge until every doc
     // holding it is rewritten past the 365-day horizon (D-567).
     const nowPt = realClock.now().getTime();
+    keepLosses(merged);
     persistAndDispatch(merged.map((d) => gcTombstones(d, nowPt)));
   };
 

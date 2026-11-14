@@ -149,10 +149,10 @@ describe('"days to go" has one derivation and every surface reads it', () => {
 
   it('the hero ring feeds its digit AND its fill from one value, and that value is daysToGo', () => {
     const digit = HERO.match(
-      /countdown-total-days[\s\S]{0,400}?<CountUpNumber live=\{([\w.]+)\}/,
+      /countdown-total-days[\s\S]{0,400}?>\s*\{([\w.]+)\}/,
     )?.[1];
     const fill = HERO.match(/ringFraction\(\s*([\w.]+)\s*,/)?.[1];
-    expect(digit, 'the ring digit is no longer a <CountUpNumber> — re-point this check').toBeDefined();
+    expect(digit, 'the ring digit is no longer a bare {value} — re-point this check').toBeDefined();
     // Same identifier, so the number and the arc it sits in cannot drift apart.
     expect(fill).toBe(digit);
     const decl = HERO.split('\n').find((line) => line.includes(`[${digit},`));

@@ -16,7 +16,7 @@ import {
 } from './sections';
 
 export const metadata = {
-  title: 'Japan · Nepal × Japan Journey',
+  title: 'Japan · Trip Journey',
   description: 'Winter Japan guide — Tokyo neon, Kyoto temples, photography spots, nightlife, local foods, and etiquette for the Japan leg (Dec 19–Jan 9).',
 };
 

@@ -10,6 +10,7 @@ import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
 import { ClockOverrideBanner } from '@/components/clock-override-banner'
 import { RouteFocus } from '@/components/route-focus'
+import TravelerOnly from '@/components/traveler-only'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
 import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
@@ -55,8 +56,9 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
-  title: 'Nepal × Japan Journey | Dec 2026 - Jan 2027',
-  description: 'Premium travel planner for an epic Nepal and Japan adventure. Explore Kathmandu, Tokyo, Kyoto, and beyond.',
+  title: 'Trip Journey',
+  robots: { index: false, follow: false },
+  description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
   icons: {
     icon: withBasePath('/favicon.svg'),
     shortcut: withBasePath('/favicon.svg'),
@@ -73,11 +75,11 @@ export const metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Nepal×Japan',
+    title: 'Trip Journey',
   },
   openGraph: {
-    title: 'Nepal × Japan Journey',
-    description: 'Premium travel planner for an epic Nepal and Japan adventure.',
+    title: 'Trip Journey',
+    description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
     // NOTE: pass a bare root-relative path here — do NOT wrap in
     // withBasePath(). Next resolves metadata image URLs against metadataBase,
     // and metadataBase already carries the basePath segment via
@@ -89,8 +91,8 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nepal × Japan Journey',
-    description: 'Premium travel planner for an epic Nepal and Japan adventure.',
+    title: 'Trip Journey',
+    description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
     images: ['/og-image.png'],
   },
 }
@@ -188,7 +190,9 @@ export default function RootLayout({
             </a>
             {/* App chrome: one persistent navbar/footer around the routed
                 page content. TokenGate + PresenceBar render inside the provider. */}
-            <Navbar />
+            <TravelerOnly>
+              <Navbar />
+            </TravelerOnly>
             <RouteFocus />
             {/* routed content + footer must clear the fixed mobile
                 tab bar; 64px fallback = the bar's published height contract. */}
@@ -198,15 +202,19 @@ export default function RootLayout({
               {children}
               <Footer />
             </div>
-            <BottomTabBar />
-            <QuickAddFab />
-            <QuickAddHost />
-            {/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
-            <ExpenseLogHost />
+            <TravelerOnly>
+              <BottomTabBar />
+              <QuickAddFab />
+              <QuickAddHost />
+              {/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
+              <ExpenseLogHost />
+            </TravelerOnly>
           </ItineraryProvider>
           {/* ⌘K / Ctrl+K command palette. Mounted once
               at the app root so the shortcut works from anywhere. */}
-          <CommandPalette />
+          <TravelerOnly>
+            <CommandPalette />
+          </TravelerOnly>
           {/* `?trip=` shared-link join handshake. Renders null unless a
               `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
           <TripJoinHandshake />

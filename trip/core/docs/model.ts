@@ -63,7 +63,7 @@ export interface SanitizeOptions {
  */
 export const DEFAULT_TEMPLATE: readonly DocItem[] = [
   // ── Critical documents ──────────────────────────────────────────────────────
-  { id: 'passport-validity', section: 'critical', label: 'Passport valid 6+ months from your Nepal arrival in Dec 2026 (confirm at immigration.gov.np; Japan only for your stay)', checked: false },
+  { id: 'passport-validity', section: 'critical', label: 'Passport valid 6+ months from Nepal entry, 2 blank pages (confirm at immigration.gov.np; Japan only for your stay)', checked: false },
   // The date is written into the label on purpose (#252): the online pre-application receipt is
   // valid 15 days, so an early tick is a false green on the row that gates entry. Arrival is
   // Dec 10 2026 and the trip dates are fixed, so the earliest useful day is a constant — not a
@@ -82,7 +82,7 @@ export const DEFAULT_TEMPLATE: readonly DocItem[] = [
   { id: 'boarding-passes-offline', section: 'dayzero', label: 'Boarding passes saved offline', checked: false },
   { id: 'esim-data', section: 'dayzero', label: 'eSIM / data plan activated', checked: false },
   { id: 'home-utilities', section: 'dayzero', label: 'Home power, water & gas shut off', checked: false },
-  { id: 'medications-packed', section: 'dayzero', label: 'Prescription meds + basics packed', checked: false },
+  { id: 'medications-packed', section: 'dayzero', label: 'Prescription meds + basics packed (destination medicine rules checked)', checked: false },
   { id: 'chargers-adapters', section: 'dayzero', label: 'Chargers, cables & plug adapters (Nepal 230 V type C/D/M, Japan 100 V type A/B)', checked: false },
   { id: 'luggage-weighed', section: 'dayzero', label: 'Luggage weighed against airline limits', checked: false },
   { id: 'airport-transfer', section: 'dayzero', label: 'Airport transfer / pickup booked', checked: false },
@@ -94,7 +94,7 @@ export const DEFAULT_TEMPLATE: readonly DocItem[] = [
 const UNIVERSAL_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
   'flight-tickets': 'Flight e-tickets saved offline',
   'cards-cash': 'Payment cards + emergency cash',
-  'passport-validity': 'Passport valid 6+ months beyond your return date',
+  'passport-validity': 'Passport valid 6+ months from entry, 2 blank pages',
   'chargers-adapters': 'Chargers, cables & power adapters',
 };
 export const UNIVERSAL_TEMPLATE: readonly DocItem[] = DEFAULT_TEMPLATE.filter(

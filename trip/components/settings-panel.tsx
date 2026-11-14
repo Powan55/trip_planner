@@ -28,7 +28,7 @@ import {
 import { toast } from 'sonner';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
-import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
+import { itemMatchesAuthor, itemAuthors, type AuthorFilter } from '@/lib/author-filter';
 import { syncPriorNames } from '@/lib/prior-names-sync';
 import {
   getActiveTripId,
@@ -136,6 +136,26 @@ export default function SettingsPanel() {
    */
   const identified = mounted && traveler !== null;
 
+  // The sync pill links to #trip-access; the group is a closed <details> inside a lazy island, so
+  // the browser's own anchor jump finds nothing. Open it and scroll on mount and on later hash
+  // changes (the pill is also on this page). popstate covers history pushState navigations.
+  useEffect(() => {
+    const openFromHash = () => {
+      if (window.location.hash !== '#trip-access') return;
+      const el = document.getElementById('trip-access') as HTMLDetailsElement | null;
+      if (!el) return;
+      el.open = true;
+      el.scrollIntoView();
+    };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    window.addEventListener('popstate', openFromHash);
+    return () => {
+      window.removeEventListener('hashchange', openFromHash);
+      window.removeEventListener('popstate', openFromHash);
+    };
+  }, []);
+
   return (
     <section
       aria-labelledby="settings-title"
@@ -169,6 +189,7 @@ export default function SettingsPanel() {
             cannot desynchronise hydration. */}
         {isRemoteConfigured() && (
           <SettingsGroup
+            id="trip-access"
             testId="settings-group-access"
             icon={<Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
             title="Trip access"
@@ -202,6 +223,7 @@ export default function SettingsPanel() {
 
 /** A collapsible settings group — native `<details>` for keyboard + a11y with zero JS state. */
 function SettingsGroup({
+  id,
   testId,
   icon,
   title,
@@ -209,6 +231,7 @@ function SettingsGroup({
   defaultOpen,
   children,
 }: {
+  id?: string;
   testId: string;
   icon: React.ReactNode;
   title: string;
@@ -218,6 +241,7 @@ function SettingsGroup({
 }) {
   return (
     <details
+      id={id}
       open={defaultOpen}
       data-testid={testId}
       className="group overflow-hidden border-y-2 border-border bg-surface-low"
@@ -311,6 +335,7 @@ function IdentityGroup({ name }: { name: string | null }) {
       {name && <RenameIdentity current={name} />}
       {/* (Q3) — claim the items you stamped under a name you used to go by. */}
       {name && <ClaimOldName current={name} />}
+      {name && <ExportAccount />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
           deletes every locally-stored photo (IndexedDB, app-scoped) and the lifetime travel
           history (D-503). Gated on `name` like Rename
@@ -335,6 +360,57 @@ function IdentityGroup({ name }: { name: string | null }) {
           </SignOutConfirm>
         </div>
       )}
+    </div>
+  );
+}
+
+function ExportAccount() {
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const run = async () => {
+    setBusy(true);
+    setStatus('Preparing your file…');
+    try {
+      const { downloadAccountExport } = await import('@/lib/account-export');
+      const { errors } = await downloadAccountExport();
+      setStatus(
+        errors[0]?.path === '(server)'
+          ? 'Downloaded. Server unreachable; the file has only this browser’s data.'
+          : errors.length
+          ? `Downloaded. ${errors.length} item${errors.length === 1 ? '' : 's'} could not be read and ${errors.length === 1 ? 'is' : 'are'} listed in the file.`
+          : 'Downloaded.',
+      );
+    } catch {
+      setStatus('Could not build the file. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="border-hair border-border bg-surface-raised px-gut py-4">
+      <h3 className="pr pr--l text-ink-hi">Export all my data</h3>
+      <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
+        Downloads one JSON file with your account, every trip you belong to (including what other
+        travellers added to shared trips), your journal, and what this browser stores. Photos are
+        not included; use the trip backup for those.
+      </p>
+      <p className="mt-2 max-w-2xl text-t-body text-ink-hi">
+        This file contains your account key and trip links. Anyone who has it can open and edit
+        your trips, so keep it private and don&rsquo;t attach it to messages.
+      </p>
+      <button
+        type="button"
+        onClick={() => void run()}
+        disabled={busy}
+        data-testid="settings-export-account"
+        className="btn btn--2 mt-3 px-4"
+      >
+        <Download className="h-4 w-4" aria-hidden="true" />
+        Export all my data
+      </button>
+      <p role="status" data-testid="settings-export-account-status" className="mt-2 text-t-body text-ink-mid">
+        {status}
+      </p>
     </div>
   );
 }
@@ -1001,6 +1077,16 @@ function ClaimOldName({ current }: { current: string }) {
 
   const matches = counts.total;
 
+  // Nothing stamped with any name but the current one = nothing anyone could claim (#1122).
+  const hasClaimable = useMemo(
+    () =>
+      plans.some((p) => (p.items ?? []).some((i) => itemAuthors(i).some((a) => !!a && a !== current))) ||
+      expenses.some((e) => [e.createdBy, e.updatedBy].some((a) => !!a && a !== current)) ||
+      docItems.some((d) => d.deleted !== true && !!d.updatedBy && d.updatedBy !== current),
+    [plans, expenses, docItems, current],
+  );
+  if (!hasClaimable && claimed === null) return null;
+
   const status = isSelf
     ? `“${current}” is your current name. Enter the name you used before.`
     : from === ''
@@ -1129,8 +1215,8 @@ function TripGroup() {
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
   // grandfathered default pack; read client-side like the Trip Token below.
   const [onSharedTrip, setOnSharedTrip] = useState(false);
-  // Read once after mount: getDefaultTripShareId() writes storage on an untouched device. A device
-  // holding local edits with no id reads '' and stays local-only until account-share moves it.
+  // Read once after mount. A device with no id reads '' and stays local-only until account-share
+  // moves a member's device across (D-811).
   const [defaultSynced, setDefaultSynced] = useState(false);
   const { copy: copyToClipboard, error: copyError } = useClipboardCopy();
 
@@ -1375,8 +1461,8 @@ function CurrencyGroup() {
   };
 
   const home = model.homeCurrency;
-  // Leg currencies beyond NPR/JPY (custom trips only) each get their own rate field.
-  const legExtras = EXTRA_CURRENCIES.filter((c) => LEGS.some((l) => legCurrency(l) === c));
+  // Extras used by a leg, or picked as the home currency, each get their own rate field.
+  const legExtras = EXTRA_CURRENCIES.filter((c) => c === home || LEGS.some((l) => legCurrency(l) === c));
   const showBase = isDefaultTrip() || home !== 'USD';
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import OptimizedImage from '@/components/optimized-image';
+import LegalLinks from '@/components/legal-links';
 import { entranceFor } from '@/lib/motion';
 
 /**
@@ -100,8 +101,8 @@ import { entranceFor } from '@/lib/motion';
  * than the boast it was (D-079: the basemap is keyless by design and has never needed a key).
  */
 const FACTS = [
-  { label: 'Days', value: '32', foot: 'Dec 2026 — Jan 2027' },
-  { label: 'Countries', value: '02', foot: 'Nepal, then Japan' },
+  { label: 'Trips', value: '01+', foot: 'Add as many as you like' },
+  { label: 'Countries', value: 'Any', foot: 'One or ten' },
   { label: 'Invite links', value: '07', foot: 'Days each, one use' },
   { label: 'Price', value: '0', foot: 'Free, no card needed' },
 ] as const;
@@ -405,12 +406,8 @@ export default function LandingPage({
               Every day of the trip, in one place.
             </h1>
             <p id={descId} className="max-w-[46ch] text-t-lead leading-relaxed text-ink-mid">
-              {/*-D: was "Twenty-two days" — the trip is Dec 9 → Jan 9, i.e. 32 days, which is what
-                  `first-run-tour.tsx` and `map-section.tsx` already say. NOT derived from the trip-date
-                  source on purpose: the ZERO-LIVE-TRIP-DATA rule above (and the grep guard that pins it)
-                  forbids this file importing the content pack, so a literal is the only correct fix here. */}
-              Kathmandu in December, Japan for New Year. Thirty-two days, two countries, one plan your
-              whole group can see &mdash; and it still works when you have no signal.
+              Itinerary, map and bookings in one plan your whole group can see &mdash; and it still
+              works when you have no signal.
             </p>
 
             {/* (INTAKE-03) — LOG IN IS THE PRIMARY PATH, and it is FIRST IN THE DOM.
@@ -534,8 +531,8 @@ export default function LandingPage({
           showing through, so there is no edge that can drift from the surface it sits on. ── */}
       <section aria-labelledby="landing-legs-heading" className="-mx-6 mt-12 sm:-mx-8">
         <div className="sec mx-auto max-w-[1200px] px-gut">
-          <h2 id="landing-legs-heading">Two countries, one trip</h2>
-          <span className="sub">Two plates</span>
+          <h2 id="landing-legs-heading">See it with a real trip</h2>
+          <span className="sub">Sample plan</span>
         </div>
         <div
           data-testid="landing-split-band"
@@ -692,8 +689,9 @@ export default function LandingPage({
           No date finer than a month, for the reason recorded there. ── */}
       <div className="mt-10 text-center">
         <span className="pr pr--lo">
-          Nepal &times; Japan &middot; Dec 2026 &mdash; Jan 2027
+          Trip Journey &middot; plan together, even offline
         </span>
+        <LegalLinks className="mt-2" />
       </div>
     </div>
   );

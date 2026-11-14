@@ -20,12 +20,14 @@ import {
 import { generateItemId } from '@/lib/item-id';
 import { buildItineraryStops, stopMarkerFor } from '@/lib/itinerary-map';
 import { showUndoToast } from '@/lib/undo-toast';
+import { readMs } from '@/lib/toast-duration';
 import { bulkMoveWithUndo } from '@/lib/bulk-move-undo';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import { setSelectedDay } from '@/lib/selected-day';
 import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
 import { SortableItem, DroppableDay } from '@/components/calendar-sortable-item';
+import { ConflictNotice } from '@/components/conflict-notice';
 import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import { CalendarBulkToolbar } from '@/components/calendar-bulk-toolbar';
@@ -49,7 +51,13 @@ import { buildMapsPlaceUrl } from '@/lib/maps-link';
 import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
-import { effectiveDurationMinutes, effectiveStartMinutes, formatTimeAmPm, offsetForCountry } from '@/core/dates';
+import {
+  dayZoneOffsetMin,
+  effectiveDurationMinutes,
+  effectiveStartMinutes,
+  formatTimeAmPm,
+  offsetForCountry,
+} from '@/core/dates';
 import { daySunTimes } from '@/lib/sun-times';
 import { unplannedGapsByItemId } from '@/lib/unplanned-gap';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
@@ -331,8 +339,22 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     wasHidden.current = !!hidden;
   }, [hidden]);
 
+  // Scrim taps are ignored once anything differs from what the editor opened with.
+  const formKey = JSON.stringify([title, category, startMinutes, durationMinutes, location, notes, pin, effectiveEndDate]);
+  const openedKey = useRef(formKey);
+  const dirty = formKey !== openedKey.current;
+  const scrimDown = useRef(false);
+
+  // The editor stays mounted through its exit animation, so a repeated Enter or double tap would add twice.
+  const saved = useRef(false);
+
   const handleSave = () => {
-    if (!title.trim()) return;
+    if (saved.current) return;
+    if (!title.trim()) {
+      setClashError('Add a title to save');
+      titleInputRef.current?.focus();
+      return;
+    }
     const next: ItineraryItem = {
       // Spread the original item first so additive source-linkage fields
       // survive an edit of a card-created item.
@@ -385,6 +407,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
       }
     }
     setClashError(null);
+    saved.current = true;
     onSave(next);
   };
 
@@ -477,7 +500,13 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
       // field's state, and visibility:hidden takes the dialog out of hit-testing AND out of
       // the a11y tree, so the map underneath is genuinely reachable by pointer and by AT.
       className={`fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-4 bg-black/70 ${hidden ? 'invisible pointer-events-none' : ''}`}
-      onClick={onClose}
+      onPointerDown={(e: React.PointerEvent) => { scrimDown.current = e.target === e.currentTarget; }}
+      onClick={(e: React.MouseEvent) => {
+        // A drag that starts in a field and ends on the scrim (text selection) is not a scrim tap,
+        // and a tap never throws away typed input.
+        if (e.target === e.currentTarget && scrimDown.current && !dirty) onClose();
+        scrimDown.current = false;
+      }}
     >
       <m.div
         ref={panelRef}
@@ -493,20 +522,26 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         animate={isDesktop ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
         exit={isDesktop ? { scale: 0.9, opacity: 0 } : { y: 40, opacity: 0 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto overscroll-contain scrollbar-hide"
+        className="w-full lg:max-w-md bg-[rgb(var(--surface-low))] border-t-2 lg:border-hair border-[color:var(--border-ui)] rounded-t-r3 lg:rounded-r2 max-h-[90dvh] flex flex-col overflow-hidden"
       >
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between shrink-0 px-5 sm:px-6 pt-5 sm:pt-6 pb-4">
           <h3 id={titleId} className="pr pr--l text-ink-hi">{item ? 'Edit item' : 'Add item'}</h3>
           <button type="button" onClick={onClose} aria-label="Close editor" data-testid="calendar-editor-cancel" className="inline-flex items-center justify-center min-h-tap min-w-tap rounded-r1 hover:bg-white/5 hover:text-ink-hi text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><X className="w-5 h-5" /></button>
         </div>
-        <div className="space-y-4">
+        <form
+          noValidate
+          onSubmit={(e: React.FormEvent) => { e.preventDefault(); handleSave(); }}
+          className="flex flex-col flex-1 min-h-0"
+        >
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-5 sm:px-6">
+        <div className="space-y-4 pb-1">
           <div>
             <label htmlFor={titleFieldId} className="pr pr--lo mb-1 block">Title *</label>
-            <input id={titleFieldId} ref={titleInputRef} autoFocus value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Visit Boudhanath Stupa" />
+            <input id={titleFieldId} ref={titleInputRef} autoFocus enterKeyHint="done" value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setTitle(e.target.value); setClashError(null); }} data-testid="calendar-editor-title-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Visit Boudhanath Stupa" />
           </div>
           <div>
             <span id={categoryLabelId} className="pr pr--lo mb-1 block">Category</span>
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
+            <div className="grid grid-cols-2 min-[380px]:grid-cols-3 min-[520px]:grid-cols-4 sm:grid-cols-5 lg:grid-cols-3 gap-2" role="group" aria-labelledby={categoryLabelId}>
               {ALL_CATEGORIES.map((cat) => {
                 const colors = CATEGORY_COLORS[cat];
                 const isActive = category === cat;
@@ -518,12 +553,12 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                     aria-pressed={isActive}
                     aria-label={`Category: ${cat}`}
                     data-testid={`calendar-editor-category-${cat}`}
-                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-0.5 py-2 rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive ? `${colors.text} border-current bg-white/5` : 'border-transparent text-ink-lo hover:bg-white/5 hover:text-ink-hi'
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
-                    <span className="pr pr--lo capitalize leading-tight text-center break-words w-full text-current">{cat}</span>
+                    <span className="pr pr--lo capitalize tracking-normal max-sm:text-[0.65rem] leading-tight text-center [overflow-wrap:normal] [hyphens:manual] w-full text-current">{cat}</span>
                   </button>
                 );
               })}
@@ -559,7 +594,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           </div>
           <div>
             <label htmlFor={locationFieldId} className="pr pr--lo mb-1 block">Location</label>
-            <input id={locationFieldId} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Thamel, Kathmandu" />
+            <input id={locationFieldId} autoComplete="off" enterKeyHint="done" value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Thamel, Kathmandu" />
           </div>
           {/* Pin an exact location. Typing two decimals was
               the only way to place a pin and nobody knows their coordinates — so the fields
@@ -671,11 +706,14 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           </div>
             </div>
           </details>
+        </div>
+        </div>
+        <div className="shrink-0 border-t-2 border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-5 sm:px-6 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {/* D-316 — the refusal. A BLOCKED user action, so `role="alert"` (assertive),
               not `role="status"`: the pattern backup-restore.tsx/photo-attach.tsx already
               use. Always mounted with a reserved height so the panel never jumps and the
-              live region exists before it has anything to say. Focus is deliberately NOT
-              moved — it is already on the save button the user just pressed. */}
+              live region exists before it has anything to say. Focus stays on the save
+              button for a clash; an empty title moves it to the field instead. */}
           <p
             role="alert"
             data-testid="calendar-editor-clash-error"
@@ -684,8 +722,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             {clashError}
           </p>
           <button
-            onClick={handleSave}
-            disabled={!title.trim()}
+            type="submit"
             data-testid="calendar-editor-save"
             className="btn w-full px-4 focus-visible:outline-none"
           >
@@ -693,6 +730,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             {item ? 'Update item' : 'Add item'}
           </button>
         </div>
+        </form>
       </m.div>
     </m.div>,
     document.body,
@@ -737,6 +775,8 @@ export default function CalendarPlanner() {
     copyDay,
     reorderItems,
     getDayPlan,
+    restoreConflict,
+    dismissConflict,
   } = useItineraryContext();
   // clear-whole-day confirm gate (Radix AlertDialog — reused primitive, not bespoke).
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
@@ -963,7 +1003,8 @@ export default function CalendarPlanner() {
       offsetForCountry(getCountryForDate(targetDate)),
     );
     if (clash) {
-      toast.error(`Can’t copy to ${formatDate(targetDate)} — overlaps ${describeClash(clash)}.`);
+      const msg = `Can’t copy to ${formatDate(targetDate)} — overlaps ${describeClash(clash)}.`;
+      toast.error(msg, { duration: readMs(msg) });
       return;
     }
     addItem(targetDate, copy);
@@ -1126,9 +1167,8 @@ export default function CalendarPlanner() {
     for (const moved of moving) {
       const clash = firstClashWith(moved, targetItems, targetDate, targetOffset);
       if (clash) {
-        toast.error(
-          `Can’t move ${moving.length} item${moving.length === 1 ? '' : 's'} to ${formatDate(targetDate)} — “${moved.title}” overlaps ${describeClash(clash)}.`,
-        );
+        const msg = `Can’t move ${moving.length} item${moving.length === 1 ? '' : 's'} to ${formatDate(targetDate)} — “${moved.title}” overlaps ${describeClash(clash)}.`;
+        toast.error(msg, { duration: readMs(msg) });
         return;
       }
     }
@@ -1148,9 +1188,8 @@ export default function CalendarPlanner() {
     for (const source of getDayPlan(selectedDate).items ?? []) {
       const clash = firstClashWith(freshCopyOf(source), targetItems, targetDate, targetOffset);
       if (clash) {
-        toast.error(
-          `Can’t copy this day to ${formatDate(targetDate)} — “${source.title}” overlaps ${describeClash(clash)}.`,
-        );
+        const msg = `Can’t copy this day to ${formatDate(targetDate)} — “${source.title}” overlaps ${describeClash(clash)}.`;
+        toast.error(msg, { duration: readMs(msg) });
         return;
       }
     }
@@ -1217,7 +1256,13 @@ export default function CalendarPlanner() {
   // The day's place offset, for every instant-level derivation below (the grouping sort, the
   // clash badge and the unplanned rules all take it). Declared here because the phase grouping
   // is the first consumer — it used to sit further down, next to the clash badge alone.
-  const dayOffsetMin = offsetForCountry(getCountryForDate(selectedDate));
+  // The zone comes from the FULL stored day: under the author filter the seeded rows that set it
+  // are hidden, and the visible rows would fall back to the leg offset (#1120).
+  const dayOffsetMin = dayZoneOffsetMin(
+    currentPlan.items,
+    selectedDate,
+    offsetForCountry(getCountryForDate(selectedDate)),
+  );
   const daySun = useMemo(
     () => daySunTimes(selectedDate, currentPlan.city, currentPlan.country),
     [selectedDate, currentPlan.city, currentPlan.country],
@@ -1250,7 +1295,8 @@ export default function CalendarPlanner() {
   const firstStartInfo = firstTimedItem ? describeItemTime(firstTimedItem, selectedDate) : null;
   // warn-only clash badge, presentation-only — it never writes and never affects ordering.
   // computed over the VISIBLE set. A badge warning about a collision with an item that is
-  // not on screen is unreadable; clash detection is order-independent so this is a pure narrowing.
+  // not on screen is unreadable. Narrowing the rows is safe; the zone is not narrowed, it comes
+  // from the full day via `dayOffsetMin` above.
   // The overlap is judged on the absolute instant, so the day and its offset
   // come along (`dayOffsetMin`, declared above the grouping) — a day can hold items in
   // another zone.
@@ -1893,6 +1939,7 @@ export default function CalendarPlanner() {
                             onDuplicate={(targetDate) => handleDuplicateItem(item, targetDate)}
                             onLocate={() => setHighlightId((cur) => (cur === markerId ? null : markerId))}
                           />
+                          <ConflictNotice itemId={item.id} title={item.title} onRestore={restoreConflict} onDismiss={dismissConflict} />
                         </div>
                         );
                       })

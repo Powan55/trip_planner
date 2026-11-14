@@ -369,6 +369,18 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     anchor: '[data-testid="trip-story-recap"]',
     what: 'the TripStoryRecap island (app/recap/sections.tsx -> @/components/trip-story-recap)',
   },
+  '/privacy/': {
+    anchor: 'main h1:text-is("Privacy")',
+    what: 'the legal page body, which the provider only mounts after hydration (app/privacy/page.tsx)',
+  },
+  '/terms/': {
+    anchor: 'main h1:text-is("Terms")',
+    what: 'the legal page body, which the provider only mounts after hydration (app/terms/page.tsx)',
+  },
+  '/contact/': {
+    anchor: 'main h1:text-is("Contact")',
+    what: 'the legal page body, which the provider only mounts after hydration (app/contact/page.tsx)',
+  },
   '/safety/': {
     anchor: '[data-testid="safety-kit"]',
     what: 'the TravelSafetyKit island (app/safety/sections.tsx -> @/components/travel-safety-kit)',
@@ -879,6 +891,43 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     // Guards against the loop body being skipped wholesale (every entry a skip, an
     // empty route list that slipped the floor above) — a pass must mean real work.
     expect(asserted, 'no route body was actually asserted').toBeGreaterThan(14);
+
+    await context.setOffline(false);
+  });
+
+  // The scroll-mounted country sections (LazyVisible, idle={false}) load their chunks only on
+  // scroll, so the route-body test above never touches them. Headings exist only in the real
+  // component; the LazyVisible/skeleton placeholder carries just the anchor id.
+  test('cold-offline, /japan/ and /nepal/ scroll-mounted sections render real content', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(90_000);
+
+    await page.goto('/', { waitUntil: 'load' });
+    await waitForActivatedSW(page);
+    await expect
+      .poll(async () =>
+        safeEval(page, async () => {
+          const name = (await caches.keys()).find((n) => n.startsWith('trip-precache-'));
+          return name ? (await (await caches.open(name)).keys()).length : 0;
+        }),
+      )
+      .toBeGreaterThan(20);
+
+    await context.setOffline(true);
+
+    for (const route of ['/japan/', '/nepal/']) {
+      await page.goto(route, { waitUntil: 'load' });
+      for (const id of ['essentials', 'nightlife', 'photography']) {
+        await page.locator(`#${id}`).scrollIntoViewIfNeeded();
+        await expect(
+          page.locator(`#${id}-heading`),
+          `${route}#${id}: real section never mounted offline (chunk missing from precache?)`,
+        ).toBeAttached({ timeout: 15_000 });
+      }
+      await expect(page.getByRole('heading', { name: ROUTE_CRASH, exact: true })).toHaveCount(0);
+    }
 
     await context.setOffline(false);
   });

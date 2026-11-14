@@ -12,6 +12,7 @@ export default function NepalSection() {
       title="Nepal Destinations"
       subtitle="Explore the mystical temples, vibrant markets, and breathtaking mountain views of Kathmandu Valley."
       items={allItems}
+      hideHeading
       categories={NEPAL_CATEGORIES}
     />
   );

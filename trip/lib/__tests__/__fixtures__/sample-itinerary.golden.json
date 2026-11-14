@@ -523,9 +523,9 @@
         "id": "n9-1",
         "title": "Pre-dawn climb to Phulchowki",
         "category": "photography",
-        "time": "05:30",
-        "duration": "4h",
-        "notes": "The valley's highest rim peak, blanketed in rhododendron forest — layered ridge-lines and a Himalayan panorama on clear December mornings",
+        "time": "04:15",
+        "duration": "5h",
+        "notes": "The valley's highest rim peak, blanketed in rhododendron forest — layered ridge-lines and a Himalayan panorama on clear December mornings. Hire a 4x4 with driver the evening before and confirm a 04:15 pickup: the drive up takes about 2 hours, so you reach the summit around 06:30 for sunrise (about 06:50) and are back down by 09:30. Walking up instead takes most of a day, so skip the sunrise and start by 07:00.",
         "location": "Phulchowki, Godavari",
         "sourceId": "na16"
       },
@@ -533,9 +533,9 @@
         "id": "n9-2",
         "title": "Godavari Botanical Garden",
         "category": "nature",
-        "time": "10:00",
+        "time": "09:30",
         "duration": "1.5h",
-        "notes": "Peaceful gardens at the foot of Phulchowki — a calm stroll after the climb",
+        "notes": "Peaceful gardens at the foot of Phulchowki — a calm stroll after the summit",
         "location": "Godavari"
       },
       {
@@ -971,7 +971,7 @@
         "category": "food",
         "time": "18:30",
         "duration": "2h",
-        "notes": "Dinner down the narrow riverside lane — obanzai (Kyoto home cooking) or a casual yudofu hot-pot to warm up; reserve ahead if possible",
+        "notes": "Dinner down the narrow riverside lane — obanzai (Kyoto home cooking) or a casual yudofu hot-pot to warm up; Dec 24 is the biggest restaurant night of the year, so book by early December (many places take bookings by phone only, in Japanese)",
         "location": "Pontocho, Kyoto",
         "sourceId": "nightlife-nl15"
       },
@@ -998,7 +998,7 @@
         "category": "photography",
         "time": "06:30",
         "duration": "2.5h",
-        "notes": "Thousands of vermillion torii winding up the mountain; arrive before 7 AM for empty tunnel shots, use the gates as leading lines",
+        "notes": "Thousands of vermilion torii winding up the mountain; arrive before 7 AM for empty tunnel shots, use the gates as leading lines",
         "location": "Fushimi, Kyoto",
         "sourceId": "ja2"
       },
@@ -1412,7 +1412,7 @@
         "category": "shopping",
         "time": "10:30",
         "duration": "3h",
-        "notes": "Anime stores, the Pokémon Center, gashapon walls and character-goods pop-ups; holiday and New Year limited-edition merch appears in early January",
+        "notes": "Anime stores, the Pokemon Center, gashapon walls and character-goods pop-ups; holiday and New Year limited-edition merch appears in early January",
         "location": "Ikebukuro, Tokyo"
       },
       {
@@ -1570,11 +1570,11 @@
     "items": [
       {
         "id": "j19-1",
-        "title": "TeamLab (Borderless or Planets)",
+        "title": "teamLab (Borderless or Planets)",
         "category": "sightseeing",
         "time": "10:00",
         "duration": "3h",
-        "notes": "Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colours for the best effect",
+        "notes": "Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colors for the best effect",
         "location": "Azabudai Hills / Toyosu, Tokyo",
         "sourceId": "jp-teamlab-borderless"
       },
@@ -1593,7 +1593,7 @@
         "category": "food",
         "time": "18:00",
         "duration": "1.5h",
-        "notes": "Pick the neighbourhood based on tonight's best event",
+        "notes": "Pick the neighborhood based on tonight's best event",
         "location": "Tokyo"
       },
       {
@@ -1713,7 +1713,7 @@
         "category": "transportation",
         "time": "13:00",
         "duration": "2h",
-        "notes": "Tokyo/Shinjuku to Haneda by train or airport limousine bus; allow ~3h before the international departure and check in for the flight home. Japan refunds consumption tax at the departure airport rather than at the shop, so keep anything you bought and its receipts in hand luggage, not checked, and leave extra time for the refund counter before check-in",
+        "notes": "Tokyo/Shinjuku to Haneda by train or airport limousine bus; allow ~3h before the international departure and check in for the flight home. Japan now refunds consumption tax after customs confirms export: keep anything you bought and its receipts in hand luggage, not checked, and leave extra time for the tax-free kiosk in the departure lobby before check-in",
         "location": "Shinjuku, Tokyo → Haneda (HND)"
       },
       {

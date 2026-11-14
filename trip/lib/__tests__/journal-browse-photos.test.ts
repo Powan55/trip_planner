@@ -46,7 +46,6 @@ vi.mock('framer-motion', async () => {
     return rest;
   };
   return {
-    useDragControls: () => ({ start: () => {} }),
     m: { div: (props: any) => React.createElement('div', strip(props)) },
     AnimatePresence: ({ children, onExitComplete }: any) => {
       // Real AnimatePresence defers unmount to fire onExitComplete after the exit animation; the

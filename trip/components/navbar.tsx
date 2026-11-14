@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { MapPin, LogOut, Compass, ChevronDown, Search } from 'lucide-react';
 import ScrollProgress from '@/components/scroll-progress';
+import { OfflineChip } from '@/components/offline-banner';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import SignOutConfirm from '@/components/sign-out-confirm';
 import { navItemsForActiveTrip, primaryItemsForActiveTrip, isRouteActive } from '@/lib/nav-items';
@@ -180,20 +181,23 @@ export default function Navbar() {
       >
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" onClick={vtClick('/')} aria-label={brand ? `${brand} — home` : 'Nepal × Japan — home'} className="flex min-h-tap items-center gap-2.5 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-              <MapPin className="w-5 h-5 text-muted-foreground group-hover:scale-110 transition-transform" />
-              {/* on a custom trip the brand is the trip's own name (mount-safe — Navbar
-                  never SSRs, see the primaryItems/brand comment above). Default trip: unchanged. */}
-              {brand ? (
-                <span data-testid="navbar-brand" className="truncate max-w-[40vw] font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
-                  {brand}
-                </span>
-              ) : (
-                <span data-testid="navbar-brand" className="whitespace-nowrap font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
-                  Nepal <span className="text-muted-foreground">×</span> Japan
-                </span>
-              )}
-            </Link>
+            <div className="flex min-w-0 items-center gap-2">
+              <Link href="/" onClick={vtClick('/')} aria-label={brand ? `${brand} — home` : 'Nepal × Japan — home'} className="flex min-h-tap min-w-0 items-center gap-2.5 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+                <MapPin className="w-5 h-5 text-muted-foreground group-hover:scale-110 transition-transform" />
+                {/* on a custom trip the brand is the trip's own name (mount-safe — Navbar
+                    never SSRs, see the primaryItems/brand comment above). Default trip: unchanged. */}
+                {brand ? (
+                  <span data-testid="navbar-brand" className="truncate max-w-[40vw] font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
+                    {brand}
+                  </span>
+                ) : (
+                  <span data-testid="navbar-brand" className="whitespace-nowrap font-sans text-t-body font-semibold tracking-[-0.01em] text-[color:var(--text-hi)]">
+                    Nepal <span className="text-muted-foreground">×</span> Japan
+                  </span>
+                )}
+              </Link>
+              <OfflineChip />
+            </div>
 
             <div className="hidden md:flex items-center gap-1">
               {/* the desktop top row consolidates to the 4 shared primaries

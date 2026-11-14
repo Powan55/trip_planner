@@ -138,6 +138,8 @@ import { flushOutbox, outboxDirty } from '@/core/sync/outbox';
 import { loadPlans, savePlans } from '@/lib/itinerary-storage';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 import { serialize } from '@/core/sync/hlc';
+import { doneKey } from '@/core/sync/merge-items';
+import { stampFieldHlc, stampSyncCreated, stampSyncUpdated } from '@/core/sync/stamp';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -270,6 +272,136 @@ describe('first-snapshot dirty-chunk merge exception (the reload guard)', () => 
     const d09 = loadPlans().find((d) => d.date === '2026-12-09')!;
     expect(d09.items.map((i) => i.id)).toEqual(['B']);
     unsub();
+  });
+
+  describe('#1124: EMPTY outbox, same id on both sides', () => {
+    const firstSnapshot = async (localHlc: string, remoteHlc: string) => {
+      savePlans([day('2026-12-09', [item('A', { title: 'A local', hlc: localHlc, rev: 1 })])]);
+      expect(outboxDirty('itinerary')).toEqual([]);
+      fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+      fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
+        ...day('2026-12-09', [item('A', { title: 'A remote', hlc: remoteHlc, rev: 1 })]),
+      });
+      const unsub = subscribeRemote();
+      await flush();
+      fake.emitServerSnapshot();
+      await flush();
+      unsub();
+      return loadPlans().find((d) => d.date === '2026-12-09')!;
+    };
+
+    it('a strictly newer local row survives and is pushed', async () => {
+      const d09 = await firstSnapshot(hlc(3000, 'me'), hlc(2000, 'friend'));
+      expect(d09.items.map((i) => i.title)).toEqual(['A local']);
+      expect(writeLog).toContain(`tx-set:trips/${TRIP_ID}/days/2026-12-09`);
+      const written = fake.docs.get(`trips/${TRIP_ID}/days/2026-12-09`) as unknown as DayPlan;
+      expect(written.items.map((i) => i.title)).toEqual(['A local']);
+    });
+
+    it('an older local row loses and nothing is pushed', async () => {
+      const d09 = await firstSnapshot(hlc(1000, 'me'), hlc(2000, 'friend'));
+      expect(d09.items.map((i) => i.title)).toEqual(['A remote']);
+      expect(writeLog).toEqual([]);
+      expect(outboxDirty('itinerary')).toEqual([]);
+    });
+
+    it('an empty remote over a non-empty local is still refused by the floor', async () => {
+      savePlans([day('2026-12-09', [item('A', { hlc: hlc(3000, 'me'), rev: 1 })])]);
+      fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+      const unsub = subscribeRemote();
+      await flush();
+      fake.emitServerSnapshot();
+      await flush();
+      expect(loadPlans().find((d) => d.date === '2026-12-09')!.items.map((i) => i.id)).toEqual(['A']);
+      unsub();
+    });
+
+    it('a local-only id is dropped', async () => {
+      savePlans([day('2026-12-09', [item('A', { hlc: hlc(3000, 'me'), rev: 1 })])]);
+      fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+      fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
+        ...day('2026-12-09', [item('B', { hlc: hlc(2000, 'friend'), rev: 1 })]),
+      });
+      const unsub = subscribeRemote();
+      await flush();
+      fake.emitServerSnapshot();
+      await flush();
+      expect(loadPlans().find((d) => d.date === '2026-12-09')!.items.map((i) => i.id)).toEqual(['B']);
+      unsub();
+    });
+
+    describe('the server copy is the same row with its map keys sorted', () => {
+      const DAY = `trips/${TRIP_ID}/days/2026-12-09`;
+      // The same stamping use-itinerary's updateItem applies.
+      const edit = (prev: ItineraryItem, patch: Partial<ItineraryItem>, pt: number): ItineraryItem => {
+        const next = stampSyncUpdated({ ...prev, ...patch }, pt, 'me');
+        return { ...next, doneHlc: 'done' in patch ? next.hlc : doneKey(prev), fieldHlc: stampFieldHlc(prev, next) };
+      };
+      const synced = edit(
+        edit(stampSyncCreated(item('A', { notes: 'first' }), 1000, 'me'), { notes: 'edited' }, 2000),
+        { done: true, doneBy: 'me', doneAt: '2026-12-09T08:00:00.000Z' },
+        3000,
+      );
+      const sortKeys = (v: unknown): unknown =>
+        Array.isArray(v)
+          ? v.map(sortKeys)
+          : v && typeof v === 'object'
+            ? Object.fromEntries(
+                Object.entries(v)
+                  .sort(([a], [b]) => (a < b ? -1 : 1))
+                  .map(([k, x]) => [k, sortKeys(x)]),
+              )
+            : v;
+      const pushes = () => writeLog.filter((l) => l === `tx-set:${DAY}`);
+      const written = () => (fake.docs.get(DAY) as unknown as DayPlan).items[0];
+
+      const firstSnapshot = async (local: ItineraryItem) => {
+        await pushDayChunk([day('2026-12-09', [synced])], '2026-12-09', TRIP_ID);
+        fake.setDocData(DAY, sortKeys(fake.docs.get(DAY)) as DocData);
+        fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+        writeLog.length = 0;
+        savePlans([day('2026-12-09', [local])]);
+        expect(outboxDirty('itinerary')).toEqual([]);
+        const unsub = subscribeRemote();
+        await flush();
+        fake.emitServerSnapshot();
+        await flush();
+        unsub();
+      };
+
+      it('an unchanged row is not pushed again', async () => {
+        expect(synced).toMatchObject({ done: true, ord: expect.any(String), doneHlc: expect.any(String) });
+        expect(Object.keys(synced.fieldHlc!)).not.toEqual(Object.keys(synced.fieldHlc!).sort());
+        await firstSnapshot(synced);
+        expect(pushes()).toEqual([]);
+        expect(outboxDirty('itinerary')).toEqual([]);
+      });
+
+      it('a newer local body is pushed once', async () => {
+        await firstSnapshot(edit(synced, { title: 'Retitled' }, 4000));
+        expect(pushes()).toHaveLength(1);
+        expect(written().title).toBe('Retitled');
+      });
+
+      it('a newer local tick alone is pushed once', async () => {
+        await firstSnapshot({ ...synced, done: false, doneHlc: hlc(4000, 'me') });
+        expect(pushes()).toHaveLength(1);
+        expect(written().done).toBe(false);
+      });
+
+      it('a newer local notes stamp alone is pushed once', async () => {
+        await firstSnapshot({ ...synced, notes: 'newer', fieldHlc: { ...synced.fieldHlc, notes: hlc(4000, 'me') } });
+        expect(pushes()).toHaveLength(1);
+        expect(written().notes).toBe('newer');
+      });
+
+      it('a newer local notes stamp with the same text is pushed once', async () => {
+        const stamp = hlc(4000, 'me');
+        await firstSnapshot({ ...synced, fieldHlc: { ...synced.fieldHlc, notes: stamp } });
+        expect(pushes()).toHaveLength(1);
+        expect(written().fieldHlc?.notes).toBe(stamp);
+      });
+    });
   });
 });
 

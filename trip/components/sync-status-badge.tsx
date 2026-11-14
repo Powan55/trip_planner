@@ -1,13 +1,24 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { m } from 'framer-motion';
 import { AlertTriangle, Check, CloudOff, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { usePresence } from '@/hooks/use-presence';
-import { useBackOnline, useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { isRemoteConfigured } from '@/lib/firebase-config';
+import { withBasePath } from '@/lib/base-path';
+
+// A plain anchor, not next/link: Link's pushState fires no hashchange, and the Settings page
+// needs one to open its Trip access group when the pill is tapped while already on /settings.
+function TripAccessLink(props: {
+  className: string;
+  children: ReactNode;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
+}) {
+  return <a href={withBasePath('/settings/#trip-access')} {...props} />;
+}
 
 /**
  * App-wide sync-status affordance — a passive, live "pending N / synced Xm ago" pill over
@@ -15,11 +26,11 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
  * (`app/layout.tsx`) so a traveler can tell at a glance whether their edits have reached
  * Firestore or are still queued locally.
  *
- * Structural mirror of `components/offline-banner.tsx` / `components/presence-bar.tsx`: a
- * `fixed` pill inside an ALWAYS-mounted `role="status"` + `aria-live="polite"` wrapper (a
- * live region only announces a mutation of a region already in the tree, so the wrapper
- * cannot be born with its text; it is empty and boxless while there is nothing to show),
- * `aria-label`, a solid printed-stock surface, an `sr-only` full-sentence
+ * A `fixed` pill beside an ALWAYS-mounted `role="status"` + `aria-live="polite"` region (a
+ * live region only announces a mutation of a region already in the tree, so it cannot be
+ * born with its text; it is empty while there is nothing to show). Since #1093 the region
+ * holds only a short per-state word, not the pill: the pill's relative time and sr-only
+ * sentence used to be re-read in full on every ack. A solid printed-stock surface, an `sr-only` full-sentence
  * summary, and one declarative `m.*` reveal — the app-wide `<MotionConfig reducedMotion="user">`
  * (`components/theme-provider.tsx`) auto-neutralizes that reveal under prefers-reduced-motion, so
  * no manual guard is needed here.
@@ -46,7 +57,8 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
  * every joiner on a different trip. With at least one other traveller present it now says so
  * ("Synced · 2 here"); alone it says "Saved", which is the honest weaker claim — uploaded, read by
  * nobody yet. Alone is the NORMAL state of a solo trip, so it keeps the neutral check mark and the
- * plain tone; the explanation lives in the sr-only sentence rather than in a warning.
+ * plain tone; the explanation lives in the sr-only sentence rather than in a warning. The failure
+ * states (blocked, dead) also print a short visible hint (#1076), and blocked links to Settings.
  *
  * THREE STATES, not two (#267, widened by #271). "pending" tells a traveler their edits will land
  * on their own; for a change (or a read) the security rules REFUSED that is false and no amount of
@@ -55,10 +67,9 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
  * can arrive with nothing else pending — which is why `isBlocked` OR's the two rather than treating
  * `blocked` as the whole story.
  *
- * Position: fixed, top-right, below the navbar (mirrors `OfflineBanner`'s top-CENTER placement,
- * shifted to the one open corner — top-center is the offline banner, bottom-left is the presence
- * bar, bottom-right is the mobile quick-add FAB / Sonner toasts). `z-40`, same layer as those
- * three; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
+ * Position: fixed, top-right, below the navbar (bottom-left is the presence bar, bottom-right is
+ * the mobile quick-add FAB / Sonner toasts). `z-40`, same layer as those
+ * two; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
  */
 export function SyncStatusBadge() {
   const { pending, blocked, readBlocked, readDead, lastAckAt, localOnly, signInRequired } = useSyncStatus();
@@ -75,19 +86,16 @@ export function SyncStatusBadge() {
    * which the Firestore SDK multiplexes onto one listen target.
    */
   const peers = usePresence();
-  // OfflineBanner owns top-center at the same `top-20`, and at 360-414px its centred pill
-  // overlaps this right-anchored one — which is exactly when both are showing (offline with
-  // unsynced edits). Drop a row while it is up (#129).
-  const online = useOnline();
-  const backOnline = useBackOnline();
+  const summaryId = useId();
 
   // #753: journal and prefs otherwise only retry while their own view is mounted. One-shot pushes,
-  // no listener, so this spends no reads when nothing is dirty.
+  // no listener, so this spends no reads when nothing is dirty. #1125: trip renames and the trip
+  // list retry here too.
   useEffect(() => {
     const flush = () => {
       if (!isRemoteConfigured() || document.visibilityState !== 'visible' || !navigator.onLine) return;
-      void Promise.all([import('@/lib/journal-remote'), import('@/lib/account-prefs-remote')])
-        .then(([j, p]) => Promise.all([j.flushPendingJournal(), p.flushPendingPrefs()]))
+      void Promise.all([import('@/lib/journal-remote'), import('@/lib/account-prefs-remote'), import('@/lib/trips-remote')])
+        .then(([j, p, t]) => Promise.all([j.flushPendingJournal(), p.flushPendingPrefs(), t.flushPendingTripSync()]))
         .catch((err) => console.warn('[sync-status] flush unavailable:', err));
     };
     flush();
@@ -145,6 +153,12 @@ export function SyncStatusBadge() {
         : audience > 0
           ? `Synced · ${audience} here`
           : `Saved ${relative ?? 'recently'}`;
+  const hint = isBlocked
+    ? 'Ask a member to add this device.'
+    : isDead
+      ? 'Check your connection.'
+      : null;
+  const Box = isBlocked ? TripAccessLink : 'div';
   const localOnlySummary =
     'Your plan is saved on this device only. It moves onto the shared trip once you sign in and agree to replace it, and nothing you change here reaches anyone else until then.';
   const summary = signInRequired
@@ -160,66 +174,88 @@ export function SyncStatusBadge() {
       : isLocalOnly
         ? localOnlySummary
         : audience > 0
-          ? `All changes are synced to the shared trip${relative ? `, last confirmed ${relative}` : ''}. ${audience === 1 ? `${peers[0].name} is` : `${audience} other travellers are`} on it right now.`
-          : `All changes are uploaded to the shared trip${relative ? `, last confirmed ${relative}` : ''}, and will be there the next time someone opens it. No one else is on the trip right now.`;
+          ? `All changes are synced to the shared trip. ${audience === 1 ? `${peers[0].name} is` : `${audience} other travellers are`} on it right now.`
+          : `All changes are uploaded to the shared trip, and will be there the next time someone opens it. No one else is on the trip right now.`;
+  const state = signInRequired
+    ? 'sign-in-required'
+    : isBlocked
+      ? 'blocked'
+      : isDead
+        ? 'dead'
+        : isPending
+          ? 'pending'
+          : isLocalOnly
+            ? 'local-only'
+            : audience > 0
+              ? 'synced'
+              : 'synced-alone';
+  // #1093: the live region holds only this, keyed to the state, so an ack that just moves the
+  // relative time (or a count) changes nothing it holds and announces nothing.
+  const announcement = show ? ANNOUNCEMENTS[state] : '';
 
   return (
     <>
-      <div role="status" aria-live="polite" aria-label={show ? label : undefined}>
-        {show && (
-          <m.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            data-testid="sync-status-badge"
-            data-state={
-              signInRequired
-                ? 'sign-in-required'
-                : isBlocked
-                ? 'blocked'
-                : isDead
-                ? 'dead'
-                : isPending
-                  ? 'pending'
-                  : isLocalOnly
-                    ? 'local-only'
-                    : audience > 0
-                      ? 'synced'
-                      : 'synced-alone'
-            }
-            className={`fixed ${online && !backOnline ? 'top-[calc(5rem+var(--safe-top))]' : 'top-[calc(8rem+var(--safe-top))]'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
+      {show && (
+        <m.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          data-testid="sync-status-badge"
+          data-state={state}
+          className="fixed top-[calc(5rem+var(--safe-top))] right-4 z-40 max-w-[calc(100vw-2rem)]"
+        >
+          {/* Printed stock, not glass. The FILL grammar carries the state: a struck
+              (solid) rule when synced, a hollow dashed one when the sync has not
+              landed. The word always says which — colour is never the only carrier. */}
+          <Box
+            {...(isBlocked ? { 'aria-label': `${label}, open Trip access`, 'aria-describedby': summaryId } : {})}
+            className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
+              signInRequired || isBlocked || isDead || isPending || isLocalOnly
+                ? 'border-dashed border-[color:var(--text-lo)]'
+                : 'border-[hsl(var(--border))]'
+            } ${isBlocked ? 'min-h-tap outline-none focus-visible:ring-2 focus-visible:ring-ring' : ''} ${tone}`}
           >
-            {/* Printed stock, not glass. The FILL grammar carries the state: a struck
-                (solid) rule when synced, a hollow dashed one when the sync has not
-                landed. The word always says which — colour is never the only carrier. */}
-            <div
-              className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
-                signInRequired || isBlocked || isDead || isPending || isLocalOnly
-                  ? 'border-dashed border-[color:var(--text-lo)]'
-                  : 'border-[hsl(var(--border))]'
-              } ${tone}`}
-            >
-              {signInRequired ? (
-                <CloudOff className="h-3 w-3 shrink-0" aria-hidden="true" />
-              ) : isBlocked || isDead ? (
-                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
-              ) : isPending ? (
-                <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
-              ) : isLocalOnly ? (
-                <MonitorSmartphone className="h-3 w-3 shrink-0" aria-hidden="true" />
-              ) : (
-                <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
-              )}
+            {signInRequired ? (
+              <CloudOff className="h-3 w-3 shrink-0" aria-hidden="true" />
+            ) : isBlocked || isDead ? (
+              <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+            ) : isPending ? (
+              <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
+            ) : isLocalOnly ? (
+              <MonitorSmartphone className="h-3 w-3 shrink-0" aria-hidden="true" />
+            ) : (
+              <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+            )}
+            <span className="flex flex-col">
               <span data-testid="sync-status-text" className={`pr ${tone}`}>
                 {label}
               </span>
-              <span className="sr-only">{summary}</span>
-            </div>
-          </m.div>
-        )}
+              {hint && (
+                <span data-testid="sync-status-hint" aria-hidden="true" className="text-t-micro text-ink-mid">
+                  {hint}
+                </span>
+              )}
+            </span>
+            <span id={summaryId} className="sr-only">{summary}</span>
+          </Box>
+        </m.div>
+      )}
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
       </div>
     </>
   );
 }
+
+const ANNOUNCEMENTS = {
+  'sign-in-required': 'Sign in to sync',
+  blocked: 'Not syncing',
+  dead: 'Not receiving updates',
+  pending: 'Changes waiting to sync',
+  'local-only': 'This device only',
+  // One word for both, so a peer joining or leaving is not announced.
+  synced: 'Synced',
+  'synced-alone': 'Synced',
+} as const;
 
 export default SyncStatusBadge;

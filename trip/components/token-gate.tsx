@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useId } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
-import { Plane, User, AtSign, Lock, KeyRound, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Plane, User, AtSign, Lock, KeyRound, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
 import {
   signIn,
   DEFAULT_TRAVELER_NAME,
@@ -22,7 +22,10 @@ import { TRIP_START, TRIP_END } from '@/lib/trip-data';
 import { TRIP_DATE_LABEL, TRIP_DATES_PENDING } from '@/core/dates';
 import { getNow } from '@/lib/trip-now';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
+import { usePathname } from 'next/navigation';
+import { isLegalRoute } from '@/lib/legal-route';
 import LandingPage from '@/components/landing-page';
+import LegalLinks from '@/components/legal-links';
 import OptimizedImage from '@/components/optimized-image';
 import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import type { AccountUpgrade } from '@/lib/firebase-remote';
@@ -109,7 +112,9 @@ export default function TokenGate() {
     };
   }, [mounted, signedIn]);
 
-  const show = mounted && (held || !traveler || upgrade);
+  // The legal pages stay readable to a signed-out visitor; the wall is linked to them.
+  const onLegalRoute = isLegalRoute(usePathname());
+  const show = mounted && !onLegalRoute && (held || !traveler || upgrade);
 
   return (
     <AnimatePresence>
@@ -386,15 +391,25 @@ function TokenGateWall({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallError]);
 
-  // WALL DIVERGENCE: Esc is captured so it never falls through to anything behind the wall, but it
-  // does NOT dismiss.
+  // Only the plain log-in/create form can step back: an upgrade has no landing, and the claim and
+  // stuck-invite states are already signed in.
+  const canGoBack = !upgrade && stage === 'form' && !inviteStuck && !busy;
+  const goBack = () => {
+    setWallError(null);
+    setView('landing');
+  };
+
+  // WALL DIVERGENCE: Esc is captured so it never falls through to anything behind the wall, and it
+  // never dismisses the wall. On the auth card it steps back to the landing (#1121).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') e.preventDefault();
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      if (view === 'auth' && canGoBack) goBack();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  });
 
   // Lightweight Tab-trap inside the panel, queried at keydown time so it follows the current view.
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -777,7 +792,7 @@ function TokenGateWall({
               id={titleId}
               className="font-sans text-n-sm font-semibold tracking-tight text-ink-hi leading-tight truncate"
             >
-              Nepal × Japan Journey
+              Trip Journey
             </h2>
           </div>
         </div>
@@ -1015,6 +1030,21 @@ function TokenGateWall({
           )}
         </form>
 
+        {!upgrade && stage === 'form' && !inviteStuck && (
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={busy}
+            data-testid="token-gate-back"
+            className="btn btn--2 mt-3 w-full px-4"
+          >
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            Back
+          </button>
+        )}
+
+        {!upgrade && stage === 'form' && <LegalLinks className="mt-2" />}
+
         {/* Not "skip forever": this asks again on the next app load. */}
         {upgrade && onLater && stage === 'form' && (
           <button
@@ -1198,7 +1228,7 @@ function CompactCountdown() {
   if (cd.isPast) {
     return (
       <p className="text-t-body text-ink-hi text-center">
-        {getNow() > TRIP_END ? 'The trip has ended.' : 'The journey has begun.'}
+        {getNow() > TRIP_END ? 'The trip has ended.' : 'The trip is under way.'}
       </p>
     );
   }

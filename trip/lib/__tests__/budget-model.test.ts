@@ -20,6 +20,7 @@ import {
   normalizeCurrency,
   normalizeRates,
   formatMoney,
+  hasCents,
   currencySymbol,
   DEFAULT_BUDGET,
   SEED_RATES,
@@ -229,9 +230,9 @@ describe('normalizeModel / normalizeCurrency / normalizeRates — corrupt slot �
     expect(cleaned.categoryBudgets).not.toHaveProperty('bogus'); // unknown leg ignored
   });
 
-  it('normalizeCurrency only accepts the three codes', () => {
+  it('normalizeCurrency only accepts supported codes', () => {
     for (const c of CURRENCIES) expect(normalizeCurrency(c)).toBe(c);
-    expect(normalizeCurrency('EUR')).toBe('USD');
+    expect(normalizeCurrency('KRW')).toBe('USD');
     expect(normalizeCurrency(42)).toBe('USD');
   });
 
@@ -325,13 +326,31 @@ describe('extra leg currencies (#1052)', () => {
     expect(convert(100, 'CHF' as CurrencyCode, 'USD', R)).toBe(100);
   });
 
-  it('home stays USD/NPR/JPY; only legs accept the extras', () => {
-    expect([...CURRENCIES]).toEqual(['USD', 'NPR', 'JPY']);
+  it('home accepts every supported code; unknown stored values fall back to USD', () => {
+    expect([...CURRENCIES]).toEqual([...LOCAL_CURRENCIES]);
     expect(LOCAL_CURRENCIES).toEqual(['USD', 'NPR', 'JPY', ...EXTRA_CURRENCIES]);
-    expect(normalizeCurrency('EUR')).toBe('USD');
-    expect(normalizeLegCurrency('EUR')).toBe('EUR');
-    expect(normalizeLegCurrency('toString')).toBe('USD');
-    expect(normalizeModel({ homeCurrency: 'EUR' }).homeCurrency).toBe('USD');
+    for (const c of CURRENCIES) expect(normalizeModel({ homeCurrency: c }).homeCurrency).toBe(c);
+    for (const bad of ['KRW', 'toString', '', null, 5]) {
+      expect(normalizeCurrency(bad)).toBe('USD');
+      expect(normalizeLegCurrency(bad)).toBe('USD');
+      expect(normalizeModel({ homeCurrency: bad }).homeCurrency).toBe('USD');
+    }
+  });
+
+  it.each([
+    ['USD', '$1,234.50', '$1,235'],
+    ['EUR', '€1,234.50', '€1,235'],
+    ['GBP', '£1,234.50', '£1,235'],
+    ['AUD', 'A$1,234.50', 'A$1,235'],
+    ['CAD', 'C$1,234.50', 'C$1,235'],
+    ['JPY', '¥1,235', '¥1,235'],
+    ['INR', '₹1,235', '₹1,235'],
+    ['THB', '฿1,235', '฿1,235'],
+    ['NPR', 'Rs 1,235', 'Rs 1,235'],
+  ] as const)('%s formats with the right symbol and minor units', (cur, frac, whole) => {
+    expect(formatMoney(1234.5, cur)).toBe(frac);
+    expect(formatMoney(1234.99, cur)).toBe(cur === 'USD' || hasCents(cur) ? frac.replace('.50', '.99') : whole);
+    expect(formatMoney(1235, cur)).toBe(whole);
   });
 
   it('normalizeRates keeps valid extras only; default shape is unchanged', () => {

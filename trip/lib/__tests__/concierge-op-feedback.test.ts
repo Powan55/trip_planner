@@ -311,7 +311,7 @@ describe('S341 — the concierge input never loses focus across sends', () => {
     h.unmount();
   });
 
-  it('leaves the input enabled+typable mid-stream while the SEND BUTTON stays disabled', async () => {
+  it('leaves the input enabled+typable mid-stream while Send is swapped for Stop', async () => {
     let release: (() => void) | undefined;
     const reply = () =>
       new Response(JSON.stringify({ reply: 'Here you go.', ops: [] }), {
@@ -323,12 +323,13 @@ describe('S341 — the concierge input never loses focus across sends', () => {
 
     await h.send('slow one'); // resolves nothing yet — the turn is still streaming
     const input = h.input();
-    const sendBtn = document.querySelector<HTMLButtonElement>('[data-testid="concierge-send"]')!;
+    const sendBtn = () => document.querySelector<HTMLButtonElement>('[data-testid="concierge-send"]');
     // THE regression: `disabled` on the input blurred it here, which is why Enter stopped working
     // and the textbox had to be re-clicked.
     expect(document.activeElement).toBe(input);
     expect(input.disabled).toBe(false);
-    expect(sendBtn.disabled).toBe(true);
+    expect(sendBtn()).toBeNull();
+    expect(document.querySelector('[data-testid="concierge-stop"]')).not.toBeNull();
 
     // …and the user can type the next message while the reply is in flight.
     await act(async () => {
@@ -344,8 +345,87 @@ describe('S341 — the concierge input never loses focus across sends', () => {
     await act(async () => {
       release!();
     });
-    expect(sendBtn.disabled).toBe(false);
+    expect(sendBtn()!.disabled).toBe(false);
     expect(input.value).toBe('typed ahead'); // the in-flight draft was not clobbered
+    h.unmount();
+  });
+});
+
+// #1093 — a slow turn (Kimi can take minutes) can be cancelled, and shows how long it has waited.
+describe('the concierge Stop button', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(SEED));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.innerHTML = '';
+  });
+
+  const reply = (text: string) =>
+    new Response(JSON.stringify({ reply: text, ops: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  it('aborts the request, hands the message back, shows no error, and ignores a late reply', async () => {
+    const pending: { signal: AbortSignal; release: (text: string) => void }[] = [];
+    // Ignores the signal on purpose, so the late reply really arrives after Stop.
+    const fetchImpl = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((res) => pending.push({ signal: init.signal!, release: (t) => res(reply(t)) })),
+    );
+    const h = await mount([], fetchImpl as unknown as () => Promise<Response>);
+    await h.send('slow one');
+    expect(h.input().value).toBe('');
+
+    const elapsed = document.querySelector('[data-testid="concierge-elapsed"]');
+    expect(elapsed?.getAttribute('aria-hidden')).toBe('true');
+    expect(elapsed?.closest('[aria-live]')).toBeNull();
+
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 1000); // past the double-tap guard
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[data-testid="concierge-stop"]')!.click();
+    });
+    expect(pending[0].signal.aborted).toBe(true);
+    expect(h.input().value).toBe('slow one');
+    expect(document.querySelector('[data-testid="concierge-error"]')).toBeNull();
+    expect(document.querySelector('[data-testid="concierge-stop"]')).toBeNull();
+    expect(document.querySelector('[data-testid="concierge-elapsed"]')).toBeNull();
+    expect(h.turns()).toHaveLength(0);
+
+    await act(async () => {
+      pending[0].release('too late');
+    });
+    expect(h.turns()).toHaveLength(0);
+    expect(document.querySelector('[data-testid="concierge-error"]')).toBeNull();
+
+    // Still usable: the next send goes through and only its reply lands.
+    await h.send('next one');
+    await act(async () => {
+      pending[1].release('on time');
+    });
+    expect(h.turns().map((t) => t.textContent)).toEqual(['next one', 'on time']);
+    expect(JSON.stringify({ ...localStorage })).not.toContain('too late');
+    expect(JSON.stringify({ ...localStorage })).toContain('on time');
+    clock.mockRestore();
+    h.unmount();
+  });
+
+  it('ignores a Stop tap in the first moment, so a double-tap on Send does not cancel it', async () => {
+    let signal: AbortSignal | undefined;
+    const fetchImpl = vi.fn((_url: string, init: RequestInit) => {
+      signal = init.signal!;
+      return new Promise<Response>(() => {});
+    });
+    const h = await mount([], fetchImpl as unknown as () => Promise<Response>);
+    await h.send('slow one');
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[data-testid="concierge-stop"]')!.click();
+    });
+    expect(signal?.aborted).toBe(false);
+    expect(document.querySelector('[data-testid="concierge-stop"]')).not.toBeNull();
     h.unmount();
   });
 });

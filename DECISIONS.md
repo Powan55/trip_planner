@@ -5169,3 +5169,129 @@ The `ok` gate stays: a refused local write pushes nothing.
 **Why.** The old lookup sent every code that was not USD or NPR to the JPY rate, so a code added only to the type would have converted at about 159 per dollar with no error. Older clients keep an unknown `rates.<CODE>` through the union merge (D-374, D-403, D-509) and only mislabel the amount with a dollar sign.
 
 **Changes if:** the converter in `lib/currency-convert.ts` widens, or home currency needs a fourth code, which needs a rollout plan for older clients.
+
+### D-800 · First snapshot with a clean outbox merges per id (issue #1124, 2026-11-10)
+
+Amends D-544 and D-091 wording only. On the first marker-gated snapshot with no dirty dates, remote is still the shape: its days and ids are taken, an empty remote over a non-empty local is still refused by the D-544 floor, and an id held only locally is not kept, so delete-all stays empty and nothing is resurrected. The one change: an id present on both sides resolves with `resolvePair` (default hlc policy), so a local row (or field, tick, or position) that wins that merge survives, and any day whose merged result differs from remote is pushed through the outbox-decorated port.
+
+**Why.** An edit whose outbox entry was lost (cleared storage slot, refused save) was overwritten by the older server copy on the next load, then never pushed.
+
+**Changes if:** the merge core or HLC ordering changes.
+
+### D-801 · Values a merge drops are kept on the device (issue #1124, 2026-11-10)
+
+When the sync apply replaces a content-group value (title, time, duration, notes, location) of an item that exists on both sides with another person's, local's value is saved in a device-only slot (storage key 56, `conflicts`), up to 50 entries, pruned when the item is deleted. Restore is an ordinary edit with a fresh stamp; it syncs like any other. Only a value stamped by this person is kept, and only when the winning stamp is someone else's; the whole group is stored, with null for an absent key, so a restore can clear it. The merge itself is unchanged, and the slot is never on a row, a Firestore doc, an export or a backup.
+
+**Limits.** From (local, merged) alone, a later sequential overwrite looks the same as a concurrent edit, so both are kept. The dirty-outbox branch of the first-snapshot apply records nothing (the offline-edit path; accepted). The slot is deliberately not in `DEVICE_ONLY_SLOTS`: it is ephemeral, so forgetting a trip does not warn about it.
+
+**Why.** The merge picks one value per field group and the other is gone, with nothing to tell the person it happened.
+
+**Changes if:** the merge core, the content groups or the HLC actor change.
+
+### D-802 · The conflict notice on an itinerary item (issue #1124, 2026-11-10)
+
+An item with a stored conflict (D-801) shows `ConflictNotice` under its row in the day list: "Changed by {name}. Your version: ..." with "Put mine back" (`restoreConflict`) and "Dismiss" (`dismissConflict`). It is a polite `role="status"` block, no focus move, no animation, two ordinary 44px buttons whose names include the item title. Every write to the slot fires `trip:conflicts-changed` on the window and `useItemConflict(itemId)` re-reads on it; nothing else subscribes. Restore failing (item gone) leaves the notice.
+
+Updates are same-window only (a custom event); another open tab shows the notice after remount. An empty name reads "someone".
+
+**Changes if:** a second surface (map, print, item sheet) needs the notice, or the slot moves off `local`.
+### D-799 · Hero ring is progress only (issue #1131, 2026-11-10)
+
+**Decision.** The countdown ring no longer prints a number. It is a progress arc with `role="img"` and an `aria-label` of the calendar days left. The `countdown-total-days` and `-unit` test ids stay on a visually hidden span. `computeCountdown` is unchanged (D-313).
+
+**Why.** The tiles show elapsed 24h blocks and the ring showed calendar days, so Home read "29 days 3 hours" next to "30 days".
+
+**Changes if:** the tiles move to calendar days, which would let the ring show its number again.
+
+### D-810 · A new trip's vibe is optional (issue #1121, 2026-11-10)
+
+**Decision.** The create form preselects no vibe, and tapping the picked one clears it. With none picked the config stores `vibe: 'none'` (`NO_VIBE`), which paints the fallback gradient and no tagline in the hero.
+
+**Why.** `sanitizeTripConfig` refuses an empty vibe, so leaving the field out would change the stored config shape. Any non-empty string is already legal, and older clients read an unknown key as the fallback vibe, so they still show the city tagline for `'none'`.
+
+### D-811 · Amends D-663 · The default pack syncs only for the shared trip's accounts (issue #1107, 2026-11-10)
+
+**Decision.** `getDefaultTripShareId()` no longer writes the shared trip id on an untouched device; it returns the stored id or `''`. `lib/account-share.ts` writes it, and reloads once, only when the signed-in email is on the shared trip's allowlist (`SHARED_TRIP_USERNAMES`, the list `shared-trip.guard.test.ts` pins to `isAllowlisted()`). A non-member device already holding the id is cleared to `''`, even with writes queued: clearing drops nothing, and with no id the outbox goes dormant, whereas refused chunks never ack and would never drain. An anonymous or offline session decides nothing. Every page load re-checks, so a sign-in is picked up on the load after it. The once-per-session reload guard does not apply to a fresh member device, so signing out and back in within a session still records it; the next load holds the id, so it cannot loop.
+
+**Why.** Every other account was put on the shared trip: the hub said "Shared trip — synced", their edits queued and were refused, and each open spent denied reads.
+
+**Trade-off.** A member's first load on a new device is local-only until the check reloads it. A non-member's queued writes for the shared trip stay on the device, unsent.
+
+### D-850 · Hand-added items read in the zone of a still-running zoned item (issue #1120, 2026-11-10)
+
+An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 9, Nepal +5:45, every seeded row in New York time) that read a hand-added JFK row 10h45m off and hid it from next-up and the overlap check. `dayZoneOffsetMin(items, dayDate, legOffset)` now returns the zone of a zoned item still running at the midnight that ends the day, in leg time, else the leg offset, worked out at read time over the day's items. Callers must compute the zone over the full stored day, never a filtered or partial list: the author-filtered calendar view and the hero's next-up pool (which drops the current row) both resolve it from the whole day. Nothing stored changes: no doc shape, no sync change, no key, no UI. Seeded days behave as before (a test walks every seed day).
+
+**Why.** The traveller has not reached the leg that day, so a row without a zone belongs to the zone they are still in.
+
+**Limits.** A day that starts in the leg zone and ends on a zoned overnight trip would read earlier hand-added rows in the trip zone; no such day exists. Two zoned items crossing that midnight resolve to the first in array order. Editing the overnight row itself checks clash against its stored footprint. The single-item zone badge still shows no label on such rows. A zone picker in the add/edit form is the full fix and would change what is stored.
+
+**Changes if:** items gain a stored zone field, or a seeded day starts in the leg zone and ends zoned.
+
+### D-881 · Country pages mount photography, nightlife and essentials on scroll (issue #1078, 2026-11-10)
+
+**Decision.** On `/japan` and `/nepal` the three lower sections sit behind `LazyVisible` with `idle={false}`: no post-hydration mount, only the 600px observer. The placeholder carries the `#photography`, `#nightlife` and `#essentials` ids and reserves a desktop-measured height. A URL hash that matches the id mounts the section at once and holds the scroll on it for 5s (until wheel, touch or key input), since the lead section above is still growing. The lead section's skeleton is now tall (15000px Japan, 10000px Nepal) so the observer does not fire on the short pre-load layout. The blurred placeholder `<img>` in `OptimizedImage` gets `loading` and `decoding="async"`.
+
+**Why.** Measured at 390 and 1280 wide: `/japan` 8715 nodes down to about 4530 on first paint, `/nepal` 4883 down to about 3280.
+
+**Trade-off.** Mobile under-reserves (sections are 2 to 3 times taller at 390px), so the scrollbar grows as you scroll. Specs that expect these sections without scrolling must scroll first.
+
+### D-880 · Trip renames and the trip list retry until they land (issue #1125, 2026-11-10)
+
+**Decision.** `pushTripMeta` and `pushTripList` queue their target in key 58 (`tripSyncQueue`: `{ meta: tripId[], list?: syncCode }`) before writing and dequeue it on success. `flushPendingTripSync` retries the queue from the current registry entry on the sync badge's existing triggers (mount, `online`, tab return), next to the journal and prefs queues. The badge counts queued renames for every trip, not just the active one, plus the list. A retried rename reads `meta/info` in a transaction and skips the write when the doc's `updatedAt` is the same as or newer than ours (D-600; an equal stamp means the doc already holds this version); an explicit rename writes as before. A refused push stays queued and blocked, with one attempt per page load, until the trip is forgotten. Sign-out flushes the queue under its existing 8s cap, counts it in the unsynced warning, then wipes the key. Doc shapes are unchanged.
+
+**Why.** A failed push only logged a warning, so a rename made offline never reached the other travellers.
+
+**Trade-off.** Not a real outbox domain: no per-chunk sequence, and an earlier list push can clear a later one's queue entry when the two run in different tabs.
+
+### D-870 · Home currency accepts every leg currency (issue #1119, 2026-11-10)
+
+**Decision.** `CURRENCIES` (the home/display choice) is now the same list as `LOCAL_CURRENCIES`: USD, NPR, JPY, EUR, GBP, INR, AUD, CAD, THB. `normalizeCurrency` and `normalizeLegCurrency` share one set and fall back to USD for anything else. Rates are unchanged: each extra keeps its own additive `rates.<CODE>` path and seed, so no doc shape or storage key moves. The Currency settings show a rate field for the chosen home extra even when no leg uses it. KRW, CNY, SGD and CHF are not added: there is no seed or rate path for them.
+
+**Rollout.** Amends D-798, which kept home to three codes so an older client never read a home it cannot name. An older client reads an unknown home as USD (its `normalizeCurrency`), so a person who picks EUR shows USD on a stale bundle until it updates. Ships with the next release; no data repair.
+
+**Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
+
+### D-882 · A custom trip's flights and stays are its Transportation and Hotel items (issue #1118, 2026-11-10)
+
+**Decision.** `/flights` on a custom trip lists the trip's non-deleted `transportation` and `hotel` itinerary items by date and time (`selectTripBookings`), with a link to the planner to add more. The route is no longer default-only in the nav and palette. The bundled bookings page stays default-pack only.
+
+**Why.** "Tonight's stay" already reads hotel items, so those are the stays; a second booking store would need its own sync shape and merge rules. Nothing new is stored, so there is no rules or old-client impact.
+
+**Not covered.** Structured flight fields (carrier, terminals, seats, layovers), the travel-mode hero, and multi-country trips.
+
+**Changes if:** structured bookings get their own per-trip doc.
+### D-884 · Built-in guide content is resolved from `contentRef`, not from "is this the default trip" (issue #1126, 2026-11-10, proposed)
+
+**Decision.** `isDefaultTrip()` answers one question only: is the active pointer the built-in pack. That is identity, and it stays the gate for the unprefixed storage keys (`keyForTrip`), the sample itinerary seed, the traveller roster and the share id. Whether a trip has guides, map pins, safety notes and phrases is a separate question, answered by `getTripContent(config.contentRef)`, which returns a `TripContent` bundle or `null` (for `'empty'` and unknown refs). Screens and nav gates that hide N×J material ask the content question.
+
+`TripContent` is editorial only: per-leg guides keyed by `TripLeg.contentKey`, map pins, safety and phrases. Bookings (`lib/booking-data.ts`) are trip data, not content; they move to a trip-scoped store under #1118 rather than into this bundle.
+
+`getTripConfig` stops falling back to the built-in pack for an id it cannot resolve. An unknown id gets the placeholder single-leg config custom trips already use, so a broken pointer shows an empty trip instead of another trip's dates over this one's storage namespace.
+
+**Invariants.** Leg ids (`nepal`, `japan`) and every content item id stay byte-identical; stored days, visited places, pins and badges key off them. `contentRef` is synthesized and never persisted, so nothing here changes a stored or Firestore shape, and an older client reading newer data sees no difference.
+
+**Order.** Unknown-id fallback first, then the content predicate and resolver with static imports (no behaviour change on either current trip shape), then moving the remaining direct imports behind the resolver. Lazy loading waits for a second content pack and must keep the bundle in the offline precache. The per-leg guide URL (`/guides/<leg>/`, with `/nepal/` and `/japan/` kept as permanent client redirects) is a public-URL change and waits until after the trip.
+
+**Changes if:** a custom trip ever authors its own guide content (the bundle then needs a persisted, versioned home), or the built-in pack stops being a local-only sample.
+
+
+## D-900 · (2026-11-11) · Privacy, Terms and Contact are static pages that the sign-in wall steps aside for
+
+**Decision.** `/privacy/`, `/terms/` and `/contact/` are plain static routes linked from the footer and the sign-in landing. `TokenGate` renders nothing on them (`lib/legal-route.ts`), so a signed-out visitor can read what the app collects before creating an account. Contact is the GitHub issues page only; no personal address is published.
+
+**Changes if:** a real support address or a data-deletion flow (#1110) exists, or a route is added that must be readable signed-out.
+
+**Amendment (provider gate).** `ItineraryProvider` withholds all children until someone is signed in, so the wall stepping aside alone left these routes blank. The provider now also passes children through when `isLegalRoute(pathname)` is true (exact match, with or without a trailing slash). Trip chrome (navbar, tab bar, quick-add, expense host) is wrapped in `TravelerOnly` in `app/layout.tsx` so it stays out of the signed-out DOM, and `Footer` renders only the legal links when signed out. No trip data reaches a signed-out visitor.
+### D-902 · Account export is one client-built JSON file (issue #1110, 2026-11-11)
+
+**Decision.** Settings → Identity → "Export all my data" (`lib/account-export.ts`) downloads one JSON file: the auth uid/email, `users/{uid}`, the account's `profile/{identity,tripList,prefs,journal_*}`, and for every trip in the local registry plus the remote trip list, the trip doc, `meta/info`, `budget/model`, `docs/checklist`, `places/list`, and the `days` and `expenses` collections. It also carries this browser's app keys (`STORAGE_KEYS` values and `trip:*` only, since the origin is shared). Presence and invites are left out. Photos are left out; the trip backup carries them. A refused or failed read goes into `errors` and the rest still exports. No server, no new storage key, no doc shape change.
+
+**Why.** Shared trips are exported whole because the person can already read them; this is a copy of what they see, not a claim of ownership.
+
+**The file is a bearer credential.** It carries the account key (`tripPlannerSyncCode`, `tripPlannerToken`) and every trip id, and whoever holds it can open and edit those trips. The card says so in plain words next to the button.
+
+### D-902a · Account deletion rule (issue #1110, 2026-11-11, proposed, not built)
+
+**Rule.** Deleting an account removes what only that account owns and never another member's data: `trips/{accountId}/profile/*`, `accountClaims/{accountId}`, `users/{uid}`, then the auth user. For each trip: if the account is the only member, delete the trip's subtree and doc; if others remain, leave the trip and remove only its own roster key (an owner hands ownership to another member first, since the last owner cannot leave); an open (no-roster) trip someone else may hold is left alone. Firestore goes first and the auth user last, so a failure midway leaves a working account that can retry, never an auth-less orphan. Requires a recent sign-in (`auth/requires-recent-login` → re-enter password) and a typed confirmation.
+
+**Blocked on rules.** The current rules refuse every account-level delete: `users/{uid}` and `accountClaims/{id}` are get/create only, `profile/identity` and `profile/tripList` are excluded from delete, and a member-gated trip doc cannot be deleted (#856). Shipping the client half alone would delete the auth user and leave the username, account id, name and trip list behind, so it waits for a rules change.
