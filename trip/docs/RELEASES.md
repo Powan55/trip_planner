@@ -12,6 +12,16 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.10.1 (app) · 2026-11-16 · worker at v1.11.3
+
+**For travellers:** update every phone, then open Journal once while online. This update replaces the saved journal sync code, so Journal edits made offline before that visit are not queued until you do. The map code is the same as in v7.10.0, so Map keeps working offline after the update.
+
+- Journal: an edit or delete of a day that has already synced is now marked for sync when you save it, even if the sync code is missing from the phone and offline. Before this, such an edit was saved on the phone but never queued, and a later change to the same day from another device could replace it. Restoring a backup marks its days the same way (#1183).
+
+**Deploy targets:** GitHub Pages. No Firestore rules change and no worker change in this release.
+
+---
+
 ## v7.10.0 (app) · 2026-11-13 · worker at v1.11.3
 
 **For travellers:** update every phone before departure. Open the app on wifi, tap Refresh on the update prompt, and check that the footer reads v7.10.0. Then open Map once while online until the pins show, and open Journal once. This update replaces the map code saved on the phone, so Map shows "Map engine not on this device" offline until it has been opened online once.
