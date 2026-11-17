@@ -18,6 +18,9 @@ vi.mock('@/lib/journal-remote', () => {
 });
 
 import { useJournal } from '@/hooks/use-journal';
+import { keyFor, setSyncCode } from '@/core/storage/gateway';
+
+setSyncCode('tok-1');
 
 type Journal = ReturnType<typeof useJournal>;
 let store: Journal;
@@ -49,6 +52,8 @@ async function unhandledAfterMount(onLine: boolean, save = false): Promise<unkno
         saved = store.saveEntry('2026-12-09', { text: 'typed offline' });
       });
       expect(saved).toBe(true);
+      // The chunk can't load, so the dirty mark has to come from the page chunk (#1183).
+      expect(JSON.parse(localStorage.getItem(keyFor('journalSync'))!)['2026-12-09'].dirty).toBe(true);
       await vi.waitFor(() => expect(imports.n).toBe(before + 2));
     }
     await new Promise((r) => setTimeout(r, 0));
