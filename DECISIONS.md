@@ -5295,3 +5295,12 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Rule.** Deleting an account removes what only that account owns and never another member's data: `trips/{accountId}/profile/*`, `accountClaims/{accountId}`, `users/{uid}`, then the auth user. For each trip: if the account is the only member, delete the trip's subtree and doc; if others remain, leave the trip and remove only its own roster key (an owner hands ownership to another member first, since the last owner cannot leave); an open (no-roster) trip someone else may hold is left alone. Firestore goes first and the auth user last, so a failure midway leaves a working account that can retry, never an auth-less orphan. Requires a recent sign-in (`auth/requires-recent-login` → re-enter password) and a typed confirmation.
 
 **Blocked on rules.** The current rules refuse every account-level delete: `users/{uid}` and `accountClaims/{id}` are get/create only, `profile/identity` and `profile/tripList` are excluded from delete, and a member-gated trip doc cannot be deleted (#856). Shipping the client half alone would delete the auth user and leave the username, account id, name and trip list behind, so it waits for a rules change.
+
+
+### D-903 · The journal dirty mark lives outside the lazy sync chunk (issue #1183, 2026-11-16)
+
+**Decision.** Stamping a journal day dirty in key 50 (`markJournalDirty`, `lib/journal-dirty.ts`) is a static import in `use-journal` and `trip-backup`, called synchronously after the local save. `lib/journal-remote.ts` stays lazy and imports the same helpers back, so `pushJournalEntry` is the mark plus the push.
+
+**Why.** The mark used to sit inside `pushJournalEntry`, behind the dynamic import. Offline that import can fail and is swallowed, so an edit to an already-synced day was never marked dirty, and the next remote row from another device overwrote it. The mark is local, so it needs no network and no chunk. Online, `pushJournalEntry` stamps the day again a moment later; the second stamp is strictly newer and harmless, so leave both.
+
+**Changes if:** the journal chunk is made eager, in which case the split is pointless and the mark can move back.

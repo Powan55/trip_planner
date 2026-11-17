@@ -5,14 +5,18 @@ import { keyFor } from '@/core/storage/gateway';
 import { loadJournal, saveJournal, journalStoragePort } from '@/core/journal/storage';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { isRemoteConfigured } from '@/lib/firebase-config';
+import { markJournalDirty } from '@/lib/journal-dirty';
 
 // Online, a failed chunk must still reach the one-shot reload; offline that reload cannot help.
 const offlineOnly = (e: unknown) => {
   if (navigator.onLine !== false) throw e;
 };
 
+// The dirty mark is synchronous and static, so it lands even when the chunk can't load (#1183).
 function pushLater(date: string): void {
-  if (isRemoteConfigured()) void import('@/lib/journal-remote').then((m) => m.pushJournalEntry(date), offlineOnly);
+  if (!isRemoteConfigured()) return;
+  markJournalDirty(date);
+  void import('@/lib/journal-remote').then((m) => m.pushJournalEntry(date), offlineOnly);
 }
 import {
   getEntry as getEntryCore,
