@@ -12,6 +12,14 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.10.2 (app) · 2026-11-17 · worker at v1.11.3
+
+- Home: the countdown ring shows the number of days to departure again. v7.10.0 had made it progress only.
+
+**Deploy targets:** GitHub Pages. No Firestore rules change and no worker change in this release.
+
+---
+
 ## v7.10.1 (app) · 2026-11-16 · worker at v1.11.3
 
 **For travellers:** update every phone, then open Journal once while online. This update replaces the saved journal sync code, so Journal edits made offline before that visit are not queued until you do. The map code is the same as in v7.10.0, so Map keeps working offline after the update.
