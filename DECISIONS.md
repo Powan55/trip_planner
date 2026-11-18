@@ -5203,6 +5203,8 @@ Updates are same-window only (a custom event); another open tab shows the notice
 
 **Changes if:** the tiles move to calendar days, which would let the ring show its number again.
 
+**Reversed 2026-11-17 (owner).** The ring shows the calendar-day count again. The mismatch with the tiles is accepted (D-313). `role="img"` and the label stay.
+
 ### D-810 · A new trip's vibe is optional (issue #1121, 2026-11-10)
 
 **Decision.** The create form preselects no vibe, and tapping the picked one clears it. With none picked the config stores `vibe: 'none'` (`NO_VIBE`), which paints the fallback gradient and no tagline in the hero.
