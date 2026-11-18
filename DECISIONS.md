@@ -5249,6 +5249,8 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 
 **Rollout.** Amends D-798, which kept home to three codes so an older client never read a home it cannot name. An older client reads an unknown home as USD (its `normalizeCurrency`), so a person who picks EUR shows USD on a stale bundle until it updates. Ships with the next release; no data repair.
 
+**Amended 2026-11-17 (#1195).** The stale bundle can also write USD back. It keeps the EUR writer's `fieldHlc.homeCurrency`, so its next budget edit ties on HLC, and `"USD"` wins the fingerprint tie-break against every extra. This only reaches the shared doc when the extra was set without a sync code; per-person prefs are unaffected. Mitigation until #1195 is fixed: every device on 7.10.0 or later.
+
 **Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
 
 ### D-882 · A custom trip's flights and stays are its Transportation and Hotel items (issue #1118, 2026-11-10)
