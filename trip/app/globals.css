@@ -1884,6 +1884,17 @@ html[data-vt-active] .animate-route-fade {
   .vt-shared {
     view-transition-name: var(--vt-name);
   }
+  /* Fixed chrome swaps instantly (no cross-fade); the page itself fades old 100ms / new 200ms. */
+  [data-testid='navbar'] { view-transition-name: vt-header; }
+  .nav { view-transition-name: vt-tabbar; }
+  ::view-transition-group(vt-header),
+  ::view-transition-group(vt-tabbar),
+  ::view-transition-old(vt-header),
+  ::view-transition-new(vt-header),
+  ::view-transition-old(vt-tabbar),
+  ::view-transition-new(vt-tabbar) { animation: none; }
+  ::view-transition-old(root) { animation-duration: 100ms; }
+  ::view-transition-new(root) { animation-duration: 200ms; }
 }
 
 /* ──: scroll-driven page progress bar (components/scroll-progress.tsx) ──
@@ -3052,14 +3063,15 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     font-weight: 600;
     font-size: var(--t-body);
     letter-spacing: 0.01em;
-    transition: translate var(--duration-press) linear,
-      border-bottom-width var(--duration-press) linear;
+    transition: translate 120ms ease-out;
   }
   .btn:hover { filter: brightness(1.08); }
   .btn:active {
     translate: 0 3px;
-    border-bottom-width: 0;
-    margin-bottom: 3px;
+    border-bottom-color: transparent;
+    background-clip: padding-box;
+    transition-duration: var(--duration-press);
+    transition-timing-function: linear;
   }
   .btn:disabled,
   .btn[disabled] {
@@ -3075,6 +3087,8 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     border: 1px solid var(--border-ui);
     border-bottom: 3px solid var(--border-ui);
   }
+  .btn--2:disabled,
+  .btn--2[disabled] { background: transparent; }
 
   /* ---- The danger variant. SPEC 9.7 defines none, and that is why it is here ----
      Three bundles independently invented three different destructive buttons, and every
@@ -3168,7 +3182,8 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     text-decoration: none;
     background: rgb(var(--surface-low));
     clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
-    transition: translate var(--duration-raise) ease-out;
+    transition: translate var(--duration-raise) ease-out,
+      margin-top var(--duration-raise) cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .nav a .n {
     font-family: var(--font-machine);
@@ -3233,6 +3248,30 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
 }
 .btn.btn:focus-visible {
   outline: 2px solid var(--text-hi);
+  outline-offset: 2px;
+}
+.chk {
+  appearance: none;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--border-ui);
+  border-radius: var(--r-1);
+  background: transparent;
+  transition: background-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+.chk:checked {
+  background: hsl(var(--accent));
+  box-shadow: inset 0 0 0 4px rgb(var(--surface));
+}
+@media (forced-colors: active) {
+  .chk { appearance: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chk { transition: none; }
+}
+.chk:focus-visible {
+  outline: 2px solid hsl(var(--accent));
   outline-offset: 2px;
 }
 /* (0,3,0) — two attribute selectors plus the pseudo-class, counted the same way as .btn.btn
