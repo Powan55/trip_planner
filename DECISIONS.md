@@ -5308,3 +5308,14 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Why.** The mark used to sit inside `pushJournalEntry`, behind the dynamic import. Offline that import can fail and is swallowed, so an edit to an already-synced day was never marked dirty, and the next remote row from another device overwrote it. The mark is local, so it needs no network and no chunk. Online, `pushJournalEntry` stamps the day again a moment later; the second stamp is strictly newer and harmless, so leave both.
 
 **Changes if:** the journal chunk is made eager, in which case the split is pointless and the mark can move back.
+
+
+### D-871 · AMENDS D-255 and D-180 · A failed chat leg logs its outcome metadata (Worker 1.11.5, 2026-11-21)
+
+**Decision.** Each failed leg of the chat ladder emits one `leg_miss` line, persisted in Workers Logs: the model, the HTTP status (or the thrown error's name), elapsed ms, and on a 200 that failed the envelope check, `finish_reason`, whether `content` was null, whether a reasoning field was present (a boolean, never its text), and the numeric token counts. A Kimi request with no NVIDIA key logs `status: 'no-key'`. Success logs nothing. For a non-2xx it may also log the provider's `type`/`code`/`title` strings (40 chars or fewer) and one string `message`/`detail` capped at 200 chars.
+
+**Still forbidden:** the user's message, history, trip context, the reply, `ops`, any key, and any provider field that can echo them. Groq's `failed_generation` is the model's reply text and a 422's array `detail` carries the request `input`, so object or array bodies are never logged and the error body is never stringified. The fields come from an allowlist, not a spread.
+
+**Why.** D-255 kept the chat ladder silent, and that hid a dead leg: NVIDIA dropped `moonshotai/kimi-k3` from its catalog, every Kimi pick fell through to Groq, and the only sign was the model stamp under the reply. After the id moved to `kimi-k3.1-pro` it still fell through, with nothing to say why. The same privacy argument as D-255 applies: a failed leg does not need any chat content to be observable.
+
+**Changes if:** the cause is found and the capped `message`/`detail` text goes. It is the one field whose wording the provider controls, so it is the first to cut. The metadata stays.
