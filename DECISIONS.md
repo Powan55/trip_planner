@@ -5319,3 +5319,14 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Why.** D-255 kept the chat ladder silent, and that hid a dead leg: NVIDIA dropped `moonshotai/kimi-k3` from its catalog, every Kimi pick fell through to Groq, and the only sign was the model stamp under the reply. After the id moved to `kimi-k3.1-pro` it still fell through, with nothing to say why. The same privacy argument as D-255 applies: a failed leg does not need any chat content to be observable.
 
 **Changes if:** the cause is found and the capped `message`/`detail` text goes. It is the one field whose wording the provider controls, so it is the first to cut. The metadata stays.
+
+
+### D-872 · AMENDS D-234 for the upstream call only · The Kimi leg streams from NVIDIA (Worker 1.11.6, 2026-11-22)
+
+**Decision.** The Worker asks NVIDIA for `moonshotai/kimi-k3.1-pro` with `stream: true`, `reasoning_effort: 'low'` and `max_tokens: 16384`, reads the stream whole with `res.text()`, joins only the `content` deltas, and runs the same envelope check as before. Reading it chunk by chunk with a stream reader cost 18 to 30 ms of CPU in a local benchmark, well over the free plan's 10 ms, so it was dropped. The cost is no early exit on an error chunk and no time-to-first-byte figure. The Worker's own response to the app stays one JSON envelope, and the Groq request is unchanged byte for byte.
+
+**Why.** The first `leg_miss` line (D-871) was `status 524` at 125 s. NVIDIA's API sits behind Cloudflare, which closes a proxied request that sends nothing back for 125 s. Short questions finished in time and long ones never did, so Kimi answered sometimes and Groq the rest. A stream sends bytes early, so that timer should not fire. `max_tokens` went from 4096 to 16384 because reasoning tokens count against it, and `reasoning_effort` is pinned to `low` so a change to NVIDIA's default cannot slow every turn.
+
+**Kept:** the 170 s Kimi cutoff and the 215 s client abort. A turn that runs longer than 170 s still falls back to Groq, and the stamp under the reply says so.
+
+**Changes if:** parsing the stream comes near the free plan's 10 ms CPU limit, which would fail the whole request instead of falling back. In that case, go back to a non-streaming call with thinking turned off.
