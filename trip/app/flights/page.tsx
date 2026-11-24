@@ -9,7 +9,7 @@ import DefaultTripOnly from '@/components/default-trip-only';
 import { FlightsHeroSubtitle, FlightsSection, TripBookings, WorldClockStrip } from './sections';
 
 export const metadata = {
-  title: 'Flights · Nepal × Japan Journey',
+  title: 'Flights · Trip Journey',
   description: 'Flights and hotel bookings for the Nepal and Japan legs — journeys, booked stays, and what still needs booking.',
 };
 

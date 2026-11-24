@@ -895,6 +895,43 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     await context.setOffline(false);
   });
 
+  // The scroll-mounted country sections (LazyVisible, idle={false}) load their chunks only on
+  // scroll, so the route-body test above never touches them. Headings exist only in the real
+  // component; the LazyVisible/skeleton placeholder carries just the anchor id.
+  test('cold-offline, /japan/ and /nepal/ scroll-mounted sections render real content', async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(90_000);
+
+    await page.goto('/', { waitUntil: 'load' });
+    await waitForActivatedSW(page);
+    await expect
+      .poll(async () =>
+        safeEval(page, async () => {
+          const name = (await caches.keys()).find((n) => n.startsWith('trip-precache-'));
+          return name ? (await (await caches.open(name)).keys()).length : 0;
+        }),
+      )
+      .toBeGreaterThan(20);
+
+    await context.setOffline(true);
+
+    for (const route of ['/japan/', '/nepal/']) {
+      await page.goto(route, { waitUntil: 'load' });
+      for (const id of ['essentials', 'nightlife', 'photography']) {
+        await page.locator(`#${id}`).scrollIntoViewIfNeeded();
+        await expect(
+          page.locator(`#${id}-heading`),
+          `${route}#${id}: real section never mounted offline (chunk missing from precache?)`,
+        ).toBeAttached({ timeout: 15_000 });
+      }
+      await expect(page.getByRole('heading', { name: ROUTE_CRASH, exact: true })).toHaveCount(0);
+    }
+
+    await context.setOffline(false);
+  });
+
   /**
    * Delete every cached `_next/static/**.js` whose body carries the `maplibregl` marker,
    * and report how many went. Zero-arg by construction so it can ride `safeEval`, and

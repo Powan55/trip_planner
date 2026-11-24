@@ -240,6 +240,10 @@ for (const vp of VIEWPORTS) {
       // not content height. On a content route every copy edit moved it a fraction of a pixel.
       await gotoSettled(page, '/share/');
       const footer = page.locator('footer');
+      // The mask box is as wide as the text under it, so a longer version string moves its edges.
+      await page.locator('footer p').last().evaluate((p) => {
+        p.textContent = '© 0000 Trip Journey · v0.0.0';
+      });
       await footer.scrollIntoViewIfNeeded();
       if (vp.name === 'mobile') {
         // At 390px the footer box is fractional (y=594.33, h=186) and an element shot rounds it

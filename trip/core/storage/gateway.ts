@@ -566,7 +566,7 @@ export const STORAGE_KEYS = {
   /**
    * localStorage — JSON `{ [date]: { hlc, dirty?, deletedAt? } }`, the per-entry sync stamps for
    * the journal's account copy (journal-sync, key 50; D-596). TRIP-SCOPED beside key 12. Sync
-   * machinery, not content: the backup leaves it out. Shape owned by `lib/journal-remote.ts`.
+   * machinery, not content: the backup leaves it out. Shape owned by `lib/journal-dirty.ts`.
    */
   journalSync: 'nepal_japan_journal_sync',
   /**

@@ -56,6 +56,7 @@ import { placesSyncPort, myPlacesStoragePort } from '@/lib/places-ports';
 import { sanitizeEntries, type JournalEntry } from '@/core/journal/model';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 import { getTripId, isRemoteConfigured, isTripRemoteConfigured } from '@/lib/firebase-config';
+import { markJournalDirty } from '@/lib/journal-dirty';
 import { normalizeModel } from '@/core/budget/model';
 import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
@@ -230,7 +231,13 @@ const DOMAINS = {
       if (ok && isRemoteConfigured()) {
         // Union with the pre-restore dates: a day the backup dropped gets a tombstone (#857).
         const dates = [...new Set([...before, ...(v as JournalEntry[]).map((e) => e.date)])];
-        void import('@/lib/journal-remote').then((m) => dates.forEach((d) => void m.pushJournalEntry(d)));
+        dates.forEach(markJournalDirty);
+        void import('@/lib/journal-remote').then(
+          (m) => dates.forEach((d) => void m.pushJournalEntry(d)),
+          (e) => {
+            if (navigator.onLine !== false) throw e;
+          },
+        );
       }
       return ok;
     },

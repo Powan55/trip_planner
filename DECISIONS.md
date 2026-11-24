@@ -5203,6 +5203,8 @@ Updates are same-window only (a custom event); another open tab shows the notice
 
 **Changes if:** the tiles move to calendar days, which would let the ring show its number again.
 
+**Reversed 2026-11-17 (owner).** The ring shows the calendar-day count again. The mismatch with the tiles is accepted (D-313). `role="img"` and the label stay.
+
 ### D-810 · A new trip's vibe is optional (issue #1121, 2026-11-10)
 
 **Decision.** The create form preselects no vibe, and tapping the picked one clears it. With none picked the config stores `vibe: 'none'` (`NO_VIBE`), which paints the fallback gradient and no tagline in the hero.
@@ -5248,6 +5250,8 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Decision.** `CURRENCIES` (the home/display choice) is now the same list as `LOCAL_CURRENCIES`: USD, NPR, JPY, EUR, GBP, INR, AUD, CAD, THB. `normalizeCurrency` and `normalizeLegCurrency` share one set and fall back to USD for anything else. Rates are unchanged: each extra keeps its own additive `rates.<CODE>` path and seed, so no doc shape or storage key moves. The Currency settings show a rate field for the chosen home extra even when no leg uses it. KRW, CNY, SGD and CHF are not added: there is no seed or rate path for them.
 
 **Rollout.** Amends D-798, which kept home to three codes so an older client never read a home it cannot name. An older client reads an unknown home as USD (its `normalizeCurrency`), so a person who picks EUR shows USD on a stale bundle until it updates. Ships with the next release; no data repair.
+
+**Amended 2026-11-17 (#1195).** The stale bundle can also write USD back. It keeps the EUR writer's `fieldHlc.homeCurrency`, so its next budget edit ties on HLC, and `"USD"` wins the fingerprint tie-break against every extra. This only reaches the shared doc when the extra was set without a sync code; per-person prefs are unaffected. Mitigation until #1195 is fixed: every device on 7.10.0 or later.
 
 **Changes if:** a code without a rate path is added (needs a seed and `rates.<CODE>`).
 
@@ -5295,3 +5299,34 @@ An item with no zone of its own takes the leg offset; on a leg-arrival day (Dec 
 **Rule.** Deleting an account removes what only that account owns and never another member's data: `trips/{accountId}/profile/*`, `accountClaims/{accountId}`, `users/{uid}`, then the auth user. For each trip: if the account is the only member, delete the trip's subtree and doc; if others remain, leave the trip and remove only its own roster key (an owner hands ownership to another member first, since the last owner cannot leave); an open (no-roster) trip someone else may hold is left alone. Firestore goes first and the auth user last, so a failure midway leaves a working account that can retry, never an auth-less orphan. Requires a recent sign-in (`auth/requires-recent-login` → re-enter password) and a typed confirmation.
 
 **Blocked on rules.** The current rules refuse every account-level delete: `users/{uid}` and `accountClaims/{id}` are get/create only, `profile/identity` and `profile/tripList` are excluded from delete, and a member-gated trip doc cannot be deleted (#856). Shipping the client half alone would delete the auth user and leave the username, account id, name and trip list behind, so it waits for a rules change.
+
+
+### D-903 · The journal dirty mark lives outside the lazy sync chunk (issue #1183, 2026-11-16)
+
+**Decision.** Stamping a journal day dirty in key 50 (`markJournalDirty`, `lib/journal-dirty.ts`) is a static import in `use-journal` and `trip-backup`, called synchronously after the local save. `lib/journal-remote.ts` stays lazy and imports the same helpers back, so `pushJournalEntry` is the mark plus the push.
+
+**Why.** The mark used to sit inside `pushJournalEntry`, behind the dynamic import. Offline that import can fail and is swallowed, so an edit to an already-synced day was never marked dirty, and the next remote row from another device overwrote it. The mark is local, so it needs no network and no chunk. Online, `pushJournalEntry` stamps the day again a moment later; the second stamp is strictly newer and harmless, so leave both.
+
+**Changes if:** the journal chunk is made eager, in which case the split is pointless and the mark can move back.
+
+
+### D-871 · AMENDS D-255 and D-180 · A failed chat leg logs its outcome metadata (Worker 1.11.5, 2026-11-21)
+
+**Decision.** Each failed leg of the chat ladder emits one `leg_miss` line, persisted in Workers Logs: the model, the HTTP status (or the thrown error's name), elapsed ms, and on a 200 that failed the envelope check, `finish_reason`, whether `content` was null, whether a reasoning field was present (a boolean, never its text), and the numeric token counts. A Kimi request with no NVIDIA key logs `status: 'no-key'`. Success logs nothing. For a non-2xx it may also log the provider's `type`/`code`/`title` strings (40 chars or fewer) and one string `message`/`detail` capped at 200 chars.
+
+**Still forbidden:** the user's message, history, trip context, the reply, `ops`, any key, and any provider field that can echo them. Groq's `failed_generation` is the model's reply text and a 422's array `detail` carries the request `input`, so object or array bodies are never logged and the error body is never stringified. The fields come from an allowlist, not a spread.
+
+**Why.** D-255 kept the chat ladder silent, and that hid a dead leg: NVIDIA dropped `moonshotai/kimi-k3` from its catalog, every Kimi pick fell through to Groq, and the only sign was the model stamp under the reply. After the id moved to `kimi-k3.1-pro` it still fell through, with nothing to say why. The same privacy argument as D-255 applies: a failed leg does not need any chat content to be observable.
+
+**Changes if:** the cause is found and the capped `message`/`detail` text goes. It is the one field whose wording the provider controls, so it is the first to cut. The metadata stays.
+
+
+### D-872 · AMENDS D-234 for the upstream call only · The Kimi leg streams from NVIDIA (Worker 1.11.6, 2026-11-22)
+
+**Decision.** The Worker asks NVIDIA for `moonshotai/kimi-k3.1-pro` with `stream: true`, `reasoning_effort: 'low'` and `max_tokens: 16384`, reads the stream whole with `res.text()`, joins only the `content` deltas, and runs the same envelope check as before. Reading it chunk by chunk with a stream reader cost 18 to 30 ms of CPU in a local benchmark, well over the free plan's 10 ms, so it was dropped. The cost is no early exit on an error chunk and no time-to-first-byte figure. The Worker's own response to the app stays one JSON envelope, and the Groq request is unchanged byte for byte.
+
+**Why.** The first `leg_miss` line (D-871) was `status 524` at 125 s. NVIDIA's API sits behind Cloudflare, which closes a proxied request that sends nothing back for 125 s. Short questions finished in time and long ones never did, so Kimi answered sometimes and Groq the rest. A stream sends bytes early, so that timer should not fire. `max_tokens` went from 4096 to 16384 because reasoning tokens count against it, and `reasoning_effort` is pinned to `low` so a change to NVIDIA's default cannot slow every turn.
+
+**Kept:** the 170 s Kimi cutoff and the 215 s client abort. A turn that runs longer than 170 s still falls back to Groq, and the stamp under the reply says so.
+
+**Changes if:** parsing the stream comes near the free plan's 10 ms CPU limit, which would fail the whole request instead of falling back. In that case, go back to a non-streaming call with thinking turned off.

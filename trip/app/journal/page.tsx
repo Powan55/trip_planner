@@ -8,7 +8,7 @@ import PageHero from '@/components/page-hero';
 import { JournalBrowse } from './sections';
 
 export const metadata = {
-  title: 'Journal · Nepal × Japan Journey',
+  title: 'Journal · Trip Journey',
   description: 'Every trip day, in your own words — browse and edit your private journal entries, synced only to your own devices.',
 };
 

@@ -60,7 +60,7 @@ export default function Footer() {
         {/* The copyright/version note qualifies the wordmark above rather than being the
             footer's subject, so it sits a tier down. */}
         <p className="pr pr--lo tabular-nums">
-          &copy; {new Date().getFullYear()} Lax
+          &copy; {new Date().getFullYear()} Trip Journey
           {' '}&middot;{' '}
           v{process.env.NEXT_PUBLIC_APP_VERSION}
         </p>

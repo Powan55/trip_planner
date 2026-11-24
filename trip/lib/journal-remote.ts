@@ -13,38 +13,19 @@
 'use client';
 
 import { JOURNAL_CHANGED_EVENT } from '@/core/storage/events';
-import {
-  deviceStore,
-  getActiveTripId,
-  getSyncCode,
-  isSafeTripSegment,
-  keyFor,
-  readJson,
-  writeJson,
-} from '@/core/storage/gateway';
+import { deviceStore } from '@/core/storage/gateway';
 import { loadJournal, saveJournal } from '@/core/journal/storage';
 import { JOURNAL_TEXT_MAX, getEntry, sanitizeEntry, type JournalEntry } from '@/core/journal/model';
-import { compareHlc, hlcSendOrLocal, parse, serialize } from '@/core/sync/hlc';
-import { SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
+import { compareHlc, parse, serialize } from '@/core/sync/hlc';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { isJournalDenied, markJournalDenied } from '@/core/sync/read-denied';
-import { isRemoteConfigured } from './firebase-config';
 import { getRemote } from './firebase-remote';
 import { realClock } from './trip-now';
+import { markJournalDirty, readMeta, stamp, stampedMap, target, writeMeta, type Meta, type Target } from './journal-dirty';
 
-type Meta = { hlc: string; dirty?: true; deletedAt?: string };
 type Row = { hlc: string; deletedAt?: string } & Partial<Omit<JournalEntry, 'date'>>;
-type Target = { code: string; tripId: string; docId: string };
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const HIGHLIGHT_MAX = 120; // the highlight input's maxLength
-
-function target(): Target | null {
-  const code = getSyncCode()?.trim() ?? '';
-  const tripId = getActiveTripId();
-  const docId = `journal_${tripId}`;
-  return isRemoteConfigured() && isSafeTripSegment(code) && isSafeTripSegment(docId) ? { code, tripId, docId } : null;
-}
 
 function sameTarget(t: Target): boolean {
   const now = target();
@@ -53,24 +34,6 @@ function sameTarget(t: Target): boolean {
 
 const newer = (a: string, b: string) => compareHlc(parse(a), parse(b)) > 0;
 
-const stamp = (after: string | undefined) =>
-  serialize(hlcSendOrLocal(after ? parse(after) : null, realClock.now().getTime(), deviceStore.getId()));
-
-function stampedMap<T extends { hlc: string }>(raw: unknown): Record<string, T> {
-  const out: Record<string, T> = {};
-  if (typeof raw !== 'object' || raw === null) return out;
-  for (const [d, r] of Object.entries(raw)) {
-    if (DATE_RE.test(d) && typeof r === 'object' && r !== null && typeof (r as T).hlc === 'string') out[d] = r as T;
-  }
-  return out;
-}
-
-const readMeta = () => stampedMap<Meta>(readJson<unknown>('local', keyFor('journalSync'), {}));
-// The badge counts dirty days (#753), so every stamp change re-renders it like an outbox write.
-const writeMeta = (meta: Record<string, Meta>) => {
-  writeJson('local', keyFor('journalSync'), meta);
-  window.dispatchEvent(new CustomEvent(SYNC_OUTBOX_CHANGED_EVENT));
-};
 const readRows = (data: unknown) => stampedMap<Row>((data as { entries?: unknown } | undefined)?.entries);
 
 function rowFor(date: string, hlc: string): Row {
@@ -213,14 +176,7 @@ export function flushJournal(): Promise<void> {
  */
 export function pushJournalEntry(date: string): Promise<void> {
   const t = target();
-  if (!t || !DATE_RE.test(date)) return Promise.resolve();
-  const meta = readMeta();
-  const deleted = !getEntry(loadJournal(), date);
-  if (deleted && !meta[date]) return Promise.resolve();
-  meta[date] = deleted
-    ? { hlc: stamp(meta[date]?.hlc), dirty: true, deletedAt: realClock.now().toISOString() }
-    : { hlc: stamp(meta[date]?.hlc), dirty: true };
-  writeMeta(meta);
+  if (!t || !markJournalDirty(date)) return Promise.resolve();
   return push(t, date, true);
 }
 

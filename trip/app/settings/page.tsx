@@ -8,7 +8,7 @@ import PageHeader from '@/components/page-header';
 import { Settings } from './sections';
 
 export const metadata = {
-  title: 'Settings · Nepal × Japan Journey',
+  title: 'Settings · Trip Journey',
   description:
     'Manage your traveler identity, display currency and exchange rates, and back up, restore, or clear your on-device trip data.',
 };

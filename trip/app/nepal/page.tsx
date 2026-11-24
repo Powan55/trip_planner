@@ -17,7 +17,7 @@ import {
 } from './sections';
 
 export const metadata = {
-  title: 'Nepal · Nepal × Japan Journey',
+  title: 'Nepal · Trip Journey',
   description: 'Kathmandu Valley guide — temples, markets, photography spots, nightlife, local foods, and cultural etiquette for the Nepal leg (Dec 9–18).',
 };
 

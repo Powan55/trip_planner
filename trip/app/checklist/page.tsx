@@ -13,7 +13,7 @@ import GuideCards from '@/components/guide-cards';
 import { DocsChecklist, PreflightChecks } from './sections';
 
 export const metadata = {
-  title: 'Documents & Readiness · Nepal × Japan Journey',
+  title: 'Documents & Readiness · Trip Journey',
   description:
     'Critical travel documents and a day-zero readiness checklist for the Nepal and Japan trip — check off as you go, saved on this device and synced across your travelers.',
 };

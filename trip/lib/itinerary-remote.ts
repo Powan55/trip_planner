@@ -396,6 +396,11 @@ export function subscribeRemote(onDead?: () => void): () => void {
       // it wins per row and its day is pushed (#1124).
       const remoteDefaulted = plans.map(defaultDayForMerge);
       const localByDate = new Map(loadPlans().map((d) => [d.date, d]));
+      // The winner can equal remote with its keys in another order; that is not a change to push.
+      const canon = (_k: string, v: unknown) =>
+        v && typeof v === 'object' && !Array.isArray(v)
+          ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)))
+          : v;
       const resolved = remoteDefaulted.map((rd) => {
         const localById = new Map((localByDate.get(rd.date)?.items ?? []).map((i) => [i.id, i]));
         let changed = false;
@@ -403,7 +408,7 @@ export function subscribeRemote(onDead?: () => void): () => void {
           const l = localById.get(r.id);
           if (!l) return r;
           const w = resolvePair(l, r, DEFAULT_POLICY);
-          if (JSON.stringify(w) === JSON.stringify(r)) return r;
+          if (JSON.stringify(w, canon) === JSON.stringify(r, canon)) return r;
           changed = true;
           return w;
         });
