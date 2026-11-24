@@ -63,7 +63,7 @@ function HighlightCard({ highlight, plate }: { highlight: InspirationHighlight; 
             src={highlight.image}
             alt={highlight.alt}
             fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 85vw"
+            sizes={`(min-width: 1024px) ${plate === 1 ? 66 : 33}vw, (min-width: 640px) 50vw, 85vw`}
             className="object-cover"
             fallback={
               // The plate's own empty frame: the shape stays at full size rather than
@@ -104,7 +104,7 @@ export default function TravelInspiration() {
           </span>
         </div>
 
-        <div className="grid gap-4 px-gut sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 px-gut sm:grid-cols-2 lg:grid-cols-3 lg:[&>:first-child]:col-span-2">
           {INSPIRATION_HIGHLIGHTS.map((highlight, i) => (
             <HighlightCard key={highlight.id} highlight={highlight} plate={i + 1} />
           ))}
