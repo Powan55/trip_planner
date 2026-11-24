@@ -1893,6 +1893,9 @@ html[data-vt-active] .animate-route-fade {
   ::view-transition-new(vt-header),
   ::view-transition-old(vt-tabbar),
   ::view-transition-new(vt-tabbar) { animation: none; }
+  /* With the cross-fade gone the old snapshot would sit under a transparent navbar. */
+  ::view-transition-old(vt-header),
+  ::view-transition-old(vt-tabbar) { display: none; }
   ::view-transition-old(root) { animation-duration: 100ms; }
   ::view-transition-new(root) { animation-duration: 200ms; }
 }
