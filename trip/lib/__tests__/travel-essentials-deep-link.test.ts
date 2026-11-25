@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S276 (P9) — the offline-dimmed deep-link (`DeepLink`, `components/travel-essentials-card.tsx`),
+// The offline-dimmed deep-link (`DeepLink`, `components/travel-essentials-card.tsx`),
 // exercised by RENDERING the real exported component (same createRoot+act harness
 // `lib/__tests__/story-photos.test.ts` uses — no new dep, no JSX in this file since the
 // standalone vitest.config.ts only globs `*.test.ts`).

@@ -3,14 +3,14 @@ import { freshCopyOf } from '@/hooks/use-itinerary';
 import type { ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S128 duplicate-item relies on the EXPORTED `freshCopyOf` (the S127/D-032 stripper) to build
+ * Duplicate-item relies on the EXPORTED `freshCopyOf` (the D-032 stripper) to build
  * a "same content, another day" copy that is handed to `addItem`. These checks pin the two
  * properties the duplicate correctness depends on:
  *   1. the copy carries the source's CONTENT (title/category/location/notes/sourceId/time…);
  *   2. it gets a FRESH id and drops the sync ordering fields (deleted/rev/hlc/ord), so it can
  *      never reuse the source id, inherit a tombstone, nor land on the source's position.
  */
-describe('freshCopyOf — S128 duplicate fresh-id copy', () => {
+describe('freshCopyOf — duplicate fresh-id copy', () => {
   const source: ItineraryItem = {
     id: 'src-id-123',
     title: 'Ramen at Ichiran',

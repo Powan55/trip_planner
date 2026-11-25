@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 //
-// S214 (D-007/D-056) — <Reveal>'s CSS path must NEVER render under
+// D-007/D-056: <Reveal>'s CSS path must NEVER render under
 // prefers-reduced-motion, mirroring scroll-progress.tsx's own reduced-motion contract
-// (e2e/motion.spec.ts's S180 "reduced motion: JS path only, CSS element never rendered"
+// (e2e/motion.spec.ts's scroll-progress "reduced motion: JS path only, CSS element never rendered"
 // pack) — even when the browser DOES support `animation-timeline: view()`. Kept in its OWN
 // file (see reveal-css-path.test.ts's header comment): framer-motion's `useReducedMotion()`
 // lazily latches a module-level singleton on its first call in this file's module registry,
@@ -68,7 +68,7 @@ afterEach(() => {
   delete (globalThis as { CSS?: unknown }).CSS;
 });
 
-describe('Reveal (S214) — prefers-reduced-motion: reduce → CSS path NEVER renders', () => {
+describe('Reveal — prefers-reduced-motion: reduce → CSS path NEVER renders', () => {
   it('renders the framer fallback even though animation-timeline: view() IS supported', () => {
     stubCssSupport(true);
     const { container } = render(

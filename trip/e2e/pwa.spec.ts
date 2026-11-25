@@ -5,7 +5,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * PWA / service-worker E2E pack (slice S84, D-073 / D-086) — E2E wave 4 (part 1).
+ * PWA / service-worker E2E pack (D-073 / D-086).
  *
  * Proves the hand-rolled service worker (emitted to `out/sw.js` by
  * scripts/gen-sw.mjs, D-073 LOCKED) actually installs, activates, precaches the
@@ -118,7 +118,7 @@ async function safeEval<T>(page: Page, fn: () => T | Promise<T>): Promise<T> {
 }
 
 /**
- * The two crash screens, kept as named constants because the WHOLE POINT of S364
+ * The two crash screens, kept as named constants because the WHOLE POINT of the shell guard
  * is that these two are different failures with different blast radii:
  *   ROOT_CRASH  — `app/global-error.tsx`. Fires ONLY when the ROOT LAYOUT itself
  *                 throws. Nothing survives it: no navbar, no footer, no content,
@@ -130,9 +130,9 @@ const ROOT_CRASH = 'The app hit a problem';
 const ROUTE_CRASH = 'Something went wrong';
 
 /**
- * S364 — assert the ROOT APP SHELL really rendered, not a whole-app crash screen.
+ * Assert the ROOT APP SHELL really rendered, not a whole-app crash screen.
  *
- * 🔴 WHY THIS EXISTS. Until S364 the offline guard below asserted only:
+ * 🔴 WHY THIS EXISTS. The offline guard below used to assert only:
  *     await expect(page.locator('h1').first()).toBeVisible();
  *     await expect(page.locator('h1').first()).not.toHaveText('');
  * BOTH crash screens render a visible, non-empty `h1`, so the check PASSED on an
@@ -154,14 +154,14 @@ const ROUTE_CRASH = 'Something went wrong';
  *       chunks are missing still serves the correct <title>, so title/`h1` checks
  *       cannot tell a working app from a dead one. (b) can.
  *
- * MEASURED, not asserted: run against the pre-S364 build this fails on (a) with
+ * MEASURED, not asserted: run against the pre-fix build this fails on (a) with
  * `Received: 1` and the page snapshot containing nothing but the global-error
  * alert.
  *
  * ⚠️ WHAT THIS DELIBERATELY DOES *NOT* CLAIM. It does not assert the route BODY
  * rendered. On a cold-offline install a route's own `dynamic()` sections (e.g.
  * `app/plan/sections.tsx -> @/components/calendar-planner`) are still not
- * precached — the deliberate S359B scoping trade — so `/plan/` currently paints
+ * precached — the deliberate scoping trade — so `/plan/` currently paints
  * ROUTE_CRASH inside working chrome. That is a REAL, measured residual, tracked by
  * the `test.fail()`-marked spec directly below, NOT something this helper quietly
  * tolerates. Do not "fix" that by widening this helper: the two guarantees have
@@ -202,7 +202,7 @@ async function expectRootShellRendered(page: Page, where: string): Promise<void>
 }
 
 /**
- * S365 — assert the ROUTE BODY really rendered, not `app/error.tsx` inside working
+ * Assert the ROUTE BODY really rendered, not `app/error.tsx` inside working
  * chrome. The route-level companion to `expectRootShellRendered` above, and it is
  * deliberately the SAME shape: crash ABSENCE **plus** real-content PRESENCE.
  *
@@ -213,12 +213,12 @@ async function expectRootShellRendered(page: Page, where: string): Promise<void>
  *     EMPTY slot and NO error at all) — a silent no-op check.
  *
  * And `body` must be a locator for something inside an `ssr:false` island, never an
- * `h1` or a `<title>` check. Route HTML IS precached (D-073/S271), so a cold-offline
+ * `h1` or a `<title>` check. Route HTML IS precached (D-073), so a cold-offline
  * route whose body chunk is missing still serves its CORRECT `<title>` from cache;
  * and `app/error.tsx` replaces the page with its own visible, non-empty `h1`
- * ("Something went wrong"). MEASURED on the S365 red run: the dead /plan/ page's
+ * ("Something went wrong"). MEASURED on the red run: the dead /plan/ page's
  * ONLY level-1 heading was the crash screen's. So title/`h1` checks pass on a
- * completely dead route body — the zero-discriminating-power trap S364 found in
+ * completely dead route body — the zero-discriminating-power trap the shell guard found in
  * this file's own guard. Verified for the two anchors used below:
  * `grep -c calendar-toolbar out/plan/index.html` = 0 and
  * `grep -c 'id="nepal"' out/nepal/index.html` = 0, while each appears in exactly
@@ -226,7 +226,7 @@ async function expectRootShellRendered(page: Page, where: string): Promise<void>
  * executed.
  */
 /**
- * S365B — the route list is DERIVED from the built output, never hand-written.
+ * The route list is DERIVED from the built output, never hand-written.
  *
  * Ground truth is `out/`: every directory holding an `index.html` is a real built
  * route. Deliberately NOT read from `out/sw.js`'s precache list — that would make
@@ -247,7 +247,7 @@ function discoverBuiltRoutes(): string[] {
 }
 
 /**
- * S365B — the per-route body anchor. The ROUTE LIST is derived (above); these ANCHORS
+ * The per-route body anchor. The ROUTE LIST is derived (above); these ANCHORS
  * are declared, because "did this route's own content render" is domain knowledge that
  * cannot be derived, and a generic signal would be vacuous (the chrome mounts on every
  * route even when the body is dead, so "some client-only node exists" proves nothing).
@@ -323,8 +323,8 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     anchor: '[data-testid="map-island-unavailable"]',
     what: "the MapIslandBoundary pane for the MapSection island (app/map/sections.tsx -> @/components/map-section), which is what /map/ owes cold-offline",
     // 🔴 THE ONE ROUTE WHOSE COLD-OFFLINE CONTRACT IS THE BOUNDARY, NOT THE BODY, and it has
-    // moved twice. D-271 ① kept maplibre out of the precache and this was a `skip`; S394
-    // precached the engine and promoted it to `[data-testid="map-shell"]`; V6-14 withholds
+    // moved twice. D-271 ① kept maplibre out of the precache and this was a `skip`; a later build
+    // precached the engine and promoted it to `[data-testid="map-shell"]`; the current build withholds
     // the engine again (~363 KB gzip off every install, spent on the one route D-274 already
     // declines to promise offline) and runtime-caches it on the first ONLINE /map visit.
     //
@@ -438,7 +438,7 @@ async function expectRouteBodyRendered(
   ).toBeAttached();
 }
 
-test.describe('S84 · service worker registers + activates (D-073 / D-086)', () => {
+test.describe('service worker registers + activates (D-073 / D-086)', () => {
   test('the SW reaches `activated` and controls the page on the served production build', async ({
     page,
   }) => {
@@ -467,7 +467,7 @@ test.describe('S84 · service worker registers + activates (D-073 / D-086)', () 
   });
 });
 
-test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
+test.describe('precache manifest present (D-073 shell contract)', () => {
   test('a trip-precache-* cache exists and holds the shell (root, static chunks, manifest)', async ({
     page,
   }) => {
@@ -499,7 +499,7 @@ test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
     expect(summary.urls.some((u) => u.startsWith('/_next/static/'))).toBe(true);
     // The other route HTMLs are precached too (nav offline works for all routes).
     // gen-sw.mjs DISCOVERS routes by walking out/ (no hand-kept ROUTE_HTML), so
-    // every static route is precached automatically. S320 (D-231/D-170): the two new
+    // every static route is precached automatically. D-231/D-170: the two new
     // routes `/guides/` and `/more/` are asserted here so the 5-tab IA's Guides + More
     // tabs resolve offline like every other route.
     for (const route of ['/plan/', '/nepal/', '/japan/', '/map/', '/travel/', '/guides/', '/more/']) {
@@ -554,7 +554,7 @@ test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
   });
 });
 
-test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () => {
+test.describe('offline cold navigation (SW cache-first nav handler)', () => {
   test('with the network offline, a fresh navigation still serves the app shell', async ({
     page,
     context,
@@ -584,8 +584,8 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     //    handler is cache-first on the normalized path (/plan/ is precached), so
     //    this must resolve from cache — not the (now-dead) network.
     //
-    //    S364: this is the COLD-INSTALL condition, faithfully. The registrar does
-    //    NOT reload on the first-install claim (S113E removed it —
+    //    This is the COLD-INSTALL condition, faithfully. The registrar does
+    //    NOT reload on the first-install claim (that was removed;
     //    components/service-worker-registrar.tsx `hadController`), so the chunks
     //    step 1 fetched were fetched by an UNCONTROLLED page: the worker never saw
     //    them and never backfilled them. Whatever renders here renders from the
@@ -812,13 +812,13 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
   });
 
   /**
-   * S365 — the S364 residual, now CLOSED and guarded for real.
+   * The shell guard's residual, now CLOSED and guarded for real.
    *
-   * This was `test.fail('KNOWN GAP (S364)')`: S364 restored the ROOT LAYOUT's
+   * This was `test.fail('KNOWN GAP')`: the shell fix restored the ROOT LAYOUT's
    * ssr:false islands to the precache (so the chrome renders cold-offline on every
    * route — the test above), but a route's OWN `dynamic()` sections were still not
    * precached, so a cold-offline `/plan/` painted `app/error.tsx` where the planner
-   * should be, with "Loading chunk … failed" as the message. S365 widened
+   * should be, with "Loading chunk … failed" as the message. The fix widened
    * `gen-sw.mjs`'s island derivation from the root layout to the root layout PLUS
    * every `app/**​/page.tsx`, which closes it — so the marker becomes a real
    * assertion.
@@ -829,7 +829,7 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
    *     CORRECT on a completely dead route body;
    *   - `app/error.tsx` renders a visible, non-empty `h1` of its own.
    * So `h1`/title checks have ZERO discriminating power here — that is the exact
-   * vacuity S364 found in this file's own offline guard. `expectRouteBodyRendered`
+   * vacuity the shell guard found in this file's own offline guard. `expectRouteBodyRendered`
    * asserts crash ABSENCE **plus** real-content PRESENCE, where the content anchor
    * is inside an `ssr:false` island and therefore CANNOT appear in the cached HTML.
    */
@@ -837,7 +837,7 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     page,
     context,
   }) => {
-    // ~16 cold-offline navigations do not fit the 30s default (S365B measured the
+    // ~16 cold-offline navigations do not fit the 30s default (measured: the
     // default expiring mid-run). This is one test on purpose: the SW install + precache
     // warm-up is the expensive part and is shared across every route here.
     test.setTimeout(180_000);
@@ -955,14 +955,14 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
   };
 
   /**
-   * S365 / S394 — a missing maplibre chunk must DEGRADE, not crash.
+   * A missing maplibre chunk must DEGRADE, not crash.
    *
    * In the App Router a `dynamic()` whose chunk is missing makes `React.lazy` THROW,
    * and the nearest boundary is `app/error.tsx` — so the failure is not "no map", it
    * is "no /map/ route at all", hero included. `components/map-island-boundary.tsx`
    * catches that throw at the call site and renders a named, honest pane.
    *
-   * 🔴 WHAT S394 CHANGED, AND WHY THIS TEST WAS KEPT RATHER THAN DELETED. It used to
+   * 🔴 WHAT PRECACHING THE ENGINE CHANGED, AND WHY THIS TEST WAS KEPT RATHER THAN DELETED. It used to
    * get the missing-chunk condition FOR FREE: D-271 ① kept maplibre out of the
    * precache, so cold-offline the chunk simply was not there. The owner reversed that
    * ruling and the engine now ships with the install — which removes the condition,
@@ -973,7 +973,7 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
    * to be noticed. So the test now CREATES the condition itself, by evicting maplibre
    * from the cache — which is a closer model of the real remaining failure anyway.
    *
-   * 🔴 WHAT V6-14 CHANGED. The engine is withheld from the precache AGAIN, and is now
+   * 🔴 WHAT WITHHOLDING IT AGAIN CHANGED. The engine is withheld from the precache AGAIN, and is now
    * runtime-cached by the SW's static cacheFirst branch on the first ONLINE `/map/`
    * visit. That broke this test in the one way a cache test breaks: there was nothing
    * left in any cache to evict, so it died on its own anti-vacuity guard ("no maplibre
@@ -1005,7 +1005,7 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
       )
       .toBeGreaterThan(20);
 
-    // V6-14: nothing to evict until something put it there. ONE online /map/ visit is the
+    // Nothing to evict until something put it there. ONE online /map/ visit is the
     // whole mechanism — the island's chunks and then the engine itself are same-origin,
     // non-image, non-navigate GETs, so they land on the SW's last fetch branch and
     // cacheFirst() writes them into the runtime cache (#945). `map-shell` renders only from inside the
@@ -1031,8 +1031,8 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     await context.setOffline(true);
     await page.goto('/map/', { waitUntil: 'load' });
 
-    // The root layout still mounts (S364) and the route boundary did NOT catch a
-    // throw (S365) — i.e. the missing map chunk was contained at the island.
+    // The root layout still mounts and the route boundary did NOT catch a
+    // throw, i.e. the missing map chunk was contained at the island.
     await expectRootShellRendered(page, 'offline cold nav to /map/');
     await expect(
       page.getByRole('heading', { name: ROUTE_CRASH, exact: true }),
@@ -1071,7 +1071,7 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
   });
 });
 
-test.describe('S84 · SW update flow (D-073 waiting→toast→one-reload)', () => {
+test.describe('SW update flow (D-073 waiting→toast→one-reload)', () => {
   test('the SKIP_WAITING message handler is present in the shipped sw.js', async ({ page }) => {
     // The DETERMINISTIC half of the update flow: prove the message-channel wiring
     // the registrar's "Refresh" action posts to actually exists in the served
@@ -1118,7 +1118,7 @@ test.describe('S84 · SW update flow (D-073 waiting→toast→one-reload)', () =
   });
 });
 
-test.describe('S221 · manifest shortcuts (installed-icon long-press jumps)', () => {
+test.describe('manifest shortcuts (installed-icon long-press jumps)', () => {
   test('the manifest ships 3 shortcuts, each with name+url, resolving to real routes', async ({
     page,
   }) => {
@@ -1149,7 +1149,7 @@ test.describe('S221 · manifest shortcuts (installed-icon long-press jumps)', ()
   });
 });
 
-test.describe('S220 · manifest share_target (OS Share-sheet integration)', () => {
+test.describe('manifest share_target (OS Share-sheet integration)', () => {
   test('the manifest declares a GET share_target for /share/ with title/text/url params', async ({
     page,
   }) => {
@@ -1161,7 +1161,7 @@ test.describe('S220 · manifest share_target (OS Share-sheet integration)', () =
 
     const st = manifest.share_target;
     expect(st).toBeTruthy();
-    // GET is the ONLY method a static export (no server) can serve (S220).
+    // GET is the ONLY method a static export (no server) can serve.
     expect(st.method).toBe('GET');
     // Trailing-slash action, matching how every other static route resolves.
     expect(st.action).toBe('/share/');
@@ -1171,7 +1171,7 @@ test.describe('S220 · manifest share_target (OS Share-sheet integration)', () =
     await page.goto(st.action, { waitUntil: 'load' });
     await expect(page.locator('h1').first()).toBeVisible();
 
-    // Adding share_target must NOT have disturbed the S221 shortcuts.
+    // Adding share_target must NOT have disturbed the shortcuts.
     expect(Array.isArray(manifest.shortcuts)).toBe(true);
     expect(manifest.shortcuts).toHaveLength(3);
   });

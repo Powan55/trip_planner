@@ -4,7 +4,7 @@ import { setActiveTripId } from '@/core/storage/gateway';
 import { setTripConfig, type TripConfigBlock } from '@/core/trips/registry';
 
 /**
- * S407 — the ONE leg-label / place-label helper (`lib/leg-label.ts`).
+ * The ONE leg-label / place-label helper (`lib/leg-label.ts`).
  *
  * What this suite has to discriminate (each of these shipped in the app before this slice):
  *   - "New York, Nepal"      — the Dec-9 planner header, because `country` (a LEG ID driving
@@ -39,7 +39,7 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-describe('S407 default pack — the day line names the day, not the leg id', () => {
+describe('default pack — the day line names the day, not the leg id', () => {
   it('Day 1 renders "New York, USA" from the seed row, while its leg id stays nepal', async () => {
     const { dayPlaceLabel } = await loadHelper();
     const { SAMPLE_ITINERARY } = await import('@/lib/sample-itinerary');
@@ -135,7 +135,7 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
   });
 });
 
-describe('S407 custom trip — neither a foreign country nor a duplicated city', () => {
+describe('custom trip — neither a foreign country nor a duplicated city', () => {
   beforeEach(() => {
     setActiveTripId('custom-bali');
     setTripConfig('custom-bali', BALI);

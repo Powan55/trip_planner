@@ -3,9 +3,9 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * FU-34 — `/map` favorites (popup heart + "Saved" filter) + offline connectivity hint
- * (dormant `out/` build). The deferred map-halves of S149 (favorites) and S154
- * (offline UX), now unblocked by S135 (TripMap extraction) + S151 (map trip-mode).
+ * `/map` favorites (popup heart + "Saved" filter) + offline connectivity hint
+ * (dormant `out/` build). The deferred map-halves of guide favorites and offline UX,
+ * now unblocked by the TripMap extraction and map trip-mode.
  *
  * Proves, on a real run:
  *   1. Favorite from a map popup persists to the SAME flat gateway-key-14 store
@@ -104,7 +104,7 @@ function trackErrors(page: Page) {
   return errors;
 }
 
-test.describe('FU-34 · favorite a place from a map popup, persists across reload', () => {
+test.describe('favorite a place from a map popup, persists across reload', () => {
   test('favorite via the popup heart persists to the shared favorites store and survives a reload', async ({
     page,
   }) => {
@@ -141,7 +141,7 @@ test.describe('FU-34 · favorite a place from a map popup, persists across reloa
   });
 });
 
-test.describe('FU-34 · "Saved" filter chip — appears only with >=1 favorite, narrows the marker set', () => {
+test.describe('"Saved" filter chip — appears only with >=1 favorite, narrows the marker set', () => {
   test('chip absent at 0 favorites, appears at 1, and toggling it narrows the rendered markers', async ({
     page,
   }) => {
@@ -205,7 +205,7 @@ test.describe('FU-34 · "Saved" filter chip — appears only with >=1 favorite, 
   });
 });
 
-test.describe('FU-34 · map favorites and guide favorites do not cross-contaminate', () => {
+test.describe('map favorites and guide favorites do not cross-contaminate', () => {
   test('a map favorite does not appear as a guide favorite, and vice versa', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -236,7 +236,7 @@ test.describe('FU-34 · map favorites and guide favorites do not cross-contamina
   });
 });
 
-test.describe('FU-34 · offline connectivity hint', () => {
+test.describe('offline connectivity hint', () => {
   test('appears when offline, clears when back online, no console errors', async ({ page, context }) => {
     const errors = trackErrors(page);
     await gotoMap(page);
@@ -246,7 +246,7 @@ test.describe('FU-34 · offline connectivity hint', () => {
     // connectivity via context.setOffline waits on this same signal first). Without it,
     // `context.setOffline(true)` below can land while the initial map load still has an
     // in-flight cache-miss fetch outstanding (e.g. a self-hosted glyph PBF — same-origin,
-    // deliberately NOT precached per V6-14, so it's a real network round trip on first
+    // deliberately NOT precached, so it's a real network round trip on first
     // load). A request killed mid-flight by the offline toggle surfaces as a bare
     // `Failed to load resource: net::ERR_FAILED`, which KNOWN_TILE_FETCH_NOISE does not
     // match (it only covers openfreemap/AJAXError/ERR_INTERNET_DISCONNECTED) and which then
@@ -280,7 +280,7 @@ test.describe('FU-34 · offline connectivity hint', () => {
   });
 });
 
-test.describe('FU-34 · the favorite heart is prop-gated OFF on /plan\'s day-map', () => {
+test.describe('the favorite heart is prop-gated OFF on /plan\'s day-map', () => {
   test('the day-map popup on /plan never shows a favorite heart', async ({ page }) => {
     const ITINERARY_KEY = 'nepal_japan_itinerary';
     const FIXTURE_DAY = '2026-12-09';
@@ -326,7 +326,7 @@ test.describe('FU-34 · the favorite heart is prop-gated OFF on /plan\'s day-map
   });
 });
 
-test.describe('FU-34 · axe /map with the favorites UI present', () => {
+test.describe('axe /map with the favorites UI present', () => {
   test('axe: /map has zero serious/critical violations with a favorite + Saved chip + offline hint present', async ({
     page,
     context,
@@ -340,7 +340,7 @@ test.describe('FU-34 · axe /map with the favorites UI present', () => {
 
     await context.setOffline(true);
     await expect(page.getByTestId('map-offline-hint')).toBeVisible();
-    // S336: the app-wide offline banner (fixed, fades opacity 0->1 on mount) can be sampled by
+    // The app-wide offline banner (fixed, fades opacity 0->1 on mount) can be sampled by
     // axe mid-fade, deflating its solid text-ink-mid below AA (a false positive — at rest it
     // composites ≥AA on the glass pill). Settle it to opacity 1 first (s157 settle-guard pattern).
     const offlineBanner = page.getByTestId('offline-banner');

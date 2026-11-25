@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 //
-// S146 — the per-domain "clear all" mechanics behind the Settings page, exercised by RENDERING the
+// The per-domain "clear all" mechanics behind the Settings page, exercised by RENDERING the
 // real hooks (the same renderHook shim over react-dom/client + act as use-itinerary-clearday-sync
 // / use-budget-sync — no new dependency). The CENTERPIECE property is that each clear PROPAGATES
-// under sync (it is the mirror of S145 restore-to-empty), not a blind local wipe the next server
+// under sync (it is the mirror of restore-to-empty), not a blind local wipe the next server
 // snapshot would unwind:
 //
 //   ITINERARY.clearAll — SYNC: tombstones EVERY live item across EVERY day in ONE commit → ONE

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S156 — the POST-TRIP STORY RECAP (`/recap`, `components/trip-story-recap.tsx`) E2E pack.
+ * The POST-TRIP STORY RECAP (`/recap`, `components/trip-story-recap.tsx`) E2E pack.
  *
  * Mirrors `e2e/recap-spend.spec.ts`'s harness: signs in with a real Trip Token EXPLICITLY (its
  * own init-script), drives the clock via `?today=`, seeds the itinerary/journal/expense stores
@@ -13,7 +13,7 @@ import type { Page } from '@playwright/test';
  *
  * A firm island-ready wait (`trip-story-recap` visible) runs before every deeper assertion —
  * the island is `next/dynamic(ssr:false)`, so asserting immediately after `goto` risks the
- * FU-32 island-race flake.
+ * island-race flake.
  *
  * Proves, on real rendered output against the served static `out/` build:
  *   1. POST-TRIP (`?today=2027-01-15`, seeded plan + journal + spend): the full chronological
@@ -41,8 +41,8 @@ async function seedTraveler(page: Page, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
 }
 
@@ -52,7 +52,7 @@ async function gotoRecapWithClock(page: Page, todayParam: string) {
   await page.goto(`/recap/?today=${todayParam}`, { waitUntil: 'domcontentloaded' });
 }
 
-/** Block until the island has mounted (any of the three states) — the FU-32 race guard. */
+/** Block until the island has mounted (any of the three states): the island-race guard. */
 async function settleStory(page: Page) {
   await expect(page.getByTestId('trip-story-recap')).toBeVisible();
 }
@@ -105,7 +105,7 @@ async function seedStores(page: Page) {
   await page.reload({ waitUntil: 'domcontentloaded' });
 }
 
-test.describe('S156 post-trip story — the full narrative renders', () => {
+test.describe('post-trip story — the full narrative renders', () => {
   test('post-trip: the seeded day weaves done/planned, journal highlight, and spend; survives a reload', async ({
     page,
   }) => {
@@ -155,7 +155,7 @@ test.describe('S156 post-trip story — the full narrative renders', () => {
   });
 });
 
-test.describe('S156 post-trip story — pre/in-trip stays locked', () => {
+test.describe('post-trip story — pre/in-trip stays locked', () => {
   test('in-trip: a direct-URL visit shows the "unlocks after the trip" state, not a half-built story', async ({
     page,
   }) => {

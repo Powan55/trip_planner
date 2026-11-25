@@ -2,14 +2,14 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * Fake-clock countdown + date-boundary pack (slice S82, D-075) — E2E wave 2.
+ * Fake-clock countdown + date-boundary pack (D-075).
  *
  * Drives the app-wide clock via the `?today=YYYY-MM-DD` override
  * (`lib/trip-now.ts`, LOCKED D-075) against the served static `out/` build, and
  * proves the hero countdown / travel-mode panel and the stat row's clock-derived
  * live cell flip correctly across the whole trip window: pre-trip countdown math,
  * the in-trip "Day N — city" panel, the Dec-19 Nepal→Japan boundary (the
- * permanent B-01 regression guard fixed at S60), the full four-corner boundary
+ * permanent B-01 regression guard), the full four-corner boundary
  * matrix, the post-trip state, and `?today=off` restoring the real clock.
  *
  * ── Determinism notes (read before touching numbers) ────────────────────────
@@ -118,7 +118,7 @@ test.describe('Pre-trip countdown + total-days math (D-016 computeCountdown, fro
     //
     // The TOTAL has never moved (29d 12h; totalDays still 29) and still sums back to the
     // exact target instant. Only the bucketing has, across three schemes now: this pinned
-    // `04` weeks / `01` day, then `29` days once "4 weeks" was banned (S423), then issue #11
+    // `04` weeks / `01` day, then `29` days once "4 weeks" was banned, then issue #11
     // / D-306 carried it into a fixed 28-day month (1 month 1 day). Issue #60 / D-313 reverts
     // to calendar-accurate months: Nov 9 -> Dec 9 has not completed a calendar month one day
     // short of the borrow-adjusted walk target, so months is 0 again and the 29-day residue
@@ -184,11 +184,11 @@ test.describe('In-trip flip — "Day N — city" panel replaces the countdown', 
 
 test.describe('Dec-19 boundary — permanent B-01 regression guard', () => {
   test('?today=2026-12-19 -> Day 11, Osaka/Japan (NOT Nepal/Kathmandu)', async ({ page }) => {
-    // B-01 (fixed S60): a naive `new Date('2026-12-19')` UTC-midnight parse could
+    // B-01: a naive `new Date('2026-12-19')` UTC-midnight parse could
     // slip Dec 19 into the Nepal window at negative UTC offsets. The local-noon
     // override construction in trip-now.ts + the lexicographic getCountryForDate
     // comparison in trip-data.ts are the fix; this is the permanent guard.
-    // S112 (D-124): the Japan leg is now Osaka -> Kyoto -> Tokyo, so Dec-19's city
+    // D-124: the Japan leg is now Osaka -> Kyoto -> Tokyo, so Dec-19's city
     // changed from Tokyo to Osaka — the invariant this guard actually protects
     // ("Japan window, NOT Kathmandu") is unchanged.
     await gotoWithClock(page, '2026-12-19');
@@ -205,11 +205,11 @@ test.describe('Dec-19 boundary — permanent B-01 regression guard', () => {
   });
 });
 
-test.describe('Boundary matrix (S65) — all four corners of the trip window', () => {
+test.describe('Boundary matrix — all four corners of the trip window', () => {
   const CASES = [
     // D-315 (owner-ruled 2026-08-14, amending D-285): Dec 9 is spent in Syracuse, JFK and the air
     // and is NAMED New York, so the hero names New York — the day is still Day 1 of the Nepal leg.
-    // Changed in deliberate lockstep with the content root (the S112/D-124 pattern for a frozen
+    // Changed in deliberate lockstep with the content root (the D-124 pattern for a frozen
     // boundary city).
     { today: '2026-12-09', day: '1', city: 'New York', label: 'Dec 9 -> Day 1 (Nepal start)' },
     { today: '2026-12-18', day: '10', city: 'Kathmandu', label: 'Dec 18 -> Day 10 (Nepal end)' },
@@ -270,7 +270,7 @@ test.describe('Post-trip state', () => {
 const FOLD_MARGIN_PX = 12;
 const FOLD_HEIGHT_PX = 740;
 
-test.describe('S258: hero first CTA clears the fold on an xs viewport', () => {
+test.describe('hero first CTA clears the fold on an xs viewport', () => {
   // 320 is the narrowest supported width and the WORST case (the badge and the CTA row
   // are widest relative to the viewport there); it used to sit 19.25px BELOW the fold on
   // every platform, and nothing covered it — CI only ever caught the 345px wrap by
@@ -285,7 +285,7 @@ test.describe('S258: hero first CTA clears the fold on an xs viewport', () => {
       await gotoWithClock(page, '2026-11-09');
 
       // The countdown grid must still be present (only the total-days ring is cut on xs;
-      // S321 removed the decorative quote entirely).
+      // the decorative quote was removed entirely).
       await expect(page.getByTestId('countdown-days')).toBeVisible();
       // The xs-hidden element: the total-days ring wrapper is display:none below 420px.
       await expect(page.getByTestId('countdown-total-days')).toBeHidden();
@@ -294,12 +294,12 @@ test.describe('S258: hero first CTA clears the fold on an xs viewport', () => {
       // (the trip strip above the hero especially) each render a sized placeholder until
       // they mount, so a geometry read taken cold sees the hero ~700px lower than it ends
       // up. Waiting for zero pending placeholders is the precedent in
-      // `s158-expense-csv-and-home-nav.spec.ts`, and it is D-093-clean: a real DOM
+      // `expense-csv-and-home-nav.spec.ts`, and it is D-093-clean: a real DOM
       // condition, no `networkidle` and no sleep. (Do NOT wait on the strip's testid
       // instead — that island renders null when signed out and the wait would hang.)
       await expect(page.locator('[data-lazy-visible="pending"]')).toHaveCount(0);
 
-      // S321 — the hero collapsed to ONE primary CTA (was "View Itinerary" among 4).
+      // The hero collapsed to ONE primary CTA (was "View Itinerary" among 4).
       const cta = page.getByRole('link', { name: 'Open Planner' });
       await expect(cta).toBeVisible();
       const box = await cta.boundingBox();

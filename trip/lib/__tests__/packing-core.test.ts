@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S206 — pure packing-checklist core (D-016/D-099). `core/packing/model.ts` is framework-free;
+ * Pure packing-checklist core (D-016/D-099). `core/packing/model.ts` is framework-free;
  * these tests pin the type guard (`isPackingCategory`), the built-in `DEFAULT_TEMPLATE` shape,
  * the sanitizer (`sanitizeItems`/`sanitizeItem` — total, id/label/category-required, dedupe by
  * id, "seed the template when absent/corrupt/empty"), and the pure transforms (`toggleItem`,

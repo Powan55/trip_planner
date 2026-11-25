@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S130 — multi-select + copy-day E2E pack (dormant `out/` build).
+ * Multi-select + copy-day E2E pack (dormant `out/` build).
  *
  * Both bulk ops route through the store's ONE-commit choke-point (deleteItems / copyDay), so
  * they inherit the D-018 persistence hard guarantee. This pack proves, on a real run:
@@ -62,7 +62,7 @@ async function itemIdsWithTitle(page: Page, title: string): Promise<string[]> {
     );
 }
 
-test.describe('S130 multi-select — bulk delete', () => {
+test.describe('multi-select — bulk delete', () => {
   test('select two of three → delete → gone (third stays) → reload → still gone → undo restores', async ({ page }) => {
     await gotoPlan(page);
     await seedFixture(page, [
@@ -117,7 +117,7 @@ test.describe('S130 multi-select — bulk delete', () => {
 });
 
 /**
- * S396 (open item B) — bulk move gained the Undo its two destructive siblings already had.
+ * Bulk move gained the Undo its two destructive siblings already had.
  *
  * 🔴 SCOPE OF THIS PROOF, stated so it is not over-read: `out/` is the DORMANT build, where a move
  * preserves item ids. An inverse built from the ORIGINAL (selected) ids therefore WORKS here — so
@@ -126,7 +126,7 @@ test.describe('S130 multi-select — bulk delete', () => {
  * and the undo survive a reload. The discriminating proof (sync on, fresh landed ids) lives in
  * `lib/__tests__/use-itinerary-bulk-sync.test.ts`.
  */
-test.describe('S396 multi-select — bulk move + Undo', () => {
+test.describe('multi-select — bulk move + Undo', () => {
   test('select two → move to another day → persists → re-move → Undo returns them → persists', async ({ page }) => {
     const titleA = 'S396 move item A';
     const titleB = 'S396 move item B';
@@ -203,7 +203,7 @@ test.describe('S396 multi-select — bulk move + Undo', () => {
   });
 });
 
-test.describe('S130 copy-day — fresh-id copies onto another day', () => {
+test.describe('copy-day — fresh-id copies onto another day', () => {
   test('copy the whole day → target gains fresh-id copies → reload persists', async ({ page }) => {
     const titleA = 'S130 copyday Temple';
     const titleB = 'S130 copyday Ramen';

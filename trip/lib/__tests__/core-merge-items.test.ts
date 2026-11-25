@@ -11,7 +11,7 @@ import {
 import { serialize, type Hlc } from '@/core/sync/hlc';
 
 /**
- * S142 — the id-keyed row merge (`core/sync/merge-items.ts`, D-149). This is the
+ * The id-keyed row merge (`core/sync/merge-items.ts`, D-149). This is the
  * generalization `mergeDay` now delegates to; here it is exercised DIRECTLY over a minimal
  * `SyncedRow` (id + rev/hlc/deleted) so the merge algebra is proven independent of the itinerary
  * `DayPlan` wrapper — the same algebra expenses reuse. Covers: concurrent add/edit/delete
@@ -52,7 +52,7 @@ describe('mergeItems — concurrent add: different ids on each side both survive
   });
 });
 
-describe('gcTombstoneRows — the id-keyed GC analog for expenses (S145, D-153): prunes old, keeps live+recent', () => {
+describe('gcTombstoneRows — the id-keyed GC analog for expenses (D-153): prunes old, keeps live+recent', () => {
   const now = 1_000_000_000_000;
 
   it('drops a tombstone older than the horizon that no live row references', () => {

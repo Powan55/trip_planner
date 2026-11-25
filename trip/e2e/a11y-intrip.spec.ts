@@ -3,28 +3,28 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S110-FIX / F19b — in-trip axe accessibility scan pack.
+ * In-trip axe accessibility scan pack.
  *
- * Closes the blind spot that `e2e/a11y.spec.ts` (S85) leaves open: that pack scans each route
+ * Closes the blind spot that `e2e/a11y.spec.ts` leaves open: that pack scans each route
  * with the app clock OUTSIDE the trip window, so the in-trip surfaces — the Today panel
  * (`today-panel.tsx`, incl. its WeatherCard + JournalCard), the read-only day recap
  * (`trip-recap.tsx`), and the budget / burn-rate panels (`budget-panel.tsx` / `burn-rate-view.tsx`)
  * on `/plan` — are NEVER axe-scanned there. This pack drives the `?today=` override (D-075) INTO the
  * trip window (`2026-12-12`, Day 4 Kathmandu), seeds one journal entry + one expense + a budget
  * through the app's own storage shapes so that content actually renders, scrolls the relevant panels
- * into view, and asserts ZERO serious/critical axe violations — the SAME hard contract as S85.
+ * into view, and asserts ZERO serious/critical axe violations — the SAME hard contract as a11y.spec.ts.
  *
  * ── Harness (mirrors a11y.spec.ts + today.spec.ts) ──────────────────────────────────────────────
  *   - `test`/`expect` from `./fixtures` (signed-in front-door bypass — `tripPlannerToken` seeded
  *     pre-script so the Trip Token wall never opens; otherwise the scan would audit the dialog,
  *     not the page).
- *   - reduced motion is pinned (as today.spec.ts does). S354/D-246 replaced D-100's full-opacity
+ *   - reduced motion is pinned (as today.spec.ts does). D-246 replaced D-100's full-opacity
  *     PIN with a 0.7→1 floor, so that old "the reveals never fade" reasoning no longer holds —
  *     what holds now is that every floored reveal forks on `useReducedMotion()` and its reduced
  *     branch lands at opacity 1, so under the pinned preference this scan still sees fully-opaque
- *     text. That fork is asserted directly in e2e/reveal.spec.ts (S354 describe block).
+ *     text. That fork is asserted directly in e2e/reveal.spec.ts (the reduced-motion floor describe block).
  *   - navigation settles on `waitUntil:'domcontentloaded'` + a real readiness wait on the route's
- *     `dynamic({ssr:false})` island (FU-26/S167 — never `networkidle`, the SW precache defeats it)
+ *     `dynamic({ssr:false})` island (never `networkidle`, the SW precache defeats it)
  *     BEFORE axe runs, so the scan never catches a pre-hydrate frame.
  *   - the serious/critical partition + annotations logging match a11y.spec.ts exactly; moderate/minor
  *     are surfaced but non-fatal.
@@ -111,9 +111,9 @@ async function seedInTrip(page: Page) {
 async function gotoInTrip(page: Page, path: string) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const sep = path.includes('?') ? '&' : '?';
-  // FU-26 (S167): nav settles on `domcontentloaded` + a REAL readiness wait, not `networkidle`.
+  // Nav settles on `domcontentloaded` + a REAL readiness wait, not `networkidle`.
   // The production SW precaches ~80 entries + runs update checks, so the network never idles for
-  // 500ms under load — `networkidle` was the actual axe-scan flake source in S117 (S114/FU-15).
+  // 500ms under load — `networkidle` was the actual axe-scan flake source.
   // Block on the route's in-trip dynamic island (`/plan/` → budget panel, `/` → Today panel) so
   // the scan runs against hydrated content. Assertions downstream are unchanged in strength.
   await page.goto(`${path}${sep}today=${IN_TRIP_DAY}`, { waitUntil: 'domcontentloaded' });
@@ -198,7 +198,7 @@ test.describe('in-trip axe (F19b) — Today panel + recap + budget/burn-rate sca
     // The weather card fetches async and, while pending, renders a loading skeleton whose
     // `aria-busy` div carries an `aria-label` (axe: aria-prohibited-attr [serious]) — block until
     // it resolves to a concrete state so the scan audits the settled card, not the skeleton.
-    // (`networkidle` used to mask this by waiting out the fetch; S167/FU-26 makes the wait explicit.)
+    // (`networkidle` used to mask this by waiting out the fetch; now the wait is explicit.)
     await page.waitForFunction(
       () => {
         const s = document.querySelector('[data-testid="weather-card"]')?.getAttribute('data-state');
@@ -223,7 +223,7 @@ test.describe('in-trip axe (F19b) — Today panel + recap + budget/burn-rate sca
     // Settle: the budget panel (dynamic island) is up.
     await expect(page.getByTestId('budget-panel')).toBeVisible({ timeout: 15_000 });
 
-    // S322: the money views (budget · expenses · burn · settle) sit behind a segmented control, one
+    // The money views (budget · expenses · burn · settle) sit behind a segmented control, one
     // at a time. axe only scans the VISIBLE panel (hidden ones are display:none), so scan each money
     // view in turn. Budget is the default view.
     await expectNoSeriousCritical(page, 'plan?today (budget view)', testInfo);

@@ -37,7 +37,7 @@ import {
 } from '@/core/trips/registry';
 
 /**
- * S238 — known-trips registry (gateway key 26 + core/trips/registry.ts). Pins:
+ * Known-trips registry (gateway key 26 + core/trips/registry.ts). Pins:
  *   - key 26 literal + APP-SCOPED placement (raw transport in the gateway, policy here)
  *   - listKnownTrips: default pack ALWAYS first, sanitize drops malformed entries, self-heal
  *     persists a pre-registry active trip as 'Shared trip'
@@ -48,7 +48,7 @@ import {
 const KEY = 'tripPlannerKnownTrips';
 const read = () => JSON.parse(window.localStorage.getItem(KEY) ?? '[]');
 
-describe('trip registry (S238)', () => {
+describe('trip registry', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -429,8 +429,8 @@ describe('trip registry (S238)', () => {
     });
   });
 
-  // ── removeKnownTrip tombstone cap (S352) ───────────────────────────────────
-  describe('removeKnownTrip — the tombstone list caps at 200, newest-first (S352)', () => {
+  // ── removeKnownTrip tombstone cap ───────────────────────────────────
+  describe('removeKnownTrip — the tombstone list caps at 200, newest-first', () => {
     it('a single forget records exactly one tombstone, newest (only) first', () => {
       upsertKnownTrip('t1', 'One');
       removeKnownTrip('t1');

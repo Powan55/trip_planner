@@ -1,6 +1,6 @@
 # Trip content runbook: how to change the trip plan
 
-> The trip's editable content lives in one schema-validated **content layer** (S122; D-135 /
+> The trip's editable content lives in one schema-validated **content layer** (D-135 /
 > D-136 LOCKED). Every kind of content change is a **one-file edit** with a validator and a
 > runbook row. This is that runbook.
 
@@ -106,7 +106,7 @@ edits automatically, so never edit it.
    its diff shows exactly your one-line change.
 5. `npm test` → green. One file touched; no other module knows or cares.
 
-(This example was run for real once during S122, as edit → validate → revert, to prove the
+(This example was run for real once, as edit → validate → revert, to prove the
 workflow.)
 
 ---
@@ -125,9 +125,9 @@ picks up the new city automatically.
 
 - **Trip dates and the countdown anchor** (D-006, LOCKED). The 32 dates are fixed. This layer
   changes what happens **on** days, never **which** days.
-- **The five S82-frozen boundary cities:** Dec-9/12/18 → Kathmandu, Dec-19 → Osaka, Jan-9 →
+- **The five frozen boundary cities:** Dec-9/12/18 → Kathmandu, Dec-19 → Osaka, Jan-9 →
   Tokyo. Changing one deliberately requires updating the frozen E2E specs
-  (`e2e/countdown.spec.ts`) in lockstep (the S112 / D-124 precedent), so raise it before you start.
+  (`e2e/countdown.spec.ts`) in lockstep (the D-124 precedent), so raise it before you start.
 - **Booking time strings** are rendered verbatim (D-034). Never "correct"
   `totalDuration: '1d 15m'` (it crosses the date line and is right as written).
 - **Anything under the user's storage keys.** The seed is only ever the Vault **fallback**

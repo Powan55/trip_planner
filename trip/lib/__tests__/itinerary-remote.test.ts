@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // This suite tests ONLY the three pure per-day merge primitives exported from
-// itinerary-remote.ts for testability (S77's single permitted production edit:
+// itinerary-remote.ts for testability (the single permitted production edit:
 // adding `export` to their declarations — zero behavior change). It does NOT
 // exercise pushDayChunk, subscribeRemote, or reconcileFirstSnapshot (Firestore I/O,
 // echo-suppression, reconciliation) — those stay untouched by design.

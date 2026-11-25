@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S153 — axe accessibility scan for the new `/journal` route (mirrors `e2e/a11y.spec.ts`'s S85
+ * Axe accessibility scan for the new `/journal` route (mirrors `e2e/a11y.spec.ts`'s
  * pack exactly, incl. the serious/critical-only hard gate + advisory logging), scanned TWICE in
  * one run to prove the result is deterministic (no test-order/flake dependency), not a one-shot
  * pass. Signs in with a real Trip Token (mirrors `nightlife-gate.spec.ts`) rather than the shared
- * `./fixtures` default, deliberately (S153).
+ * `./fixtures` default, deliberately.
  *
  * Scanned in BOTH states:
  *   - the empty state (no journal entries persisted);
@@ -21,8 +21,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   // Settle past the SW's one-off first-load reload (D-073; the a11y.spec.ts idiom) so the scan
@@ -78,7 +78,7 @@ async function assertNoSeriousCritical(page: Page, label: string, testInfo: impo
   ).toEqual([]);
 }
 
-test.describe('S153 axe — /journal empty state (run twice for determinism)', () => {
+test.describe('axe — /journal empty state (run twice for determinism)', () => {
   for (const run of [1, 2] as const) {
     test(`axe run ${run}: /journal empty state has zero serious/critical`, async ({ page }, testInfo) => {
       await gotoAsTraveler(page, '/journal/');
@@ -88,7 +88,7 @@ test.describe('S153 axe — /journal empty state (run twice for determinism)', (
   }
 });
 
-test.describe('S153 axe — /journal populated + editor open', () => {
+test.describe('axe — /journal populated + editor open', () => {
   test('populated list + one row expanded into the JournalCard editor has zero serious/critical', async ({
     page,
   }, testInfo) => {

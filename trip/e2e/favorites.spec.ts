@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S149 — Favorites/bookmarks on guides (guides-scoped) E2E pack.
+ * Favorites/bookmarks on guides (guides-scoped) E2E pack.
  *
  * A traveler can favorite/bookmark a `RecommendationCard` on `/nepal` and `/japan`
  * (`hooks/use-favorites.ts`, gateway key 14, `favoritesStore`, D-130 local-only), and a "Saved"
@@ -48,7 +48,7 @@ async function waitForGuide(page: Page) {
 }
 
 /**
- * S322G — the guide filter facets ("saved" included) fold into a collapsed FilterSheet behind
+ * The guide filter facets ("saved" included) fold into a collapsed FilterSheet behind
  * the pinned "Filters" trigger; search stays on-page. So the `guide-filter-saved` chip only
  * mounts inside the OPEN sheet. Open it to assert against the facet, close it to reach the cards.
  */
@@ -69,7 +69,7 @@ async function readStoredFavorites(page: Page): Promise<string[] | null> {
   }, FAVORITES_KEY);
 }
 
-test.describe('S149 favorites — toggle on a guide card, persists across reload', () => {
+test.describe('favorites — toggle on a guide card, persists across reload', () => {
   test('favorite a card, it persists to localStorage, and survives a reload', async ({ page }) => {
     await goto(page, '/nepal/');
     await waitForGuide(page);
@@ -109,7 +109,7 @@ test.describe('S149 favorites — toggle on a guide card, persists across reload
   });
 });
 
-test.describe('S149 "Saved" filter chip — appears only with >=1 favorite, filters the grid', () => {
+test.describe('"Saved" filter chip — appears only with >=1 favorite, filters the grid', () => {
   test('chip is absent at 0 favorites, appears at 1, filters, and hides again at 0', async ({ page }) => {
     await goto(page, '/nepal/');
     await waitForGuide(page);

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { seedLiveVault, PLACEHOLDER_DUMP_PATH } from './fixtures/live-v5-vault/loader';
 
 /**
- * Loader smoke spec (slice S172) — proves the live-v5-vault fixture harness
+ * Loader smoke spec: proves the live-v5-vault fixture harness
  * itself, on the NOT-ACCEPTANCE synthetic placeholder dump (never real
  * migration evidence — see fixtures/live-v5-vault/README.md).
  *

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 //
-// S396 (Q3) — `claimAuthorship` in hooks/use-itinerary.ts: the owner-initiated rewrite of stored
+// `claimAuthorship` in hooks/use-itinerary.ts: the owner-initiated rewrite of stored
 // attribution from a name he used to go by onto his current one. Exercised by RENDERING the real
 // hook (the same renderHook shim the sibling use-itinerary-*-sync suites use — no new dependency)
 // and reading the result back through the StoragePort, i.e. what a reload would show.
 //
 // What is pinned here:
 //   - ALL THREE author fields are rewritten (`createdBy` / `updatedBy` / `doneBy`) — `itemAuthors`
-//     in lib/author-filter.ts reads exactly those three, and a missing `doneBy` was the S390-B bug.
+//     in lib/author-filter.ts reads exactly those three, and a missing `doneBy` was the original bug.
 //   - Per FIELD, not per item: an item where only `doneBy` matches keeps its other authors.
 //   - Items stamped with anybody else's name are untouched.
 //   - 🔴 `updatedAt` is PRESERVED. components/activity-feed.tsx derives "Recent changes" from
@@ -109,7 +109,7 @@ function seed(): DayPlan[] {
       doneAt: STAMP,
       done: true,
     },
-    // Only `doneBy` matches — the S390-B field. The other two belong to somebody else and stay.
+    // Only `doneBy` matches — the doneBy stamp. The other two belong to somebody else and stay.
     {
       id: 'done-only',
       title: 'Thamel walk',
@@ -166,7 +166,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('claimAuthorship — SYNC ON (S396 Q3)', () => {
+describe('claimAuthorship — SYNC ON', () => {
   beforeEach(() => {
     state.remoteOn = true;
   });
@@ -246,7 +246,7 @@ describe('claimAuthorship — SYNC ON (S396 Q3)', () => {
   });
 });
 
-describe('claimAuthorship — DORMANT (S396 Q3, D-038)', () => {
+describe('claimAuthorship — DORMANT (D-038)', () => {
   beforeEach(() => {
     state.remoteOn = false;
   });

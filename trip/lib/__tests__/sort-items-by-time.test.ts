@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
-// S126 — the two passive, non-destructive time views (D-142). Pure unit coverage in
-// isolation from any component; reuses S124's `effectiveStartMinutes` only, no new
+// The two passive, non-destructive time views (D-142). Pure unit coverage in
+// isolation from any component; reuses `effectiveStartMinutes` only, no new
 // parsing/offset math.
 
 import {
@@ -14,7 +14,7 @@ import {
 import { parseDurationText, effectiveDurationMinutes } from '@/core/dates';
 import { formatDurationText } from '@/lib/time-picker-format';
 import type { ItineraryItem } from '@/lib/trip-data';
-// S377 — the Jan-9 date-line regression is asserted against the REAL seed content, because
+// The Jan-9 date-line regression is asserted against the REAL seed content, because
 // the defect needs BOTH the per-item offsets (D-225) and the instant sort key to disappear.
 import { TRIP_ITINERARY } from '@/core/content/itinerary';
 import {
@@ -28,7 +28,7 @@ function mk(id: string, fields: Partial<ItineraryItem> = {}): ItineraryItem {
   return { id, title: id, category: 'sightseeing', ...fields };
 }
 
-// S377: the sort key is now the absolute instant, so every call needs the day it belongs to.
+// The sort key is now the absolute instant, so every call needs the day it belongs to.
 // These single-zone cases use one ordinary Japan day, where instant order == wall-clock order.
 const DAY = '2026-12-20';
 const DAY_OFFSET = 540;
@@ -87,7 +87,7 @@ describe('sortItemsByTime — stable, view-level, non-destructive (D-142)', () =
   });
 });
 
-describe('S377 — the ordering key is the ABSOLUTE INSTANT, not the wall clock (D-225 offsets)', () => {
+describe('the ordering key is the ABSOLUTE INSTANT, not the wall clock (D-225 offsets)', () => {
   it('the Jan-9 date-line day: the DTW layover sorts AFTER the HND→DTW flight that produces it', () => {
     const day = TRIP_ITINERARY.find((d) => d.date === '2027-01-09')!;
     const dayOffset = offsetForCountry(day.country); // JST +540
@@ -220,8 +220,8 @@ describe('clashingItemIds — warn-only half-open overlap (D-142)', () => {
   });
 });
 
-describe('S391: clash overlap is judged on the ABSOLUTE INSTANT, like its file-mate', () => {
-  // S377 moved `sortItemsByTime` to the instant and left `clashingItemIds` on raw wall-clock
+describe('clash overlap is judged on the ABSOLUTE INSTANT, like its file-mate', () => {
+  // An earlier change moved `sortItemsByTime` to the instant and left `clashingItemIds` on raw wall-clock
   // minutes with no offset and no day. These two cases are the ONLY shape that can tell the
   // frames apart: a day holding items in different zones (D-225 `tzOffsetMin`). A clash test
   // written in the wall-clock frame passes on the broken code AND the fixed code, so both

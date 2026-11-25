@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 
-// Standalone Vitest config (S77) — deliberately NOT sharing next.config.js /
+// Standalone Vitest config, deliberately NOT sharing next.config.js /
 // tsconfig's Next-specific plugin pipeline. It only needs to:
 //   1. Run pure TS modules under a DOM-capable environment (jsdom) so the
 //      storage tests can use `localStorage`.
@@ -9,7 +9,7 @@ import path from 'path';
 //      transitive imports (e.g. itinerary-remote.ts -> '@/hooks/use-itinerary')
 //      resolve exactly as they do for the Next build.
 //
-// S161: `lib/__tests__/story-photos.test.ts` imports a real `.tsx` component
+// `lib/__tests__/story-photos.test.ts` imports a real `.tsx` component
 // (`components/trip-story-recap.tsx`) for the first time. This Vite (8.x) is the
 // oxc/rolldown-backed build ("Both esbuild and oxc options were set. oxc options
 // will be used" — oxc's own JsxOptions default IS `runtime: 'automatic'`, but
@@ -45,7 +45,7 @@ export default defineConfig({
     // set but the isolate stays on the host zone, silently reopening this. If a pool is ever set,
     // move the pin to a `process.env.TZ = ...` assignment at this file's module scope.
     env: { TZ: 'America/New_York' },
-    // S350: components/__tests__ joins lib/__tests__ as a second, JSX-bearing test root (the
+    // components/__tests__ joins lib/__tests__ as a second, JSX-bearing test root (the
     // concierge renderer test uses real .tsx JSX rather than lib/__tests__'s createElement-only
     // convention) — everything else about the run (jsdom, the @ alias, oxc's automatic JSX
     // runtime) is unchanged.

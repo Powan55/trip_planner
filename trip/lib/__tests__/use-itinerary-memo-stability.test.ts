@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// V6-1 (C-6/C-7) — the hook's returned store object must be referentially stable across a
+// The hook's returned store object must be referentially stable across a
 // re-render that does NOT change `plans` (e.g. a parent re-render triggered by unrelated
 // state). Before this slice, `useItinerary()` built a fresh object literal (and a fresh
 // `exposedPlans` array via `visiblePlans(plans)`) on every render, so every consumer effect/
@@ -86,7 +86,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('useItinerary() memo stability (V6-1 / C-6, C-7)', () => {
+describe('useItinerary() memo stability', () => {
   it('returns the SAME store object (and the same plans array) across a re-render triggered by unrelated state', async () => {
     const h = renderWithUnrelatedState();
     const before = h.current;

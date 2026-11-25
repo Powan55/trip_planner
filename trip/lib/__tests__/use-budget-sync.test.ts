@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S143 — WIRED-behavior unit suite for the budget-sync store changes in hooks/use-budget.ts,
+// WIRED-behavior unit suite for the budget-sync store changes in hooks/use-budget.ts,
 // exercised by RENDERING the real hook (a tiny renderHook shim over react-dom/client + act — no new
 // dependency). The CONTRAST between the two regimes is the D-038 dormant-build byte-identity gate:
 //
@@ -9,7 +9,7 @@
 //       stamps nothing; a later edit ADVANCES that path's HLC (monotonic).
 //
 //   DORMANT (isRemoteConfigured() === false):
-//     - NO sync.fieldHlc is ever written — the on-disk model is byte-for-byte S140 (D-038).
+//     - NO sync.fieldHlc is ever written — the on-disk model is byte-for-byte the pre-sync shape (D-038).
 //
 // D-038 (dormant gate), D-149 (per-field HLC) cited.
 
@@ -127,12 +127,12 @@ describe('SYNC ON — a field edit stamps sync.fieldHlc for exactly the changed 
   });
 });
 
-describe('DORMANT — no stamping, byte-for-byte S140 (D-038)', () => {
+describe('DORMANT — no stamping, byte-for-byte pre-sync (D-038)', () => {
   beforeEach(() => {
     stateT.remoteOn = false;
   });
 
-  it('a field edit writes NO sync.fieldHlc (on-disk model is byte-identical to S140)', async () => {
+  it('a field edit writes NO sync.fieldHlc (on-disk model is byte-identical to pre-sync)', async () => {
     const h = renderBudget();
     await h.run((s) => s.commit((cur) => ({ ...cur, legBudgets: { ...cur.legBudgets, nepal: 20000 } })));
     const raw = rawOnDisk();

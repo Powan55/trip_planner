@@ -3,7 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S350 — the FIRST browser coverage the concierge chat has ever had. Requires
+ * The FIRST browser coverage the concierge chat has ever had. Requires
  * `NEXT_PUBLIC_CONCIERGE_URL` baked into the build under test (added to the CI test-job env by this
  * same slice — see `.github/workflows/ci.yml` / `deploy.yml`); locally, build with it set:
  *   NEXT_PUBLIC_CONCIERGE_URL=https://concierge.test npm run build
@@ -15,7 +15,7 @@ import AxeBuilder from '@axe-core/playwright';
  * correctly treats it as a bare origin and appends `/resolve`). So the dummy env value here is a
  * BARE origin (`https://concierge.test`, matching the `/resolve` convention and real production
  * shape) and the stub below matches that bare origin exactly — a `**\/chat` glob would never see
- * this request. This client/server path mismatch is tracked separately (S350); it is a
+ * this request. This client/server path mismatch is tracked separately; it is a
  * pre-existing gap, not something this slice's file scope covers.
  *
  * SERVICE WORKERS ARE BLOCKED: the concierge
@@ -42,14 +42,14 @@ const OPS = [{ type: 'addItem', date: '2026-12-09', title: 'Ramen night', catego
 
 /**
  * Stub the chat call: answer the CORS preflight, then fulfil the POST with a canned reply.
- * Also RECORDS the request body — S362 asserts on the `context` digest the client actually put on
+ * Also RECORDS the request body, so a test can assert on the `context` digest the client actually put on
  * the wire, which is text only the WIRED path can produce (with NEXT_PUBLIC_CONCIERGE_URL unset the
  * concierge short-circuits before any fetch, so this route never fires and the assertion goes RED
  * instead of passing vacuously on a misconfigured run).
  *
- * `model` (S363) is OMITTED from the body by default — that is the real shape the deployed v1.4.0
+ * `model` is OMITTED from the body by default — that is the real shape the deployed v1.4.0
  * Worker sends today (R3), and every pre-existing test in this file already exercises that shape
- * without knowing it. Pass a value to simulate a model-stamping Worker (S363B+).
+ * without knowing it. Pass a value to simulate a model-stamping Worker.
  */
 async function stubChat(page: Page, model?: string) {
   const hits: { count: number; body: { message?: string; history?: unknown[]; context?: string } } = {
@@ -74,7 +74,7 @@ async function stubChat(page: Page, model?: string) {
 }
 
 /**
- * The FAILING counterpart of `stubChat` (S395, open item A). Same bare-origin route, same CORS
+ * The FAILING counterpart of `stubChat`. Same bare-origin route, same CORS
  * preflight answer — only the POST leg changes, to the Worker's own both-legs-dead shape
  * (`worker/src/providers.ts` `fetchChatCompletion`: 502 + `{error}`).
  *
@@ -130,7 +130,7 @@ async function runAxe(page: Page, label: string, testInfo: import('@playwright/t
   ).toEqual([]);
 }
 
-test.describe('S350 · concierge panel — starter chips, list rendering, ops chip', () => {
+test.describe('concierge panel — starter chips, list rendering, ops chip', () => {
   test('opens with three real starter-chip buttons, and each is a proper 44px keyboard target', async ({
     page,
   }) => {
@@ -171,7 +171,7 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
     await page.getByTestId('concierge-starter-chip').first().click();
     await expect.poll(() => hits.count).toBeGreaterThan(0);
 
-    // S362 — the digest on the wire really carries the enriched per-item encoding the model is
+    // The digest on the wire really carries the enriched per-item encoding the model is
     // asked to parse. Asserted from a REAL browser POST body, not a unit mock.
     // #12 moved that encoding 24-hour → 12-hour, and this pin moves with it. The Worker's own
     // PLAN_LINES constant still says "HH:MM" and is now stale; the digest carries its own legend
@@ -226,7 +226,7 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
   });
 });
 
-test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () => {
+test.describe('model visibility (R1-R4) + the disclosure copy (R6)', () => {
   test('the panel description discloses a third-party AI, never search, and says the chat stays on this device', async ({
     page,
   }) => {
@@ -237,9 +237,9 @@ test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () 
     const panel = page.getByTestId('concierge-panel');
     await expect(panel).toBeVisible();
 
-    // S395 (owner ruling Q5) REPLACES the old "AI and search services" assertion. Its comment used
+    // This REPLACES the old "AI and search services" assertion. Its comment used
     // to justify "and search" as load-bearing because the search leg was "built + merged, gated
-    // only on a runtime secret" — that rationale DIED WITH THE LEG: S392 deleted the leg's code,
+    // only on a runtime secret" — that rationale DIED WITH THE LEG: the leg's code was deleted,
     // key binding and wrangler entry outright (D-275), so re-arming it now needs a code change and
     // the disclosure would be describing a capability the Worker no longer has.
     await expect(panel).toContainText('a third-party AI provider');
@@ -252,12 +252,12 @@ test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () 
     // D-536: the thread is kept, and only on this device. The claim is scoped to the device, not
     // the whole data path, which the provider sentence above already covers.
     await expect(panel).toContainText('saved on this device only');
-    // S355 retired "User Token" → "your key" and shipped this exact guard pack-wide; this copy is
+    // "User Token" was retired in favour of "your key", which shipped this exact guard pack-wide; this copy is
     // about AI providers and should come nowhere near the term (model-visibility rule R5).
     await expect(panel).not.toContainText('User Token');
   });
 
-  test('S395 — the privacy label sits at the input and is announced as its description', async ({
+  test('the privacy label sits at the input and is announced as its description', async ({
     page,
   }) => {
     // At the phone breakpoint, where a new line under the input is most likely to overflow.
@@ -325,13 +325,13 @@ test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () 
 });
 
 /**
- * S395 · open item A — the concierge ERROR ROW, axe-scanned for the first time.
+ * The concierge ERROR ROW, axe-scanned for the first time.
  *
- * 🔴 WHY THIS DID NOT ALREADY EXIST, AND WHY THE OLD SCAN DOES NOT COVER IT. The S350 scan above
+ * 🔴 WHY THIS DID NOT ALREADY EXIST, AND WHY THE OLD SCAN DOES NOT COVER IT. The panel scan above
  * runs on the panel's steady EMPTY state: starter chips + input, no turn sent, therefore no
  * assistant bubble, no model line, no op chip and — the point here — no `role="alert"` row. The
  * only error-row coverage anywhere in the repo is jsdom
- * (`lib/__tests__/concierge-op-feedback.test.ts`, the S389-C describe), and jsdom does not run axe.
+ * (`lib/__tests__/concierge-op-feedback.test.ts`, the error-row describe), and jsdom does not run axe.
  *
  * ⚖️ PRECEDENT NOTE, because this is the pack's FIRST axe scan of an error state (`weather.spec.ts`
  * and `travel-essentials.spec.ts` both induce errors and then scan only healthy states). The shape
@@ -339,7 +339,7 @@ test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () 
  * node is on screen, then scan — and scan the healthy state in the same test so any finding is
  * attributable to the error row rather than to the page it sits on.
  */
-test.describe('S395 · open item A — the error row is a11y-scanned, not just rendered', () => {
+test.describe('the error row is a11y-scanned, not just rendered', () => {
   test('a 502 renders the alert row, and axe finds nothing serious/critical on it', async ({
     page,
   }, testInfo) => {

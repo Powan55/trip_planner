@@ -3,17 +3,17 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S239 — `/trips/` hub E2E pack (D-172 / D-205 / D-209, S238 registry).
+ * `/trips/` hub E2E pack (D-172 / D-205 / D-209).
  *
  * Proves, on the served static `out/` build (dormant — `NEXT_PUBLIC_TRIP_ID` unset):
  *   1. The hub lists every known trip, default pack first, with the Current badge.
  *   2. Create-with-name mints a UUID pack, registers it under the typed name, writes the
  *      pointer, and lands on the HOME dashboard.
  *   3. Tapping a non-current row is the D-172 switch primitive (pointer flipped + Home).
- *   4. Inline rename persists across a full reload (registry storage, S238).
+ *   4. Inline rename persists across a full reload (registry storage).
  *   5. Join-by-key registers the trip under the OPTIONAL custom name and lands Home.
  *   6. axe: zero serious/critical violations on the hub.
- *   7. (S338B / D-239) This is the POST-LOGIN surface: select · create · add-by-**Trip Token**, the
+ *   7. (D-239) This is the POST-LOGIN surface: select · create · add-by-**Trip Token**, the
  *      per-trip raw Trip Token is copyable, and a grandfathered traveler (identity but no User
  *      Token) is not locked out and can complete their account here.
  */
@@ -47,7 +47,7 @@ const readKnownTrips = (page: Page): Promise<Array<{ id: string; name: string }>
 const readRemovedTrips = (page: Page): Promise<Array<{ id: string; removedAt: number }>> =>
   page.evaluate((k) => JSON.parse(window.localStorage.getItem(k) ?? '[]'), REMOVED_TRIPS_KEY);
 
-test.describe('S239 — /trips/ hub', () => {
+test.describe('/trips/ hub', () => {
   test('lists the default pack first with the Current badge and the local-only sample line (#10)', async ({
     page,
   }) => {
@@ -63,7 +63,7 @@ test.describe('S239 — /trips/ hub', () => {
     await expect(page.getByTestId('trips-hub-copy-token-0')).toHaveCount(0);
   });
 
-  test('exports a per-route document.title (S264 server-component metadata)', async ({
+  test('exports a per-route document.title (server-component metadata)', async ({
     page,
   }) => {
     await goto(page);
@@ -149,7 +149,7 @@ test.describe('S239 — /trips/ hub', () => {
     await page.getByTestId('trips-hub-rename-save-0').click();
     await expect(page.getByTestId('trips-hub-row-0')).toContainText('Our big year');
 
-    await goto(page); // full reload — the name must come back from the registry (S238)
+    await goto(page); // full reload — the name must come back from the registry
     await expect(page.getByTestId('trips-hub-row-0')).toContainText('Our big year', {
       timeout: 15_000,
     });
@@ -175,7 +175,7 @@ test.describe('S239 — /trips/ hub', () => {
     );
   });
 
-  test('Forget a trip removes it from the list and it stays gone after a full reload (S269)', async ({
+  test('Forget a trip removes it from the list and it stays gone after a full reload', async ({
     page,
   }) => {
     // Seed a non-active shared trip in the known list (pointer unset → default pack is active, so the
@@ -227,7 +227,7 @@ test.describe('S239 — /trips/ hub', () => {
   });
 });
 
-test.describe('S338B — /trips is the post-login surface (D-239: select · create · add by Trip Token)', () => {
+test.describe('/trips is the post-login surface (D-239: select · create · add by Trip Token)', () => {
   test('the three actions are named in two-token vocabulary; the raw Trip Token is copyable per trip', async ({
     page,
   }) => {
@@ -252,7 +252,7 @@ test.describe('S338B — /trips is the post-login surface (D-239: select · crea
     await expect(hub).toContainText('Add a trip by Trip Token');
     await expect(hub).not.toContainText('Trip Key');
     await expect(hub).not.toContainText('sync code');
-    // S355 RETIREMENT GUARD: "User Token" is retired from user-visible copy — the account
+    // RETIREMENT GUARD: "User Token" is retired from user-visible copy — the account
     // credential is a username and password now (D-660). Same guard shape as the two above, scoped to the hub, which is
     // where 6 of the 24 renamed sites live. Without it the rename has nothing behind it and the old
     // term can silently return under a fully green suite. "Trip Token" is a DIFFERENT concept and

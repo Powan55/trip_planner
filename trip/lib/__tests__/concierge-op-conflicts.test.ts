@@ -3,7 +3,7 @@
 // Issue #19 — "the assistant should refuse to double-book you". Two halves, both here:
 //
 // 1. `clashForOp` — the DETECTION, pure over `(op, plans)`, one case per verb plus the
-//    grandfathering `removeItem`/no-span/footprint-unchanged escapes. It shares D-316 Slice A's
+//    grandfathering `removeItem`/no-span/footprint-unchanged escapes. It shares D-316's
 //    single predicate (`firstClashWith` + `timeFootprintChanged`), so these cases are the same
 //    rule the five authoring surfaces enforce, reached through the ops layer.
 //

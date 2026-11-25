@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-// S125 — pure formatting/combination helpers behind the hand-rolled AM/PM time
+// Pure formatting/combination helpers behind the hand-rolled AM/PM time
 // picker (components/time-picker.tsx, D-141). No JSX here (vitest.config.ts only
 // transforms lib/__tests__/**/*.test.ts as plain TS, no react plugin) — these are
 // deliberately hosted in a JSX-free module so they stay directly testable.

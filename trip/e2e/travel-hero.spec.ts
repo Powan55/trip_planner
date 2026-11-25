@@ -3,9 +3,9 @@ import type { Page, ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S185 → S317 — Travel Mode Now/Next STRIP E2E pack (D-016 / D-131 / D-007).
+ * Travel Mode Now/Next STRIP E2E pack (D-016 / D-131 / D-007).
  *
- * S317 made `/travel` checklist-first: the day's plan list is the primary surface and the hero
+ * `/travel` is checklist-first: the day's plan list is the primary surface and the hero
  * shrank from the full expand/progress/recalc/flip card to a ONE-LINE now/next strip. The detail
  * that card used to carry now lives in the agenda rows below (per-row now/upcoming/done phase +
  * times, covered by travel-agenda.spec.ts). So this pack now proves the STRIP: the derived phase,
@@ -14,7 +14,7 @@ import AxeBuilder from '@axe-core/playwright';
  *
  * Runs against the served static `out/` build (D-093) on the DEFAULT (signed-in) identity, so
  * `/travel` is reachable with no gate. The clock is driven by the D-075 `?today=` override (local
- * NOON of the day) exactly like the S186 agenda pack. `2026-12-10` is a Nepal day (NPT +5:45);
+ * NOON of the day) exactly like the agenda pack. `2026-12-10` is a Nepal day (NPT +5:45);
  * under `?today=2026-12-10` "now" is 12:00 NPT.
  */
 
@@ -66,7 +66,7 @@ const NOW_FIXTURE: SeedItem[] = [
   { id: 'then-item', title: 'Thamel lunch', category: 'food', startMinutes: 900 }, // 15:00
 ];
 
-test.describe('S317 · the strip shows the now item + the "then" line (now phase)', () => {
+test.describe('the strip shows the now item + the "then" line (now phase)', () => {
   test('data-phase=now, headline is the current item, "then" names what follows', async ({ page }) => {
     await seedDay(page, NOW_FIXTURE);
     await gotoCard(page);
@@ -75,7 +75,7 @@ test.describe('S317 · the strip shows the now item + the "then" line (now phase
     await expect(page.getByTestId('travel-hero-headline')).toContainText('Boudhanath sunrise walk');
     await expect(page.getByTestId('travel-hero-then')).toContainText('Thamel lunch');
 
-    // The shrink (S317): the old full-hero affordances are gone — no expand toggle, no progress
+    // The shrink: the old full-hero affordances are gone — no expand toggle, no progress
     // bar, no recalculate button on the strip.
     await expect(page.getByTestId('travel-hero-expand')).toHaveCount(0);
     await expect(page.getByTestId('travel-hero-progress')).toHaveCount(0);
@@ -83,7 +83,7 @@ test.describe('S317 · the strip shows the now item + the "then" line (now phase
   });
 });
 
-test.describe('S317 · upcoming phase — the headline is the NEXT item', () => {
+test.describe('upcoming phase — the headline is the NEXT item', () => {
   test('an all-ahead schedule reads as upcoming with the next item as the headline', async ({ page }) => {
     // Only a 15:00 item — at noon nothing is in progress, so the next-up is the headline.
     await seedDay(page, [
@@ -98,7 +98,7 @@ test.describe('S317 · upcoming phase — the headline is the NEXT item', () => 
   });
 });
 
-test.describe('S317 · empty day — the strip shows the honest empty state', () => {
+test.describe('empty day — the strip shows the honest empty state', () => {
   test('a zero-item in-trip day renders the empty strip, not a headline', async ({ page }) => {
     await seedDay(page, []);
     await gotoCard(page);
@@ -108,7 +108,7 @@ test.describe('S317 · empty day — the strip shows the honest empty state', ()
   });
 });
 
-test.describe('S317 · reduced motion — the strip is a static (non-animated) container (D-007)', () => {
+test.describe('reduced motion — the strip is a static (non-animated) container (D-007)', () => {
   test('the strip renders the non-animated branch and the headline is fully opaque at rest', async ({
     page,
   }) => {
@@ -126,7 +126,7 @@ test.describe('S317 · reduced motion — the strip is a static (non-animated) c
   });
 });
 
-test.describe('S317 · axe — /travel with the strip', () => {
+test.describe('axe — /travel with the strip', () => {
   test('zero serious/critical violations', async ({ page }, testInfo) => {
     await seedDay(page, NOW_FIXTURE);
     await gotoCard(page);
@@ -149,7 +149,7 @@ test.describe('S317 · axe — /travel with the strip', () => {
   });
 });
 
-test.describe('S317 · no console errors', () => {
+test.describe('no console errors', () => {
   test('the strip loads with no console.error / pageerror', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg: ConsoleMessage) => {

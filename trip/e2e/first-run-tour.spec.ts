@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S155 — the first-run guided tour (`components/first-run-tour.tsx`) E2E pack, on the
+ * The first-run guided tour (`components/first-run-tour.tsx`) E2E pack, on the
  * served static `out/` build (D-093).
  *
  * Signs in EXPLICITLY (mirrors `settings.spec.ts` / `s158-…spec.ts`) rather than riding the
- * shared `fixtures.ts` default — that default now pre-seeds the tour "seen" flag (S155, so
+ * shared `fixtures.ts` default — that default now pre-seeds the tour "seen" flag (so
  * the other ~200 specs in the pack stay undisturbed by this dialog); this pack needs FRESH
  * (unseeded) storage to actually see the tour fire.
  *
@@ -45,7 +45,7 @@ async function expectTourVisible(page: Page) {
   await expect(page.getByTestId('tour-dialog')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('S155 — first-run tour shows exactly once', () => {
+test.describe('first-run tour shows exactly once', () => {
   test('shows on first arrival past the gate, on step 1 of 5 ("Today")', async ({ page }) => {
     await gotoFreshHome(page);
     await expectTourVisible(page);
@@ -141,7 +141,7 @@ test.describe('S155 — first-run tour shows exactly once', () => {
 
 });
 
-test.describe('S155 — first-run tour keyboard + a11y', () => {
+test.describe('first-run tour keyboard + a11y', () => {
   test('Tab traps focus within the dialog; Enter on Next advances a step', async ({ page }) => {
     await gotoFreshHome(page);
     await expectTourVisible(page);
@@ -205,7 +205,7 @@ test.describe('S155 — first-run tour keyboard + a11y', () => {
   });
 });
 
-test.describe('S155 — reduced motion (D-007/D-056)', () => {
+test.describe('reduced motion (D-007/D-056)', () => {
   test('the panel entrance transform is applied instantly (no ramp) under reduced motion', async ({
     page,
   }) => {

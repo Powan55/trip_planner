@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 //
-// S342 — the REAL `ConciergeChat` panel, driven end to end in jsdom against a stubbed Worker
+// The REAL `ConciergeChat` panel, driven end to end in jsdom against a stubbed Worker
 // response: open the sheet, send a message, and assert what the user actually sees for a turn whose
 // ops are PARTLY invalid — the surviving proposal chip AND the new "didn't match the current plan"
-// line. Before S342 a dropped op produced nothing at all, which is exactly the "the concierge can't
+// line. Before this a dropped op produced nothing at all, which is exactly the "the concierge can't
 // modify my plans" symptom reported by the owner (D-234 drops silently by design).
 //
 // Everything below the component is real: `useConciergeChat`, `validateOps`, `describeOp`. Only the
@@ -47,7 +47,7 @@ function stubFetch(ops: unknown[]) {
 }
 
 /**
- * Mount the panel and open the sheet. S341 split this out of `drive()` so a test can inspect the
+ * Mount the panel and open the sheet. Split out of `drive()` so a test can inspect the
  * panel BETWEEN sends (focus, disabled state) and send more than once.
  */
 async function mount(ops: unknown[], fetchImpl?: () => Promise<Response>) {
@@ -102,7 +102,7 @@ async function drive(ops: unknown[]) {
   return h;
 }
 
-describe('S342 — silent-drop feedback in the concierge panel', () => {
+describe('silent-drop feedback in the concierge panel', () => {
   beforeEach(() => {
     localStorage.clear(); // the thread persists now (D-536), so a prior test's turns would restore
     localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(SEED));
@@ -262,7 +262,7 @@ describe('S342 — silent-drop feedback in the concierge panel', () => {
 });
 
 /**
- * S341 — "every time I send a message I have to re-click the textbox to send chat again."
+ * "Every time I send a message I have to re-click the textbox to send chat again."
  * The input used to carry `disabled={status==='streaming'}`, which blurs it mid-turn with nothing
  * restoring focus. jsdom does not implement a form's IMPLICIT submission on Enter, so these drive
  * the form's `submit` event (exactly what Enter dispatches in a browser) with no pointer
@@ -274,7 +274,7 @@ describe('S342 — silent-drop feedback in the concierge panel', () => {
  * real defect is `input.disabled === false` mid-stream; the `activeElement` assertions pin the
  * intended behaviour but a browser is needed to prove the blur is gone.
  */
-describe('S341 — the concierge input never loses focus across sends', () => {
+describe('the concierge input never loses focus across sends', () => {
   beforeEach(() => {
     localStorage.clear(); // the thread persists now (D-536), so a prior test's turns would restore
     localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(SEED));
@@ -431,7 +431,7 @@ describe('the concierge Stop button', () => {
 });
 
 /**
- * S389-C — the error surface, driven through the REAL panel. Two things a traveller on foreign
+ * The error surface, driven through the REAL panel. Two things a traveller on foreign
  * mobile data needs and did not have: an offline send that says so in words instead of leaking the
  * browser's `Failed to fetch`, and one control that re-sends the turn they lost.
  *
@@ -439,7 +439,7 @@ describe('the concierge Stop button', () => {
  * (there is no network to actually pull), which is exactly what `hooks/use-online.ts` reads — the
  * pre-check under test. The load-bearing assertion is that `fetch` is never called.
  */
-describe('S389-C — offline copy + the Try again control', () => {
+describe('offline copy + the Try again control', () => {
   const setOnLine = (value: boolean) =>
     Object.defineProperty(window.navigator, 'onLine', { value, writable: true, configurable: true });
 

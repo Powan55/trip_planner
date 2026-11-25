@@ -59,7 +59,7 @@ import { entranceFor } from '@/lib/motion';
  * WHAT WAS FROZEN, and each has teeth:
  * - Log in is the primary CTA and it is FIRST IN THE DOM. `token-gate.tsx`'s focus effect takes
  *   `panel.querySelector('button:not([disabled])')` — the first enabled button — so DOM ORDER is
- *   what moves focus. `e2e/login.spec.ts` and `lib/__tests__/s345-front-door.test.ts` both assert
+ *   what moves focus. `e2e/login.spec.ts` and `lib/__tests__/front-door.test.ts` both assert
  *   `document.activeElement`. Nothing above those two buttons may be a <button>: the eyebrow, the
  *   <h1> and the lead are all non-focusable, and the cover carries NO nav bar of its own.
  * - The <h1> copy is unchanged, and that is not laziness. Both specs pin the exact string.
@@ -410,7 +410,7 @@ export default function LandingPage({
               works when you have no signal.
             </p>
 
-            {/* (INTAKE-03) — LOG IN IS THE PRIMARY PATH, and it is FIRST IN THE DOM.
+            {/* LOG IN IS THE PRIMARY PATH, and it is FIRST IN THE DOM.
                 Both facts are load-bearing and neither is cosmetic:
                   · the filled `.btn` vs the `.btn--2` outline is the decided visual demotion
                     ("log in becomes the primary CTA, Create an account demotes to secondary").
@@ -419,7 +419,7 @@ export default function LandingPage({
                     FIRST enabled button in the panel — so a keyboard/screen-reader visitor entered on
                     "Create an account" purely because it was written first. Swapping the two <button>
                     elements (not just their classes) is the fix; `e2e/login.spec.ts` and
-                    `lib/__tests__/s345-front-door.test.ts` both assert `document.activeElement`, so a
+                    `lib/__tests__/front-door.test.ts` both assert `document.activeElement`, so a
                     future edit that reorders these back fails rather than silently regressing.
                 Signup is NOT removed: it is still one click here, still the closing CTA below, and
                 still the always-rendered toggle inside the auth card. */}

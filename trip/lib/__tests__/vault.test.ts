@@ -17,7 +17,7 @@ import { isSourceType, toItineraryDraft, type SourceType } from '@/lib/itinerary
 import type { DayPlan } from '../trip-data';
 
 /**
- * Trip Vault unit suite (S90; D-095 + D-096 LOCKED).
+ * Trip Vault unit suite (D-095 + D-096 LOCKED).
  *
  * Exercises the framework-free Vault directly (via a test-owned VaultConfig) — separate
  * from lib/__tests__/itinerary-storage.test.ts, which proves the public delegating API
@@ -82,7 +82,7 @@ afterEach(() => {
 
 describe('Trip Vault — migration runner', () => {
   it('migration #1 (v2→v3) is a payload IDENTITY — deep-equal every DayPlan/ItineraryItem field', () => {
-    // S96: target v3 explicitly so this pins migration #1's identity in isolation (the
+    // Target v3 explicitly so this pins migration #1's identity in isolation (the
     // suite's original intent). Running the FULL chain to CURRENT (now 4) would additionally
     // apply the v3→v4 backfill — proven separately in the v3→v4 suite below. The v2→v3
     // identity assertion itself is byte-unchanged.
@@ -92,9 +92,9 @@ describe('Trip Vault — migration runner', () => {
   });
 
   it('the shipped migration chain is exactly [v2→v3, v3→v4, v4→v5] and CURRENT is 5', () => {
-    // S96 → S124: the chain-MANIFEST assertion (a change-detector), updated in lockstep with
-    // each intentional, decision-backed append — S96 appended v3→v4 (D-104, CURRENT 3→4),
-    // S124 appended v4→v5 (D-139, CURRENT 4→5). NOT a behavioral change: every behavioral
+    // The chain-MANIFEST assertion (a change-detector), updated in lockstep with
+    // each intentional, decision-backed append: v3→v4 (D-104, CURRENT 3→4),
+    // then v4→v5 (D-139, CURRENT 4→5). NOT a behavioral change: every behavioral
     // assertion in this suite (losslessness, quarantine, the four-state read) is byte-unchanged.
     expect(CURRENT_ITINERARY_VERSION).toBe(5);
     expect(itineraryMigrations.map((m) => [m.from, m.to])).toEqual([[2, 3], [3, 4], [4, 5]]);
@@ -245,7 +245,7 @@ describe('Trip Vault — load/save four-state resolution (D-018 via envelope)', 
 
   it('STATE B — legacy bare v2 array: migrates LOSSLESSLY (v2→v3→v4), preserves every original field', () => {
     // Pre-seed the on-disk v2 format: a bare DayPlan[] JSON array, no envelope.
-    // S96 (D-104): the chain now runs to v4, so items gain defaulted sync fields. The
+    // D-104: the chain now runs to v4, so items gain defaulted sync fields. The
     // migrate is still LOSSLESS — a superset, nothing dropped. Assert original fields
     // preserved (matchObject) + the not-fallback / no-quarantine guarantees byte-unchanged.
     localStorage.setItem(STORAGE_KEY, JSON.stringify(REAL_V2));
@@ -266,7 +266,7 @@ describe('Trip Vault — load/save four-state resolution (D-018 via envelope)', 
   });
 
   it('STATE C — valid v3 envelope: read + migrated v3→v4, preserves payload (incl. attribution)', () => {
-    // S96 (D-104): a v3 envelope now upgrades v3→v4 on read (detected 3 < CURRENT 4), so
+    // D-104: a v3 envelope now upgrades v3→v4 on read (detected 3 < CURRENT 4), so
     // items gain defaulted sync fields — lossless superset, attribution untouched.
     const envelope = makeEnvelope(3, REAL_V2, '2026-07-05T00:00:00.000Z');
     localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
@@ -289,7 +289,7 @@ describe('Trip Vault — load/save four-state resolution (D-018 via envelope)', 
     ];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(makeEnvelope(3, payload, 'x')));
     const loaded = loadItinerary(cfg);
-    // S96 (D-104): v3→v4 backfill adds defaulted sync fields; the unknown category and every
+    // D-104: v3→v4 backfill adds defaulted sync fields; the unknown category and every
     // original field survive the lenient read untouched (not destroyed — the whole point).
     expect(loaded[0].items[0]).toMatchObject({ id: 'z1', title: 'Q', category: 'brand-new-cat' });
     expect(loaded[0].items[0].category).toBe('brand-new-cat');
@@ -401,7 +401,7 @@ describe('Trip Vault — load/save four-state resolution (D-018 via envelope)', 
 
 describe('Trip Vault — write side (envelope on disk) + round-trip', () => {
   it('saveItinerary writes a well-formed CURRENT envelope: {schemaVersion, updatedAt, payload}', () => {
-    // S96 (D-104): the write path always emits the CURRENT version (now 4). Asserted via
+    // D-104: the write path always emits the CURRENT version (now 4). Asserted via
     // the CURRENT_ITINERARY_VERSION constant so this pins "writes the current version",
     // not a frozen literal — the envelope-shape guarantee is unchanged.
     const plans: DayPlan[] = [
@@ -430,7 +430,7 @@ describe('Trip Vault — write side (envelope on disk) + round-trip', () => {
     expect(loadItinerary(cfg)).toEqual(REAL_V2);
   });
 
-  it('S279: saveItinerary fires trip:quota-exceeded (and never throws) when the raw setItem rejects with a quota-shaped DOMException', () => {
+  it('saveItinerary fires trip:quota-exceeded (and never throws) when the raw setItem rejects with a quota-shaped DOMException', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota', 'QuotaExceededError');
     });
@@ -444,7 +444,7 @@ describe('Trip Vault — write side (envelope on disk) + round-trip', () => {
     }
   });
 
-  it('S279: does NOT fire trip:quota-exceeded on a non-quota save failure (disabled storage stays silent)', () => {
+  it('does NOT fire trip:quota-exceeded on a non-quota save failure (disabled storage stays silent)', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('disabled');
     });
@@ -459,7 +459,7 @@ describe('Trip Vault — write side (envelope on disk) + round-trip', () => {
   });
 
   it('legacy v2 on disk reads back LOSSLESSLY (pre-seeded bare array → loadItinerary, v2→v3→v4)', () => {
-    // The live-users case: bytes written by the pre-Vault build. S96 (D-104): the load now
+    // The live-users case: bytes written by the pre-Vault build. D-104: the load now
     // runs the full chain v2→v3→v4, so each item gains the DEFAULTED sync fields
     // (rev:1, hlc:<seeded from updatedAt>, deleted:false). Lossless SUPERSET: every original
     // field is preserved verbatim; nothing is dropped or reinterpreted. Assert both halves.

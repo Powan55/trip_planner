@@ -12,9 +12,9 @@ import { TRIP_ITINERARY } from '@/core/content/itinerary';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S137 — manual pin-drop plot logic. Proves, at the pure-function level (no browser):
+ * Manual pin-drop plot logic. Proves, at the pure-function level (no browser):
  *  1. a legacy item with no pin still resolves via the existing name/sourceId match
- *     (byte-identical pre-S137 behavior, S135/S136's `matchMarker` untouched);
+ *     (byte-identical pre-pin behavior, `matchMarker` untouched);
  *  2. a pinned custom item (title matches NO curated marker) plots at its own coords;
  *  3. a pin BEATS a name match when an item happens to carry both;
  *  4. `buildItineraryStops` includes pinned custom items as real stops (not skipped),
@@ -25,7 +25,7 @@ function day(date: string, country: 'nepal' | 'japan', items: ItineraryItem[]): 
   return { date, city: country === 'nepal' ? 'Kathmandu' : 'Tokyo', country, items };
 }
 
-describe('S137 — stopMarkerFor: pin beats name match; legacy items unaffected', () => {
+describe('stopMarkerFor: pin beats name match; legacy items unaffected', () => {
   it('a legacy item (no pin) with a matching title still resolves via matchMarker', () => {
     const item: ItineraryItem = { id: 'a', title: 'Sunrise at Boudhanath Stupa', category: 'photography' };
     const viaMatch = matchMarker(item);
@@ -80,7 +80,7 @@ describe('S137 — stopMarkerFor: pin beats name match; legacy items unaffected'
 });
 
 /**
- * S379 — the derived alias must stay DISCRIMINATING.
+ * The derived alias must stay DISCRIMINATING.
  *
  * `NAME_INDEX` strips place-type words ("castle", "taisha", …) off a marker's name
  * to build a short alias, so "Dawn at Fushimi Inari" resolves to "Fushimi Inari
@@ -94,7 +94,7 @@ describe('S137 — stopMarkerFor: pin beats name match; legacy items unaffected'
  * the defect visible. The generic-city case is driven off the REAL marker set, not
  * a hand-written list, so a future marker named "<City> <PlaceType>" is caught too.
  */
-describe('S379 — a generic city word must not claim a specific landmark pin', () => {
+describe('a generic city word must not claim a specific landmark pin', () => {
   it('"Universal Studios Japan" does NOT plot at Osaka Castle', () => {
     const item: ItineraryItem = {
       id: 'usj',
@@ -228,7 +228,7 @@ describe('alias matching is word-bounded — a short alias must not match inside
   });
 });
 
-describe('S137 — buildItineraryStops includes pinned custom items as real stops', () => {
+describe('buildItineraryStops includes pinned custom items as real stops', () => {
   it('a day with one legacy-matched item and one pinned custom item yields TWO stops', () => {
     const plans: DayPlan[] = [
       day('2026-12-12', 'nepal', [

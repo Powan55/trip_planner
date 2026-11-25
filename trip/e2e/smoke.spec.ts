@@ -2,10 +2,10 @@ import { test, expect } from './fixtures';
 import type { ConsoleMessage } from '@playwright/test';
 
 /**
- * Smoke pack (slice S80, D-093) — the FIRST browser-level E2E coverage for this
+ * Smoke pack (D-093): the FIRST browser-level E2E coverage for this
  * project. Deliberately light: by design, this proves the harness itself
  * (served static `out/`, wall bypass, console-error hygiene) rather than deep
- * feature behavior — the heavy testid-driven waves are S81-S84.
+ * feature behavior — the heavy testid-driven packs cover that.
  *
  * For each of the 5 routes this asserts:
  *   1. The Trip Token wall is NOT blocking (the sign-in seed actually worked) —

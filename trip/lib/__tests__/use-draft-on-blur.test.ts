@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// V6-2 — unit coverage for `hooks/use-draft-on-blur.ts` (the shared commit-on-blur draft
+// Unit coverage for `hooks/use-draft-on-blur.ts` (the shared commit-on-blur draft
 // state money inputs now use). Rendered for real (react-dom/client + act shim, same pattern
 // as `use-budget.test.ts`/`use-presence.test.ts`). Proves: several simulated keystrokes
 // (`onChange`) followed by one `onBlur` fires `onCommit` exactly once with the final value; a
@@ -65,7 +65,7 @@ function render(initial: string, onCommit: (v: string) => void): Handle {
   };
 }
 
-describe('useDraftOnBlur (V6-2)', () => {
+describe('useDraftOnBlur', () => {
   it('several keystrokes + one blur commits exactly once, with the final value', () => {
     const onCommit = vi.fn();
     const h = render('', onCommit);

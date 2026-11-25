@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
-// S145 — regression suite for whole-trip RESTORE under sync (`restorePlans`, D-156 — supersedes the
-// D-121 local-only disable, FU-20). A Backup Restore is expressed as a TOMBSTONE-REPLACE MERGE (not
+// Regression suite for whole-trip RESTORE under sync (`restorePlans`, D-156 — supersedes the
+// D-121 local-only disable). A Backup Restore is expressed as a TOMBSTONE-REPLACE MERGE (not
 // an ingest-overwrite the next snapshot would unwind): tombstone every currently-live item, re-add
 // the backup's items as FRESH-ID copies, all in ONE commit through the normal push fan-out. Proves
 // the MERGE MECHANICS at the unit level (the real cross-client "Restore converges" is
@@ -110,7 +110,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe('SYNC ON — restorePlans is a tombstone-replace merge (S145, D-156)', () => {
+describe('SYNC ON — restorePlans is a tombstone-replace merge (D-156)', () => {
   beforeEach(() => {
     state.remoteOn = true;
   });
@@ -217,7 +217,7 @@ describe('SYNC ON — restorePlans is a tombstone-replace merge (S145, D-156)', 
   });
 });
 
-describe('DORMANT — restorePlans is a plain local overwrite (S145, D-038 byte-identity)', () => {
+describe('DORMANT — restorePlans is a plain local overwrite (D-038 byte-identity)', () => {
   beforeEach(() => {
     state.remoteOn = false;
   });

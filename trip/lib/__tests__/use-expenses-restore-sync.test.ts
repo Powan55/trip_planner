@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S174 (FU-37) — regression suite for whole-store expenses RESTORE under sync (`restoreExpenses`,
+// Regression suite for whole-store expenses RESTORE under sync (`restoreExpenses`,
 // D-156 tombstone-replace, mirroring `use-itinerary-restore-plans-sync.test.ts`'s `restorePlans`
 // proof but over the FLAT expenses row-set instead of day-keyed itinerary plans). Exercised by
 // RENDERING the real hook (the same renderHook shim — no new dep).
@@ -147,7 +147,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe('SYNC ON — restoreExpenses is a tombstone-replace merge (S174, D-156)', () => {
+describe('SYNC ON — restoreExpenses is a tombstone-replace merge (D-156)', () => {
   beforeEach(() => {
     state.remoteOn = true;
   });
@@ -345,7 +345,7 @@ describe('SYNC ON — restoreExpenses is a tombstone-replace merge (S174, D-156)
   });
 });
 
-describe('DORMANT — restoreExpenses is a plain local overwrite (S174, D-038 byte-identity)', () => {
+describe('DORMANT — restoreExpenses is a plain local overwrite (D-038 byte-identity)', () => {
   beforeEach(() => {
     state.remoteOn = false;
   });

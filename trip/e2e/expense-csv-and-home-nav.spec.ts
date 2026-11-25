@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S158 E2E pack — two small additive wins on the served static `out/` build (D-093):
+ * E2E pack for two small additive wins on the served static `out/` build (D-093):
  *   (a) expense CSV export (`components/settings-panel.tsx` Data-management group, `lib/expense-csv.ts`)
  *   (b) the Home in-page sticky section nav (`components/home-section-nav.tsx`)
  *
@@ -51,12 +51,12 @@ async function gotoHome(page: Page) {
   await settleSW(page);
 }
 
-/** Wait for the sticky nav (a LazyVisible-deferred island, S158) to mount for real. */
+/** Wait for the sticky nav (a LazyVisible-deferred island) to mount for real. */
 async function expectNavVisible(page: Page) {
   await expect(page.getByTestId('home-section-nav')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('S158a — expense CSV export', () => {
+test.describe('expense CSV export', () => {
   test('the button is disabled when there are no expenses (empty-safe)', async ({ page }) => {
     await gotoSettings(page, []);
     await expandDataGroup(page);
@@ -111,13 +111,13 @@ test.describe('S158a — expense CSV export', () => {
     // Comma inside the note → quoted, no interior quotes to double.
     expect(lines[1]).toBe('2026-12-10,nepal,food,NPR,500,"Dal bhat, extra rice",,');
     // Quotes inside the note → quoted AND doubled; leg-derived currency is JPY for japan;
-    // paidBy/split (S144) flatten to "Powan" / "Powan; Alex".
+    // paidBy/split flatten to "Powan" / "Powan; Alex".
     expect(lines[2]).toBe(',japan,transportation,JPY,1200,"JR pass ""unlimited""",Powan,Powan; Alex');
     expect(lines).toHaveLength(3);
   });
 });
 
-test.describe('S158b — Home sticky section nav', () => {
+test.describe('Home sticky section nav', () => {
   test('mounts, is keyboard-navigable (Tab between links, Enter activates), and jumps to the target section', async ({
     page,
   }) => {
@@ -154,7 +154,7 @@ test.describe('S158b — Home sticky section nav', () => {
     // At rest (top of page) the hero link is current.
     await expect(page.getByTestId('home-section-nav-hero')).toHaveAttribute('aria-current', 'true');
 
-    // S321: the timeline moved off Home, so its nav anchor is gone — track the inspiration
+    // The timeline moved off Home, so its nav anchor is gone — track the inspiration
     // gallery (`#inspiration`) instead, the last remaining below-the-fold nav target.
     await expect(page.locator('#inspiration-heading')).toBeVisible({ timeout: 15_000 });
     await page.locator('#inspiration').scrollIntoViewIfNeeded();

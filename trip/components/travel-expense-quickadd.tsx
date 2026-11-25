@@ -8,8 +8,8 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { BUDGET_CATEGORIES, legCurrency, currencySymbol, formatMoney, parseAmountInput, type Leg } from '@/core/budget/model';
 
 /**
- * #260 — inline expense quick-add for Travel Mode (Lane T). Fills the same "log without leaving
- * the checklist" gap S318/`TravelLogDifferent` fills for itinerary items, one slot below it.
+ * #260 — inline expense quick-add for Travel Mode. Fills the same "log without leaving
+ * the checklist" gap `TravelLogDifferent` fills for itinerary items, one slot below it.
  *
  * TM-9: INLINE only — no modal, no portal. Lives inside the Travel Mode root (mounted by
  * `travel-date-picker.tsx`, same as `TravelLogDifferent`), so `ExpenseLogHost`'s /travel

@@ -3,11 +3,11 @@ import type { Page, ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S188 — Travel Mode Essentials block E2E pack (weather · currency · safety ·
+ * Travel Mode Essentials block E2E pack (weather · currency · safety ·
  * flight/transit deep-links · Wake Lock).
  *
  * Runs against the served static `out/` build (D-093) on the DEFAULT (signed-in) identity, so
- * `/travel` is reachable with no gate. Mirrors the S185–S187 packs' seeding style. Frankfurter
+ * `/travel` is reachable with no gate. Mirrors the other Travel Mode packs' seeding style. Frankfurter
  * (`api.frankfurter.dev`) and Open-Meteo (`api.open-meteo.com`) are both STUBBED with
  * `page.route(...)` — the live network is never touched (deterministic, sandbox-safe).
  *
@@ -19,7 +19,7 @@ test.use({ serviceWorkers: 'block' });
 
 const FRANKFURTER_JPY_FIXTURE = { amount: 1, base: 'USD', date: '2026-07-15', rates: { JPY: 155.32 } };
 // Frankfurter's real ECB-sourced symbol list does not carry NPR — stub the honest 200-without-
-// the-symbol shape so the Nepal-leg path is exercised deterministically (S188).
+// the-symbol shape so the Nepal-leg path is exercised deterministically.
 const FRANKFURTER_NPR_MISSING_FIXTURE = { amount: 1, base: 'USD', date: '2026-07-15', rates: {} };
 
 const OPEN_METEO_FIXTURE = {
@@ -61,7 +61,7 @@ async function settleWeather(page: Page) {
 }
 
 /**
- * S317: Essentials collapsed to ONE row — a native <details> closed by default. Its panels stay
+ * Essentials collapsed to ONE row — a native <details> closed by default. Its panels stay
  * MOUNTED while collapsed (so the fetch effects run and `settle*`/`toContainText`/`toHaveAttribute`
  * reads still work), but `toBeVisible()` needs the disclosure open. Open it here for the tests that
  * assert inner visibility (flight cards, the reference-rate line, the axe scan of rendered panels).
@@ -74,7 +74,7 @@ async function openEssentials(page: Page) {
   });
 }
 
-test.describe('S188 · currency rate renders + "as of" (stubbed Frankfurter, Japan leg)', () => {
+test.describe('currency rate renders + "as of" (stubbed Frankfurter, Japan leg)', () => {
   test('a Japan-leg travel day shows the live JPY rate and its as-of date', async ({ page }) => {
     await stubFrankfurter(page);
     await stubOpenMeteo(page);
@@ -89,11 +89,11 @@ test.describe('S188 · currency rate renders + "as of" (stubbed Frankfurter, Jap
   });
 });
 
-test.describe('S188/S276 · Nepal leg — Frankfurter without NPR → labeled reference rate, no cache', () => {
+test.describe('Nepal leg — Frankfurter without NPR → labeled reference rate, no cache', () => {
   test('a fresh Nepal-leg day with no cache and a symbol-less 200 shows the labeled reference rate (no crash)', async ({
     page,
   }) => {
-    // S276 superseded D-189's `unavailable` outcome for NPR: with no cache the card now renders
+    // The labeled reference rate superseded D-189's `unavailable` outcome for NPR: with no cache the card now renders
     // the hand-set STATIC_REFERENCE_RATES value, labeled "reference rate … not a live quote".
     await stubFrankfurter(page, FRANKFURTER_NPR_MISSING_FIXTURE);
     await stubOpenMeteo(page);
@@ -105,7 +105,7 @@ test.describe('S188/S276 · Nepal leg — Frankfurter without NPR → labeled re
   });
 });
 
-test.describe('S188 · offline: cached rate survives a failed refetch', () => {
+test.describe('offline: cached rate survives a failed refetch', () => {
   test('after one successful fetch, aborting the route + reloading still renders the cached rate', async ({
     page,
   }) => {
@@ -126,7 +126,7 @@ test.describe('S188 · offline: cached rate survives a failed refetch', () => {
   });
 });
 
-test.describe('S188 · leg-correct weather + currency flip across the Dec 18/19 boundary', () => {
+test.describe('leg-correct weather + currency flip across the Dec 18/19 boundary', () => {
   test('Dec 18 shows Kathmandu/NPR-leg content; Dec 19 shows Osaka/JPY-leg content', async ({ page }) => {
     await stubFrankfurter(page);
     await stubOpenMeteo(page);
@@ -143,7 +143,7 @@ test.describe('S188 · leg-correct weather + currency flip across the Dec 18/19 
   });
 });
 
-test.describe('S188 · flight-day-only visibility + byte-exact deep-link hrefs', () => {
+test.describe('flight-day-only visibility + byte-exact deep-link hrefs', () => {
   test('a non-travel day shows no flight card', async ({ page }) => {
     await stubFrankfurter(page);
     await stubOpenMeteo(page);
@@ -199,7 +199,7 @@ test.describe('S188 · flight-day-only visibility + byte-exact deep-link hrefs',
   });
 });
 
-test.describe('S188 · Wake Lock — feature-detect no-op where unsupported', () => {
+test.describe('Wake Lock — feature-detect no-op where unsupported', () => {
   test('renders and runs with no error in a browser without navigator.wakeLock', async ({ page, browserName }) => {
     test.skip(browserName !== 'chromium', 'wakeLock stub only needed once; chromium is representative');
     // Force the unsupported path even in a browser that DOES implement Wake Lock, so this spec
@@ -219,7 +219,7 @@ test.describe('S188 · Wake Lock — feature-detect no-op where unsupported', ()
   });
 });
 
-test.describe('S188 · axe — the Essentials block', () => {
+test.describe('axe — the Essentials block', () => {
   test('zero serious/critical violations with weather + currency + safety + a flight card rendered', async ({
     page,
   }, testInfo) => {
@@ -240,7 +240,7 @@ test.describe('S188 · axe — the Essentials block', () => {
   });
 });
 
-test.describe('V6-3/#99 · currency panel omitted when leg currency equals home currency', () => {
+test.describe('#99 · currency panel omitted when leg currency equals home currency', () => {
   const CUSTOM_TRIP_ID = '11111111-2222-4333-8444-555566667777';
 
   async function seedCustomTrip(page: Page) {
@@ -279,7 +279,7 @@ test.describe('V6-3/#99 · currency panel omitted when leg currency equals home 
   });
 });
 
-test.describe('S188 · no console errors', () => {
+test.describe('no console errors', () => {
   test('a full essentials render (flight day, weather, currency, safety) runs with no console.error / pageerror', async ({
     page,
   }) => {

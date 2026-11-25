@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S130 — regression suite for the BULK itinerary ops (`deleteItems` / `moveItems` / `copyDay`)
+// Regression suite for the BULK itinerary ops (`deleteItems` / `moveItems` / `copyDay`)
 // in hooks/use-itinerary.ts, exercised by RENDERING the real hook (the same renderHook shim over
 // react-dom/client + act as use-itinerary-clearday-sync.test.ts — no new dependency). Each bulk
 // op must be exactly ONE commit() → ONE SyncPort.push (D-088 one-or-few per-day doc writes), with
@@ -16,14 +16,14 @@
 //     - deleteItems physically removes; moveItems physically moves (same ids); copyDay physically
 //       copies with FRESH ids — and NO deleted/rev/hlc is stamped anywhere.
 //
-// S396 (open item B) — bulk move gained an Undo, so this file also carries the DISCRIMINATING
+// Bulk move gained an Undo, so this file also carries the DISCRIMINATING
 // proof for it. Sync-on is the only branch where the defect can exist (D-248: sync is configured
 // in production): `moveItems` tombstones the source and mints a FRESH id at the target, so an
 // inverse addressed by the ORIGINAL ids resolves tombstones and silently does nothing. Two tests
 // pin it — one on the store contract (originals ARE refused), one driving the REAL production
 // inverse (`lib/bulk-move-undo.ts`, which is what `handleBulkMove` calls) and asserting the items
 // actually come back. Both assert RESULTING STATE read back through the StoragePort, never call
-// args — a call-args assertion against a stateless fake is what let S389-A ship green.
+// args — a call-args assertion against a stateless fake is what let an earlier concierge bug ship green.
 //
 // 🔴 The e2e round trip (`e2e/multi-select.spec.ts`) canNOT discriminate this: the `out/` build is
 // DORMANT, where a move preserves ids, so an original-id inverse works there. It proves the UX;
@@ -61,8 +61,8 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
   return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
 });
 
-// S396: spy on the ONE undo helper so the test can grab the real onUndo closure and run it,
-// exactly as the S389-A concierge proof does. Mocking also keeps sonner/JSX out of this suite.
+// Spy on the ONE undo helper so the test can grab the real onUndo closure and run it,
+// exactly as the concierge undo proof does. Mocking also keeps sonner/JSX out of this suite.
 const undoSpy = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/undo-toast', () => ({ showUndoToast: undoSpy }));
 
@@ -145,7 +145,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('SYNC ON — bulk ops are ONE commit each with folded sync stamping (S130)', () => {
+describe('SYNC ON — bulk ops are ONE commit each with folded sync stamping', () => {
   beforeEach(() => {
     state.remoteOn = true;
   });
@@ -255,10 +255,10 @@ describe('SYNC ON — bulk ops are ONE commit each with folded sync stamping (S1
     h.unmount();
   });
 
-  // ── S396 (open item B) ──────────────────────────────────────────────────────────────────
+  // ── Bulk-move Undo ──────────────────────────────────────────────────────────────────
   // Half one: the STORE CONTRACT. `moveItems` reports the ids the write really produced, and the
   // original ids are, demonstrably, dead addresses afterwards.
-  it('SYNC ON: moveItems returns the LANDED fresh ids, and re-addressing the ORIGINAL ids is a silent no-op (S396)', async () => {
+  it('SYNC ON: moveItems returns the LANDED fresh ids, and re-addressing the ORIGINAL ids is a silent no-op', async () => {
     const h = renderItinerary();
     await seedDay(h, DATE, [
       { id: 'a', title: 'Temple', category: 'cultural', sourceId: 's-a' },
@@ -289,7 +289,7 @@ describe('SYNC ON — bulk ops are ONE commit each with folded sync stamping (S1
 
     // THE TRAP, pinned: inverting by the ORIGINAL ids addresses the source-day tombstones, so the
     // store refuses every target (empty return) and NOTHING moves. This is why an inverse built
-    // from the selection would show a toast over unchanged data (S389-A, one file over).
+    // from the selection would show a toast over unchanged data (see the concierge undo proof).
     let refused: string[] = ['not-run'];
     await h.run((s) => {
       refused = s.moveItems(
@@ -308,7 +308,7 @@ describe('SYNC ON — bulk ops are ONE commit each with folded sync stamping (S1
 
   // Half two: the PRODUCTION INVERSE. `bulkMoveWithUndo` is exactly what `handleBulkMove` calls,
   // so this fails if that construction is ever switched back to the selected (original) ids.
-  it('SYNC ON: bulk-move Undo actually moves the items BACK (S396 — discriminating)', async () => {
+  it('SYNC ON: bulk-move Undo actually moves the items BACK (discriminating)', async () => {
     const h = renderItinerary();
     await seedDay(h, DATE, [
       { id: 'a', title: 'Temple', category: 'cultural', sourceId: 's-a' },
@@ -384,7 +384,7 @@ describe('SYNC ON — bulk ops are ONE commit each with folded sync stamping (S1
   });
 });
 
-describe('DORMANT — bulk ops physical, no stamping (S130, D-038)', () => {
+describe('DORMANT — bulk ops physical, no stamping (D-038)', () => {
   beforeEach(() => {
     state.remoteOn = false;
   });
@@ -403,7 +403,7 @@ describe('DORMANT — bulk ops physical, no stamping (S130, D-038)', () => {
 
     let landed: string[] = [];
     await h.run((s) => {
-      // S396: a refused target ('nope' does not exist) must be OMITTED from the landed ids.
+      // A refused target ('nope' does not exist) must be OMITTED from the landed ids.
       landed = s.moveItems(
         [
           { itemId: 'b', fromDate: DATE },

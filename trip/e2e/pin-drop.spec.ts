@@ -2,10 +2,10 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S137 → S357B — pin-drop via the MAP + the "N of M stops shown" overlay.
+ * Pin-drop via the MAP + the "N of M stops shown" overlay.
  *
- * S137 placed a pin by typing two decimals into lat/lng fields. S357B deleted those fields
- * (nobody knows their coordinates) and replaced them with a picker on the map pane that
+ * A pin used to be placed by typing two decimals into lat/lng fields. Those fields were deleted
+ * (nobody knows their coordinates) and replaced with a picker on the map pane that
  * `/plan` already owns, so this file is a REWRITE rather than a patch: the flow it drove no
  * longer exists.
  *
@@ -17,7 +17,7 @@ import type { Page } from '@playwright/test';
  *      canvas click cannot be performed from the keyboard.
  *   3. Clearing a pin stops the item plotting.
  *   4. Overlay honesty — with an unmappable item present, /plan shows "N of M stops shown"
- *      and /map shows "N of M plans exactly placed" (S381/D-279 re-pointed /map's badge
+ *      and /map shows "N of M plans exactly placed" (D-279 re-pointed /map's badge
  *      when D-278's ladder made "shown" true of every plan), both with N<M; pinning bumps
  *      N up to M on both.
  *
@@ -94,7 +94,7 @@ async function waitForCamera(page: Page) {
     .not.toBe('');
 }
 
-/** Open the editor for an item and reveal the pin controls (S357A put them behind the
+/** Open the editor for an item and reveal the pin controls (they sit behind the
  *  "More details" disclosure — one toggle click, no assertion changed). */
 async function openPinSection(page: Page, itemId: string) {
   await page.getByTestId(`calendar-item-edit-${itemId}`).click();
@@ -104,7 +104,7 @@ async function openPinSection(page: Page, itemId: string) {
   return editor;
 }
 
-test.describe('S357B · pin-drop from the map + "N of M stops shown" overlay', () => {
+test.describe('pin-drop from the map + "N of M stops shown" overlay', () => {
   test('map pick: drop a pin on the canvas → it plots → reload → it persisted AND still plots', async ({
     page,
   }) => {
@@ -247,7 +247,7 @@ test.describe('S357B · pin-drop from the map + "N of M stops shown" overlay', (
     expect(onDisk?.lng).toBeUndefined();
   });
 
-  // S381: /map's badge changed MEANING (D-279) — under D-278's placement ladder every
+  // /map's badge changed MEANING (D-279) — under D-278's placement ladder every
   // plan is shown, so "N of M stops shown" would be N === M forever. It now counts the
   // EXACTLY-placed plans, which this test still discriminates: 1 of 2 before the pin (only
   // the curated-marker item is exact), 2 of 2 after.

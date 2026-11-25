@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
-// S346 — component/unit proof for three audit fixes, same createRoot+act harness as
-// s345-front-door.test.ts (no new dep; standalone vitest.config.ts globs only `*.test.ts`, so
+// Component/unit proof for three audit fixes, same createRoot+act harness as
+// front-door.test.ts (no new dep; standalone vitest.config.ts globs only `*.test.ts`, so
 // createElement instead of JSX). framer-motion is neutralised so token-gate's `m.*` render in a
 // bare tree.
 //
@@ -9,10 +9,10 @@
 //        sets the active trip back to the default pack and reloads; the old Plan link is gone.
 //   A5 — a token-only login with NO stored name sets the one-shot `name-hint` flag in handleLogin;
 //        consumeNameHint fires the Sonner toast exactly once (flag cleared before firing).
-//        ⚠ S378/D-277 RE-SCOPED the login case: it pins the DOOR's TRANSIENT local placeholder, not
+//        ⚠ D-277 RE-SCOPED the login case: it pins the DOOR's TRANSIENT local placeholder, not
 //        the display name the user ends up with. WHEN the nudge fires is no longer decided here —
 //        `runAccountIdentitySync` now gates it to branch 3 (no account name to adopt); those cases,
-//        and the end-to-end name guarantee, live in `s378-account-identity.test.ts`.
+//        and the end-to-end name guarantee, live in `account-identity.test.ts`.
 //   #1 — createSyncCodeTripListSync tears the trip-list subscription down when the traveler goes
 //        null (sign-out) and re-arms for a fresh identity.
 
@@ -173,7 +173,7 @@ describe('A3 — DefaultTripOnly empty-state switch-back', () => {
 describe('A5 — post-login name-hint one-shot', () => {
   // Drive the real wall: fill the username and password, then submit the login form.
   async function submitLogin(view: { container: HTMLElement }, loc: { replace: ReturnType<typeof vi.fn> }) {
-    // S355: the wall opens on the marketing landing — a CTA opens the auth card.
+    // The wall opens on the marketing landing — a CTA opens the auth card.
     const cta = view.container.querySelector<HTMLButtonElement>('[data-testid="landing-cta-login"]')!;
     await act(async () => {
       cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -199,7 +199,7 @@ describe('A5 — post-login name-hint one-shot', () => {
     await vi.waitFor(() => expect(loc.replace).toHaveBeenCalled(), { timeout: 5000 });
   }
 
-  // ⚠ RE-SCOPED IN S378 (D-277), and the paragraph below is kept as written EXCEPT its last
+  // ⚠ RE-SCOPED by D-277, and the paragraph below is kept as written EXCEPT its last
   // sentence, which the account-name fix overtook: the door DOES take a name off the #10 probe's
   // own snapshot now (one read, no new remote surface, still a dynamic import — D-239's
   // firebase-free clause is about the STATIC graph and is intact). The mock above answers
@@ -210,7 +210,7 @@ describe('A5 — post-login name-hint one-shot', () => {
   // changed is that the placeholder is now TRANSIENT — `runAccountIdentitySync` in
   // itinerary-provider replaces it with the account's real name on the very next load. The
   // END-TO-END guarantee ("Powan stays Powan on a fresh device") lives in
-  // lib/__tests__/s378-account-identity.test.ts, NOT here. Do not "strengthen" this test by forcing
+  // lib/__tests__/account-identity.test.ts, NOT here. Do not "strengthen" this test by forcing
   // a name lookup into the door — that would violate D-239's firebase-free clause.
   it('the door defaults the local name slot to the transient placeholder and flags the hint (real handleLogin)', async () => {
     setSyncCode('11111111-2222-3333-4444-555555555555'); // this device's account id
@@ -222,7 +222,7 @@ describe('A5 — post-login name-hint one-shot', () => {
     await submitLogin(view, loc);
 
     // Login defaulted the name to the placeholder and left the one-shot hint for the post-reload
-    // consumer — which, since S378, only toasts if the account has no real name to adopt (branch 3).
+    // consumer — which now only toasts if the account has no real name to adopt (branch 3).
     expect(getUserName()).toBe(DEFAULT_TRAVELER_NAME);
     expect(sessionStorage.getItem('name-hint')).toBe('1');
     view.unmount();

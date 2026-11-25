@@ -3,7 +3,7 @@ import type { Page, ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * Travel Mode route SHELL E2E pack (slice S184, D-164 / D-170).
+ * Travel Mode route SHELL E2E pack (D-164 / D-170).
  *
  * Rides the shared `./fixtures` DEFAULT identity (a SIGNED-IN traveler) — with no guest mode
  * (D-241), that is the only identity that ever reaches `/travel`; there is no separate
@@ -46,7 +46,7 @@ const tabBar = (page: Page) => page.getByTestId('tab-bar');
 const fab = (page: Page) => page.getByTestId('quick-add-fab');
 const footer = (page: Page) => page.locator('footer');
 
-test.describe('S184 · /travel serves the chrome-free shell', () => {
+test.describe('/travel serves the chrome-free shell', () => {
   test('the TM root + h1 render and all four chrome pieces are absent', async ({ page }) => {
     await goto(page, '/travel/');
 
@@ -62,7 +62,7 @@ test.describe('S184 · /travel serves the chrome-free shell', () => {
   });
 });
 
-test.describe('S184 · chrome is restored on navigating away', () => {
+test.describe('chrome is restored on navigating away', () => {
   test('Home (after /travel) shows navbar, footer, tab bar, and FAB again', async ({ page }) => {
     // Prove the pathname conditional both suppresses AND restores: /travel first (gone), then Home.
     await goto(page, '/travel/');
@@ -77,7 +77,7 @@ test.describe('S184 · chrome is restored on navigating away', () => {
   });
 });
 
-test.describe('S184 axe — /travel (run twice for determinism)', () => {
+test.describe('axe — /travel (run twice for determinism)', () => {
   for (const run of [1, 2] as const) {
     test(`axe run ${run}: /travel has zero serious/critical violations`, async ({ page }, testInfo) => {
       await goto(page, '/travel/');
@@ -100,7 +100,7 @@ test.describe('S184 axe — /travel (run twice for determinism)', () => {
   }
 });
 
-test.describe('S184 · /travel loads with no console errors', () => {
+test.describe('/travel loads with no console errors', () => {
   test('no console.error / pageerror while loading the shell', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg: ConsoleMessage) => {

@@ -3,10 +3,10 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * Desktop "More" menu E2E pack (slice S256).
+ * Desktop "More" menu E2E pack.
  *
- * S320 (D-231): the desktop top row consolidated to 4 primaries (Today·Plan·Map·
- * Guides); the S256 "More ▾" disclosure after them lists the companion routes
+ * D-231: the desktop top row consolidated to 4 primaries (Today·Plan·Map·
+ * Guides); the "More ▾" disclosure after them lists the companion routes
  * (navItemsForActiveTrip() minus the primary seats — now 9 on the default trip:
  * Flights/Journal/Safety/Recap/Packing/Documents/Shared Links/Trips/Settings) plus
  * a divider and a "Search ⌘K/Ctrl+K" row that opens the command palette via a
@@ -32,7 +32,7 @@ async function goto(page: Page, path: string) {
     });
 }
 
-test.describe('S256 · desktop "More" disclosure', () => {
+test.describe('desktop "More" disclosure', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await goto(page, '/');
@@ -49,7 +49,7 @@ test.describe('S256 · desktop "More" disclosure', () => {
     const menu = page.getByTestId('navbar-more-menu');
     await expect(menu).toBeVisible();
 
-    // S320 (D-231): default trip companions = NAV_ITEMS minus the 4 primary seats →
+    // D-231: default trip companions = NAV_ITEMS minus the 4 primary seats →
     // Flights, Journal, Safety, Recap, Packing, Documents, Shared Links, Trips, Settings.
     for (const slug of [
       'flights',
@@ -128,13 +128,13 @@ test.describe('S256 · desktop "More" disclosure', () => {
   });
 });
 
-test.describe('S256 · mobile — More is hidden (D-071 mobile chrome untouched)', () => {
+test.describe('mobile — More is hidden (D-071 mobile chrome untouched)', () => {
   test('the More trigger does not show below md', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await goto(page, '/');
     await expect(page.getByTestId('navbar')).toBeVisible();
     await expect(page.getByTestId('navbar-more-toggle')).toBeHidden();
-    // S319: the mobile hamburger was deleted — the bottom tab bar is the mobile path.
+    // The mobile hamburger was deleted — the bottom tab bar is the mobile path.
     await expect(page.getByTestId('navbar-menu-toggle')).toHaveCount(0);
     await expect(page.getByTestId('tab-bar')).toBeVisible();
   });

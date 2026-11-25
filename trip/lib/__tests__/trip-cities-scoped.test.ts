@@ -4,7 +4,7 @@ import { setActiveTripId } from '@/core/storage/gateway';
 import { setTripConfig, type TripConfigBlock } from '@/core/trips/registry';
 
 /**
- * S330 (D-231) — `getCityForDate` is TRIP-SCOPED. Regression guard for the wrong-data bug where a
+ * D-231: `getCityForDate` is TRIP-SCOPED. Regression guard for the wrong-data bug where a
  * CUSTOM trip overlapping the default Dec 9 – Jan 9 window resolved per-day cities from the DEFAULT
  * content pack (`TRIP_CITIES`) and wrongly showed Kathmandu / Osaka / Tokyo.
  *
@@ -12,7 +12,7 @@ import { setTripConfig, type TripConfigBlock } from '@/core/trips/registry';
  * pointer write + full page reload, so a fresh module graph re-captures the new trip). This suite
  * therefore sets the active-trip pointer/config FIRST, then `vi.resetModules()` + dynamic-imports the
  * module so it loads under the custom trip — the same technique custom-trip-config.test.ts uses for
- * the module-load budget model. The frozen S82 boundary matrix stays in lib/__tests__/trip-cities.test.ts,
+ * the module-load budget model. The frozen countdown boundary matrix stays in lib/__tests__/trip-cities.test.ts,
  * UNCHANGED (that file proves the default trip is byte-identical).
  */
 
@@ -27,7 +27,7 @@ const OVERLAP: TripConfigBlock = {
   updatedAt: 1000,
 };
 
-describe('S330 getCityForDate — trip-scoped (custom trip does NOT inherit the default per-day map)', () => {
+describe('getCityForDate — trip-scoped (custom trip does NOT inherit the default per-day map)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -67,7 +67,7 @@ describe('S330 getCityForDate — trip-scoped (custom trip does NOT inherit the 
     expect(getCityForDate('2027-01-15')).toBe('Vik');
   });
 
-  it('the DEFAULT trip (unset pointer) still resolves the frozen S82 boundary cities from the per-day map', async () => {
+  it('the DEFAULT trip (unset pointer) still resolves the frozen countdown boundary cities from the per-day map', async () => {
     // Parity re-check in this file too: with no pointer set, the module loads under the default pack
     // and the authored per-day map applies exactly as before.
     vi.resetModules();

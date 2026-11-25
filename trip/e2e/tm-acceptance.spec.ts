@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S191 — Travel Mode acceptance net (TM-1,2,3,4,5,7,8,9,10,12), the evidence Phase 2's DoD rests on.
+ * Travel Mode acceptance net (TM-1,2,3,4,5,7,8,9,10,12).
  *
  * SCOPING: this file runs ONLY on the two real-device-shaped projects `iphone-15-pro` (393×852)
  * and `iphone-15-pro-max` (430×932), both DPR 3 — see `playwright.config.ts` (chromium-engine
@@ -21,7 +21,7 @@ import AxeBuilder from '@axe-core/playwright';
  * with no history trap (D-194), the high-legibility attribute never leaks off /travel (D-192),
  * `?date=` bounded Dec 9–Jan 9 with an honest empty state (D-164/D-188).
  *
- * S192 adds the two deliberately-deferred items to THIS same file (still iPhone-scoped, so
+ * The two deliberately-deferred items were added to THIS same file (still iPhone-scoped, so
  * chromium's spec set stays byte-stable — no config/glob change needed, D-195):
  *   - TM-6  (Dec 18/19 TZ-boundary): the D-188 place-offset reinterpretation, pinned two ways —
  *           (a) a deterministic override-noon boundary PAIR (Dec 18 = Kathmandu/NPT vs Dec 19 =
@@ -34,7 +34,7 @@ import AxeBuilder from '@axe-core/playwright';
  *           their designed states, no crash. HONEST LIMITATION found + reported (not faked): cross-
  *           day date navigation needs the network offline (Next static-export refetches the route's
  *           RSC `.txt` on `router.replace`) — see the in-test NOTE.
- *   - Per-state TM visual baselines (S192): new device-real screenshots of the designed TM hero
+ *   - Per-state TM visual baselines: new device-real screenshots of the designed TM hero
  *           states (pre / nepal / japan / post / empty-date / legibility-ON), one baseline per
  *           device project (the `-projectName` snapshot suffix), following visual.spec.ts's
  *           determinism conventions (frozen `?today=` clock, reduced motion, animations disabled,
@@ -69,7 +69,7 @@ type SeedItem = {
 };
 type SeedDay = { date: string; city: string; country: 'nepal' | 'japan'; items: SeedItem[] };
 
-/** Seed the itinerary vault before any app script runs (the S186/S187 idiom). */
+/** Seed the itinerary vault before any app script runs (the travel-agenda idiom). */
 async function seedDays(page: Page, days: SeedDay[]) {
   await page.addInitScript((data: SeedDay[]) => {
     window.localStorage.setItem('nepal_japan_itinerary', JSON.stringify(data));
@@ -121,7 +121,7 @@ test.describe('TM-1 · designed states at pre / during(nepal+japan) / post trip'
   });
 });
 
-// ── TM-2 — exit restores the prior route with no history trap (the S190 model, on device) ──────
+// ── TM-2 — exit restores the prior route with no history trap (the travel-entry-exit model, on device) ──────
 test.describe('TM-2 · exit restores the prior route, no history trap', () => {
   test('exit returns to the EXACT prior in-app route and restores chrome', async ({ page }) => {
     await page.goto('/nepal/', { waitUntil: 'load' });
@@ -279,7 +279,7 @@ test.describe('TM-8 · DPR 3, no horizontal overflow, safe-area padding', () => 
     await expect(page.getByTestId('travel-legibility-toggle')).toHaveAttribute('aria-pressed', 'true');
     await noOverflow('legibility on');
 
-    // Essentials expanded (S317: opening the collapsed <details> — the widest inner content now).
+    // Essentials expanded (opening the collapsed <details> — the widest inner content now).
     await page.getByTestId('travel-essentials').evaluate((el) => {
       (el as HTMLDetailsElement).open = true;
     });
@@ -294,7 +294,7 @@ test.describe('TM-8 · DPR 3, no horizontal overflow, safe-area padding', () => 
     expect(over, 'arrival-toast: scrollWidth-innerWidth').toBeLessThanOrEqual(0);
   });
 
-  test('the TM root carries the S184 safe-area padding contract', async ({ page }) => {
+  test('the TM root carries the safe-area padding contract', async ({ page }) => {
     await gotoTravel(page, `?today=${NEPAL_DAY}`);
     const pad = await page.evaluate(() => {
       const cs = getComputedStyle(document.querySelector('[data-testid="travel-mode-root"]')!);
@@ -394,7 +394,7 @@ test.describe('TM-12 · axe clean in both legibility states + reduced motion', (
 // The trip crosses the NPT→JST boundary between Dec 18 (Kathmandu, UTC+5:45) and Dec 19 (Osaka,
 // UTC+9). D-188: a previewed/lived day resolves its country/city/day-number AND its "now" place
 // offset from the DAY ITSELF (`getCountryForDate(date)`), never today's country — the fix for the
-// latent S185/S186 seam bug. This describe pins that boundary from both angles (see the file
+// latent hero/agenda seam bug. This describe pins that boundary from both angles (see the file
 // header). The seed spans both boundary days with the SAME item shape so any leg/offset regression
 // shows as a diverging assertion between the two sides.
 const BOUNDARY_SEED: SeedDay[] = [
@@ -575,12 +575,12 @@ test.describe('TM-11 · fully offline incl. reload', () => {
     await expect(page.locator('[data-testid="travel-agenda-item"]')).toHaveCount(3);
     // The done-toggle written offline survived the offline reload.
     await expect(page.getByTestId('travel-done-toggle-ta-next')).toHaveAttribute('aria-pressed', 'true');
-    // Essentials still renders its designed (collapsed, S317) shell offline (no crash).
+    // Essentials still renders its designed (collapsed) shell offline (no crash).
     await expect(page.getByTestId('travel-essentials')).toBeVisible();
     // The current day stays fully interactive offline — the now/next strip renders without network.
     await expect(page.getByTestId('travel-hero-flip')).toBeVisible();
 
-    // 5) Cross-day date picking works OFFLINE (S192 real-defect fix in travel-date-picker.tsx:
+    // 5) Cross-day date picking works OFFLINE (real-defect fix in travel-date-picker.tsx:
     //    `router.replace` fetched the route's RSC payload on every same-page `?date=` change —
     //    offline that failed and Next hard-navigated to the SW nav-fallback. Now a same-document
     //    `history.replaceState`, network-free). Pick an unseeded day → empty state; pick back →
@@ -598,7 +598,7 @@ test.describe('TM-11 · fully offline incl. reload', () => {
   });
 });
 
-// ── Per-state TM visual baselines (S192) ──────────────────────────────────────────────────────
+// ── Per-state TM visual baselines ──────────────────────────────────────────────────────
 //
 // Device-real screenshots of the designed TM hero states, one baseline per device project (the
 // `-projectName` snapshot suffix distinguishes 393×852 from 430×932). Determinism follows

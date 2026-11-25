@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 //
-// S345 — component-level proof for three front-door fixes, rendered with the same
+// Component-level proof for three front-door fixes, rendered with the same
 // createRoot+act harness story-photos.test.ts uses (no new dep; standalone vitest.config.ts
 // only globs `*.test.ts`, so createElement instead of JSX). framer-motion is mocked to plain
 // host elements so the LazyMotion-`strict` `m.*` components render outside a LazyMotion
 // provider without throwing.
 //
-//   A1 — which mode the auth card opens on. S382 INVERTED it once (it opens on "Log in" for EVERY
-//        device, including one with no stored User Token — INTAKE-03); #70 then RE-POINTED it off
+//   A1 — which mode the auth card opens on. It was INVERTED once (it opens on "Log in" for EVERY
+//        device, including one with no stored User Token); #70 then RE-POINTED it off
 //        the mode default, which no CTA observes any more, onto the per-CTA table. The block's own
 //        comment carries the full why, and reading it is the point.
-//   S382 — entry FOCUS lands on the log-in CTA (`document.activeElement`), the instrument that
+//   Focus — entry FOCUS lands on the log-in CTA (`document.activeElement`), the instrument that
 //        measured the defect on the deployed site.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -84,7 +84,7 @@ describe('A1 → #70 — every landing CTA opens the auth card on the mode its l
    * A1 used to drive the card open through the SHARED-TRIP CTA ("Someone shared a trip with me")
    * and assert the mode was 'login'. That worked because that CTA deliberately set no mode, making
    * it the ONE path that ever observed `TokenGateWall`'s `useState<Mode>('login')` initializer —
-   * which is what A1 existed to pin (S382/INTAKE-03: the card opens on Log in for every device,
+   * which is what A1 existed to pin (the card opens on Log in for every device,
    * including one with no stored key).
    *
    * #70 is the report that this routing was wrong. That CTA names visitors holding a TRIP TOKEN;
@@ -100,7 +100,7 @@ describe('A1 → #70 — every landing CTA opens the auth card on the mode its l
    *
    * WHAT THIS BLOCK STILL FAILS ON, which is the whole reason it was re-pointed rather than
    * deleted: the shared-trip CTA regressing to log-in mode (the #70 defect — and the exact routing
-   * the wall's old comment used to defend); the log-in CTA opening signup (INTAKE-03's defect
+   * the wall's old comment used to defend); the log-in CTA opening signup (the original defect
    * direction, whose primary guard is the entry-FOCUS block below); and create and log in swapped.
    * WHAT IT NO LONGER CLAIMS: anything about the mode initializer.
    */
@@ -173,7 +173,7 @@ describe('A1 → #70 — every landing CTA opens the auth card on the mode its l
 });
 
 /**
- * S382 (INTAKE-03) — THE FRONT DOOR'S ENTRY FOCUS.
+ * THE FRONT DOOR'S ENTRY FOCUS.
  *
  * 🔴 This is the one check in the slice that measures what was actually measured on the deployed
  * site: `document.activeElement` on arrival, with `localStorage` carrying no User Token. A live
@@ -187,7 +187,7 @@ describe('A1 → #70 — every landing CTA opens the auth card on the mode its l
  * waits real time inside `act` rather than faking timers (fake timers here would also fake React's
  * own scheduling).
  */
-describe('S382 — entry focus lands on "log in", not "create an account"', () => {
+describe('entry focus lands on "log in", not "create an account"', () => {
   async function settleFocus() {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 120));
@@ -222,8 +222,8 @@ describe('S382 — entry focus lands on "log in", not "create an account"', () =
   });
 });
 
-// S355 — the wall's FIRST view is the marketing landing, and it must carry zero live trip data.
-describe('S355 — TokenGate opens on the landing, and its CTAs pick the auth path', () => {
+// The wall's FIRST view is the marketing landing, and it must carry zero live trip data.
+describe('TokenGate opens on the landing, and its CTAs pick the auth path', () => {
   it('a logged-out visitor gets the landing, not the auth form', () => {
     const view = render(createElement(TokenGate));
     expect(view.container.querySelector('[data-testid="landing-page"]')).not.toBeNull();
@@ -251,10 +251,10 @@ describe('S355 — TokenGate opens on the landing, and its CTAs pick the auth pa
   });
 
   it('"I have an account — log in" opens the auth card in login mode', () => {
-    // S382 note: since the default is now 'login' for every device, this case no longer
+    // Note: since the default is now 'login' for every device, this case no longer
     // discriminates the CTA from the default on its own. Its sibling above ("Create an account"
     // wins over the login default) is the one that proves a CTA overrides the default; this one
-    // stays as the end-to-end path check for the CTA the INTAKE-03 ruling promotes.
+    // stays as the end-to-end path check for the CTA the login-first rule promotes.
     const view = render(createElement(TokenGate));
     act(() => {
       view.container

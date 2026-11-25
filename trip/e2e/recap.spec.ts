@@ -2,19 +2,19 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S105 — the read-only plan-vs-actual DAY RECAP E2E pack.
+ * The read-only plan-vs-actual DAY RECAP E2E pack.
  *
  * The recap island (`components/trip-recap.tsx`) is a HOME-page island mounted right after the Today
  * panel. For each trip day that has already HAPPENED (via `elapsedTripDates(getNow())`, incl. the
  * D-075 `?today=` override) it pairs, READ-ONLY: the PLAN (that day's `getDayPlan(date).items`), the
- * ACTUAL (each item's `done` tick + "{done} of {planned} done", S98), and the REFLECTION (that day's
- * `getEntry(date)`, S104). It renders `null` PRE-trip and mutates nothing. These specs prove the
+ * ACTUAL (each item's `done` tick + "{done} of {planned} done"), and the REFLECTION (that day's
+ * `getEntry(date)`). It renders `null` PRE-trip and mutates nothing. These specs prove the
  * centrepiece pairing on a real run:
  *
- *   1. IN-TRIP (`?today=2026-12-20`, Day 12 Osaka — S112 reroute): the recap renders elapsed-day cards including the
+ *   1. IN-TRIP (`?today=2026-12-20`, Day 12 Osaka, D-124 reroute): the recap renders elapsed-day cards including the
  *      current Day-12 card (city correct) with a "{done} of {planned} done" line reflecting the seeded
  *      done-state, most-recent-first.
- *   2. PLAN-VS-ACTUAL PAIRING END-TO-END: write TODAY'S journal in the Today panel (reusing the S104
+ *   2. PLAN-VS-ACTUAL PAIRING END-TO-END: write TODAY'S journal in the Today panel (reusing the journal
  *      journal testids), then assert the SAME day's recap card shows that mood/highlight/text.
  *   3. POST-TRIP (`?today=2027-01-10`): all 32 day cards render. PRE-TRIP (`?today=2026-12-01`): NO
  *      recap island (Home byte-unchanged).
@@ -31,7 +31,7 @@ import type { Page } from '@playwright/test';
 const ITINERARY_KEY = 'nepal_japan_itinerary';
 const JOURNAL_KEY = 'nepal_japan_journal';
 
-// In-trip Day 12 = 2026-12-20 (Dec 9 = Day 1), Osaka (Japan window — S112 reroute). The clock override we drive.
+// In-trip Day 12 = 2026-12-20 (Dec 9 = Day 1), Osaka (Japan window, D-124 reroute). The clock override we drive.
 const IN_TRIP_DAY = '2026-12-20';
 // Post-trip clock — after the last trip date (2027-01-09), so all 32 days have elapsed.
 const POST_TRIP_DAY = '2027-01-10';
@@ -84,7 +84,7 @@ async function seedEmptyItinerary(page: Page) {
   await page.evaluate((key) => window.localStorage.setItem(key, '[]'), ITINERARY_KEY);
 }
 
-test.describe('S105 day recap — plan-vs-actual, in-trip', () => {
+test.describe('day recap — plan-vs-actual, in-trip', () => {
   test('in-trip Day 12: the recap renders elapsed cards incl. Day 12 (Osaka) with the seeded done-count', async ({
     page,
   }) => {
@@ -98,7 +98,7 @@ test.describe('S105 day recap — plan-vs-actual, in-trip', () => {
     // 12 day cards have elapsed (Dec 9 – Dec 20 inclusive), most-recent-first.
     await expect(page.locator('[data-testid^="recap-card-"]')).toHaveCount(12);
 
-    // The current day's card exists, shows the real day-trip city (Osaka — S112 reroute) and Day 12.
+    // The current day's card exists, shows the real day-trip city (Osaka, D-124 reroute) and Day 12.
     const day12 = page.getByTestId(`recap-card-${IN_TRIP_DAY}`);
     await expect(day12).toBeVisible();
     await expect(day12).toContainText('Day');
@@ -135,7 +135,7 @@ test.describe('S105 day recap — plan-vs-actual, in-trip', () => {
     await expect(page.getByTestId(`recap-no-journal-${IN_TRIP_DAY}`)).toBeVisible();
     await expect(page.getByTestId(`recap-journal-${IN_TRIP_DAY}`)).toHaveCount(0);
 
-    // Write text + mood + highlight in the Today panel's journal card (reuse the S104 testids).
+    // Write text + mood + highlight in the Today panel's journal card (reuse the journal testids).
     await page.getByTestId('journal-write-prompt').click();
     await expect(page.getByTestId('journal-editor')).toBeVisible();
     await page.getByTestId('journal-mood-great').click();
@@ -161,7 +161,7 @@ test.describe('S105 day recap — plan-vs-actual, in-trip', () => {
   });
 });
 
-test.describe('S105 day recap — post-trip / pre-trip gating', () => {
+test.describe('day recap — post-trip / pre-trip gating', () => {
   test('post-trip: all 32 day cards render', async ({ page }) => {
     await gotoHomeWithClock(page, POST_TRIP_DAY);
     await seedEmptyItinerary(page);

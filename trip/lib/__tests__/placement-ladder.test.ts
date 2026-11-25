@@ -12,7 +12,7 @@ import { CITY_COORDS } from '@/lib/city-coords';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S381 — the five-rung placement ladder (D-278) and the approximate-pin honesty rule (D-279).
+ * The five-rung placement ladder (D-278) and the approximate-pin honesty rule (D-279).
  *
  * The load-bearing cases, in the order they can hurt:
  *  1. Each rung fires at its own precedence, and only rungs 4–5 are `approximate`.
@@ -36,11 +36,11 @@ function withItems(day: DayPlan, items: ItineraryItem[]): DayPlan {
   return { ...day, items };
 }
 
-describe('S381 · D-278 — the ladder resolves at the right rung', () => {
+describe('D-278 — the ladder resolves at the right rung', () => {
   it('rung 1: an explicit pin wins, is exact, and plots at its own coordinate', () => {
     const item: ItineraryItem = {
       id: 'p',
-      // The title ALSO names a curated marker — the pin must still win (S137).
+      // The title ALSO names a curated marker — the pin must still win.
       title: 'Boudhanath Stupa, but actually the cafe across the road',
       category: 'food',
       lat: 27.6,
@@ -145,7 +145,7 @@ describe('S381 · D-278 — the ladder resolves at the right rung', () => {
   });
 });
 
-describe('S381 · D-278 — a derived position is NEVER persisted', () => {
+describe('D-278 — a derived position is NEVER persisted', () => {
   it('resolving the WHOLE trip mutates no item: lat/lng/rev are byte-identical after', () => {
     // A deep snapshot BEFORE, taken from the same objects the resolver will be handed.
     const before = JSON.stringify(SAMPLE_ITINERARY);
@@ -185,7 +185,7 @@ describe('S381 · D-278 — a derived position is NEVER persisted', () => {
   });
 });
 
-describe('S381 · D-278 — every plan gets a row, and pins dedupe per coordinate', () => {
+describe('D-278 — every plan gets a row, and pins dedupe per coordinate', () => {
   it('the default pack: one row per item, ZERO of them kind:"none"', () => {
     const items = SAMPLE_ITINERARY.reduce((n, p) => n + (p.items?.length ?? 0), 0);
     const rows = buildItineraryPlacements(SAMPLE_ITINERARY);
@@ -195,7 +195,7 @@ describe('S381 · D-278 — every plan gets a row, and pins dedupe per coordinat
 
   it('a day whose items ALL resolve only by city still renders a row for each of them', () => {
     // Day 1 of the curated seed: three transport legs, none of which names a curated place.
-    // Before S381 this day produced NO rows at all — the plans existed and the map denied it.
+    // Before the ladder this day produced NO rows at all — the plans existed and the map denied it.
     const day1 = SAMPLE_ITINERARY[0];
     const rows = buildItineraryPlacements([day1]);
     expect(rows).toHaveLength(day1.items.length);
@@ -258,7 +258,7 @@ describe('S381 · D-278 — every plan gets a row, and pins dedupe per coordinat
   });
 });
 
-describe('S381 · the exact-only join (/plan, /travel) is unchanged in meaning', () => {
+describe('the exact-only join (/plan, /travel) is unchanged in meaning', () => {
   it('buildItineraryStops still yields ONLY exact placements, in STORED order', () => {
     const stops = buildItineraryStops(SAMPLE_ITINERARY);
     expect(stops.length).toBeGreaterThan(0);

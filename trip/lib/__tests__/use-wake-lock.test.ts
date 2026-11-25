@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S270 — regression test for the wake-lock re-acquire bug. `navigator.wakeLock`
+// Regression test for the wake-lock re-acquire bug. `navigator.wakeLock`
 // isn't real in jsdom, so it's mocked to return a fake EventTarget-style
 // sentinel (`addEventListener`/`release`), mirroring lib/__tests__/use-online.test.ts's
 // tiny renderHook shim (react-dom/client + act — no new dependency).
@@ -108,7 +108,7 @@ async function renderWakeLockToggle() {
   };
 }
 
-describe('useWakeLock (S270 regression)', () => {
+describe('useWakeLock (regression)', () => {
   let fake: ReturnType<typeof makeFakeWakeLock>;
 
   beforeEach(() => {

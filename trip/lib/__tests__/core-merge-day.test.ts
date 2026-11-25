@@ -15,7 +15,7 @@ import {
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * Sync v2 — per-day merge unit suite (S96; D-106 LOCKED).
+ * Sync v2 — per-day merge unit suite (D-106 LOCKED).
  *
  * Proves all 11 scenarios of the PURE per-day item-level merge, incl. the
  * commutativity+idempotence property test (the convergence proof) and the clock-skew

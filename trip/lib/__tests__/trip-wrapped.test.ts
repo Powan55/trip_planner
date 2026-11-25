@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S219 — Trip Wrapped pure derivation (D-016/D-099). `core/recap/wrapped.ts` composes EXISTING
+ * Trip Wrapped pure derivation (D-016/D-099). `core/recap/wrapped.ts` composes EXISTING
  * pure selectors (`expensesToSpent`, `packingProgress`, `docsCompletion`, `elapsedTripDates`/
  * `isPostTrip`) into one headline-stat summary — these tests pin `deriveWrapped` against an
  * empty-everything input, a mid-trip mixed-data input (exact numbers, incl. top-category-per-leg

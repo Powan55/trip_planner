@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S329 / D-234 — client `validateOps` (state-validity) and `applyOp` (execution + undo).
+// D-234: client `validateOps` (state-validity) and `applyOp` (execution + undo).
 // validateOps is exercised against a fixed LIVE-plans fixture covering every drop rule; applyOp is
 // exercised against a FAKE store (plain call-capturing object) so the CRUD routing + undo-capture
 // are proven without React/localStorage (the real store integration has its own proof in
@@ -58,12 +58,12 @@ describe('validateOps (D-234)', () => {
       { type: 'moveItem', itemId: 'live-1', fromDate: D0 }, // move missing toDate
     ];
     expect(validateOps(ops, PLANS)).toEqual([]);
-    // S342: `date`/`fromDate` are no longer REQUIRED on update/remove/move — the target (and its
+    // `date`/`fromDate` are no longer REQUIRED on update/remove/move — the target (and its
     // day) resolve from the id alone, so an op that omits them entirely is still actionable.
     expect(validateOps([{ type: 'removeItem', itemId: 'live-1' }], PLANS)).toHaveLength(1);
   });
 
-  it('Rule 4 (S342-amended) — a non-trip date drops addItem.date and moveItem.toDate (the dates that ADDRESS a new day)', () => {
+  it('Rule 4 (amended) — a non-trip date drops addItem.date and moveItem.toDate (the dates that ADDRESS a new day)', () => {
     const ops = [
       { type: 'addItem', date: OFF_TRIP, title: 'x', category: 'food' },
       { type: 'moveItem', itemId: 'live-1', fromDate: D0, toDate: OFF_TRIP },
@@ -97,10 +97,10 @@ describe('validateOps (D-234)', () => {
     expect(validateOps(ops, PLANS)).toEqual([]);
   });
 
-  // S342 amendment: the target is resolved by id across ALL dates (ids are globally unique — the
+  // Amendment: the target is resolved by id across ALL dates (ids are globally unique — the
   // D-018 merge invariant puts a given id in exactly one DayPlan.items[]), so a stated date that
   // disagrees with where the item actually lives is a HINT, not part of the key.
-  it('Rule 6 (S342) — a live item is resolved by id even when the op states the WRONG date', () => {
+  it('Rule 6 — a live item is resolved by id even when the op states the WRONG date', () => {
     const ops = [
       { type: 'updateItem', itemId: 'live-1', date: D1, title: 'x' }, // live on D0, op says D1
       { type: 'removeItem', itemId: 'live-1', date: D1 },
@@ -145,12 +145,12 @@ describe('validateOps (D-234)', () => {
     expect(validateOps(ops, PLANS)).toEqual([]);
   });
 
-  // ── S342 DIAGNOSIS ─────────────────────────────────────────────────────────────────────────
+  // ── DIAGNOSIS ─────────────────────────────────────────────────────────────────────────
   // Reported: "Concierge AI still can't modify my plans." These reproduce the ranked silent-drop causes
-  // from the S342 triage against the LIVE-plans fixture, and pin which ones the CLIENT can fix
+  // from the triage against the LIVE-plans fixture, and pin which ones the CLIENT can fix
   // (target resolution) vs which are only fixable in the WORKER PROMPT (a date the client cannot
   // interpret) and therefore stay dropped — now with a visible "didn't match" line in the UI.
-  describe('S342 diagnosis — the ranked silent-drop causes', () => {
+  describe('diagnosis — the ranked silent-drop causes', () => {
     it('CAUSE 1a (non-ISO date) — addItem STILL drops (prompt-side fix); update/remove no longer do', () => {
       // A human-readable date can't be mapped to a trip date, so an addItem carrying one is
       // unrecoverable client-side — the Worker prompt now states the ISO format + range.
@@ -262,7 +262,7 @@ describe('validateOps (D-234)', () => {
 
 // ── FAKE store: captures each CRUD call so applyOp's routing + undo can be asserted. ──
 //
-// `landedId` models what the REAL store returns from `moveItem` (S389-A). This recorder holds no
+// `landedId` models what the REAL store returns from `moveItem`. This recorder holds no
 // state, so ANY assertion made only on its call ARGS is unfalsifiable for a move — that is exactly
 // how the old `undo moves it back` test passed on code whose undo was a live no-op. The return
 // value is the one piece of real store behaviour a stateless fake CAN carry, so the move tests
@@ -353,11 +353,11 @@ describe('applyOp (D-234 — execution + undo)', () => {
     expect(item.title).toBe('Boudhanath Stupa');
   });
 
-  // S389-A. The test this REPLACES asserted `store.calls[1]` was `['live-1', D1, D0]` — an inverse
+  // The test this REPLACES asserted `store.calls[1]` was `['live-1', D1, D0]` — an inverse
   // by the ORIGINAL id, which IS the defect: under sync the target copy has a fresh id, so that
   // inverse resolves nothing and the undo toast shows while doing nothing. The old assertion could
   // not fail, because the fake store never moved anything for the inverse to miss.
-  it('moveItem inverts by the id the store ACTUALLY landed the item on, not the original (S389-A)', () => {
+  it('moveItem inverts by the id the store ACTUALLY landed the item on, not the original', () => {
     const store = fakeStore('fresh-target-id'); // sync-on: freshCopyOf minted a new id
     const op: Op = { type: 'moveItem', itemId: 'live-1', fromDate: D0, toDate: D1 };
     const { undo } = applyOp(op, store, PLANS);
@@ -388,10 +388,10 @@ describe('describeOp — chip labels', () => {
     expect(describeOp({ type: 'moveItem', itemId: 'live-1', fromDate: D0, toDate: D1 }, PLANS)).toContain('Move “Boudhanath Stupa”');
   });
 
-  // S389-B — the updateItem chip must NAME the change. It previously read
+  // The updateItem chip must NAME the change. It previously read
   // `Update “Boudhanath Stupa” on Wed, Dec 9` for every patch, whatever it contained: the
   // traveller was asked to confirm a mutation whose content was invisible.
-  describe('updateItem names what it changes (S389-B)', () => {
+  describe('updateItem names what it changes', () => {
     const label = (op: Op) => describeOp(op, PLANS);
 
     it('names each patchable field in the chip', () => {
@@ -411,7 +411,7 @@ describe('describeOp — chip labels', () => {
     it('still names the item and the day it lands on', () => {
       const out = label({ type: 'updateItem', itemId: 'live-1', date: D1, startMinutes: 870 });
       expect(out).toContain('Boudhanath Stupa');
-      expect(out).toContain(formatDate(D0)); // the item's REAL day, not the op's hint (S342)
+      expect(out).toContain(formatDate(D0)); // the item's REAL day, not the op's hint
     });
 
     it('summarises a wide patch instead of dumping every clause', () => {

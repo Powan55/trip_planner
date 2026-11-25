@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 //
-// S206 — packing checklist hook (`hooks/use-packing.ts`), exercised by RENDERING the real hook (a
+// Packing checklist hook (`hooks/use-packing.ts`), exercised by RENDERING the real hook (a
 // tiny renderHook shim over react-dom/client + act — no new dependency, mirrors
 // lib/__tests__/use-favorites.test.ts). Proves: hydrate-seeds-the-built-in-template,
 // toggle-persists-through-the-gateway-key-21 `packingStore` (byte-transport proof), reload
-// (unmount+remount) survives (the S206 hard guarantee — same bar as itinerary CRUD), progress
+// (unmount+remount) survives (the hard guarantee — same bar as itinerary CRUD), progress
 // updates, cross-instance sync via the CustomEvent fan-out, and a corrupt persisted slot degrades
 // to the template (never throws).
 //
@@ -72,7 +72,7 @@ function renderPacking(): HookHandle {
   return handle;
 }
 
-describe('usePacking (S206)', () => {
+describe('usePacking', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -124,7 +124,7 @@ describe('usePacking (S206)', () => {
     h.unmount();
   });
 
-  it('RELOAD (unmount + remount) — checked state survives (the S206 hard guarantee)', async () => {
+  it('RELOAD (unmount + remount) — checked state survives (the hard guarantee)', async () => {
     const h = renderPacking();
     await h.run(() => {});
     const id = h.current.items[0].id;

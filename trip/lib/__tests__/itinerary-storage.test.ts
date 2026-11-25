@@ -86,11 +86,11 @@ describe('itinerary-storage (D-018 contract)', () => {
     expect(loadPlans()).toEqual(x);
   });
 
-  // S78: quarantine-on-corrupt. loadPlans() must PRESERVE the raw corrupt payload to
+  // Quarantine-on-corrupt. loadPlans() must PRESERVE the raw corrupt payload to
   // a backup key before falling back to SAMPLE_ITINERARY, so the store's next
   // savePlans() (which always writes sample-derived data back to the MAIN key, D-031)
   // can never permanently destroy the user's real (corrupt-but-recoverable) trip.
-  describe('S78: quarantine-on-corrupt (data-loss fix)', () => {
+  describe('quarantine-on-corrupt (data-loss fix)', () => {
     it('corrupt = non-array JSON (object): quarantine key holds the exact original raw string', () => {
       const raw = JSON.stringify({ foo: 1 });
       localStorage.setItem(ITINERARY_STORAGE_KEY, raw);
@@ -160,13 +160,13 @@ describe('itinerary-storage (D-018 contract)', () => {
       savePlans(next);
 
       // MAIN key now holds sample-derived data (expected — the store always writes).
-      // S90 (D-095): savePlans() writes the CURRENT Vault envelope, so the persisted value
+      // D-095: savePlans() writes the CURRENT Vault envelope, so the persisted value
       // is `{ schemaVersion: CURRENT, updatedAt, payload: next }` — the PAYLOAD is `next`.
       // (Only pre-existing assertion touched by the Vault: it peeked at the raw on-disk
       //  encoding, which D-095 mandates change from bare-array to envelope; the test's
       //  actual guarantee — main overwritten with the new plans, quarantine intact — is
       //  unchanged and is asserted below. Recorded at review.)
-      // S96 (D-104): the current version is now 4 — asserted via the constant so this
+      // D-104: the current version is now 4 — asserted via the constant so this
       //  tracks the version, not a frozen literal. The guarantee is unchanged.
       const storedEnvelope = JSON.parse(localStorage.getItem(ITINERARY_STORAGE_KEY)!);
       expect(storedEnvelope.schemaVersion).toBe(CURRENT_ITINERARY_VERSION);

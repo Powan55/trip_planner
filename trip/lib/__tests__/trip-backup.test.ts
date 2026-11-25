@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// Full-trip backup/restore unit suite (slice S273, D-227). Exercises `lib/trip-backup.ts` against
+// Full-trip backup/restore unit suite (D-227). Exercises `lib/trip-backup.ts` against
 // the REAL Vault-backed localStorage (`loadPlans`/`savePlans` + the real gateway domain keys) and an
 // in-memory `BlobStorePort` fake for photo bytes (jsdom has no IndexedDB; D-088 forbids a fake-idb dep).
 //
@@ -10,7 +10,7 @@
 //   2. Custom-trip round-trip — data lands under `trip:custom-x:*` keys.
 //   3. Never-destroy, total garbage — a non-JSON file rejects and destroys nothing.
 //   4. Never-destroy, partial — one malformed domain (`journal:42`) is dropped, the rest restore.
-//   5. Back-compat — a pre-S273 itinerary-only Vault export imports the itinerary, others untouched.
+//   5. Back-compat — an older itinerary-only Vault export imports the itinerary, others untouched.
 //   6. Photo quota on import — a blob that fails to store becomes a placeholder; ok:true, photosSkipped>0.
 //   7. Compression self-check — a 20-photo round-trip through the REAL compress/decompress pipeline.
 
@@ -178,7 +178,7 @@ afterEach(() => {
   gate.tripId = 'nepal-japan-2026';
 });
 
-describe('S273 — case 1: whole-trip round-trip survives a device wipe (the P2 guarantee)', () => {
+describe('case 1: whole-trip round-trip survives a device wipe (the P2 guarantee)', () => {
   it('export → clear localStorage + fresh blob store → import → every domain, itinerary AND photo bytes are back', async () => {
     const seedStore = makeInMemoryBlobStore();
     const blobBytes = await seedAll(seedStore);
@@ -212,7 +212,7 @@ describe('S273 — case 1: whole-trip round-trip survives a device wipe (the P2 
   });
 });
 
-describe('S273 — case 2: custom-trip round-trip lands under trip:{id}:* keys', () => {
+describe('case 2: custom-trip round-trip lands under trip:{id}:* keys', () => {
   it('restores into whichever trip is active at import time', async () => {
     setActiveTripId('custom-x');
     const seedStore = makeInMemoryBlobStore();
@@ -233,7 +233,7 @@ describe('S273 — case 2: custom-trip round-trip lands under trip:{id}:* keys',
   });
 });
 
-describe('S273 — case 3: never-destroy, total garbage', () => {
+describe('case 3: never-destroy, total garbage', () => {
   it('a non-JSON file rejects and destroys nothing', async () => {
     const store = makeInMemoryBlobStore();
     await seedAll(store);
@@ -248,7 +248,7 @@ describe('S273 — case 3: never-destroy, total garbage', () => {
   });
 });
 
-describe('S273 — case 4: never-destroy, one malformed domain', () => {
+describe('case 4: never-destroy, one malformed domain', () => {
   it('drops the malformed domain (journal:42) and restores the rest', async () => {
     const store = makeInMemoryBlobStore();
     await seedAll(store);
@@ -279,7 +279,7 @@ describe('S273 — case 4: never-destroy, one malformed domain', () => {
   });
 });
 
-describe('S273 — itinerary commit uses the injected dual path (restorePlans under sync)', () => {
+describe('itinerary commit uses the injected dual path (restorePlans under sync)', () => {
   it('routes the itinerary commit through the supplied function (not savePlans) for a full backup', async () => {
     const store = makeInMemoryBlobStore();
     await seedAll(store);
@@ -309,7 +309,7 @@ describe('S273 — itinerary commit uses the injected dual path (restorePlans un
   });
 });
 
-describe('S273 — case 5: back-compat with a pre-S273 itinerary-only export', () => {
+describe('case 5: back-compat with an older itinerary-only export', () => {
   it('imports the itinerary via the legacy path and leaves other domains untouched', async () => {
     const store = makeInMemoryBlobStore();
     await seedAll(store);
@@ -334,7 +334,7 @@ describe('S273 — case 5: back-compat with a pre-S273 itinerary-only export', (
   });
 });
 
-describe('S273 — case 6: photo quota on import → placeholders, ok:true', () => {
+describe('case 6: photo quota on import → placeholders, ok:true', () => {
   it('a blob that fails to store leaves its meta as a placeholder and increments photosSkipped', async () => {
     const seedStore = makeInMemoryBlobStore();
     await seedAll(seedStore, 2); // ph-seed-0, ph-seed-1
@@ -491,7 +491,7 @@ describe('never-destroy applies to photos too: a malformed photos.meta is droppe
   });
 });
 
-describe('S273 — case 7: compression self-check (20-photo round-trip through the real pipeline)', () => {
+describe('case 7: compression self-check (20-photo round-trip through the real pipeline)', () => {
   it('every photo byte survives export→import through the real compress/decompress path', async () => {
     const seedStore = makeInMemoryBlobStore();
     const metas: PhotoMeta[] = [];

@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S218 polish bundle — targeted coverage for the three small items:
- *   1. Skeleton loading slots (`SectionSkeleton`, S67) are wired for the named lazy
+ * Polish bundle: targeted coverage for the three small items:
+ *   1. Skeleton loading slots (`SectionSkeleton`) are wired for the named lazy
  *      islands (map, journal) — verified in a signed-in browser with every chunk response
  *      held back, so the loading slot is on screen long enough to assert deterministically.
  *      This USED to read the served static export's raw HTML. #10 ended that: the provider
@@ -21,8 +21,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -69,7 +69,7 @@ async function seedPacking(page: Page, uncheckedCount: 0 | 1) {
   );
 }
 
-test.describe('S218 — skeleton loading slots wired for lazy islands', () => {
+test.describe('skeleton loading slots wired for lazy islands', () => {
   /**
    * Hold every JS chunk for `delayMs` before letting it through. The lazy island's chunk is
    * requested only AFTER hydration, so its skeleton is guaranteed to be on screen for at least
@@ -162,7 +162,7 @@ test.describe('S218 — skeleton loading slots wired for lazy islands', () => {
   });
 });
 
-test.describe('S218 — last-packing-item-checked micro-celebration', () => {
+test.describe('last-packing-item-checked micro-celebration', () => {
   test('checking the final item shows the celebration burst', async ({ page }) => {
     await gotoAsTraveler(page, '/packing/');
     await seedPacking(page, 1);
@@ -192,7 +192,7 @@ test.describe('S218 — last-packing-item-checked micro-celebration', () => {
     await expect(page.getByTestId('packing-celebration')).toHaveCount(0);
   });
 
-  test('REGRESSION (S218 review): an already-complete list does NOT celebrate on load, but a live re-completion does', async ({ page }) => {
+  test('REGRESSION (review): an already-complete list does NOT celebrate on load, but a live re-completion does', async ({ page }) => {
     // Seed all 28 checked in storage, then load: the null-baseline seed means no burst on load.
     await gotoAsTraveler(page, '/packing/');
     await seedPacking(page, 0);

@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * AM/PM time-picker E2E pack (slice S125, D-141/D-138) — the picker's own centerpiece
+ * AM/PM time-picker E2E pack (D-141/D-138): the picker's own centerpiece
  * proof: add a time via the hand-rolled picker -> reload -> it renders AM/PM + the
  * day-country badge and survives; a clear -> reload -> the item is untimed. Mirrors
  * persistence.spec.ts's harness conventions exactly (same signed-in fixture,
@@ -36,7 +36,7 @@ async function typeEditorTitle(page: Page, title: string) {
   await page.mouse.wheel(0, -5000);
 }
 
-test.describe('S125 — AM/PM time picker: set + reload', () => {
+test.describe('AM/PM time picker: set + reload', () => {
   test('adding a time via the picker renders AM/PM + the NPT badge and survives reload', async ({ page }) => {
     const uniqueTitle = `S125 picker-set ${Date.now()}`;
 
@@ -186,7 +186,7 @@ test.describe('S125 — AM/PM time picker: set + reload', () => {
     // Wait for the open FADE to fully settle before scanning: axe samples COMPUTED colors,
     // and the selected option mid-opacity-fade composites to a lower-contrast blend over the
     // dark backdrop (a false serious color-contrast hit — same mid-animation sampling class as
-    // the hero CTA flake). S353B: the selected option moved off gold-500 onto the chrome accent
+    // the hero CTA flake). The selected option moved off gold-500 onto the chrome accent
     // (`bg-primary text-primary-foreground`); at rest that measures rgb(61,217,245) on
     // rgb(11,12,14) = 11.59:1 (browser-measured), so the at-rest state
     // has MORE headroom than the ~8:1 gold it replaced — the wait is still about the fade.
@@ -207,7 +207,7 @@ test.describe('S125 — AM/PM time picker: set + reload', () => {
     await page.getByTestId('calendar-add-item').click();
     await typeEditorTitle(page, uniqueTitle);
 
-    // S357A: Duration moved behind the editor's "More details" disclosure — Title, Category
+    // Duration moved behind the editor's "More details" disclosure — Title, Category
     // and Time are the only fields open on load. Time itself is unaffected (it stays visible).
     await page.getByTestId('calendar-editor-more-toggle').click();
     const durationInput = page.getByTestId('calendar-editor-duration-input');

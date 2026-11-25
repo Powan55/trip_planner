@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S104 — pure journal core (D-016/D-099). `core/journal/model.ts` is framework-free; these tests
+ * Pure journal core (D-016/D-099). `core/journal/model.ts` is framework-free; these tests
  * pin the type guards (`isMood`/`isEmptyContent`), the sanitizers (`sanitizeEntry`/`sanitizeEntries`
  * — total, date-required, content-required, mood/highlight coercion, last-write dedupe by date), the
  * lookup (`getEntry`), and the pure transforms (`upsertEntry` create/merge/clear-removes with a

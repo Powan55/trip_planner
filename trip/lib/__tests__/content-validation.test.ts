@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 
-// S122 `npm run validate:content` (D-135 LOCKED). This suite is the content
+// `npm run validate:content` (D-135 LOCKED). This suite is the content
 // layer's validator: it parses EVERY content domain against its STRICT authoring schema
 // (core/content/schema.ts) and checks the cross-content invariants that keep a "green
 // schemas" edit from still breaking the app (exact 32-date coverage, country-vs-date

@@ -2,8 +2,8 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S214 — <Reveal> scroll-driven CSS conversion (`components/reveal.tsx`), extending S180's
- * dual-path idiom (`components/scroll-progress.tsx` / e2e/motion.spec.ts's "S180" pack) from
+ * <Reveal> scroll-driven CSS conversion (`components/reveal.tsx`), extending the scroll-progress
+ * dual-path idiom (`components/scroll-progress.tsx` / e2e/motion.spec.ts's scroll-progress pack) from
  * the page-progress bar to the section-entrance reveal used across content routes.
  *
  * Proves, on the real served `out/` build (D-093), against the bundled Chromium:
@@ -16,7 +16,7 @@ import type { Page } from '@playwright/test';
  *      `animationName: 'reveal-view-in'`, the `.reveal-view-css` class) — proof it's LIVE, not
  *      just "no visual regression".
  *   3. Reduced motion: the CSS path NEVER renders (`data-scroll-driven` is always `"js"`, no
- *      `.reveal-view-css` node anywhere on the page) — mirrors the S180 pack's reduced-motion
+ *      `.reveal-view-css` node anywhere on the page) — mirrors the scroll-progress pack's reduced-motion
  *      test for scroll-progress.tsx exactly.
  *
  * Harness notes mirror e2e/a11y.spec.ts / e2e/motion.spec.ts: `test`/`expect` from `./fixtures`
@@ -59,7 +59,7 @@ async function gotoReducedSettled(page: Page, path: string) {
   await settleSW(page);
 }
 
-test.describe('S214 · Reveal — content routes render/reveal correctly (default motion)', () => {
+test.describe('Reveal — content routes render/reveal correctly (default motion)', () => {
   test('/nepal/: the Nepal guide heading and the embedded photography guide heading are both visible, no broken layout', async ({
     page,
   }) => {
@@ -97,7 +97,7 @@ test.describe('S214 · Reveal — content routes render/reveal correctly (defaul
   });
 });
 
-test.describe('S214 · Reveal — the scroll-driven CSS path is actually live on this Chromium', () => {
+test.describe('Reveal — the scroll-driven CSS path is actually live on this Chromium', () => {
   test('the Nepal heading wrapper renders the CSS path: data-scroll-driven="css", .reveal-view-css, animationName reveal-view-in', async ({
     page,
   }) => {
@@ -121,7 +121,7 @@ test.describe('S214 · Reveal — the scroll-driven CSS path is actually live on
   });
 });
 
-test.describe('S214 · Reveal — reduced motion: CSS path NEVER renders (D-007/D-056)', () => {
+test.describe('Reveal — reduced motion: CSS path NEVER renders (D-007/D-056)', () => {
   test('/nepal/: every Reveal instance is the framer path (data-scroll-driven="js"), .reveal-view-css never appears', async ({
     page,
   }) => {
@@ -149,7 +149,7 @@ test.describe('S214 · Reveal — reduced motion: CSS path NEVER renders (D-007/
 });
 
 /**
- * S354 / D-246 — the floored fade must NOT reach reduced-motion users.
+ * D-246: the floored fade must NOT reach reduced-motion users.
  *
  * D-246 replaced D-100's opacity PIN (`initial:{opacity:1}` — a slide that never faded)
  * with a FLOOR (`initial:{opacity:FADE_FLOOR}`). On the four sites that had no
@@ -168,13 +168,13 @@ test.describe('S214 · Reveal — reduced motion: CSS path NEVER renders (D-007/
  * `animationName` and the running-animation timeline, not computed opacity. This assertion
  * is net-new; the pattern is `e2e/travel-hero.spec.ts`'s headline-opacity read.
  *
- * NEGATIVE CONTROL (run for the S354 gate, not vacuous): against the floored-but-unforked
+ * NEGATIVE CONTROL (run for the D-246 gate, not vacuous): against the floored-but-unforked
  * build this test FAILED with a computed opacity of 0.7, and passed once the fork landed.
  * The target is deliberately the photography masthead, which is BELOW THE FOLD on /nepal/
  * at this viewport and is never scrolled to here — so its `whileInView` has not fired and
  * the element is sitting at its `initial` value, which is the whole point.
  */
-test.describe('S354 · Reveal — reduced motion rests at FULL opacity (D-246 floor is animated-path only)', () => {
+test.describe('Reveal — reduced motion rests at FULL opacity (D-246 floor is animated-path only)', () => {
   test('/nepal/: an off-screen Reveal computes to opacity 1 under prefers-reduced-motion', async ({
     page,
   }) => {

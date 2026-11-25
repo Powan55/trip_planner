@@ -3,8 +3,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SHARED_TRIP_ID } from '@/lib/shared-trip';
 
 /**
- * S232 (D-205 amends D-172 item 5 / D-210) — the sync gate + dynamic trip id. This file
- * supersedes the S183 default-pack-gate test: D-205 REMOVED the `getActiveTripId() ===
+ * D-205 (amends D-172 item 5) / D-210: the sync gate + dynamic trip id. This file
+ * supersedes the old default-pack-gate test: D-205 REMOVED the `getActiveTripId() ===
  * DEFAULT_TRIP_ID` clause from `isRemoteConfigured()` so remote sync now activates for ANY
  * active pack once the Firebase web config is present. The former security choke point moved
  * to the capability-token Firestore path (`getTripId()`), proven here.
@@ -20,7 +20,7 @@ async function loadConfigWithEnv() {
   return import('@/lib/firebase-config');
 }
 
-describe('firebase-config sync gate + dynamic trip id (S232 / D-205 / D-210)', () => {
+describe('firebase-config sync gate + dynamic trip id (D-205 / D-210)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

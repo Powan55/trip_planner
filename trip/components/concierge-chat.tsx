@@ -477,7 +477,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
   // Execute ONLY on explicit confirm: route through useItinerary(), then
   // offer undo capturing pre-state. Dismiss just drops the chip — nothing mutates.
   const confirmOp = (key: string, op: Op, label: string) => {
-    // Issue #19 / D-316 — the concierge's Confirm was the one authoring surface Slice A left
+    // Issue #19 / D-316 — the concierge's Confirm was the one authoring surface the clash guard left
     // unguarded. On a collision NOTHING is applied and `resolve(key)` is NOT called, so the chip
     // stays on screen and the proposal is still there to confirm once the clash is settled — the
     // "not add anything until that's settled" half, which is the non-negotiable part. The check
@@ -876,7 +876,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
                         );
                       })}
                       {/* Issue #13 — ONE line, evolved rather than doubled: the count that
-                          shipped at S342 plus the reason it was missing. A plain <p>, NOT
+                          shipped earlier plus the reason it was missing. A plain <p>, NOT
                           `role="alert"` — a drop is not a blocked user action, it is part of the
                           reply, and it is already inside the panel's `role="log" aria-live=
                           "polite"` region, so it is announced with the turn it belongs to. The
@@ -985,7 +985,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
           )}
         </form>
 
-        {/* (owner ruling Q5, second half) — the small privacy label, sited at the input
+        {/* The small privacy label, sited at the input
             rather than buried in the header paragraph, because this is where the user decides
             what to type. `text-ink-mid` is the same tone the SheetDescription already uses and
             already clears the axe colour-contrast check on this panel. The bottom inset is what

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S104 — in-trip per-day TEXT journal E2E pack.
+ * In-trip per-day TEXT journal E2E pack.
  *
  * The journal card (`components/journal-card.tsx`) mounts INSIDE the in-trip Today panel
  * (`components/today-panel.tsx`), below the agenda — so it renders ONLY when the app clock is inside
@@ -19,7 +19,7 @@ import type { Page } from '@playwright/test';
  *
  * ── SETTLE DISCIPLINE (mirrors today.spec.ts / expenses.spec.ts) ────────────────────────────────
  * `TodayPanel` (which mounts the journal card) is a `next/dynamic(ssr:false)` island. On every
- * navigation/reload (`waitUntil:'domcontentloaded'`, FU-26/S167 — never `networkidle`) the app
+ * navigation/reload (`waitUntil:'domcontentloaded'`, never `networkidle`) the app
  * remounts the island → resolves the `?today=` override → hydrates the itinerary store → renders.
  * `settleJournal` blocks until the journal card is visible before any
  * assertion, so nothing fires against a transient pre-hydrate frame. Assertions are unchanged in
@@ -69,7 +69,7 @@ async function readStored(page: Page): Promise<Array<Record<string, unknown>> | 
   }, JOURNAL_KEY);
 }
 
-test.describe('S104 in-trip journal — write/edit/clear, persists across reload', () => {
+test.describe('in-trip journal — write/edit/clear, persists across reload', () => {
   test('write text + mood + highlight: it appears in the read view and survives reload', async ({
     page,
   }) => {

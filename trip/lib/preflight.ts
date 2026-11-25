@@ -124,12 +124,12 @@ function formatBytes(bytes: number): string {
  * tiles come from `tiles.openfreemap.org`, which is cross-origin, and the SW's first fetch-handler
  * line passes cross-origin through untouched, so tiles are never cached. Offline PMTiles was
  * closed NO-GO (D-173 → D-197: 180 MB–3.7 GB against a 100 MB cap). The maplibre ENGINE is not
- * precached either (V6-14): it is RUNTIME-cached into `trip-runtime-*` on the first ONLINE `/map`
+ * precached either: it is RUNTIME-cached into `trip-runtime-*` on the first ONLINE `/map`
  * visit, and once it is there it buys pins and the route line on a navy canvas — no street
  * imagery. Say that and no more.
  *
  * Cached is not the same as present (never opened `/map` online, storage eviction, a cold or
- * failed install), which is why this is a real check and not a tautology — and since V6-14 the
+ * failed install), which is why this is a real check and not a tautology — and since the engine is withheld the
  * common answer on a fresh install is "not yet", with one online map visit as the fix. We find
  * the engine the same way the build does: by content match over the cached `.js` entries.
  * Largest-first ordering because the engine is the ~1 MB chunk, so the common answer costs one

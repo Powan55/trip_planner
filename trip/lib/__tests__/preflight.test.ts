@@ -119,7 +119,7 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
     );
     expect(check.state).toBe('attention');
     expect(check.headline).toBe('Map engine not saved yet');
-    // V6-14 made this the state of EVERY fresh install until the first online /map visit, so
+    // Withholding the engine made this the state of EVERY fresh install until the first online /map visit, so
     // the copy must name that action and must not read as a fault. It stays 'attention'
     // because there IS something to do; what changed is that it says what.
     expect(check.detail).toMatch(/open the map with a connection/i);

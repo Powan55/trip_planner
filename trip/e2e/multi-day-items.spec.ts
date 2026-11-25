@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S148 — Multi-day items (dormant `out/` build).
+ * Multi-day items (dormant `out/` build).
  *
  * Proves, on a real run:
  *   1. The editor's "spans multiple days" control sets an `endDate`; a span band then renders
@@ -16,7 +16,7 @@ import AxeBuilder from '@axe-core/playwright';
  *   4. No console errors; axe on `/plan` is serious/critical-clean.
  *
  * Identity: default fixture (`./fixtures`) seeds a signed-in traveler so `/plan` is reachable
- * (dormant build, no `.env.local`). Seed + settle discipline mirrors search-plan.spec.ts (S147):
+ * (dormant build, no `.env.local`). Seed + settle discipline mirrors search-plan.spec.ts:
  * navigate `domcontentloaded`, block on the lazy planner island's `calendar-day-*` grid.
  */
 
@@ -50,7 +50,7 @@ async function gotoDay(page: Page, date: string) {
   await expect(page.getByTestId(`calendar-day-${date}`)).toHaveAttribute('aria-pressed', 'true');
 }
 
-test.describe('S148 · multi-day items', () => {
+test.describe('multi-day items', () => {
   test('editor sets a span → band renders on every covered day; non-start days show ONLY the band', async ({
     page,
   }) => {
@@ -62,7 +62,7 @@ test.describe('S148 · multi-day items', () => {
     await expect(page.getByTestId('calendar-editor')).toBeVisible();
 
     // Enable the span, pick DAY_C as the inclusive last day, save.
-    // S357A: the multi-day span control now sits behind the editor's "More details"
+    // The multi-day span control now sits behind the editor's "More details"
     // disclosure (only Title/Category/Time are open on load). Same toggle, one step deeper.
     await page.getByTestId('calendar-editor-more-toggle').click();
     await page.getByTestId('calendar-editor-span-toggle').click();
@@ -93,7 +93,7 @@ test.describe('S148 · multi-day items', () => {
     await seedPlan(page, [{ date: DAY_A, city: 'Kathmandu', country: 'nepal', items: [TREK] }]);
 
     await page.getByTestId(`calendar-item-edit-${TREK.id}`).click();
-    // S357A: the multi-day span control now sits behind the editor's "More details"
+    // The multi-day span control now sits behind the editor's "More details"
     // disclosure (only Title/Category/Time are open on load). Same toggle, one step deeper.
     await page.getByTestId('calendar-editor-more-toggle').click();
     await page.getByTestId('calendar-editor-span-toggle').click();

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S280 — render coverage for the native App Router error boundary
+// Render coverage for the native App Router error boundary
 // (`app/error.tsx`), exercised by RENDERING the real exported component with
 // the same createRoot+act harness `lib/__tests__/story-photos.test.ts` uses
 // (no new dep, no JSX in this file since vitest.config.ts only globs

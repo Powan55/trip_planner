@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { haversineKm, type LatLng } from '@/lib/day-anchor';
 
-// S381 / D-281: the `orderByProximity` suite that used to sit at the bottom of this file
+// D-281: the `orderByProximity` suite that used to sit at the bottom of this file
 // was DELETED with the function itself — nearest-first ordering was retired on every surface.
 // `haversineKm` keeps its tests below: the day anchor still labels each stop with its distance.
 

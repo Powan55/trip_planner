@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 //
-// S127 — regression suite for delete-UNDO (`restoreItem`) in hooks/use-itinerary.ts, the #1
+// Regression suite for delete-UNDO (`restoreItem`) in hooks/use-itinerary.ts, the #1
 // correctness trap of the Phase-1 planner-CRUD tier: a restore that is silently re-killed by
 // the tombstone bias in the day-doc merge. Exercised by RENDERING the real hook (the same tiny
 // renderHook shim over react-dom/client + act as use-itinerary-move-sync.test.ts — no new dep).
 //
 // The delete path is UNCHANGED (removeItem still tombstones under sync / physically removes under
-// dormant). S127 only ADDS the undo: capture the removed item → restoreItem(date, item).
+// dormant). This only ADDS the undo: capture the removed item → restoreItem(date, item).
 //
 // Proven on a real run:
 //   SYNC ON (D-032 fresh-id restore):
@@ -117,7 +117,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('SYNC ON — restoreItem = fresh-id restore that survives the tombstone bias (S127, D-032)', () => {
+describe('SYNC ON — restoreItem = fresh-id restore that survives the tombstone bias (D-032)', () => {
   beforeEach(() => {
     state.remoteOn = true;
   });
@@ -208,7 +208,7 @@ describe('SYNC ON — restoreItem = fresh-id restore that survives the tombstone
   });
 });
 
-describe('DORMANT — restoreItem is a byte-identical same-id re-add (S127, D-038)', () => {
+describe('DORMANT — restoreItem is a byte-identical same-id re-add (D-038)', () => {
   beforeEach(() => {
     state.remoteOn = false;
   });

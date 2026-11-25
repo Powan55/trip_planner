@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S216 — quiet, read-only weather tag on the calendar day-detail header
+ * Quiet, read-only weather tag on the calendar day-detail header
  * (`components/calendar-planner.tsx`, `data-testid="calendar-day-weather-tag"`).
  *
  * PURE CLIENT-SIDE DERIVATION over the SAME `weatherCache` gateway entry the Today panel's
- * weather card (S99/S150) already write-throughs — the calendar itself NEVER fetches (D-016).
+ * weather card already write-throughs — the calendar itself NEVER fetches (D-016).
  * So the deterministic path to a populated cache is: stub Open-Meteo, visit Home under the
  * `?today=` clock override so the Today panel's weather card actually fetches + write-throughs
  * the 7-day outlook (same idiom as `weather.spec.ts`), THEN navigate to `/plan` under the SAME
@@ -23,7 +23,7 @@ import AxeBuilder from '@axe-core/playwright';
  */
 
 const IN_TRIP_DAY = '2026-12-12'; // Day 4, Kathmandu — matches weather.spec.ts's fixture day.
-// S393: was 2026-12-09, which is now SYRACUSE (the departure day). This case's whole point is
+// Was 2026-12-09, which is now SYRACUSE (the departure day). This case's whole point is
 // "same city, date outside the cached window" — with a different city it would still pass while
 // no longer testing the window at all. Moved to Dec 10, the earliest Kathmandu day, which is
 // still before the 12th–18th cache window, so the case keeps its discriminating power.
@@ -109,7 +109,7 @@ async function gotoPlanner(page: Page, todayParam: string) {
   await expect(page.getByTestId('calendar-prev-day')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('S216 — calendar day-card weather tag (read-only, cache-derived)', () => {
+test.describe('calendar day-card weather tag (read-only, cache-derived)', () => {
   test('a date inside the cached forecast window shows the right tag', async ({ page }) => {
     await primeWeatherCache(page);
     await gotoPlanner(page, IN_TRIP_DAY);
@@ -129,19 +129,19 @@ test.describe('S216 — calendar day-card weather tag (read-only, cache-derived)
     await page.getByTestId(`calendar-day-${OUT_OF_WINDOW_DAY}`).click();
     await expect(page.getByTestId('calendar-day-weather-tag')).toHaveCount(0);
     // The header itself still renders correctly (no broken layout from the missing tag).
-    // S336: 'Day N ·' matches two legit header nodes (the compact date line AND the
+    // 'Day N ·' matches two legit header nodes (the compact date line AND the
     // location line), so assert the unambiguous location header specifically.
     await expect(page.getByTestId('calendar-prev-day')).toBeVisible();
     await expect(page.getByText('Day 2 · Kathmandu, Nepal')).toBeVisible();
   });
 
-  // S407 — the RENDERED day header, on the served build. Dec 9 is spent in Syracuse / JFK / the
+  // The RENDERED day header, on the served build. Dec 9 is spent in Syracuse / JFK / the
   // air and is NAMED New York (D-315); `country: 'nepal'` is the LEG ID that drives currency +
   // UTC offset, not a label, so the header used to read "…, Nepal". It must now read the day's
   // own label, while Dec 10 —
   // asserted verbatim above — keeps its leg label. Lives in this file because it is the same
   // day-detail header these cases already drive.
-  test('S407: the Dec-9 header renders "New York, USA", never "New York, Nepal"', async ({ page }) => {
+  test('the Dec-9 header renders "New York, USA", never "New York, Nepal"', async ({ page }) => {
     await gotoPlanner(page, IN_TRIP_DAY);
     await page.getByTestId('calendar-day-2026-12-09').click();
     await expect(page.getByText('Day 1 · New York, USA')).toBeVisible();
@@ -168,13 +168,13 @@ test.describe('S216 — calendar day-card weather tag (read-only, cache-derived)
     await gotoPlanner(page, IN_TRIP_DAY);
     await expect(page.getByTestId('calendar-day-weather-tag')).toBeVisible();
 
-    // S336 (ported S351B — the guard was written for wrapped-story.spec.ts the same commit but
+    // Settle-guard (the guard was written for wrapped-story.spec.ts the same commit but
     // never carried here): the mid-trip travel-arrival toast (fixed, fades opacity 0->1 on mount)
     // can be sampled by axe mid-fade, which deflates its text-ink-mid to a false ~4.05:1 contrast
     // reading — at rest it composites to ~7:1 on the glass surface. IN_TRIP_DAY (2026-12-12) is
     // inside the trip window and this pack never dismisses/seeds the toast's 'seen' flag, so it is
     // eligible here exactly like it was on /recap. Settle it to opacity 1 first (the
-    // s157-a11y-close-targets pattern) so the scan reads its true colors.
+    // a11y-close-targets pattern) so the scan reads its true colors.
     const arrivalToast = page.getByTestId('travel-arrival-toast');
     await arrivalToast.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
     if (await arrivalToast.count()) {

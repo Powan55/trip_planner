@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S129 — regression suite for clear-WHOLE-day (`clearDay` + `restoreDay`) in
+// Regression suite for clear-WHOLE-day (`clearDay` + `restoreDay`) in
 // hooks/use-itinerary.ts, exercised by RENDERING the real hook (the same renderHook shim over
 // react-dom/client + act as use-itinerary-restore-sync.test.ts / use-itinerary-move-sync.test.ts
 // — no new dependency). This proves the three correctness traps of a whole-day clear under sync:
@@ -125,7 +125,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('SYNC ON — clearDay tombstones ALL in ONE write; concurrent-add survives; undo = fresh ids (S129)', () => {
+describe('SYNC ON — clearDay tombstones ALL in ONE write; concurrent-add survives; undo = fresh ids', () => {
   beforeEach(() => {
     state.remoteOn = true;
   });
@@ -241,7 +241,7 @@ describe('SYNC ON — clearDay tombstones ALL in ONE write; concurrent-add survi
   });
 });
 
-describe('DORMANT — clearDay physically empties; undo restores same ids byte-identically (S129, D-038)', () => {
+describe('DORMANT — clearDay physically empties; undo restores same ids byte-identically (D-038)', () => {
   beforeEach(() => {
     state.remoteOn = false;
   });

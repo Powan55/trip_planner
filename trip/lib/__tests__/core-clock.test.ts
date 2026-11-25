@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
-// S93 — Headless Core 1. These cases assert the framework-free `core/` boundary DIRECTLY
-// (the moved implementations), across the same fixtures the S82 E2E date/countdown pack
+// Headless core. These cases assert the framework-free `core/` boundary DIRECTLY
+// (the moved implementations), across the same fixtures the E2E date/countdown pack
 // drives through the UI, and prove the behavior-IDENTITY of the extraction: the exact
 // same symbols reached via the `@/lib/*` back-compat re-exports and via `@/core/*` are
 // one implementation with identical output. These are NEW cases layered on top of the
-// FROZEN FU-10 (`trip-data.test.ts`) + S77 (`countdown.test.ts`) suites, which are
+// FROZEN `trip-data.test.ts` + `countdown.test.ts` suites, which are
 // unchanged (ZERO assertion edits).
 
 // Core impls (the moved-to home):
@@ -33,17 +33,17 @@ import {
 import { computeCountdown as libComputeCountdown } from '@/lib/countdown';
 import { getTodayInTrip } from '@/lib/trip-now';
 
-describe('S93 core boundary — computeCountdown (pure, from @/core/clock)', () => {
+describe('core boundary — computeCountdown (pure, from @/core/clock)', () => {
   it('is the SAME function object re-exported by @/lib/countdown (one impl, two surfaces)', () => {
     expect(libComputeCountdown).toBe(coreComputeCountdown);
   });
 
-  it('matches the S82 pre-trip fixture: Nov 9 noon -> Dec 9 00:00 = 0mo/0wk/29d/12h, totalDays 29', () => {
+  it('matches the countdown pack pre-trip fixture: Nov 9 noon -> Dec 9 00:00 = 0mo/0wk/29d/12h, totalDays 29', () => {
     // Same instant the E2E drives via ?today=2026-11-09 (local noon), asserted at the
     // pure core boundary (no UI, no clock read).
     //
     // The TOTAL has never moved (29 days 12 hours, totalDays 29); only the bucketing has,
-    // across three schemes now. It pinned `weeks: 4, days: 1`, then S423 re-bucketed it to
+    // across three schemes now. It pinned `weeks: 4, days: 1`, then a later change re-bucketed it to
     // `days: 29` to keep "4 weeks" off the screen. Issue #11 / D-306 replaced that
     // suppression with a fixed 28-day carry: 29 = 28 + 1, so it read 1 month 0 weeks 1 day.
     // Issue #60 / D-313 reverts to calendar-accurate months: Nov 9 -> Dec 9 has not
@@ -66,7 +66,7 @@ describe('S93 core boundary — computeCountdown (pure, from @/core/clock)', () 
     });
   });
 
-  it('matches the S82 post-trip fixture: an instant past the target is all-zero / isPast', () => {
+  it('matches the countdown pack post-trip fixture: an instant past the target is all-zero / isPast', () => {
     const now = new Date(2027, 0, 15, 12, 0, 0); // Jan 15, 2027 (outside window)
     const target = new Date('2026-12-09T00:00:00');
     expect(coreComputeCountdown(target, now)).toEqual({
@@ -82,7 +82,7 @@ describe('S93 core boundary — computeCountdown (pure, from @/core/clock)', () 
   });
 });
 
-describe('S93 core boundary — getCountryForDate (B-01, from @/core/dates)', () => {
+describe('core boundary — getCountryForDate (B-01, from @/core/dates)', () => {
   it('behavior-identity spot-check: 2026-12-18 -> nepal, 2026-12-19 -> japan from BOTH surfaces', () => {
     // The load-bearing proof for the whole slice: the moved impl and the re-export agree.
     expect(coreGetCountryForDate('2026-12-18')).toBe('nepal');
@@ -100,7 +100,7 @@ describe('S93 core boundary — getCountryForDate (B-01, from @/core/dates)', ()
   });
 });
 
-describe('S93 core boundary — the @/core/dates re-export is the same object @/lib/trip-data serves', () => {
+describe('core boundary — the @/core/dates re-export is the same object @/lib/trip-data serves', () => {
   it('shares constants, label, and formatters by reference (one source)', () => {
     expect(libTRIP_DATES).toBe(coreTRIP_DATES);
     expect(libTRIP_DATE_LABEL).toBe(coreTRIP_DATE_LABEL);
@@ -117,7 +117,7 @@ describe('S93 core boundary — the @/core/dates re-export is the same object @/
   });
 });
 
-describe('S93 core boundary — dayInTripFor (pure day-in-trip math, from @/core/dates)', () => {
+describe('core boundary — dayInTripFor (pure day-in-trip math, from @/core/dates)', () => {
   // The four E2E boundary-matrix corners, asserted on the PURE math with a local-noon
   // Date (exactly how the trip-now adapter constructs the ?today= override instant).
   const noon = (y: number, m1: number, d: number) => new Date(y, m1 - 1, d, 12, 0, 0);
@@ -140,8 +140,8 @@ describe('S93 core boundary — dayInTripFor (pure day-in-trip math, from @/core
     });
   });
 
-  it('Dec 19 -> Day 11, Osaka (Japan start; permanent B-01 guard; S112 reroute)', () => {
-    // S112 (D-124): the Japan leg is now Osaka -> Kyoto -> Tokyo, so Dec-19's city
+  it('Dec 19 -> Day 11, Osaka (Japan start; permanent B-01 guard; D-124 reroute)', () => {
+    // D-124: the Japan leg is now Osaka -> Kyoto -> Tokyo, so Dec-19's city
     // changed from Tokyo to Osaka. The B-01 invariant this guards (Japan window, NOT
     // Kathmandu) is unaffected.
     expect(dayInTripFor(noon(2026, 12, 19))).toEqual({
@@ -174,8 +174,8 @@ describe('S93 core boundary — dayInTripFor (pure day-in-trip math, from @/core
   });
 });
 
-describe('S274 (D-224) — dayInTripFor offset branch + utcDayAtOffset (pure, TZ-independent)', () => {
-  // Runs under TZ=America/New_York per FU-10 — these assertions must hold regardless
+describe('D-224 — dayInTripFor offset branch + utcDayAtOffset (pure, TZ-independent)', () => {
+  // Runs under TZ=America/New_York (vitest.config.ts), so these assertions must hold regardless
   // (the offset branch keys off the UTC instant + a fixed constant, never device TZ).
 
   it('2026-12-10T03:00:00Z at NPT (+345) -> Day 2, Kathmandu (03:00Z = 08:45 NPT, still Dec 10)', () => {
@@ -197,8 +197,8 @@ describe('S274 (D-224) — dayInTripFor offset branch + utcDayAtOffset (pure, TZ
   });
 
   it('2026-12-18T19:00:00Z at JST (+540) -> Day 11, Osaka (19:00Z + 9h = 04:00Z Dec 19)', () => {
-    // The Japan leg's fallback/day city is Osaka for Dec 19 (S112/D-124 reroute) — same
-    // fixed-offset (+540 JST) branch, matching the frozen S82 Dec-19 corner.
+    // The Japan leg's fallback/day city is Osaka for Dec 19 (D-124 reroute), same
+    // fixed-offset (+540 JST) branch, matching the frozen countdown-pack Dec-19 corner.
     expect(dayInTripFor(new Date('2026-12-18T19:00:00Z'), 540)).toEqual({
       date: '2026-12-19',
       dayNumber: 11,
@@ -207,7 +207,7 @@ describe('S274 (D-224) — dayInTripFor offset branch + utcDayAtOffset (pure, TZ
     });
   });
 
-  it('one-arg / null / undefined calls stay device-local (byte-identical to the frozen S82 matrix)', () => {
+  it('one-arg / null / undefined calls stay device-local (byte-identical to the frozen countdown matrix)', () => {
     const noon = (y: number, m1: number, d: number) => new Date(y, m1 - 1, d, 12, 0, 0);
     expect(dayInTripFor(noon(2026, 12, 9))).toEqual(dayInTripFor(noon(2026, 12, 9), null));
     expect(dayInTripFor(noon(2026, 12, 9), undefined)).toEqual({

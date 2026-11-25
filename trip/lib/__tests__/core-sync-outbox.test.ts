@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S141 — the offline push outbox mechanics (core/sync/outbox.ts, D-150, FU-19). Exercised at the
+// The offline push outbox mechanics (core/sync/outbox.ts, D-150). Exercised at the
 // UNIT level with a MOCKED pushChunk + a real gateway-backed localStorage slot (jsdom). This is
 // the deterministic proof the two-client live scenario (JDK/emulator-gated; the manual
 // procedure lives in docs/two-phone-sync-check.md)
@@ -121,7 +121,7 @@ afterEach(() => {
 });
 
 describe('outbox mechanics (mocked pushChunk)', () => {
-  it('enqueue on push, then ack-on-resolve CLEARS the chunk (clean push prunes dirty to {}, stamps lastAckAt — S229)', async () => {
+  it('enqueue on push, then ack-on-resolve CLEARS the chunk (clean push prunes dirty to {}, stamps lastAckAt)', async () => {
     const h = makeHarness();
     const push = withOutbox(h.cs);
 
@@ -129,7 +129,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
 
     expect(h.attempts).toEqual([{ chunk: 'd1', version: 1 }]); // pushed once
     expect(outboxDirty('itinerary')).toEqual([]); // acked → not dirty
-    // S229: a real ack now stamps lastAckAt, so the key persists (dirty pruned to {}) instead of
+    // A real ack now stamps lastAckAt, so the key persists (dirty pruned to {}) instead of
     // being removed outright — the sync-status badge's "synced Xm ago" state survives a reload.
     const slot = rawSlot() as { version: 1; dirty: object; lastAckAt: string };
     expect(slot.version).toBe(1);
@@ -167,7 +167,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
       { chunk: 'd1', version: 1 }, // the retry from freshest local state
     ]);
     expect(outboxDirty('itinerary')).toEqual([]); // acked
-    // S229: the retry's ack stamps lastAckAt, so the slot key persists holding {dirty:{}, lastAckAt}.
+    // The retry's ack stamps lastAckAt, so the slot key persists holding {dirty:{}, lastAckAt}.
     const slot = rawSlot() as { dirty: object; lastAckAt: string };
     expect(slot.dirty).toEqual({});
     expect(typeof slot.lastAckAt).toBe('string');
@@ -322,7 +322,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
   });
 });
 
-describe('RELOAD scenario — the FU-19 fix (offline edit survives + pushes once)', () => {
+describe('RELOAD scenario — the reload fix (offline edit survives + pushes once)', () => {
   it('offline push persists the dirty slot → simulated reload → flush pushes each chunk once → slot cleared', async () => {
     // OFFLINE session: two edits are committed while the network is down (pushChunk rejects).
     const h = makeHarness();
@@ -351,7 +351,7 @@ describe('RELOAD scenario — the FU-19 fix (offline edit survives + pushes once
     // Each dirty chunk pushed EXACTLY ONCE, from the freshest local state.
     expect(h2.attempts.map((a) => a.chunk).sort()).toEqual(['2026-12-09', '2026-12-10']);
     expect(h2.attempts).toHaveLength(2);
-    // Dirty set cleared → the edits are confirmed, exactly once. S229: the ack stamps lastAckAt,
+    // Dirty set cleared → the edits are confirmed, exactly once. The ack stamps lastAckAt,
     // so the slot key persists (dirty pruned to {}) rather than being removed outright.
     expect(outboxDirty('itinerary')).toEqual([]);
     const slot = rawSlot() as { dirty: object; lastAckAt: string };
@@ -405,13 +405,13 @@ describe('DORMANT / GUEST — the slot is NEVER written (D-038 / D-055)', () => 
   });
 });
 
-describe('S229 — lastAckAt + outboxSnapshot() + the same-tab change event', () => {
+describe('lastAckAt + outboxSnapshot() + the same-tab change event', () => {
   it('a fresh (never-written) slot has NO lastAckAt — outboxSnapshot reads it as null, never throws', () => {
     expect(rawSlot()).toBeNull();
     expect(outboxSnapshot()).toEqual({ dirty: {}, lastAckAt: null });
   });
 
-  it('an OLD pre-S229 slot (no lastAckAt field at all) loads fine — undefined reads as "no ack yet"', async () => {
+  it('an OLD slot (no lastAckAt field at all) loads fine — undefined reads as "no ack yet"', async () => {
     localStorage.setItem(
       STORAGE_KEYS.syncOutbox,
       JSON.stringify({ version: 1, dirty: { itinerary: ['d1'] } }), // legacy shape, no lastAckAt key

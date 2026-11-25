@@ -4,7 +4,7 @@
 // WHEN enrolment runs, and what a refusal looks like to the user. `@/lib/trips-remote` is mocked so
 // the gates can be driven without firebase; `sonner` is mocked so the toast is countable.
 //
-// ⚠ Assertions count mock calls (the S378 rigour): `ensureMembership` swallows every failure, so
+// ⚠ Assertions count mock calls (the account-identity suite's rigour): `ensureMembership` swallows every failure, so
 // "no toast appeared" is indistinguishable from "the mocked module was bypassed" without a count.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

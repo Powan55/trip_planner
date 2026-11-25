@@ -4,10 +4,10 @@ import { STORAGE_KEYS, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
 import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
 
 /**
- * S190 (D-194 / D-164) — the Travel Mode persisted accessors (keys 19/20). Pins the 3-state flag
+ * D-194 / D-164: the Travel Mode persisted accessors (keys 19/20). Pins the 3-state flag
  * machine and the session return-route slot, plus the byte-exact on-disk key strings (D-097).
  */
-describe('travel-mode-store (S190, keys 19/20)', () => {
+describe('travel-mode-store (keys 19/20)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

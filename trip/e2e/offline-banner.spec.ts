@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S154 — app-wide offline banner E2E pack.
+ * App-wide offline banner E2E pack.
  *
  * Proves `components/offline-banner.tsx` (mounted once in `app/layout.tsx`) against
  * REAL browser connectivity via `context.setOffline(true/false)` — mirrors
@@ -33,7 +33,7 @@ async function goto(page: Page, path: string) {
     });
 }
 
-test.describe('S154 · offline banner (navigator.onLine)', () => {
+test.describe('offline banner (navigator.onLine)', () => {
   test('absent while online, appears the instant the network drops, disappears when it returns', async ({
     page,
     context,

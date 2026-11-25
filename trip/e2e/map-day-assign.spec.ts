@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S224 — map-linked itinerary editing (dormant `out/` build).
+ * Map-linked itinerary editing (dormant `out/` build).
  *
  * The map (a polished MapLibre mock, D-003/D-079) becomes an INPUT to day planning:
  * a user assigns a map pin to a trip day, and that day's stops re-order by client-side
@@ -14,7 +14,7 @@ import AxeBuilder from '@axe-core/playwright';
  *      touch equivalent): the pin is added to the chosen day via the existing itinerary
  *      CRUD, the day-strip target flips to anchored, and BOTH the added stop (Vault) and
  *      the anchor (gateway key 22) survive a reload — the localStorage hard guarantee.
- *   2. S381/D-281 (⚠️ this case used to assert the OPPOSITE): anchoring does NOT re-order
+ *   2. D-281 (⚠️ this case used to assert the OPPOSITE): anchoring does NOT re-order
  *      the day. Nearest-first ordering was retired on every surface, decided knowing in
  *      the question that it costs the day anchor its walking-route purpose — so the panel
  *      stays in TIME order and the newly added pin lands where time puts it, not first.
@@ -31,15 +31,15 @@ import AxeBuilder from '@axe-core/playwright';
  * map-favorites-offline.spec.ts: `domcontentloaded` + block on a real testid + the GL
  * canvas; open a specific marker's popup deterministically via the search panel.
  *
- * S380 adds two more, both about the day strip / day panel:
+ * Two more, both about the day strip / day panel:
  *   5. The day-strip badge counts PLANS, not just what the coordinate join could place
  *      (the curated seed's Day 1 holds 3 items and places 0 of them — it used to read
- *      "0 stops"). S381 re-points its qualifier from "N mapped" to "N exact": under the
+ *      "0 stops"). Its qualifier moved from "N mapped" to "N exact": under the
  *      D-278 ladder every plan is mapped, so "mapped" could no longer fail.
  *   6. A day-order row is a real focusable <button> whose Enter flies the map and opens
  *      that stop's popup (it used to be an inert <li> with three <span>s).
  *
- * S381 adds the ladder itself:
+ * And the ladder itself:
  *   7. Every plan of a day gets a row — the seed's Day 1 (3 transport legs, none of which
  *      names a curated place) rendered NO rows at all before this slice — and a row whose
  *      position was DERIVED says so, in shape and in words, quoting its own source.
@@ -139,7 +139,7 @@ async function seedDay(
   );
 }
 
-test.describe('S224 · assign a pin to a day (non-drag popup path), persists across reload', () => {
+test.describe('assign a pin to a day (non-drag popup path), persists across reload', () => {
   test('anchor Boudhanath to Day 2 via the popup select+button; stop + anchor survive reload', async ({
     page,
   }) => {
@@ -164,7 +164,7 @@ test.describe('S224 · assign a pin to a day (non-drag popup path), persists acr
     await expect(day2).toHaveAttribute('data-anchored', 'true');
     await expect(day2).toHaveAttribute('data-stop-count', '1');
     await expect(page.getByTestId('map-day-order')).toHaveAttribute('data-anchored', 'true');
-    // S381: rows are keyed by the ITEM id (generated at add time), so address the row by the
+    // Rows are keyed by the ITEM id (generated at add time), so address the row by the
     // marker it resolved to — and assert it resolved EXACTLY, since it came from a real pin.
     const addedRow = page.locator(
       `[data-testid^="map-day-order-stop-"][data-marker-id="${BOUDHA_ID}"]`,
@@ -188,7 +188,7 @@ test.describe('S224 · assign a pin to a day (non-drag popup path), persists acr
   });
 });
 
-test.describe('S381/D-281 · anchoring does NOT re-order the day; time order holds, and survives reload', () => {
+test.describe('D-281 · anchoring does NOT re-order the day; time order holds, and survives reload', () => {
   test('Day 1 seeded 19:00 Tokyo + 08:00 Swayambhu lists early→late, and anchoring on far-away Boudha leaves that order alone', async ({
     page,
   }) => {
@@ -248,7 +248,7 @@ test.describe('S381/D-281 · anchoring does NOT re-order the day; time order hol
   });
 });
 
-test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how many are EXACT', () => {
+test.describe('the day-strip badge counts PLANS, qualified by how many are EXACT', () => {
   test('Day 1 (3 curated plans, 0 exact) reads "3 plans · 0 exact"; every plan still gets a row', async ({
     page,
   }) => {
@@ -262,7 +262,7 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
     const day1 = page.getByTestId(`map-day-target-${DAY1}`);
     // The number the user reads is the number of plans they made.
     await expect(day1).toHaveAttribute('data-stop-count', '3');
-    // S381/D-279: the qualifier is EXACT-vs-total. "Mapped" would now be 3 of 3 on every
+    // D-279: the qualifier is EXACT-vs-total. "Mapped" would now be 3 of 3 on every
     // day of the trip — a ratio that can no longer fail is not worth rendering.
     await expect(day1).toHaveAttribute('data-mapped-count', '0');
     await expect(day1).toContainText('3 plans');
@@ -274,7 +274,7 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
     // Day 2 is the discriminator: 6 planned, 3 exactly-placed. A badge that simply echoed
     // the total into both slots fails here. The third is the welcome dinner, which gained its
     // own curated marker (np-bhojan-griha).
-    // ⚠️ This read "1" before S381, and the change is the ITEM-KEYING fix (D-278): the
+    // ⚠️ This read "1" before, and the change is the ITEM-KEYING fix (D-278): the
     // day's "Check in to the Thamel hotel" and "Evening walk in Thamel" both resolve to the
     // np-thamel marker, and the old per-marker dedupe silently dropped the second one. Two
     // plans are exactly placed here; only one used to be counted.
@@ -284,7 +284,7 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
     await expect(day2).toContainText('6 plans');
     await expect(day2).toContainText('3 exact');
 
-    // 🔴 S381, the whole point: this day used to render NO rows and an empty state that said
+    // 🔴 The whole point: this day used to render NO rows and an empty state that said
     // so. All three plans now have a row, all three are APPROXIMATE, and each one names the
     // text its position came from — the day's city — so the claim is checkable.
     // ⚠️ D-315 moved that city: Day 1 is spent in Syracuse / JFK / the air (the traveller does
@@ -316,7 +316,7 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
   });
 });
 
-test.describe('S381 · an approximate pin says so in its popup, quoting its own source', () => {
+test.describe('an approximate pin says so in its popup, quoting its own source', () => {
   test('clicking a derived stop opens a popup that names the plans and the text they were placed from', async ({
     page,
   }) => {
@@ -324,7 +324,7 @@ test.describe('S381 · an approximate pin says so in its popup, quoting its own 
     await page.setViewportSize(DESKTOP);
     await gotoMap(page);
 
-    // Fly to the first of Day 1's three derived plans via its row (the S380 gesture).
+    // Fly to the first of Day 1's three derived plans via its row (the day-order gesture).
     await page.getByTestId(`map-day-target-${DAY1}`).click();
     await page.locator('[data-testid^="map-day-order-stop-"]').first().click();
 
@@ -340,12 +340,12 @@ test.describe('S381 · an approximate pin says so in its popup, quoting its own 
     await expect(page.getByTestId('map-stop-approx-note')).toContainText(
       'Approximate — placed from “New York”.',
     );
-    // D-279: the affordance to fix it — the already-shipped S357B picker on /plan.
+    // D-279: the affordance to fix it — the already-shipped pin picker on /plan.
     await expect(page.getByTestId('map-stop-set-pin')).toHaveAttribute('href', '/plan/');
   });
 });
 
-test.describe('S380 · a day-order row is a real control that flies the map (INTAKE-05)', () => {
+test.describe('a day-order row is a real control that flies the map', () => {
   test('the row is a focusable <button>; Enter flies to that stop and opens its popup', async ({
     page,
   }) => {
@@ -359,7 +359,7 @@ test.describe('S380 · a day-order row is a real control that flies the map (INT
     await gotoMap(page);
 
     await page.getByTestId(`map-day-target-${DAY1}`).click();
-    // S381: keyed by the ITEM id — the seed above sets it, so this stays deterministic.
+    // Keyed by the ITEM id — the seed above sets it, so this stays deterministic.
     const row = page.getByTestId('map-day-order-stop-s380-boudha');
     await expect(row).toBeVisible();
     await expect(row).toHaveAttribute('data-marker-id', BOUDHA_ID);
@@ -460,7 +460,7 @@ test.describe('issue #1 · the map draws only the selected day', () => {
   });
 });
 
-test.describe('S224 · axe /map with the assign UI + day-order panel present', () => {
+test.describe('axe /map with the assign UI + day-order panel present', () => {
   test('axe: zero serious/critical violations with the day strip + open order panel', async ({ page }, testInfo) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(DESKTOP);
@@ -475,7 +475,7 @@ test.describe('S224 · axe /map with the assign UI + day-order panel present', (
     // Scope the scan to the feature under test: exclude the GL canvas (WebGL, not DOM)
     // and Sonner's transient toaster region — the assign fires a momentary toast, and
     // the third-party toaster's own list markup is neither this slice's UI nor stable
-    // to scan mid-animation (favoriting, which never toasts, keeps FU-34's axe clean).
+    // to scan mid-animation (favoriting, which never toasts, keeps the map-favorites axe clean).
     const results = await new AxeBuilder({ page })
       .exclude('canvas.maplibregl-canvas')
       .exclude('[data-sonner-toaster]')

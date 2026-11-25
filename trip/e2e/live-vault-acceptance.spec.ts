@@ -5,7 +5,7 @@ import path from 'node:path';
 import { seedLiveVault } from './fixtures/live-v5-vault/loader';
 
 /**
- * S193 — real-dump byte-for-byte acceptance, on REAL captured user data.
+ * Real-dump byte-for-byte acceptance, on REAL captured user data.
  *
  * Seeds `fixtures/live-v5-vault/live-dump.json` (the REAL capture — schema
  * version 5, 32 days) and proves that on the shipping v5 build:
@@ -28,7 +28,7 @@ import { seedLiveVault } from './fixtures/live-v5-vault/loader';
  *   never copied into this spec (a privacy rule); the single rendered-title
  *   assertion is likewise derived from the dump, not hardcoded.
  * - Navigation waits on the planner island's `calendar-day-*` readiness signal,
- *   never `networkidle` (FU-15 — the SW precache keeps the network busy).
+ *   never `networkidle` (the SW precache keeps the network busy).
  */
 
 const DUMP_PATH = path.join(__dirname, 'fixtures', 'live-v5-vault', 'live-dump.json');
@@ -55,7 +55,7 @@ const dump: VaultDump = HAS_DUMP
   ? JSON.parse(fs.readFileSync(DUMP_PATH, 'utf-8'))
   : { localStorage: {}, sessionStorage: {} };
 
-/** Wait for the lazy CalendarPlanner island (persistence.spec.ts FU-15 idiom). */
+/** Wait for the lazy CalendarPlanner island (persistence.spec.ts idiom). */
 async function waitForPlannerReady(page: Page) {
   await page.locator('[data-testid^="calendar-day-"]').first().waitFor({ state: 'visible' });
 }
@@ -92,7 +92,7 @@ async function expectByteIdentity(page: Page, phase: string) {
   }
 }
 
-test.describe('S193 live-vault acceptance — real dump, byte-for-byte', () => {
+test.describe('live-vault acceptance — real dump, byte-for-byte', () => {
   test.skip(
     !HAS_DUMP,
     'real captured vault dump absent (gitignored, local-only) — this acceptance cannot run in CI',

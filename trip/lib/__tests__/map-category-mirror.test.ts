@@ -6,13 +6,13 @@ import { CATEGORY_COLOR } from '@/lib/map-style';
 import tailwindConfig from '@/tailwind.config';
 
 /**
- * S353C — the map category palette is a HAND-SYNCED MIRROR with no compiler tie:
+ * The map category palette is a HAND-SYNCED MIRROR with no compiler tie:
  *
  *   lib/map-style.ts      CATEGORY_COLOR   raw hex  -> the maplibre GL circle/symbol paint layers
  *   components/trip-map.tsx CATEGORY_STYLES Tailwind -> the DOM pin + filter chip + legend badge
  *
  * Change one side only and the map's markers disagree with its own chips — and until this
- * file existed, nothing in the suite noticed. (S353C moved `Day Trip` cyan -> green because
+ * file existed, nothing in the suite noticed. (`Day Trip` moved cyan -> green because
  * cyan-500 is hsl(189), the same hue as the interactive `--ring`/`--primary` signal.)
  *
  * This asserts the mirror in the direction that actually catches drift: the Tailwind FAMILY is
@@ -123,7 +123,7 @@ describe('map category palette — GL hex vs DOM Tailwind class', () => {
   });
 
   it.each(Object.keys(CATEGORY_COLOR))(
-    '%s sits >= 30 deg off the LIVE interaction accent (S353C/Ruling-3)',
+    '%s sits >= 30 deg off the LIVE interaction accent',
     (category) => {
       const accentHue = Number(accentHslFromCss('--primary').split(' ')[0]);
       const hue = hueOf(CATEGORY_COLOR[category as keyof typeof CATEGORY_COLOR]);

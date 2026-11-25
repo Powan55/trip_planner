@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S343 — the Travel Mode concierge mount (`components/travel-concierge.tsx`).
+// The Travel Mode concierge mount (`components/travel-concierge.tsx`).
 //
 // The built `out/` is DORMANT (`NEXT_PUBLIC_CONCIERGE_URL` unset → ConciergeChat renders null), so
 // no E2E can see the panel on /travel — the e2e asserts the ABSENCE instead. This is the other
@@ -62,7 +62,7 @@ beforeEach(() => {
   state.isDefault = true;
 });
 
-describe('TravelConcierge mount gating (S343)', () => {
+describe('TravelConcierge mount gating', () => {
   it('mounts the concierge on the default Nepal × Japan trip', () => {
     state.isDefault = true;
     const r = render(createElement(TravelConcierge));
@@ -82,7 +82,7 @@ describe('TravelConcierge mount gating (S343)', () => {
     r.unmount();
   });
 
-  // S395 (owner ruling Q6 = YES) put the gate on ONE constant in lib/concierge-config.ts and
+  // An owner decision put the gate on ONE constant in lib/concierge-config.ts and
   // pinned its shipped value here, CLOSED, because opening it before the trip-aware Worker was
   // deployed would put a Nepal × Japan concierge on an Iceland trip AND silently drop every op it
   // proposed (validateOps checks TRIP_DATES membership). The flip had to fail a test first.

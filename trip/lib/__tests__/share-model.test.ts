@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S220 — pure share-inbox core (D-016/D-099). `core/share/model.ts` is framework-free; these tests
+ * Pure share-inbox core (D-016/D-099). `core/share/model.ts` is framework-free; these tests
  * pin the Zod read boundary (`sanitizeItem`/`sanitizeItems` — total, id/receivedAt/content-required,
  * dedupe by id, empty on non-array/all-corrupt), the day-assign bounds (`isTripDay`/`assignDay`
  * against `core/dates` `TRIP_DATES`), and the pure mutators (`addShareItem` cap-100 drop-oldest,

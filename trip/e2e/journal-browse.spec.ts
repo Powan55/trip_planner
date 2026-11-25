@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S153 — the journal BROWSE view (`/journal`, `components/journal-browse.tsx`) E2E pack.
+ * The journal BROWSE view (`/journal`, `components/journal-browse.tsx`) E2E pack.
  *
  * Signs in with a real Trip Token EXPLICITLY (its own `gotoAsTraveler`, seeding the same keys
- * `fixtures.ts`'s post-S113E signed-in default seeds) rather than riding any pack default,
- * deliberately (S153). Note every route, `/journal` included, sits behind the single front-door
+ * `fixtures.ts`'s signed-in default seeds) rather than riding any pack default,
+ * deliberately. Note every route, `/journal` included, sits behind the single front-door
  * wall (D-241) — the signed-in token passes it.
  *
  * Proves, on real rendered output against the served static `out/` build (never `next dev`):
@@ -22,7 +22,7 @@ const JOURNAL_KEY = 'nepal_japan_journal';
 
 /**
  * Seed a signed-in Trip Token before any app script runs (the exact keys the real sign-in
- * writes — token + display name, matching fixtures.ts post-S113E), navigate, and settle PAST
+ * writes — token + display name, matching fixtures.ts), navigate, and settle PAST
  * the SW's one-off first-load `location.reload()` (D-073 — the a11y/visual/motion packs'
  * idiom). Without that settle the reload can fire mid-test and detach the open editor (seen on
  * a real run as a "journal-save not stable / detached" 30s timeout).
@@ -31,8 +31,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -79,7 +79,7 @@ async function seedEntries(page: Page) {
   await page.reload({ waitUntil: 'load' });
 }
 
-test.describe('S153 journal browse — empty state', () => {
+test.describe('journal browse — empty state', () => {
   test('no entries: shows the empty state, not the list', async ({ page }) => {
     await gotoAsTraveler(page, '/journal/');
     await expect(page.getByTestId('journal-browse')).toBeVisible();
@@ -88,7 +88,7 @@ test.describe('S153 journal browse — empty state', () => {
   });
 });
 
-test.describe('S153 journal browse — seeded entries render newest-first', () => {
+test.describe('journal browse — seeded entries render newest-first', () => {
   test('two seeded entries render newest-first with date/mood/highlight/text', async ({ page }) => {
     await gotoAsTraveler(page, '/journal/');
     await seedEntries(page);
@@ -114,7 +114,7 @@ test.describe('S153 journal browse — seeded entries render newest-first', () =
   });
 });
 
-test.describe('S153 journal browse — edit round trip persists across reload', () => {
+test.describe('journal browse — edit round trip persists across reload', () => {
   test('editing a row via the reused JournalCard primitive persists after reload', async ({ page }) => {
     await gotoAsTraveler(page, '/journal/');
     await seedEntries(page);

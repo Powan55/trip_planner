@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S255 — Sync Code suite. Two layers, mirroring trips-remote.test.ts:
+// Sync Code suite. Two layers, mirroring trips-remote.test.ts:
 //
 //   A. PURE `mergeTripLists` (core/trips/registry.ts): additive union by id, name/config LWW by
 //      `updatedAt` (missing loses to present), DEFAULT pack excluded BOTH directions, malformed
@@ -250,7 +250,7 @@ describe('mergeTripLists — additive union + updatedAt LWW (Plan D6)', () => {
     expect(merged.map((t) => t.id)).toEqual(['good']);
   });
 
-  // ── S269 tombstones (trip forget) ──────────────────────────────────────────────────────────────
+  // ── Tombstones (trip forget) ──────────────────────────────────────────────────────────────
   it('a tombstoned trip is DROPPED from the union (remove → no resurrect)', () => {
     const { merged, removed } = mergeTripLists(
       [],
@@ -311,7 +311,7 @@ describe('mergeTripLists — additive union + updatedAt LWW (Plan D6)', () => {
   });
 });
 
-describe('removeKnownTrip — local forget + tombstone (S269, D-222)', () => {
+describe('removeKnownTrip — local forget + tombstone (D-222)', () => {
   it('drops the trip from the known list and records a tombstone', () => {
     joinTrip('trip-one-0123456789abcd', 'One');
     setActiveTripId(DEFAULT_TRIP_ID); // not the active trip, so no self-heal re-adds it
@@ -419,7 +419,7 @@ describe('pushTripList — writes the union to trips/{code}/profile/tripList', (
     expect(writeLog).toHaveLength(0);
   });
 
-  it('purges a forgotten trip the remote doc still lists, and writes its tombstone (S269)', async () => {
+  it('purges a forgotten trip the remote doc still lists, and writes its tombstone', async () => {
     joinTrip('trip-one-0123456789abcd', 'One');
     removeKnownTrip('trip-one-0123456789abcd'); // t1 was active → pointer switched to default; t1 forgotten + tombstoned
     fake.setDocData(DOC_PATH, { version: 1, trips: [meta('trip-one-0123456789abcd', { joinedAt: 1 })] }); // remote still lists it, no tombstone
@@ -486,7 +486,7 @@ describe('subscribeTripList — docs-remote first-snapshot recipe', () => {
     unsub();
   });
 
-  it('PRESENT snapshot with a tombstone purges the forgotten trip from the local registry (S269)', async () => {
+  it('PRESENT snapshot with a tombstone purges the forgotten trip from the local registry', async () => {
     joinTrip('trip-one-0123456789abcd', 'One');
     joinTrip('keep-0123456789abcdefgh', 'Keep'); // active = keep, so t1 is no longer active and self-heal will not re-add it
     const removedAt = Date.now() + 1_000_000; // newer than t1's joinedAt → the tombstone wins

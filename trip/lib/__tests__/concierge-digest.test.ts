@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S244 — the trip-context digest (`hooks/use-concierge-chat.ts::buildTripDigest`, not exported;
+// The trip-context digest (`hooks/use-concierge-chat.ts::buildTripDigest`, not exported;
 // exercised indirectly via a real `send()` call, mirroring `use-concierge-chat.test.ts`'s driver).
 // Proves: the POST body carries a `context` field built from the SAME storage path
 // `components/itinerary-provider.tsx` uses (`itineraryStoragePort.load()`), capped at 1500 chars,
@@ -61,7 +61,7 @@ function renderConciergeChat(fetchImpl: typeof fetch) {
   };
 }
 
-describe('trip-context digest (S244)', () => {
+describe('trip-context digest', () => {
   beforeEach(() => {
     gate.url = 'https://concierge.example.workers.dev';
     window.localStorage.clear();
@@ -84,7 +84,7 @@ describe('trip-context digest (S244)', () => {
     expect(typeof body.context).toBe('string');
     expect(new TextEncoder().encode(body.context).length).toBeLessThanOrEqual(9500);
     expect(body.context).toContain('Trip:');
-    // S362: the wire really carries the enriched per-item encoding, not just the titles. Pinned on
+    // The wire really carries the enriched per-item encoding, not just the titles. Pinned on
     // the header line that teaches the model the format, plus a real timed seed item.
     // #12: both moved from 24-hour to 12-hour.
     expect(body.context).toContain('Each item is "h:mm AM/PM category Title #id".');
@@ -117,7 +117,7 @@ describe('trip-context digest (S244)', () => {
     h.unmount();
   });
 
-  it('S362: a long conversation is bounded by CHARACTERS too, so the whole body clears the 16 KB 413', async () => {
+  it('a long conversation is bounded by CHARACTERS too, so the whole body clears the 16 KB 413', async () => {
     // The turn cap alone bounds the COUNT, not the size — 12 long turns plus a 9000-char digest is
     // exactly the combination that would have started 413ing at the Worker's MAX_BODY_BYTES once
     // DIGEST_CAP went 7000 → 9000. This asserts on the REAL wire body, not on `capHistory` alone.
@@ -177,7 +177,7 @@ describe('trip-context digest (S244)', () => {
 // ── #12: the clock and the time format, checked on the WIRE ────────────────────────────────
 //
 // Both halves of #12 are things the model is TOLD, so the only assertion that means anything is
-// one on the JSON body that actually leaves the device. `lib/__tests__/concierge-digest-s327.ts`
+// one on the JSON body that actually leaves the device. `lib/__tests__/concierge-trip-digest.test.ts`
 // covers the same ground against `buildTripDigest()` directly; this file is the end of the wire.
 //
 // `toFake: ['Date']` and not a full fake-timer install: `send()` is async and takes an

@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S240 — Home "Your trips" chip strip E2E pack (D-172, S238 registry, S239 hub).
+ * Home "Your trips" chip strip E2E pack (D-172; trip registry and hub).
  *
  * Proves, on the served static `out/` build:
  *   1. A signed-in traveler with 2 registry entries sees both chips (default pack first,
@@ -54,7 +54,7 @@ function seedTwoTrips(page: Page) {
 const readActiveTrip = (page: Page) =>
   page.evaluate((k) => window.localStorage.getItem(k), ACTIVE_TRIP_KEY);
 
-test.describe('S240 — Home trip strip', () => {
+test.describe('Home trip strip', () => {
   test('signed-in with 2 registry entries sees both chips (default first, current highlighted) + New', async ({
     page,
   }) => {

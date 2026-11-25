@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S160 — BlobStorePort contract unit suite, exercised against the in-memory fake (the IDB stand-in;
+// BlobStorePort contract unit suite, exercised against the in-memory fake (the IDB stand-in;
 // jsdom has no IndexedDB, and D-088 forbids a `fake-indexeddb` dep). The REAL native-IDB impl is
 // proven in a real browser by the Playwright capture flow (photos.spec.ts). Here we prove the PORT
 // CONTRACT: put/get/delete/list/usage round-trip, a simulated QuotaExceededError → {ok:false,quota},
@@ -67,7 +67,7 @@ describe('BlobStorePort (in-memory fake) — the port contract', () => {
     await expect(store.delete('ph-nope')).resolves.toBeUndefined();
   });
 
-  it('clear() deletes every stored blob (S352 — "Forget this device"); idempotent on an empty store', async () => {
+  it('clear() deletes every stored blob ("Forget this device"); idempotent on an empty store', async () => {
     const store = makeInMemoryBlobStore();
     await store.put(blobOf(100));
     await store.put(blobOf(50));

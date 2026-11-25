@@ -1,6 +1,6 @@
 # live-v5-vault fixture
 
-Acceptance backbone for the v4 -> v5 migration (M19 Phase 0, slice S172). This
+Acceptance backbone for the v4 -> v5 migration. This
 directory holds a REAL captured `localStorage`/`sessionStorage` dump from
 the owner's live browser session, plus the loader that seeds it into a
 Playwright context — this is what proves a migration step "survives
@@ -9,13 +9,13 @@ byte-for-byte" on real user data, not a hand-authored fixture.
 ## Current status
 
 **The REAL dump has landed: `live-dump.json`** (captured 2026-07-19 from
-the owner's live browser via S171's DevTools snippet — schemaVersion 5, 32 days,
+the owner's live browser via a DevTools snippet — schemaVersion 5, 32 days,
 8 localStorage keys). It is real trip data: it stays in this private repo
 and its contents must never be copied into spec files beyond tiny
 assertions (e.g. one known itinerary title).
 
 Real-data acceptance runs against it in `e2e/live-vault-acceptance.spec.ts`
-(S193): boot + two reloads, byte-for-byte survival of every seeded key,
+and checks boot + two reloads, byte-for-byte survival of every seeded key,
 real data rendered, quarantine key absent, zero console errors.
 
 `PLACEHOLDER-synthetic-dump.json` remains in this directory as the
@@ -24,7 +24,7 @@ SYNTHETIC — never cite it as migration acceptance evidence.
 
 ## Expected dump format
 
-A single JSON object, produced by S171's DevTools capture snippet, of the
+A single JSON object, produced by the DevTools capture snippet, of the
 shape:
 
 ```json
@@ -49,7 +49,7 @@ shape:
   (D-097 LOCKED — the single key registry) plus the two itinerary keys owned
   by `lib/itinerary-storage.ts` (`nepal_japan_itinerary`,
   `nepal_japan_itinerary_corrupt`), since those predate the gateway and stay
-  outside it by design. As of S172 the known slots are:
+  outside it by design. The known slots are:
 
   **localStorage:** `tripPlannerUserName`, `tripPlannerToken`,
   `nightlife_section_visible`, `nepal_japan_weather_cache`,
@@ -88,4 +88,4 @@ it never seeds a partial or silently-wrong dump.
 user's actual stored bytes — synthetic fixtures can't catch a real-world edge
 case (a legacy pre-migration shape, an unusual currency string, an old
 schema version) that only exists in a real browser profile. This fixture
-directory is where that real proof will live once S171's capture lands.
+directory is where that real proof will live once a real capture lands.

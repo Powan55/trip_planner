@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * S104 — journal persistence round-trip through the typed storage gateway (key 12, D-097) + the
+ * Journal persistence round-trip through the typed storage gateway (key 12, D-097) + the
  * `core/journal/storage.ts` load/save adapter. Proves: empty list when absent, set→get, corrupt slot
  * → [] (never throws), sanitize-on-write drops malformed entries + dedupes by date, the on-disk key
  * string is pinned + additive (no migration, distinct from the itinerary Vault + budget + expense

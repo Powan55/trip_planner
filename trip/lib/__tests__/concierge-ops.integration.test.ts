@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S329 — TARGETED integration proof of the concierge write path, end to end through the REAL
+// TARGETED integration proof of the concierge write path, end to end through the REAL
 // hooks (no network): `useConciergeChat` parses a stubbed `{reply, ops}`, `validateOps` runs
 // against the LIVE `useItinerary().plans`, and an explicit Confirm executes the op through the
 // real itinerary store and PERSISTS to localStorage (the client "hard guarantee"), while an
@@ -30,7 +30,7 @@ vi.mock('@/lib/concierge-config', () => ({
   isConciergeConfigured: () => true,
 }));
 
-// S389-A: a controllable remote gate so this suite can exercise the SYNC-ON store branch — the only
+// A controllable remote gate so this suite can exercise the SYNC-ON store branch — the only
 // branch where the move-undo defect existed (sync is on in production, D-248). Default `false`
 // keeps every pre-existing test in this file on the dormant path it was written against.
 const remote = vi.hoisted(() => ({ on: false }));
@@ -182,7 +182,7 @@ function renderHarness(fetchImpl: typeof fetch): Handle {
   } as Handle;
 }
 
-describe('concierge write path (S329 integration)', () => {
+describe('concierge write path (integration)', () => {
   beforeEach(() => {
     // Full isolation (#10): the SYNC ON case below switches the active-trip pointer to a custom
     // trip, and localStorage persists across tests in one jsdom file — clear it so no test
@@ -251,7 +251,7 @@ describe('concierge write path (S329 integration)', () => {
     h.unmount();
   });
 
-  // ── S389-A ────────────────────────────────────────────────────────────────────────────────
+  // ── moveItem undo ────────────────────────────────────────────────────────────────────────────────
   // The discriminating proof for the Move undo. SYNC ON is the branch that matters (D-248: sync
   // is configured in production) because that is where `hooks/use-itinerary.ts` → `moveItem`
   // mints a FRESH id for the target copy via `freshCopyOf`. Inverting the move by the ORIGINAL
@@ -260,7 +260,7 @@ describe('concierge write path (S329 integration)', () => {
   // This asserts RESULTING STATE, read back through the StoragePort (i.e. what a reload would
   // show), not call args — a call-args assertion against a stateless fake is exactly the
   // instrument that let the defect ship green.
-  it('SYNC ON: undo of a confirmed moveItem actually moves the item BACK (S389-A)', async () => {
+  it('SYNC ON: undo of a confirmed moveItem actually moves the item BACK', async () => {
     remote.on = true;
     // #10 — sync-on implies "not the default pack": the default pack does not sync at all. So this
     // scenario runs where it is actually reachable in production: a REGISTERED custom trip
@@ -306,7 +306,7 @@ describe('concierge write path (S329 integration)', () => {
 
   // The dormant build keeps the item's id across a move, so the same undo must work there too —
   // the fix must not trade one broken branch for the other.
-  it('DORMANT: undo of a confirmed moveItem also moves the item back (S389-A)', async () => {
+  it('DORMANT: undo of a confirmed moveItem also moves the item back', async () => {
     const h = renderHarness(
       jsonFetch({
         reply: 'Moving it.',

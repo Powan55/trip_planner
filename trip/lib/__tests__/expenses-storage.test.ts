@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * S102 — expense persistence round-trip through the typed storage gateway (key 11, D-097) + the
+ * Expense persistence round-trip through the typed storage gateway (key 11, D-097) + the
  * `core/budget/storage.ts` load/save adapter. Proves: empty list when absent, set→get, corrupt
  * slot → [] (never throws), sanitize-on-write drops malformed entries, the on-disk key string is
  * pinned + additive (no migration, distinct from the itinerary Vault + the budget key), and SSR /

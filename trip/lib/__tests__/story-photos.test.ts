@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 //
-// S161 — component-level unit suite for `StoryPhotos`/`StoryPhotoThumb` (`components/trip-story-recap.tsx`),
+// Component-level unit suite for `StoryPhotos`/`StoryPhotoThumb` (`components/trip-story-recap.tsx`),
 // exercised by RENDERING the real exported component (same createRoot+act harness `use-photos.test.ts`
 // uses — no new dep, no JSX in this file since the standalone vitest.config.ts only globs `*.test.ts`).
 // `defaultBlobStore` is module-mocked (jsdom has no IndexedDB) so `get(id)` is fully under test control.
 //
-// Proves the three required cases (S161):
+// Proves the three required cases:
 //   - a day WITH photos renders `story-photos-<date>` + one `story-photo-<id>` per photo, correct `alt`;
 //   - a day WITHOUT photos renders no strip at all (no empty box);
 //   - an EVICTED blob (`get`->null) renders the placeholder (no `<img>`, `data-missing="true"`), never a

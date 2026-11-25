@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * S356 — the landing-page product-shot SHOOT. This is an ASSET GENERATOR, not a check.
+ * The landing-page product-shot SHOOT. This is an ASSET GENERATOR, not a check.
  *
  * 🔴 IT IS NOT PART OF THE DEFAULT NET. It WRITES committed files under
  * `public/images/landing/`, so running it inside `npm run test:e2e` would rewrite tracked
@@ -284,7 +284,7 @@ async function frame(page: Page, testId: string, offsetY = 0) {
   await page.waitForTimeout(600);
 }
 
-test.describe('S356 — landing product shots', () => {
+test.describe('landing product shots', () => {
   let ctx: BrowserContext;
   let page: Page;
   let outDir: string;

@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 //
-// S208 — component-level unit suite for `JournalPhotoStrip` (`components/journal-browse.tsx`),
+// Component-level unit suite for `JournalPhotoStrip` (`components/journal-browse.tsx`),
 // the same read-only photo-ride-along treatment `trip-story-recap.tsx`'s `StoryPhotos` got in
-// S161 (`lib/__tests__/story-photos.test.ts`), ported to the `/journal` browse view's per-row
-// renderer. `defaultBlobStore` is module-mocked (jsdom has no IndexedDB) exactly as the S161
+// (`lib/__tests__/story-photos.test.ts`), ported to the `/journal` browse view's per-row
+// renderer. `defaultBlobStore` is module-mocked (jsdom has no IndexedDB) exactly as the story-photos
 // suite does, so `get(id)` is fully under test control.
 //
-// Proves the three required cases (S208):
+// Proves the three required cases:
 //   - a day WITH photos renders `journal-browse-photos-<date>` + one `journal-browse-photo-<id>`
 //     per photo, correct `alt`, no interactive delete/add control (read-only);
 //   - a day WITHOUT photos renders no strip at all (no empty box, no broken layout);

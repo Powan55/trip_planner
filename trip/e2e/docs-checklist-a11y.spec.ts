@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S217 — axe accessibility scan for the `/checklist` route. The moderate-or-higher gate catches
+ * Axe accessibility scan for the `/checklist` route. The moderate-or-higher gate catches
  * duplicate landmark names (#708); lower-impact findings remain advisory. Signs in with a real
  * Trip Token. Scanned in BOTH states: the freshly-seeded template (all unchecked) and a
  * partially-checked-with-note state
@@ -15,7 +15,7 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
     window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1');
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -46,7 +46,7 @@ async function assertNoModerateOrHigher(page: Page, label: string, testInfo: imp
   ).toEqual([]);
 }
 
-test.describe('S217 axe — /checklist template state (run twice for determinism)', () => {
+test.describe('axe — /checklist template state (run twice for determinism)', () => {
   for (const run of [1, 2] as const) {
     test(`axe run ${run}: /checklist template state has zero moderate-or-higher violations`, async ({ page }, testInfo) => {
       await gotoAsTraveler(page, '/checklist/');
@@ -56,7 +56,7 @@ test.describe('S217 axe — /checklist template state (run twice for determinism
   }
 });
 
-test.describe('S217 axe — /checklist partially checked with a note', () => {
+test.describe('axe — /checklist partially checked with a note', () => {
   test('checked items + a filled note introduce zero moderate-or-higher violations', async ({ page }, testInfo) => {
     await gotoAsTraveler(page, '/checklist/');
     await expect(page.getByTestId('docs-checklist')).toBeVisible();

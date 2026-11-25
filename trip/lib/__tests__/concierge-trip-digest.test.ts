@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 //
-// S327 — trip-context digest: stable ids + compact format + cap-to-server-ceiling.
+// Trip-context digest: stable ids + compact format + cap-to-server-ceiling.
 // Directly exercises the now-exported `buildTripDigest` (hooks/use-concierge-chat.ts).
 // Proves: planned items carry a compact stable `#<id>`, tombstoned items are excluded,
 // unplanned days are omitted (not printed as wasted lines), and the digest is hard-capped
 // at the Worker CONTEXT_TRUNCATE_LENGTH ceiling. Also MEASURES a fully-populated trip.
 //
-// S362 extends it to the enriched per-item encoding, and to the
+// Later extended to the enriched per-item encoding, and to the
 // body-budget measurement that justifies HISTORY_CHAR_CAP (see the MEASUREMENT test at the
 // bottom — it is the source of those numbers, not a guess).
 //
@@ -22,9 +22,9 @@ import { effectiveStartMinutes, formatTimeAmPm } from '@/core/dates/item-time';
 import { getNowAtTrip } from '../trip-now';
 import type { DayPlan } from '../trip-data';
 
-const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (coupled to the Worker; S362 raised 7000→9500)
+const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (coupled to the Worker; raised 7000→9500)
 
-// The MEASURED sizes of the fully-planned SAMPLE trip digest, before and after S362's per-item
+// The MEASURED sizes of the fully-planned SAMPLE trip digest, before and after the per-item
 // time+category prefixes. Asserted EXACTLY at the bottom of this file. DIGEST_CAP's slack and
 // the Worker's CONTEXT_TRUNCATE_LENGTH coupling are both sized from these, so they are contract,
 // not trivia. Adding a field to the digest SHOULD fail that assertion.
@@ -51,16 +51,16 @@ const MEASURED_DIGEST_BEFORE = 6636;
 const MEASURED_DIGEST_AFTER = 9452;
 const HISTORY_CHAR_CAP = 3000; // must equal the constant in use-concierge-chat.ts
 const MAX_BODY_BYTES = 16 * 1024; // the Worker's hard 413 ceiling (worker/src/index.ts:24)
-// S395: must equal TRIP_LABEL_MAX in use-concierge-chat.ts AND the Worker's own (providers.ts).
+// Must equal TRIP_LABEL_MAX in use-concierge-chat.ts AND the Worker's own (providers.ts).
 const TRIP_LABEL_MAX = 120;
 
 function seed(plans: DayPlan[]) {
   localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(plans));
 }
 
-describe('buildTripDigest (S327)', () => {
+describe('buildTripDigest', () => {
   beforeEach(() => localStorage.clear());
-  // S367: buildTripDigest() is now clock-dependent (the "Today is …" line). Any test in this file
+  // buildTripDigest() is now clock-dependent (the "Today is …" line). Any test in this file
   // that calls vi.setSystemTime/useFakeTimers must not leak a frozen clock into the next test.
   afterEach(() => vi.useRealTimers());
 
@@ -193,7 +193,7 @@ describe('buildTripDigest (S327)', () => {
     });
 
     it('keeps the FULL ISO date on every day line (never shortened to 12-20)', () => {
-      // Shortening would save ~160 chars and reintroduce the S342 bug class: a non-ISO date echoed
+      // Shortening would save ~160 chars and reintroduce the silent-drop bug class: a non-ISO date echoed
       // back in an op is dropped silently by validateOps (D-234 rule 4) — reply, but no chip.
       seed([
         {
@@ -221,7 +221,7 @@ describe('buildTripDigest (S327)', () => {
     });
   });
 
-  describe('S362 — capHistory bounds the outgoing history by CHARACTERS as well as turns', () => {
+  describe('capHistory bounds the outgoing history by CHARACTERS as well as turns', () => {
     const turns = (n: number, len: number): ChatTurn[] =>
       Array.from({ length: n }, (_, i) => ({
         role: (i % 2 === 0 ? 'user' : 'assistant') as ChatTurn['role'],
@@ -273,7 +273,7 @@ describe('buildTripDigest (S327)', () => {
     });
   });
 
-  it('S342: the header states the ISO date format and the exact valid range', () => {
+  it('the header states the ISO date format and the exact valid range', () => {
     // Without this, the model echoed human dates ("Dec 20") or the wrong year into an op's `date`
     // and `validateOps` dropped it silently (D-234 rule 4) — no chip, no explanation.
     const digest = buildTripDigest();
@@ -402,7 +402,7 @@ describe('buildTripDigest (S327)', () => {
   // already-past day lines whole (nothing to protect there), then condenses remaining days'
   // `category` token, before ever falling back to a tail slice. This asserts the cap always holds
   // AND that no day at-or-after "today" is ever dropped whole, on every possible trip day.
-  it("S362/#546: the fully-planned SAMPLE trip fits under the 9500 cap by condensing, never by dropping a future day", () => {
+  it("#546: the fully-planned SAMPLE trip fits under the 9500 cap by condensing, never by dropping a future day", () => {
     // key absent => loadPlans() seeds SAMPLE_ITINERARY (items on every trip date).
     const digest = buildTripDigest();
     expect(new TextEncoder().encode(digest).length).toBeLessThanOrEqual(DIGEST_CAP);
@@ -469,19 +469,19 @@ describe('buildTripDigest (S327)', () => {
   });
 
   // KNOWN CEILING: same cap, same reason as above.
-  it.skip('MEASUREMENT (S362) — before/after digest size and the worst-case POST body vs the 16 KB 413', () => {
+  it.skip('MEASUREMENT — before/after digest size and the worst-case POST body vs the 16 KB 413', () => {
     // Pin the clock before measuring. `buildTripDigest()` is clock-dependent (the "Today is …"
     // line), so without this the self-check below would pass or fail depending on the calendar
     // day AND the wall-clock minute the suite happened to run at. Freezing to a fixed instant
     // makes the measurement (and the pinned constants it feeds) exactly reproducible year-round,
-    // the same discipline the S274 block already uses for TZ determinism.
+    // the same discipline the D-224 block already uses for TZ determinism.
     // #12: that line is UNCONDITIONAL now, so the reconstruction below models it instead of
     // dodging it with an out-of-window clock. This instant is still out of window, so the number
     // measured here is the SHORTER branch; the in-window branch is longer, and the cap test above
     // is what proves that one fits, on every one of the 32 trip days.
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-02T12:00:00Z'));
-    // Task D of S362: the four numbers below are MEASURED here, never estimated.
+    // The four numbers below are MEASURED here, never estimated.
     // Rebuild BOTH formats over the same fully-planned SAMPLE trip, using the real header strings
     // and `buildTripDigest`'s own day-selection logic, so the before/after delta is honest.
     const range = `Dates are YYYY-MM-DD between ${TRIP_DATES[0]} and ${TRIP_DATES[TRIP_DATES.length - 1]}.`;
@@ -526,7 +526,7 @@ describe('buildTripDigest (S327)', () => {
     // multi-byte characters (— · → in the seed titles), and content-length counts UTF-8 BYTES, so
     // an ASCII pad would understate the only figure that actually decides a 413.
     //
-    // S395: the `trip` descriptor now joins the body on a CUSTOM trip, so the worst case includes
+    // The `trip` descriptor now joins the body on a CUSTOM trip, so the worst case includes
     // it — at its own worst case, a label at the full TRIP_LABEL_MAX of 120 multi-byte characters
     // (the client slices by CODE UNITS, so a 120-char label can weigh up to ~360 UTF-8 bytes; '×'
     // is what a real custom label actually contains, `core/trips/custom.ts` joining destinations).
@@ -600,7 +600,7 @@ describe('buildTripDigest (S327)', () => {
     // ...and the worst case the hook can now emit still clears the Worker's 413 ceiling. LEFT
     // RELATIVE deliberately: this one is genuinely about the limit, not about a fixed body size.
     //
-    // S395: `trip` is now inside `worstBody`, so this IS the DoD's "worst-case body under 16 KB
+    // `trip` is now inside `worstBody`, so this IS the DoD's "worst-case body under 16 KB
     // WITH the trip field" check. Belt and braces below — the field really is in the serialized
     // string, so a refactor that silently dropped it could not leave this assertion looking green.
     expect(worstBody).toContain('"trip":');

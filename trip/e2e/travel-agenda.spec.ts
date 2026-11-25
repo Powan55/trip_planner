@@ -3,11 +3,11 @@ import type { Page, ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S186 — Travel Mode agenda E2E pack (the shared `TripAgenda`, travel variant).
+ * Travel Mode agenda E2E pack (the shared `TripAgenda`, travel variant).
  *
  * Runs against the served static `out/` build (D-093) on the DEFAULT (signed-in) identity, so
  * `/travel` is reachable with no gate. The clock is driven by the D-075 `?today=` override (local
- * NOON of the day) exactly like the S185 hero pack. `2026-12-10` is a Nepal day (NPT +5:45); under
+ * NOON of the day) exactly like the travel hero pack. `2026-12-10` is a Nepal day (NPT +5:45); under
  * `?today=2026-12-10` "now" is 12:00 NPT.
  *
  * Seeding is a GUARDED `addInitScript` (sets the fixture only when the key is absent), so it seeds
@@ -56,7 +56,7 @@ const FIXTURE: SeedItem[] = [
   { id: 'ta-untimed', title: 'Souvenir hunt', category: 'sightseeing' },
 ];
 
-test.describe('S186 · rows render for a seeded day, with per-row phase from the shared machine', () => {
+test.describe('rows render for a seeded day, with per-row phase from the shared machine', () => {
   test('one row per item, phases now / upcoming / untimed match deriveRowPhases', async ({ page }) => {
     await seedDay(page, FIXTURE);
     await gotoTravel(page);
@@ -68,7 +68,7 @@ test.describe('S186 · rows render for a seeded day, with per-row phase from the
   });
 });
 
-test.describe('S186 · rows are ≥48pt tall (real boundingBox)', () => {
+test.describe('rows are ≥48pt tall (real boundingBox)', () => {
   test('every agenda row measures at least 48px high', async ({ page }) => {
     await seedDay(page, FIXTURE);
     await gotoTravel(page);
@@ -84,7 +84,7 @@ test.describe('S186 · rows are ≥48pt tall (real boundingBox)', () => {
   });
 });
 
-test.describe('S186 · done-toggle persists across reload AND reflects on the Today panel', () => {
+test.describe('done-toggle persists across reload AND reflects on the Today panel', () => {
   test('toggle in TM → survives reload → the same item is done on Home /', async ({ page }) => {
     await seedDay(page, FIXTURE);
     await gotoTravel(page);
@@ -123,7 +123,7 @@ test.describe('S186 · done-toggle persists across reload AND reflects on the To
   });
 });
 
-test.describe('S186 · empty day shows an honest empty state, not rows', () => {
+test.describe('empty day shows an honest empty state, not rows', () => {
   test('a zero-item in-trip day renders the empty state', async ({ page }) => {
     await page.addInitScript((key: string) => {
       if (!window.localStorage.getItem(key)) window.localStorage.setItem(key, '[]');
@@ -135,7 +135,7 @@ test.describe('S186 · empty day shows an honest empty state, not rows', () => {
   });
 });
 
-test.describe('S186 · axe — /travel with the agenda populated', () => {
+test.describe('axe — /travel with the agenda populated', () => {
   test('zero serious/critical violations', async ({ page }, testInfo) => {
     await seedDay(page, FIXTURE);
     await gotoTravel(page);
@@ -154,7 +154,7 @@ test.describe('S186 · axe — /travel with the agenda populated', () => {
   });
 });
 
-test.describe('S186 · no console errors', () => {
+test.describe('no console errors', () => {
   test('the agenda loads and toggles with no console.error / pageerror', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg: ConsoleMessage) => {

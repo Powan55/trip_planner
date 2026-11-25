@@ -3,8 +3,8 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S206 — axe accessibility scan for the new `/packing` route (mirrors
- * `e2e/journal-browse-a11y.spec.ts`'s S153 pack exactly, incl. the serious/critical-only hard
+ * Axe accessibility scan for the new `/packing` route (mirrors
+ * `e2e/journal-browse-a11y.spec.ts` pack exactly, incl. the serious/critical-only hard
  * gate + advisory logging), scanned TWICE in one run to prove the result is deterministic (no
  * test-order/flake dependency), not a one-shot pass. Signs in with a real Trip Token (mirrors
  * journal-browse-a11y.spec.ts) rather than the shared `./fixtures` default.
@@ -17,8 +17,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -51,7 +51,7 @@ async function assertNoSeriousCritical(page: Page, label: string, testInfo: impo
   ).toEqual([]);
 }
 
-test.describe('S206 axe — /packing template state (run twice for determinism)', () => {
+test.describe('axe — /packing template state (run twice for determinism)', () => {
   for (const run of [1, 2] as const) {
     test(`axe run ${run}: /packing template state has zero serious/critical`, async ({ page }, testInfo) => {
       await gotoAsTraveler(page, '/packing/');
@@ -61,7 +61,7 @@ test.describe('S206 axe — /packing template state (run twice for determinism)'
   }
 });
 
-test.describe('S206 axe — /packing partially checked', () => {
+test.describe('axe — /packing partially checked', () => {
   test('a few checked items introduces zero serious/critical', async ({ page }, testInfo) => {
     await gotoAsTraveler(page, '/packing/');
     await expect(page.getByTestId('packing-checklist')).toBeVisible();

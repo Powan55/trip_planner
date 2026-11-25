@@ -292,7 +292,7 @@ function TokenGateWall({
   const loginOnly = pendingUpgrade?.kind === 'anonymous' && pendingUpgrade.claimed;
   const [view, setView] = useState<View>(upgrade ? 'auth' : 'landing');
   // Every landing CTA sets the mode, so this starting value renders for no one (#70). The entry
-  // focus assertions in s345-front-door.test.ts and e2e/login.spec.ts pin the INTAKE-03 rule.
+  // focus assertions in front-door.test.ts and e2e/login.spec.ts pin that.
   const [mode, setMode] = useState<Mode>('login');
   const [stage, setStage] = useState<Stage>(resumeClaim ? 'claim' : 'form');
   const [name, setName] = useState('');
@@ -762,7 +762,7 @@ function TokenGateWall({
             // 🔴 WHAT THIS REPLACED, recorded because it was a measured landmine and the fix
             // deliberately walked into it: this used to be the ONE CTA that set no mode, so that
             // the `mode` initializer above stayed observable and A1 in
-            // `lib/__tests__/s345-front-door.test.ts` could pin it. Now every CTA names its mode,
+            // `lib/__tests__/front-door.test.ts` could pin it. Now every CTA names its mode,
             // the initializer is unobservable (see its own comment), and A1 was RE-POINTED in this
             // same change to the property it can still falsify: each CTA opens the mode its label
             // promises — including this one. Do NOT restore the inheritance to "make the default

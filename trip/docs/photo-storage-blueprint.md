@@ -1,19 +1,19 @@
-# Photo storage blueprint: `BlobStorePort` over IndexedDB (S159)
+# Photo storage blueprint: `BlobStorePort` over IndexedDB
 
-_Design doc for M17 Phase 4 (photo track, D-130 G2). It makes [V4-DEVPLAN](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/V4-DEVPLAN.md) item #7b concrete and buildable. Source read: `core/storage/gateway.ts`, `core/vault/export-import.ts`, `core/budget/expenses.ts`, `hooks/use-journal.ts`, `hooks/use-expenses.ts`, `docs/sync-everywhere-blueprint.md`, and DECISIONS D-130/D-002/D-038/D-088/D-098/D-150. No production code lands in this slice: this document plus the proposed DECISIONS entries are the whole output (next free decision number is D-159)._
+_Design doc for the photo track (D-130 G2). It makes [V4-DEVPLAN](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/V4-DEVPLAN.md) item #7b concrete and buildable. Source read: `core/storage/gateway.ts`, `core/vault/export-import.ts`, `core/budget/expenses.ts`, `hooks/use-journal.ts`, `hooks/use-expenses.ts`, `docs/sync-everywhere-blueprint.md`, and DECISIONS D-130/D-002/D-038/D-088/D-098/D-150. No production code lands with this doc: this document plus the proposed DECISIONS entries are the whole output (next free decision number is D-159)._
 
 ---
 
 ## 0. Scope and the one sentence per slice
 
-| Slice | Builds | From this doc |
+| Phase | Builds | From this doc |
 |---|---|---|
-| S160 (before Dec 9, 2026) | Capture/attach photos on journal days + expense receipts; downscale pipeline; quota UX; egress proof | Sections 2 to 6 |
-| S161 (by Jan 9, 2027) | `/recap` story mode gains per-day photos; renders with and without | Section 3.2 (day-keyed photos make this a read-only join) |
+| Capture (before Dec 9, 2026) | Capture/attach photos on journal days + expense receipts; downscale pipeline; quota UX; egress proof | Sections 2 to 6 |
+| Recap (by Jan 9, 2027) | `/recap` story mode gains per-day photos; renders with and without | Section 3.2 (day-keyed photos make this a read-only join) |
 
 Everything below serves one invariant (D-130/D-002-amended/D-038). Photo blob bytes exist in exactly one place, this device's IndexedDB, and they have no *network* egress path: no Firestore, no `SyncPort`, no dormant remote layer.
 
-> **Later widened by D-227 (S273).** The full-trip backup lifeboat (`core/vault/backup.ts`) does carry photo bytes: the meta index plus each present blob inlined as a base64 data URL (`exportTripBackup`, iterating the active trip's meta ids, never `blobStore.list()`). It goes only into a file the user explicitly downloads to their own device, from a surface whose own copy names photos (`components/backup-restore.tsx`: "Backed up your whole trip (including journal and photos)"). D-227 records this as exercising D-159's own pre-authorised "explicit user-initiated export of a separate photo bundle, never the default export, never sync" clause, not a network egress. The D-098 itinerary Vault export (`exportItinerary()` in `core/vault/export-import.ts`) still excludes photos entirely (section 7).
+> **Later widened by D-227.** The full-trip backup lifeboat (`core/vault/backup.ts`) does carry photo bytes: the meta index plus each present blob inlined as a base64 data URL (`exportTripBackup`, iterating the active trip's meta ids, never `blobStore.list()`). It goes only into a file the user explicitly downloads to their own device, from a surface whose own copy names photos (`components/backup-restore.tsx`: "Backed up your whole trip (including journal and photos)"). D-227 records this as exercising D-159's own pre-authorised "explicit user-initiated export of a separate photo bundle, never the default export, never sync" clause, not a network egress. The D-098 itinerary Vault export (`exportItinerary()` in `core/vault/export-import.ts`) still excludes photos entirely (section 7).
 
 ---
 
@@ -22,7 +22,7 @@ Everything below serves one invariant (D-130/D-002-amended/D-038). Photo blob by
 Three layers, each in its native store:
 
 ```
-┌ UI (S160) ────────────────────────────────────────────────────────────────┐
+┌ UI ───────────────────────────────────────────────────────────────────────┐
 │  journal card / expense row / recap day  →  <img src=objectURL>            │
 └──────────────┬───────────────────────────────────────┬────────────────────┘
                │ PhotoMeta[] (small JSON)               │ Blob bytes
@@ -37,8 +37,8 @@ Three layers, each in its native store:
 
 Photo references do not live on `Expense` or `JournalEntry` rows. The link lives only in the local metadata index (key 16), as an `owner` ref on each `PhotoMeta`. The alternative, an additive `photoIds?: string[]` on the row, was rejected because:
 
-1. **Expenses sync (S142).** A `photoIds` field on the row would ride `mergeItems` into the shared Firestore chunk docs. The ids are opaque strings (no bytes), but every other device would then render dangling receipt indicators for blobs it can never have, and the sanitize/merge/strip surfaces (`sanitizeExpense` passthrough, `restoreExpense`'s strip list, the push payload) would all grow a photo concern. With the separate index, no photo data of any kind enters any synced or Vault shape, so the egress guarantee is structural rather than a sanitizer's promise. (`sanitizeExpense` builds a fresh object from an explicit allowlist, so the "sanitize-passthrough" requirement is satisfied vacuously: there is nothing to pass through.)
-2. **Zero schema change.** No Zod edit, no journal/expense model edit, no Vault version bump, no migration. That is stronger than the S98 additive-field precedent: additive-*elsewhere*.
+1. **Expenses sync.** A `photoIds` field on the row would ride `mergeItems` into the shared Firestore chunk docs. The ids are opaque strings (no bytes), but every other device would then render dangling receipt indicators for blobs it can never have, and the sanitize/merge/strip surfaces (`sanitizeExpense` passthrough, `restoreExpense`'s strip list, the push payload) would all grow a photo concern. With the separate index, no photo data of any kind enters any synced or Vault shape, so the egress guarantee is structural rather than a sanitizer's promise. (`sanitizeExpense` builds a fresh object from an explicit allowlist, so the "sanitize-passthrough" requirement is satisfied vacuously: there is nothing to pass through.)
+2. **Zero schema change.** No Zod edit, no journal/expense model edit, no Vault version bump, no migration. That is stronger than the `done` additive-field precedent: additive-*elsewhere*.
 3. **One home for photo truth.** Caption/alt/dims need a metadata record regardless; putting ids on rows would split photo state across two homes.
 
 Accepted costs, stated explicitly: a receipt is visible only on the capturing device (which D-002-amended mandates anyway), and the sync-on fresh-ID expense undo needs a one-line re-point (section 3.3).
@@ -113,7 +113,7 @@ Persisted as `PhotoMeta[]` JSON. `sanitizePhoto`/`sanitizePhotos` follow `saniti
 A new `STORAGE_KEYS` entry plus accessor in `core/storage/gateway.ts`, byte-transport-only, mirroring `journalStore`/`favoritesStore` verbatim:
 
 ```ts
-/** localStorage — JSON `PhotoMeta[]` photo-metadata index (photos, key 16; S160, D-159).
+/** localStorage — JSON `PhotoMeta[]` photo-metadata index (photos, key 16; D-159).
  *  METADATA ONLY — blob bytes live in IndexedDB behind `BlobStorePort`, NEVER in web storage.
  *  Local-only (D-002-amended/D-130): NOT part of the itinerary Vault, NOT part of any sync path.
  *  Value shape owned by `core/photos/model.ts`. ADDITIVE: brand-new key, no migration. */
@@ -133,9 +133,9 @@ Why 16 is right under D-150 discipline: key 15 (`nepal_japan_sync_outbox`) is th
 
 ### 3.3 Attach semantics
 
-- Journal photos attach to the date, not the entry: `owner: { kind:'journal', date }`. A day can have photos with or without a text entry, deleting or re-creating the day's entry never orphans or resurrects anything, and S161's recap gets "per-day photos, renders with and without" as a pure filter (`photos.filter(p => p.owner.kind==='journal' && p.owner.date === day)`) with zero further schema work.
+- Journal photos attach to the date, not the entry: `owner: { kind:'journal', date }`. A day can have photos with or without a text entry, deleting or re-creating the day's entry never orphans or resurrects anything, and the recap phase gets "per-day photos, renders with and without" as a pure filter (`photos.filter(p => p.owner.kind==='journal' && p.owner.date === day)`) with zero further schema work.
 - Expense photos attach by `expenseId`. The expense row itself is untouched (see section 1). A tombstoned or deleted expense hides its receipt with it: the row is gone from the UI, the metadata stays put, bounded at trip scale (see the budget in section 5).
-- The one sync-adjacent edge, and an S160 obligation: under sync, `restoreExpense` re-adds as a fresh-ID copy (D-032/D-119), which would strand a receipt pointed at the old id. S160 makes `restoreExpense` return the minted id (`void` → `string`, additive) and the Undo caller re-points the matching `PhotoMeta.owner.expenseId` old to new. That is a local key-16 write, nothing near the sync path. Dormant undo restores the same id, so it re-attaches for free.
+- The one sync-adjacent edge, and a capture-phase obligation: under sync, `restoreExpense` re-adds as a fresh-ID copy (D-032/D-119), which would strand a receipt pointed at the old id. The capture phase makes `restoreExpense` return the minted id (`void` → `string`, additive) and the Undo caller re-points the matching `PhotoMeta.owner.expenseId` old to new. That is a local key-16 write, nothing near the sync path. Dormant undo restores the same id, so it re-attaches for free.
 - An explicit user delete of a photo is `blobStore.delete(id)` plus removing its meta from key 16. Blob first: a meta without a blob is a placeholder, a blob without meta is invisible, so delete in the order that fails safe.
 - Orphan GC is skipped. Orphans arise only from deleted expenses, bounded to a handful × ~300 KB against a ~40 MB budget. `usage()` keeps it observable; add a sweep only if real usage shows accumulation.
 
@@ -161,7 +161,7 @@ The pipeline is all browser-native (D-088, no dep). `createImageBitmap(file, { i
 
 Budget math: 100 photos × ~400 KB ≈ **40 MB**; a heavy 300-photo trip ≈ 120 MB. Chromium origin quota is typically several GB (≤60% of free disk), Firefox up to 10 GB/origin, Safari ≈ 1 GB before prompting, so the design sits one to two orders of magnitude under every floor. Metadata (~250 B/photo ⇒ ≤75 KB at 300 photos) is negligible in localStorage. There is no hard photo cap; quota handling below is the guard, and `usage()` plus summed `PhotoMeta.bytes` feed a visible storage line in the photo UI.
 
-`QuotaExceededError` (write time): the IDB impl catches it, and any write `DOMException`, inside `put` and returns `{ ok:false, reason:'quota' }`. S160 then shows a non-destructive "Device photo storage is full — photo not saved" state. The journal entry or expense saves normally without the photo; nothing crashes and nothing is half-written (single-blob transaction).
+`QuotaExceededError` (write time): the IDB impl catches it, and any write `DOMException`, inside `put` and returns `{ ok:false, reason:'quota' }`. The UI then shows a non-destructive "Device photo storage is full — photo not saved" state. The journal entry or expense saves normally without the photo; nothing crashes and nothing is half-written (single-blob transaction).
 
 Eviction (read time): IndexedDB is best-effort storage, and the browser may evict the origin under disk pressure. Mitigation and degradation:
 - On first successful `put`, call `navigator.storage.persist()` once (best-effort, free, no dep). Chromium usually grants silently for engaged origins, and denial is fine because it only changes eviction odds.
@@ -170,17 +170,17 @@ Eviction (read time): IndexedDB is best-effort storage, and the browser may evic
 
 ---
 
-## 6. Privacy and egress: the invariant and S160's proof obligations
+## 6. Privacy and egress: the invariant and the capture phase's proof obligations
 
 Invariant (proposed D-159, the D-038-strict instance): photo blob bytes never leave the device. No Firestore write, no network request carrying blob data, no presence in the Vault JSON export, and no dormant or disabled remote code path existing at all.
 
 Why it holds by construction: blobs live only behind `BlobStorePort`, whose two implementations (IDB, in-memory fake) contain zero network code. The only network-writing modules remain the Firestore sync layer, whose payloads are built from `Expense`/`BudgetModel`/`DayPlan` shapes that contain no photo field (section 1), and the keyless weather fetch. `exportItinerary()` serializes `loadPlans()` only (section 7). There is no code path from a blob to a socket.
 
-S160 definition of done. "Proven" means these checks actually run and pass:
+Capture-phase definition of done. "Proven" means these checks actually run and pass:
 1. **Sync-payload assertion (Vitest):** create an expense, attach a photo via the fake port, capture what `expensesSyncPort.push` would send (or run `sanitizeExpense` and the chunk serializer over the row), then assert the payload contains no `ph-` id, no `photo` key, and no blob or base64 content. With the design in section 1 this asserts the field cannot even exist, which is cheap and permanent.
 2. **Network assertion (Playwright, headless QA environment):** intercept every request (`page.route('**/*')`) during a full photo capture-and-render flow on the served `out/` build; assert no request URL or body contains the photo id and no body is at least the blob's size. In the dormant build, assert zero non-allowlisted requests at all during capture.
 3. **Export assertion (Vitest):** seed journal + expense photos, run `exportItinerary()`, assert the output string contains no `ph-` id, no `nepal_japan_photos` content, and no `data:image`/base64 payload.
-4. **Grep gate:** no `indexedDB` reference outside `core/photos/**` (plus tests), mirroring the S91 storage-literal grep discipline.
+4. **Grep gate:** no `indexedDB` reference outside `core/photos/**` (plus tests), mirroring the gateway's storage-literal grep discipline.
 
 ---
 
@@ -188,7 +188,7 @@ S160 definition of done. "Proven" means these checks actually run and pass:
 
 The **D-098 itinerary Vault export** excludes photos entirely, by construction and with zero code change. `exportItinerary()` serializes the itinerary Vault only (D-098 v1 scope: "identity/token/prefs are device-soft… neither exported nor touched"); key 16 and the IDB store are outside the Vault, and itinerary rows carry no photo fields (section 1). Not even metadata is exported: captions and alt text are device-soft companion data like the journal, and a metadata-only export would invite a future "and now the bytes" creep across the D-159 line. No Vault version bump, no envelope change. The separate full-trip backup added later by D-227 (`core/vault/backup.ts`, a distinctly-labelled "Back up whole trip" surface producing `nepal-japan-trip-backup.json.gz`, or `.json` where `CompressionStream` is absent) *does* include photo meta and bytes, see the note in section 0. `core/vault/export-import.ts` itself is untouched by it.
 
-Import onto a fresh device is graceful by construction. Import validates and writes itinerary plans only; it neither reads nor writes key 16 or IndexedDB. Nothing dangles, because no imported shape references a photo. The absent metadata index reads as `[]` (gateway fallback), and day/expense photo rails simply render their empty states. The consequence is documented and accepted, and D-002 mandates it for the *itinerary import* path: `importItinerary()` carries no photos, so restoring only the Vault on a new device leaves the photo rails empty. **Since D-227 (S273) that is no longer the whole story.** The separate full-trip backup (`core/vault/backup.ts` → `nepal-japan-trip-backup.json.gz`, or `.json` where `CompressionStream` is absent) does move photo bytes to a new device: `importTripBackup` writes blobs first via id-preserving `putWithId` so the meta↔blob links survive, then the meta index. A device wipe with no backup file still loses them. That is the price of "no *network* egress path", stated rather than papered over. The placeholder-tile machinery in section 5 covers every "referenced but absent" render, and import CAN now produce that state: a blob that fails to store, or a meta whose blob was never in the file, leaves the meta as a placeholder and increments `photosSkipped` (surfaced to the user as "N photos could not be restored").
+Import onto a fresh device is graceful by construction. Import validates and writes itinerary plans only; it neither reads nor writes key 16 or IndexedDB. Nothing dangles, because no imported shape references a photo. The absent metadata index reads as `[]` (gateway fallback), and day/expense photo rails simply render their empty states. The consequence is documented and accepted, and D-002 mandates it for the *itinerary import* path: `importItinerary()` carries no photos, so restoring only the Vault on a new device leaves the photo rails empty. **Since D-227 that is no longer the whole story.** The separate full-trip backup (`core/vault/backup.ts` → `nepal-japan-trip-backup.json.gz`, or `.json` where `CompressionStream` is absent) does move photo bytes to a new device: `importTripBackup` writes blobs first via id-preserving `putWithId` so the meta↔blob links survive, then the meta index. A device wipe with no backup file still loses them. That is the price of "no *network* egress path", stated rather than papered over. The placeholder-tile machinery in section 5 covers every "referenced but absent" render, and import CAN now produce that state: a blob that fails to store, or a meta whose blob was never in the file, leaves the meta as a placeholder and increments `photosSkipped` (surfaced to the user as "N photos could not be restored").
 
 ---
 
@@ -204,5 +204,5 @@ Photo blobs (journal photos, expense receipts) live only in this device's Indexe
 
 ## 9. Build checklists
 
-**S160 (before Dec 9):** `core/photos/model.ts` (PhotoMeta + sanitize) · `core/photos/blob-store.ts` (+ IDB impl) · gateway key 16 + `photosStore` · `use-photos.ts` via `createReactiveStore` (no sync port) · `core/photos/downscale.ts` downscale · capture UI on journal card + expense row (alt/caption prompt, `accept="image/*"`) · quota/unavailable/evicted states · `restoreExpense` returns minted id + Undo re-point · the four proof checks from section 6, actually run.
-**S161 (by Jan 9, 2027):** recap day sections read `use-photos` filtered by `owner.date`; render with and without photos; placeholder tiles for evicted blobs; reduced-motion-safe presentation. No new storage surface.
+**Capture (before Dec 9):** `core/photos/model.ts` (PhotoMeta + sanitize) · `core/photos/blob-store.ts` (+ IDB impl) · gateway key 16 + `photosStore` · `use-photos.ts` via `createReactiveStore` (no sync port) · `core/photos/downscale.ts` downscale · capture UI on journal card + expense row (alt/caption prompt, `accept="image/*"`) · quota/unavailable/evicted states · `restoreExpense` returns minted id + Undo re-point · the four proof checks from section 6, actually run.
+**Recap (by Jan 9, 2027):** recap day sections read `use-photos` filtered by `owner.date`; render with and without photos; placeholder tiles for evicted blobs; reduced-motion-safe presentation. No new storage surface.

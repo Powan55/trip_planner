@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S174 (FU-37) — expense export/import schema: round-trip + fail-safe validation.
+// Expense export/import schema: round-trip + fail-safe validation.
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   exportExpenses,
@@ -37,7 +37,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-098)', () => {
+describe('exportExpenses / parseExpenseBackup — schema + round-trip (D-098)', () => {
   it('exports a versioned envelope and round-trips to a deep-equal expense list', () => {
     const json = exportExpenses([E1, E2]);
     const envelope = JSON.parse(json);

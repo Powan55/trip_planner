@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S220 — share-inbox hook (`hooks/use-share.ts`), exercised by RENDERING the real hook (a tiny
+// Share-inbox hook (`hooks/use-share.ts`), exercised by RENDERING the real hook (a tiny
 // renderHook shim over react-dom/client + act — no new dependency, mirrors use-packing.test.ts).
 // Proves: hydrate-seeds-the-empty-inbox, add/remove/assignDay persist through the gateway-key-23
 // `shareInboxStore` (byte-transport proof), reload (unmount+remount) survives, cap-100 drop-oldest
@@ -66,7 +66,7 @@ function renderShare(): HookHandle {
   };
 }
 
-describe('useShare (S220)', () => {
+describe('useShare', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();

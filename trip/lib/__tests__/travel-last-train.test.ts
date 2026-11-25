@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
-// S245 — the Travel Mode last-train chip PURE lookup (a small static table, no API).
+// The Travel Mode last-train chip PURE lookup (a small static table, no API).
 
 import { lastTrainNotice, NYE_DATE } from '@/lib/travel-last-train';
 
-describe('lastTrainNotice (S245)', () => {
+describe('lastTrainNotice', () => {
   it('is null during the Nepal phase (Thamel is walk/taxi, not rail)', () => {
     expect(lastTrainNotice('2026-12-15', 'nepal')).toBeNull();
   });

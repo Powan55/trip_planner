@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S254 — WIRED-behavior unit suite for the trip-meta Sync-v2 seam (lib/trips-remote.ts), against a
+// WIRED-behavior unit suite for the trip-meta Sync-v2 seam (lib/trips-remote.ts), against a
 // FAKE Firestore (the firebase SDK modules are vi.mock'd). Proves, on a real run:
 //
 //   1. pushTripMeta writes the exact doc path `trips/{tripId}/meta/info` with `{ name, config? }`,

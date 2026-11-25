@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import { walkLazySections } from './walk-lazy';
 
 /**
- * S211 — route-by-route reduced-motion audit (the PERMANENT motion regression net).
+ * Route-by-route reduced-motion audit (the PERMANENT motion regression net).
  *
  * The pre-existing `e2e/motion.spec.ts` proves the reduced-motion contract SURFACE by
- * SURFACE (route-fade wrapper, the named infinite CSS loops, count-up, the S134 micro-
- * interactions, the S179 VT handshake, the S180 scroll-progress guard) by reading
+ * SURFACE (route-fade wrapper, the named infinite CSS loops, count-up, the micro-
+ * interactions, the VT handshake, the scroll-progress guard) by reading
  * COMPUTED STYLES of specific selectors. This pack adds the complementary, route-COMPLETE
  * guarantee: under emulated `prefers-reduced-motion: reduce`, EVERY route must have ZERO
  * genuinely-running, non-trivial animations after settle — measured directly off the live
@@ -38,7 +38,7 @@ import { walkLazySections } from './walk-lazy';
  * transforms disabled, opacity may fade; the D-100 full-opacity reveal branches, the hero
  * scroll-cue's delayed fade) — those FINISH and pass the poll. What can never pass: an
  * infinite loop that escaped the global neutralizer, a scroll/view-timeline animation
- * (never finishes at rest — the D-179 violation class the S211 hero-glow fix closed), or
+ * (never finishes at rest — the D-179 violation class the hero-glow fix closed), or
  * any animation longer than the poll window. That is exactly the defect set this net
  * exists to catch.
  *

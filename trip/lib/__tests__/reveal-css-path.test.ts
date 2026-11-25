@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
-// S214 — component-level unit suite for the dual-path <Reveal> (`components/reveal.tsx`),
-// which extends S180's scroll-driven-CSS idiom (components/scroll-progress.tsx) from the
+// Component-level unit suite for the dual-path <Reveal> (`components/reveal.tsx`),
+// which extends the scroll-driven-CSS idiom (components/scroll-progress.tsx) from the
 // page-progress bar to the section-entrance reveal. Renders the REAL exported component
 // (same createRoot+act harness `lib/__tests__/story-photos.test.ts` uses — no new dep, no
 // JSX in this file since the standalone vitest.config.ts only globs `*.test.ts`).
@@ -20,7 +20,7 @@
 // output parity — D-100's opacity-pinned-at-1 contract only ever touches `transform` on the
 // CSS path, so it structurally can't regress that), the `data-scroll-driven` marker flips
 // correctly with the `CSS.supports('animation-timeline: view()')` feature-detect (the same
-// idiom scroll-progress.tsx uses, proven live in e2e/motion.spec.ts's S180 pack), and the
+// idiom scroll-progress.tsx uses, proven live in e2e/motion.spec.ts's scroll-progress pack), and the
 // framer fallback is what renders whenever the CSS primitive isn't supported.
 
 // Issue #24: <Reveal> now asks lib/motion.ts which surface it is on, so it needs a pathname.
@@ -73,7 +73,7 @@ afterEach(() => {
   removeCss();
 });
 
-describe('Reveal (S214) — CSS global entirely absent (jsdom default) → framer fallback', () => {
+describe('Reveal — CSS global entirely absent (jsdom default) → framer fallback', () => {
   it('renders the m.div framer path (data-scroll-driven="js") with children + className intact', () => {
     removeCss();
     const { container } = render(
@@ -88,7 +88,7 @@ describe('Reveal (S214) — CSS global entirely absent (jsdom default) → frame
   });
 });
 
-describe('Reveal (S214) — animation-timeline: view() supported → scroll-driven CSS path', () => {
+describe('Reveal — animation-timeline: view() supported → scroll-driven CSS path', () => {
   it('renders the plain div CSS path (data-scroll-driven="css", .reveal-view-css) with children + className intact', () => {
     stubCssSupport(true);
     const { container } = render(
@@ -111,7 +111,7 @@ describe('Reveal (S214) — animation-timeline: view() supported → scroll-driv
   });
 });
 
-describe('Reveal (S214) — animation-timeline: view() NOT supported → framer fallback', () => {
+describe('Reveal — animation-timeline: view() NOT supported → framer fallback', () => {
   it('falls back to the framer path even though a (non-matching) CSS.supports exists', () => {
     stubCssSupport(false);
     const { container } = render(createElement(Reveal, null, createElement('p', null, 'x')));

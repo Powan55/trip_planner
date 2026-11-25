@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S102 — pure expense core (D-016/D-099). `core/budget/expenses.ts` is framework-free; these tests
- * pin the aggregator (`expensesToSpent` — the S101 `SpentInput` seam consumer: per-leg + per-(leg,
+ * Pure expense core (D-016/D-099). `core/budget/expenses.ts` is framework-free; these tests
+ * pin the aggregator (`expensesToSpent` — the budget `SpentInput` seam consumer: per-leg + per-(leg,
  * category) sums, multi-leg + multi-category, empty → {}, malformed-entry totality), the pure CRUD
  * transforms (`addExpense`/`updateExpense`/`removeExpense` with caller-injected id + timestamp), and
  * the sanitizers. The aggregate is fed straight into `rollUp(model, spent)` (proven here too) so
@@ -43,8 +43,8 @@ function budget(over: Partial<BudgetModel> = {}): BudgetModel {
   };
 }
 
-describe('expensesToSpent — the S101 SpentInput seam consumer', () => {
-  it('empty / null / undefined input → {} (the S101 "nothing spent" state, remaining === budget)', () => {
+describe('expensesToSpent — the budget SpentInput seam consumer', () => {
+  it('empty / null / undefined input → {} (the "nothing spent" state, remaining === budget)', () => {
     expect(expensesToSpent([])).toEqual({});
     expect(expensesToSpent(null)).toEqual({});
     expect(expensesToSpent(undefined)).toEqual({});

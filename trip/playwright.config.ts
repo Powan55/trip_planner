@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright config (slice S80, D-093) — the browser-E2E harness for this
+ * Playwright config (D-093): the browser-E2E harness for this
  * project. Points at the SERVED STATIC `out/` build (the exact artifact that
  * deploys to GitHub Pages), never `next dev` — the standing QA-harness rule
  * (memory `headless-qa-env`): the deployed artifact is what we test.
@@ -38,13 +38,13 @@ const PORT = Number(process.env.PLAYWRIGHT_PORT) || 4173;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 /**
- * S356 — the landing-page product-shot SHOOT (`e2e/landing-shots.spec.ts`) is an ASSET
+ * The landing-page product-shot SHOOT (`e2e/landing-shots.spec.ts`) is an ASSET
  * GENERATOR, not a check: it WRITES the committed PNGs under `public/images/landing/`.
  * Letting the default net run it would rewrite tracked files mid-suite and re-shoot them on
  * every CI run, so it is `testIgnore`d out of chromium — the same mechanism that already
  * keeps `tm-acceptance.spec.ts` off this project. `PLAYWRIGHT_SHOOT=1` opts it back in for
  * the one explicit invocation that regenerates the assets. Default (unset) = excluded, so
- * `npm run test:e2e` is byte-identical to its pre-S356 spec set.
+ * `npm run test:e2e` is byte-identical to the spec set without the shoot.
  */
 const SHOOT_IGNORE = process.env.PLAYWRIGHT_SHOOT ? [] : ['**/landing-shots.spec.ts'];
 
@@ -67,7 +67,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   // CI retries: a generic environmental backstop, NOT the mechanism for any known
   // flake. The D-093 CRUD-then-reload flake (persistence.spec.ts) was root-caused and
-  // fixed at the source in S114/FU-15 — S113E removed the service-worker first-install
+  // fixed at the source: the build dropped the service-worker first-install
   // reload, and the spec's gotoSettled/reloadSettled now wait on a real readiness
   // signal (the lazy CalendarPlanner island's calendar-day-* grid) instead of the
   // non-deterministic `networkidle`. That pack is now green at `--repeat-each=20
@@ -93,14 +93,14 @@ export default defineConfig({
       name: 'chromium',
       // The default net (373 specs). It must NOT also run the iPhone-scoped Travel Mode
       // acceptance net — that pack belongs to the two device projects below, and letting
-      // chromium multiply it would double an already-~10-min run (S191). testIgnore keeps
-      // chromium's spec set byte-identical to its pre-S191 baseline.
-      // S356: the landing-shots shoot is excluded unless PLAYWRIGHT_SHOOT=1 (see SHOOT_IGNORE).
+      // chromium multiply it would double an already-~10-min run. testIgnore keeps
+      // chromium's spec set byte-identical to its baseline before Travel Mode got its own projects.
+      // The landing-shots shoot is excluded unless PLAYWRIGHT_SHOOT=1 (see SHOOT_IGNORE).
       testIgnore: ['**/tm-acceptance.spec.ts', WEBKIT_SPEC, ...SHOOT_IGNORE],
       use: { ...devices['Desktop Chrome'] },
     },
-    // ── S191 — Travel Mode acceptance net on real-device-shaped viewports ────────────────────
-    // Engine call (S191): chromium-engine emulation, not real WebKit. Real WebKit lives in the
+    // ── Travel Mode acceptance net on real-device-shaped viewports ────────────────────
+    // Engine call: chromium-engine emulation, not real WebKit. Real WebKit lives in the
     // webkit-* projects below (PLAYWRIGHT_WEBKIT=1).
     // WebKit is not installed in this sandbox (only chromium-1228 is), a `playwright install
     // webkit` download is an unverified/possibly-blocked step, and WebKit-on-Windows against the

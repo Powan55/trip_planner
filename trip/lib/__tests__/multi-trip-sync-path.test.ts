@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S234 — multi-trip isolation: sync-path spot check + local-storage scope probe.
+// Multi-trip isolation: sync-path spot check + local-storage scope probe.
 //
 // TWO independent proofs, both on a REAL run (real gateway, real getTripId, real save paths;
 // only the firebase SDK is faked so the write TARGET can be observed):
@@ -10,13 +10,13 @@
 //     writes target `trips/{token}/…` and NEVER the default's `trips/nepal-japan-2026/…` (and the
 //     default pack targets its own remote token). This is the D-205 capability-path guarantee.
 //
-//   PART B (local storage scope regression) — S235 FIXED the S234-F1 bleed: EVERY trip-scoped
+//   PART B (local storage scope regression) — the local-data bleed is FIXED: EVERY trip-scoped
 //     domain's gateway accessor now routes through `keyFor(slot)` (not the raw `STORAGE_KEYS.x`
 //     literal), so on a non-default pack every domain namespaces to `trip:{token}:{slot}` and NEVER
 //     touches the default pack's legacy literal key. This suite is TABLE-DRIVEN over the whole
 //     `TripScopedSlot` union so a future slot that forgets `keyFor` regresses HERE, and it proves
 //     the D-172 grandfather (default pack → the exact legacy literal, byte-identical). Inverts the
-//     old S234 probe that pinned the buggy behavior. See D-214/D-218.
+//     old probe that pinned the buggy behavior. See D-214/D-218.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Firestore } from 'firebase/firestore';
@@ -81,7 +81,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('S234 Part A — remote write path targets trips/{token} for the active pack', () => {
+describe('Part A — remote write path targets trips/{token} for the active pack', () => {
   it('DEFAULT pack: getTripId() is the shared trip, and the trip-scoped gate follows the web config', () => {
     // No pointer → getActiveTripId() === DEFAULT_TRIP_ID → the stored share id.
     localStorage.setItem(STORAGE_KEYS.defaultTripShare, SHARED_TRIP_ID);
@@ -106,7 +106,7 @@ describe('S234 Part A — remote write path targets trips/{token} for the active
   });
 });
 
-describe('S235 Part B — LOCAL storage scope: EVERY trip-scoped domain routes through keyFor', () => {
+describe('Part B — LOCAL storage scope: EVERY trip-scoped domain routes through keyFor', () => {
   // A write per domain, exercising the REAL accessor path (not keyFor directly), so a domain that
   // forgets keyFor writes the legacy literal and fails here. `savePlans`/`saveExpenses` go through
   // the same accessors as the rest; both are kept as the canonical public seams. `itineraryCorrupt`
@@ -149,8 +149,8 @@ describe('S235 Part B — LOCAL storage scope: EVERY trip-scoped domain routes t
 
   // Full-union mapping guard — catches a slot added to TripScopedSlot that never gets an accessor
   // wired to keyFor (its write table entry can be missed, but its keyFor contract can't).
-  // S352: the hand-maintained 13-slot copy formerly declared here is DELETED — it had already
-  // drifted from the type (missing `myPlaces`, S284) — in favor of the canonical `TRIP_SCOPED_SLOTS`
+  // The hand-maintained 13-slot copy formerly declared here is DELETED — it had already
+  // drifted from the type (missing `myPlaces`) — in favor of the canonical `TRIP_SCOPED_SLOTS`
   // export, so this guard covers whatever the union currently is (15 slots as of `expensesCorrupt`,
   // #100/A-10) automatically.
 

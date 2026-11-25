@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-// S124 — the ONE core time module (matrix item 11; D-137/D-139/D-140).
+// The ONE core time module (matrix item 11; D-137/D-139/D-140).
 // Pure math, framework-free — lands GREEN before the migration consumes `parseTimeString`.
 
 import {
@@ -188,7 +188,7 @@ describe('offsetForCountry — custom-trip fallback when no leg has real geograp
   });
 });
 
-describe('effectiveOffsetMin — per-item place-offset override (S275)', () => {
+describe('effectiveOffsetMin — per-item place-offset override', () => {
   it('falls back to the day offset when tzOffsetMin is absent (byte-identical default)', () => {
     expect(effectiveOffsetMin(mk({}), JST_OFFSET_MIN)).toBe(JST_OFFSET_MIN);
     expect(effectiveOffsetMin(mk({}), NPT_OFFSET_MIN)).toBe(NPT_OFFSET_MIN);
@@ -198,7 +198,7 @@ describe('effectiveOffsetMin — per-item place-offset override (S275)', () => {
     expect(effectiveOffsetMin(mk({ tzOffsetMin: 480 }), JST_OFFSET_MIN)).toBe(480);
   });
 
-  it('S275 regression — the Dec-19 Guangzhou layover items compute at +480 (CAN), not +540 (JST)', () => {
+  it('regression — the Dec-19 Guangzhou layover items compute at +480 (CAN), not +540 (JST)', () => {
     const dec19 = TRIP_ITINERARY.find((d) => d.date === '2026-12-19')!;
     expect(dec19.country).toBe('japan'); // the day itself IS a Japan day (D-137 badge stays JST)
     const j1_1 = dec19.items.find((i) => i.id === 'j1-1')!;
@@ -220,7 +220,7 @@ describe('effectiveOffsetMin — per-item place-offset override (S275)', () => {
     expect(correctMs2).toBe(Date.UTC(2026, 11, 19, 0, 50)); // 08:50 CAN (+480) → 00:50 UTC Dec-19
   });
 
-  it('S275 — every OTHER Dec-19 item is untouched (no tzOffsetMin, still uses the day/JST offset)', () => {
+  it('every OTHER Dec-19 item is untouched (no tzOffsetMin, still uses the day/JST offset)', () => {
     const dec19 = TRIP_ITINERARY.find((d) => d.date === '2026-12-19')!;
     const others = dec19.items.filter((i) => i.id !== 'j1-1' && i.id !== 'j1-2');
     expect(others.length).toBeGreaterThan(0);
@@ -256,9 +256,9 @@ describe('placeWallClockToUtcMs — B-01-safe field arithmetic (matrix item 11)'
   });
 });
 
-// S391: the `isPastAtPlace` describe block is DELETED along with the function. It was
+// The `isPastAtPlace` describe block is DELETED along with the function. It was
 // the helper's ONLY caller tree-wide — six assertions keeping a one-line wrapper alive after
-// S377 inlined it. The strictness they pinned (an item exactly AT "now" is still upcoming) is
+// it was inlined. The strictness they pinned (an item exactly AT "now" is still upcoming) is
 // covered where the behaviour actually lives now: `lib/__tests__/whats-next.test.ts`.
 
 // ── #220 — the home clock ────────────────────────────────────────────────────────────────────

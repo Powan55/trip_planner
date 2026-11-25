@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-// S245 — the Travel Mode "Tonight" emphasis PURE item selector. `selectTonightItem(items, now)`
+// The Travel Mode "Tonight" emphasis PURE item selector. `selectTonightItem(items, now)`
 // is PURE (D-016 idiom, matches travel-hero.test.ts): the caller injects place-local
 // minutes-since-midnight, so every case is deterministic here with no time mocking.
 
@@ -20,7 +20,7 @@ function item(
   };
 }
 
-describe('selectTonightItem (S245)', () => {
+describe('selectTonightItem', () => {
   it('is 17:00 (1020 minutes)', () => {
     expect(EVENING_START_MIN).toBe(1020);
   });

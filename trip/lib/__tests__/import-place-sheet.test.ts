@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S284 — the ImportPlaceSheet manual flow (`components/import-place-sheet.tsx`), rendered via the
+// The ImportPlaceSheet manual flow (`components/import-place-sheet.tsx`), rendered via the
 // same act/createRoot shim as the hook tests (no @testing-library dep). framer-motion + sonner are
 // mocked to plain passthroughs; `useItineraryContext` is mocked so we can assert the "also add to
 // plan" write; `useMyPlaces` is REAL so we prove the place is actually persisted. Covers:
@@ -26,7 +26,7 @@ vi.mock('@/components/itinerary-provider', () => ({
   useItineraryContext: () => ({ addItem: addItemSpy, findPlacements: () => [] }),
 }));
 
-// S349 — the resolve client is mocked so we control exactly what "found" returns (with or
+// The resolve client is mocked so we control exactly what "found" returns (with or
 // without coordinates) without touching the network layer already covered by place-resolve.test.ts.
 vi.mock('@/lib/place-resolve', () => ({
   resolvePlaceLink: resolvePlaceLinkMock,
@@ -85,14 +85,14 @@ function renderSheet() {
 }
 
 // Flush the resolve promise's microtask chain + the resulting React state updates (same idiom as
-// lib/__tests__/s346-audit.test.ts's flush()).
+// lib/__tests__/default-trip-and-name-hint.test.ts's flush()).
 async function flush(): Promise<void> {
   await act(async () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 }
 
-describe('ImportPlaceSheet (S284) — manual flow', () => {
+describe('ImportPlaceSheet — manual flow', () => {
   beforeEach(() => {
     localStorage.clear();
     addItemSpy.mockReset();
@@ -163,7 +163,7 @@ describe('ImportPlaceSheet (S284) — manual flow', () => {
   });
 });
 
-describe('ImportPlaceSheet (S349) — resolved coordinates reach the plan item (the actual pin-drop bug)', () => {
+describe('ImportPlaceSheet — resolved coordinates reach the plan item (the actual pin-drop bug)', () => {
   beforeEach(() => {
     localStorage.clear();
     addItemSpy.mockReset();
@@ -190,7 +190,7 @@ describe('ImportPlaceSheet (S349) — resolved coordinates reach the plan item (
 
     expect(addItemSpy).toHaveBeenCalledTimes(1);
     const [, item] = addItemSpy.mock.calls[0];
-    // This is the S349 bug: before the fix, lat/lng were resolved into local state but never
+    // This is the pin-drop bug: before the fix, lat/lng were resolved into local state but never
     // reached this payload, so stopMarkerFor() had nothing to plot.
     expect(item.lat).toBe(34.9671);
     expect(item.lng).toBe(135.7727);

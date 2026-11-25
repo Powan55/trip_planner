@@ -321,7 +321,7 @@ const ADD_CANDIDATE_ID = 'd316-concierge-candidate';
  * `components/concierge-chat.tsx::confirmOp`, the explicit-user-confirm layer, where there is a
  * person to speak to and a chip to keep on screen. Do not wire this into `validateOps`.
  *
- * Shares Slice A's ONE predicate (`firstClashWith` + `timeFootprintChanged`, both over
+ * Shares the clash guard's ONE predicate (`firstClashWith` + `timeFootprintChanged`, both over
  * `toInterval`), so this refusal can never contradict the five authoring surfaces D-316 guards
  * or the amber badge that reports the overlaps it lets live.
  *

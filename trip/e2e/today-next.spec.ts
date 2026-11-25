@@ -2,15 +2,15 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S100 — Today/next-up E2E pack (city generalization + the "what's-next" rail).
+ * Today/next-up E2E pack (city generalization + the "what's-next" rail).
  *
  * Two things, both on the served static `out/` build, driven through the D-075 `?today=`
- * clock override (local NOON of the given day) exactly like the frozen S82/S98 packs:
+ * clock override (local NOON of the given day) exactly like the frozen countdown/today packs:
  *
- *   1. PER-DAY CITY GENERALIZATION — before S100 the in-trip city collapsed to Kathmandu
+ *   1. PER-DAY CITY GENERALIZATION — before this change the in-trip city collapsed to Kathmandu
  *      (any Nepal day) / Tokyo (any Japan day). Now a day-trip date shows the REAL city.
  *      `?today=2026-12-14` -> Nagarkot (a Nepal day trip), `?today=2026-12-26` -> Kyoto (a
- *      Japan regional stop). These are S82-ORTHOGONAL: S82 only asserts the 5 base dates
+ *      Japan regional stop). These are orthogonal to the countdown pack, which only asserts the 5 base dates
  *      (Dec-9/12/18 Kathmandu, Dec-19 & Jan-9 Tokyo), which are unchanged.
  *
  *   2. THE "UP NEXT" RAIL — the `today-next-up` band names the next upcoming, not-done,
@@ -27,7 +27,7 @@ import type { Page } from '@playwright/test';
 
 const ITINERARY_KEY = 'nepal_japan_itinerary';
 
-// Day-trip dates that prove the city generalization (NOT the S82 base dates).
+// Day-trip dates that prove the city generalization (NOT the countdown pack's base dates).
 const NAGARKOT_DAY = '2026-12-14'; // Day 6 — Nagarkot (Nepal day trip; was collapsed to Kathmandu)
 const KYOTO_DAY = '2026-12-26'; // Day 18 — Kyoto (Japan; was collapsed to Tokyo)
 
@@ -84,7 +84,7 @@ async function seedRailFixture(page: Page, date: string, city: string, country: 
   );
 }
 
-test.describe('S100 city generalization — day-trip dates show the REAL city (S82-orthogonal)', () => {
+test.describe('city generalization — day-trip dates show the REAL city (countdown-orthogonal)', () => {
   test('?today=2026-12-14 -> Nagarkot in the hero travel mode AND the Today header', async ({
     page,
   }) => {
@@ -114,7 +114,7 @@ test.describe('S100 city generalization — day-trip dates show the REAL city (S
   });
 });
 
-test.describe('S100 "Up next" rail — names the next item and advances when it is done', () => {
+test.describe('"Up next" rail — names the next item and advances when it is done', () => {
   test('under the noon clock the rail names the first item at/after noon, and advances on done', async ({
     page,
   }) => {
@@ -129,10 +129,10 @@ test.describe('S100 "Up next" rail — names the next item and advances when it 
     await expect(rail).toBeVisible();
 
     // Under the noon (12:00) clock: 09:00 is passed, so the next is the 13:00 item.
-    // S125 (D-137/D-138): the display rule renders a parseable legacy `time` via
+    // D-137/D-138: the display rule renders a parseable legacy `time` via
     // `effectiveStartMinutes`'s fallback -> AM/PM + the day-country badge (NPT here),
     // not the raw "13:00" text — an intentional, spec-mandated change to this rail's
-    // rendered text, NOT the `nextUp` selection logic (untouched, S124's).
+    // rendered text, NOT the `nextUp` selection logic (untouched).
     await expect(rail).toContainText('S100 afternoon viewpoint');
     await expect(rail).toContainText('1:00 PM');
     await expect(rail).toContainText('NPT');

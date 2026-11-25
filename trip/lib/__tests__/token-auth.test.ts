@@ -12,7 +12,7 @@ import {
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 
 /**
- * Free-text nickname sign-in (S233, D-209 item 3). The fixed 3-name roster was retired from the
+ * Free-text nickname sign-in (D-209 item 3). The fixed 3-name roster was retired from the
  * sign-in path: ANY non-empty trimmed string is a valid nickname, its accent is a deterministic
  * name-hash, and the identity pipeline (`setUserName` + token slot) is otherwise unchanged so
  * createdBy/updatedBy attribution needs zero changes. `TRAVELERS` survives ONLY as the default
@@ -102,12 +102,12 @@ describe('token-auth · TRAVELERS is now only the expense-split roster', () => {
 });
 
 /**
- * S352, D-249 (amended by Ruling 1 / Ruling 1b / Ruling 4) — signOut() is now a FULL local
+ * D-249 (amended by Ruling 1 / Ruling 1b / Ruling 4) — signOut() is now a FULL local
  * teardown, not just an identity clear. These pin the integration (signOut → wipeAllTripData);
  * `wipeAllTripData()`'s own unit coverage (both-namespace shape, collect-then-delete, SSR/disabled
  * safety) lives in `gateway-trip-scope.test.ts`.
  */
-describe('token-auth · signOut is a full local teardown (S352, D-249)', () => {
+describe('token-auth · signOut is a full local teardown (D-249)', () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();

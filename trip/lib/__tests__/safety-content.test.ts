@@ -10,7 +10,7 @@ import {
   DOCUMENT_CHECKLIST,
 } from '@/core/content/safety';
 
-// S152 — the safety-content validator. Mirrors `lib/__tests__/content-validation.test.ts`'s
+// The safety-content validator. Mirrors `lib/__tests__/content-validation.test.ts`'s
 // shape (a valid-parse pass + a deliberately-broken inline fixture that the schema REJECTS),
 // but self-contained: `core/content/safety.ts` owns its own local Zod schemas and already
 // `.parse()`s its own data at module load (so if THIS import succeeded, the live content is

@@ -3,23 +3,23 @@ import type { Page, TestInfo } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S212 — app-wide axe completeness pass. Closes the ROUTE and DIALOG gaps left by the
+ * App-wide axe completeness pass. Closes the ROUTE and DIALOG gaps left by the
  * established axe packs, so serious/critical = 0 is proven EVERYWHERE, not just on the
  * historically-gated surfaces.
  *
  * ── Current coverage BEFORE this pack (enumerated so the gap is explicit) ───────────────
- *   - a11y.spec.ts (S85/S157):        /, /plan, /nepal, /japan, /map, /flights   — serious/critical/MODERATE
+ *   - a11y.spec.ts:                   /, /plan, /nepal, /japan, /map, /flights   — serious/critical/MODERATE
  *   - a11y-intrip.spec.ts (F19b):     / + /plan in-trip panels          — serious/critical
- *   - packing-a11y.spec.ts (S206):    /packing                          — serious/critical
- *   - docs-checklist-a11y (S217):     /checklist                        — serious/critical
- *   - journal-browse-a11y (S153):     /journal                          — serious/critical
- *   - tm-acceptance TM-12 (S191):     /travel legibility OFF/ON (iPhone)— serious/critical
- *   - s157-a11y-close-targets:        calendar-editor / add-item / expense / place-detail /
+ *   - packing-a11y.spec.ts:           /packing                          — serious/critical
+ *   - docs-checklist-a11y:            /checklist                        — serious/critical
+ *   - journal-browse-a11y:            /journal                          — serious/critical
+ *   - tm-acceptance TM-12:            /travel legibility OFF/ON (iPhone)— serious/critical
+ *   - a11y-close-targets:             calendar-editor / add-item / expense / place-detail /
  *                                     time-picker / command-palette dialogs (SCOPED subtree scan)
  *
  * ── The GAP this pack closes ────────────────────────────────────────────────────────────
  *   - Routes with NO full-page axe gate:  /safety, /recap, /settings, /share  (traveler state).
- *     `/flights` joined a11y.spec.ts's ROUTES afterwards (S325) at the stricter moderate bar, so
+ *     `/flights` joined a11y.spec.ts's ROUTES afterwards at the stricter moderate bar, so
  *     it is now double-scanned — kept here deliberately, since this pack is the full-page net.
  *   - TM designed states on the DESKTOP net (TM-12 only runs iPhone): pre / nepal / japan /
  *     post / empty / legibility-ON — full-page scans, not the scoped hero.
@@ -28,7 +28,7 @@ import AxeBuilder from '@axe-core/playwright';
  *     Wrapped story surface (inline section, not a modal) in its populated state.
  *
  * Hard contract = serious/critical/moderate = 0 (issue #215 — widened to match a11y.spec.ts's
- * S157 bar; a loosened run came back 17/17 clean). minor stays advisory. NO axe `.exclude()`
+ * moderate bar; a loosened run came back 17/17 clean). minor stays advisory. NO axe `.exclude()`
  * is used anywhere in this file EXCEPT the single
  * opaque MapLibre WebGL canvas that every existing pack already excludes (it has no semantic
  * subtree and is labelled at its host) — no NEW exclusion is introduced (house rule: an
@@ -63,7 +63,7 @@ function scanFor(page: Page) {
 
 /**
  * Shared serious/critical/moderate assertion + advisory logging (matches a11y.spec.ts's
- * S157 bar). Issue #215: this pack started at serious/critical-only while a11y.spec.ts had
+ * moderate bar). Issue #215: this pack started at serious/critical-only while a11y.spec.ts had
  * already widened to moderate — a full loosened run came back 100% clean (17/17, only a
  * `minor` aria-allowed-role finding logged as advisory), so the two packs are level again.
  */
@@ -247,10 +247,10 @@ test.describe('axe: key dialogs open (full page)', () => {
   });
 
   test('add-to-itinerary (quick-add) dialog', async ({ page }, testInfo) => {
-    // The quick-add FAB is a mobile surface — phone viewport, matching the S157 pack's harness.
+    // The quick-add FAB is a mobile surface — phone viewport, matching the close-targets pack's harness.
     await page.setViewportSize({ width: 390, height: 844 });
     /**
-     * S357C — background route moved `/plan/` → `/`. This is a COVERAGE decision, not a
+     * Background route moved `/plan/` → `/`. This is a COVERAGE decision, not a
      * locator tweak, because this describe does FULL-PAGE scans (background + open dialog),
      * so the host route is part of what axe sees. It does not shrink coverage:
      *
@@ -260,7 +260,7 @@ test.describe('axe: key dialogs open (full page)', () => {
      *    fields. Same component, same mode, same trigger, same 390px viewport, same
      *    full-page scan. Reaching it "by another affordance on /plan/" is not available:
      *    the planner's own add path opens `calendar-editor`, a DIFFERENT dialog (already
-     *    axe-gated by e2e/s157-a11y-close-targets.spec.ts), and the S357A composer is not a
+     *    axe-gated by e2e/a11y-close-targets.spec.ts), and the planner's sticky composer is not a
      *    quickadd dispatcher.
      *  - The BACKGROUND that was dropped is independently gated, and more strictly:
      *    `e2e/a11y.spec.ts` scans `/plan/` at serious/critical/MODERATE (this pack's bar is
@@ -276,7 +276,7 @@ test.describe('axe: key dialogs open (full page)', () => {
     await expect(page.getByTestId('add-item-dialog')).toBeVisible();
     // Settle the entrance fade before the axe scan: axe samples computed colors, and the
     // dialog's opacity 0→1 entrance composites text to a lower-contrast mid-fade blend (a
-    // false serious hit). Exposed by the S323 de-glass (the former glass gradient bg made
+    // false serious hit). Exposed by the de-glass pass (the former glass gradient bg made
     // axe skip contrast on these panels); mirrors the s157 close-targets guard.
     await expect(page.getByTestId('add-item-dialog')).toHaveCSS('opacity', '1');
     await expectAxeClean(page, 'add-to-itinerary dialog', testInfo);
@@ -285,7 +285,7 @@ test.describe('axe: key dialogs open (full page)', () => {
   test('expense log dialog', async ({ page }, testInfo) => {
     await page.goto('/plan/', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('budget-panel')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('budget-view-tab-expenses').click(); // S322: log trigger is on the Expenses view
+    await page.getByTestId('budget-view-tab-expenses').click(); // log trigger is on the Expenses view
     await page.getByTestId('expense-log-open').click();
     await expect(page.getByTestId('expense-dialog')).toBeVisible();
     // Settle the entrance fade before the axe scan (see the add-to-itinerary guard above).
@@ -298,7 +298,7 @@ test.describe('axe: key dialogs open (full page)', () => {
     await expect(page.getByTestId('wrapped-story')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('wrapped-entry')).toBeVisible({ timeout: 15_000 });
 
-    // S336 settle-guard (ported S351B — found missing here in the same survey that ported it to
+    // Settle-guard (found missing here in the same survey that ported it to
     // weather-tag.spec.ts): 2026-12-20 is on-trip and this test never dismisses/seeds the
     // travel-arrival toast's 'seen' flag, so it is eligible on /recap exactly as it was on
     // wrapped-story.spec.ts's own (already-guarded) /recap axe test. Settle its opacity 0->1

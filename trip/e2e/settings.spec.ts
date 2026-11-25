@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S146 — the Settings page (`/settings`, `components/settings-panel.tsx`) E2E pack.
+ * The Settings page (`/settings`, `components/settings-panel.tsx`) E2E pack.
  *
  * Signs in with a real Trip Token EXPLICITLY (mirrors `safety.spec.ts` / `journal-browse.spec.ts`)
  * rather than riding the shared `fixtures.ts` default — every route sits behind the front-door
@@ -12,7 +12,7 @@ import AxeBuilder from '@axe-core/playwright';
  * Proves, on the served static `out/` build (dormant — no firebase, so every clear is a plain local
  * wipe, D-038; the UNDER-SYNC propagation of each clear is proven at unit level in
  * `lib/__tests__/settings-clear-all.test.ts`):
- *   1. The three groups render; Export/Import is discoverable here (S145/D-156).
+ *   1. The three groups render; Export/Import is discoverable here (D-156).
  *   2. Sign out clears the Trip Token → the front-door gate returns.
  *   3. The RELOCATED currency toggle + rate override live here and re-express the /plan grand total
  *      (the write path is unchanged `use-budget`, so /plan reads the same store on its next mount).
@@ -38,7 +38,7 @@ type Seed = {
 async function gotoSettings(page: Page, seed: Seed = {}, token = 'Powan') {
   await page.addInitScript(
     ({ t, s }: { t: string; s: Seed }) => {
-      // S352: ALL seeding below (identity + the domain seedOnce calls) fires ONLY on this test's
+      // ALL seeding below (identity + the domain seedOnce calls) fires ONLY on this test's
       // FIRST navigation, guarded by a sessionStorage marker (sessionStorage outlives a reload but
       // is untouched by wipeAllTripData/clearIdentity, unlike localStorage). `signOut()` now
       // reloads after its full teardown (Ruling 3) — that reload is itself a navigation this
@@ -61,8 +61,8 @@ async function gotoSettings(page: Page, seed: Seed = {}, token = 'Powan') {
         seedOnce('nepal_japan_itinerary', s.itinerary);
         seedOnce('nepal_japan_docs_checklist', s.docs);
       }
-      window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-      window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+      window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+      window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
     },
     { t: token, s: seed },
   );
@@ -98,7 +98,7 @@ const BUDGET_100_300 = {
   categoryBudgets: {},
 };
 
-test.describe('S146 settings — structure + discoverability', () => {
+test.describe('settings — structure + discoverability', () => {
   test('renders the three groups; export/import is discoverable', async ({ page }) => {
     await gotoSettings(page);
     await expect(page.getByTestId('settings-group-identity')).toBeVisible();
@@ -130,22 +130,22 @@ test.describe('S146 settings — structure + discoverability', () => {
   });
 });
 
-// S200's Google sign-in group was REMOVED in S232 (D-209 item 2): the
+// The Google sign-in group was REMOVED (D-209 item 2): the
 // capability-token Firestore rules never read request.auth, so Firebase Auth (anonymous +
 // Google) is fully vestigial and was stripped. It came BACK in #10 — but as an optional link
 // over an anonymous device identity, and was removed again by D-660 (username + password).
 
-test.describe('S146 settings — sign out', () => {
+test.describe('settings — sign out', () => {
   test('sign out clears the Trip Token and the front-door gate returns', async ({ page }) => {
     await gotoSettings(page);
     await expect(page.getByTestId('settings-identity-name')).toHaveText('Powan');
 
-    // S352 (D-249): sign-out is now a confirm-gated full teardown, not a bare one-click action.
+    // D-249: sign-out is now a confirm-gated full teardown, not a bare one-click action.
     await page.getByTestId('settings-sign-out').click();
     await expect(page.getByTestId('settings-sign-out-dialog')).toBeVisible();
     await page.getByTestId('settings-sign-out-confirm').click();
 
-    // The token is cleared → the front-door wall reappears. S355: the wall now OPENS on the
+    // The token is cleared → the front-door wall reappears. The wall now OPENS on the
     // marketing landing; the boarding-pass auth card is its second view, reached from a CTA. So
     // "the gate returned" is the landing. Asserted by testid, not by copy — this slice is itself a
     // copy rename, and a spec that matches on prose breaks again at the next one.
@@ -155,7 +155,7 @@ test.describe('S146 settings — sign out', () => {
 });
 
 /**
- * S396 (Q3) + S408 — claim everything stamped with a name you used to go by.
+ * Claim everything stamped with a name you used to go by.
  *
  * The owner renamed himself Traveler → Powan and his pre-rename entries kept the old stamp, so he
  * appears as two people. This is the owner-initiated rewrite, NOT a Vault migration: 'Traveler' is
@@ -163,7 +163,7 @@ test.describe('S146 settings — sign out', () => {
  * the COUNT SHOWN BEFORE THE BUTTON is the safety mechanism — this spec asserts that the count is
  * real (it must equal what actually changes) and that the loud no-ops refuse.
  *
- * S408 widened it from itinerary items to THREE stores: itinerary (createdBy/updatedBy/doneBy),
+ * It was later widened from itinerary items to THREE stores: itinerary (createdBy/updatedBy/doneBy),
  * expenses (createdBy/updatedBy) and documents (updatedBy).
  *
  * 🔴 AND NOT ONE FIELD FURTHER. `Expense.paidBy` / `Expense.split[]` hold the same display-name
@@ -172,7 +172,7 @@ test.describe('S146 settings — sign out', () => {
  * balance. The expense seeded below is built to expose exactly that (`paidBy: 'Traveler'`,
  * `split: ['Traveler','Powan']`) — this spec asserts those bytes survive the claim untouched.
  */
-test.describe('S396/S408 settings — claim entries stamped with an old name', () => {
+test.describe('settings — claim entries stamped with an old name', () => {
   /** The itinerary slot is a bare array as SEEDED but a versioned Vault envelope once the store
    *  has written it — read both, or the assertion silently inspects the wrong shape. */
   function storedItems(raw: unknown): Array<Record<string, unknown>> {
@@ -200,7 +200,7 @@ test.describe('S396/S408 settings — claim entries stamped with an old name', (
           doneBy: 'Traveler',
           done: true,
         },
-        // Only `doneBy` matches — the S390-B field, and the reason the rewrite is per-FIELD.
+        // Only `doneBy` matches — the doneBy stamp, and the reason the rewrite is per-FIELD.
         {
           id: 'q3-done',
           title: 'Q3 ticked-off item',
@@ -224,7 +224,7 @@ test.describe('S396/S408 settings — claim entries stamped with an old name', (
     },
   ];
 
-  // S408 — two expenses stamped with the old name. `q3-exp-split` is the money trap: the old name
+  // Two expenses stamped with the old name. `q3-exp-split` is the money trap: the old name
   // is the payer AND a split member, and the CLAIMING name is already the other split member.
   const claimExpenses = [
     {
@@ -252,7 +252,7 @@ test.describe('S396/S408 settings — claim entries stamped with an old name', (
     },
   ];
 
-  // S408 — the docs checklist. `updatedBy` is the only identity field a DocItem carries.
+  // The docs checklist. `updatedBy` is the only identity field a DocItem carries.
   const claimDocs = [
     {
       id: 'passport-validity',
@@ -278,7 +278,7 @@ test.describe('S396/S408 settings — claim entries stamped with an old name', (
     await gotoSettings(page, { itinerary: claimSeed });
 
     // The count preview — the entire safety gate — is visible BEFORE anything mutates. With no
-    // expense or document carrying the name, NEITHER store appears in the copy (S408: a store with
+    // expense or document carrying the name, NEITHER store appears in the copy (a store with
     // nothing stamped is left out entirely, never rendered as "0 expenses").
     await expect(page.getByTestId('settings-claim-name-input')).toHaveValue('Traveler');
     await expect(page.getByTestId('settings-claim-name-status')).toHaveText(
@@ -305,7 +305,7 @@ test.describe('S396/S408 settings — claim entries stamped with an old name', (
     // updatedAt preserved — a claim must not float old items to the top of the activity feed.
     expect(byId['q3-all'].updatedAt).toBe(STAMP);
     expect(byId['q3-done'].updatedAt).toBe(STAMP);
-    // The claimed name is recorded so FUTURE arrivals still match "My edits" (S390-C mechanism).
+    // The claimed name is recorded so FUTURE arrivals still match "My edits" (the prior-names mechanism).
     expect(await readKey(page, 'tripPlannerPriorNames')).toEqual(['Traveler']);
 
     // Survives a reload, and there is then nothing left to claim.
@@ -352,7 +352,7 @@ test.describe('S396/S408 settings — claim entries stamped with an old name', (
     expect(await readKey(page, 'tripPlannerPriorNames')).toBeNull();
   });
 
-  test('S408 — the claim reaches expenses and documents, and stops dead at paidBy/split', async ({
+  test('the claim reaches expenses and documents, and stops dead at paidBy/split', async ({
     page,
   }) => {
     await gotoSettings(page, fullSeed);
@@ -408,7 +408,7 @@ test.describe('S396/S408 settings — claim entries stamped with an old name', (
   });
 });
 
-test.describe('S352 — sign-out is a full local teardown, not just an identity clear', () => {
+test.describe('sign-out is a full local teardown, not just an identity clear', () => {
   test('sign out wipes default-pack trip data (budget/expenses/journal) too, not only the Trip Token', async ({
     page,
   }) => {
@@ -422,7 +422,7 @@ test.describe('S352 — sign-out is a full local teardown, not just an identity 
     await page.getByTestId('settings-sign-out').click();
     await page.getByTestId('settings-sign-out-confirm').click();
 
-    await expect(page.getByTestId('landing-page')).toBeVisible({ timeout: 10_000 }); // S355 — see above
+    await expect(page.getByTestId('landing-page')).toBeVisible({ timeout: 10_000 }); // see above
     expect(await readKey(page, BUDGET_KEY)).toBeNull();
     expect(await readKey(page, EXPENSES_KEY)).toBeNull();
     expect(await readKey(page, JOURNAL_KEY)).toBeNull();
@@ -441,7 +441,7 @@ test.describe('S352 — sign-out is a full local teardown, not just an identity 
   });
 });
 
-test.describe('S146 settings — relocated currency & rates re-express the /plan grand total', () => {
+test.describe('settings — relocated currency & rates re-express the /plan grand total', () => {
   test('home-currency toggle persists and re-expresses the /plan grand total', async ({ page }) => {
     await gotoSettings(page, { budget: BUDGET_100_300 });
 
@@ -449,7 +449,7 @@ test.describe('S146 settings — relocated currency & rates re-express the /plan
     await page.getByTestId('budget-currency-jpy').click();
     await expect(page.getByTestId('budget-currency-jpy')).toHaveAttribute('aria-pressed', 'true');
 
-    // Persisted (write path is the unchanged use-budget commit — S143 unaffected).
+    // Persisted (write path is the unchanged use-budget commit, unaffected).
     await expect
       .poll(async () => (await readKey(page, BUDGET_KEY) as { homeCurrency: string }).homeCurrency)
       .toBe('JPY');
@@ -478,7 +478,7 @@ test.describe('S146 settings — relocated currency & rates re-express the /plan
   });
 });
 
-test.describe('S146 settings — per-domain clears wipe the slot and stay cleared (dormant, D-018)', () => {
+test.describe('settings — per-domain clears wipe the slot and stay cleared (dormant, D-018)', () => {
   test('budget reset restores the seeded default', async ({ page }) => {
     await gotoSettings(page, { budget: BUDGET_100_300 });
     await expandGroup(page, 'settings-group-data');
@@ -561,7 +561,7 @@ test.describe('S146 settings — per-domain clears wipe the slot and stay cleare
   });
 });
 
-test.describe('S174 (FU-37) — expenses JSON backup/restore (own schema, D-098)', () => {
+test.describe('expenses JSON backup/restore (own schema, D-098)', () => {
   test('export downloads a versioned expenses-only envelope', async ({ page }) => {
     const expenses = [
       { id: 'e1', leg: 'nepal', category: 'food', amount: 100, note: 'Momo', createdAt: '2026-12-10T00:00:00.000Z' },
@@ -573,7 +573,7 @@ test.describe('S174 (FU-37) — expenses JSON backup/restore (own schema, D-098)
       page.waitForEvent('download'),
       page.getByTestId('settings-export-expenses-json').click(),
     ]);
-    // S228: this real Chromium supports CompressionStream, so the export is gzip-compressed
+    // This real Chromium supports CompressionStream, so the export is gzip-compressed
     // (shared `core/vault/compression.ts` helper) — filename carries the `.gz` marker.
     expect(download.suggestedFilename()).toBe('nepal-japan-expenses.json.gz');
     const acceptedTypes = (await page.getByTestId('settings-import-expenses-input').getAttribute('accept'))?.split(',');
@@ -673,7 +673,7 @@ test.describe('S174 (FU-37) — expenses JSON backup/restore (own schema, D-098)
   });
 });
 
-test.describe('S146 axe — /settings (run twice for determinism)', () => {
+test.describe('axe — /settings (run twice for determinism)', () => {
   for (const run of [1, 2] as const) {
     test(`axe run ${run}: /settings has zero serious/critical violations`, async ({ page }, testInfo) => {
       await gotoSettings(page);

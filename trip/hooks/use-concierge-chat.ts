@@ -67,7 +67,7 @@ const STORED_TURN_CAP = 50;
 
 export type ConciergeProvider = 'groq' | 'kimi';
 
-// ── / owner ruling Q6 — the trip descriptor on the wire ─────────────────────────────────
+// ── The trip descriptor on the wire ─────────────────────────────────
 //
 // MUST equal the Worker's `TRIP_LABEL_MAX` (worker/src/providers.ts). The Worker truncates too,
 // but that is NOT the same guarantee and cannot replace this one: its 16 KB `MAX_BODY_BYTES` 413

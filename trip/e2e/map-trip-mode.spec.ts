@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S151 — map trip-mode upgrades (dormant `out/` build):
+ * Map trip-mode upgrades (dormant `out/` build):
  *   (a) search-within-map — type a known place, select it, camera flies + popup opens;
  *       selecting a result that's filtered out resets the category filter to 'All'.
  *   (b) Directions link in the popup — byte-exact D-074 URL, target=_blank, rel~noopener.
@@ -38,7 +38,7 @@ function trackErrors(page: Page) {
   return errors;
 }
 
-test.describe('S151 · map trip-mode upgrades', () => {
+test.describe('map trip-mode upgrades', () => {
   test('search: type a known place, select it -> the popup for that place opens', async ({ page }) => {
     const errors = trackErrors(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -224,7 +224,7 @@ test.describe('S151 · map trip-mode upgrades', () => {
 });
 
 /**
- * S406 — search resolves EVERY place in the trip, not only the 27 curated markers.
+ * Search resolves EVERY place in the trip, not only the 27 curated markers.
  *
  * Two halves, and both matter:
  *  • New York (the Dec 9 departure day's city, D-315 — Syracuse until 2026-08-14) is a TRIP
@@ -260,7 +260,7 @@ async function waitForCamera(page: Page): Promise<string> {
   return (await shell.getAttribute('data-map-view')) ?? '';
 }
 
-test.describe('S406 · map search over every place in the trip', () => {
+test.describe('map search over every place in the trip', () => {
   test('search: New York — a trip city with no curated marker — is found and the camera flies to it', async ({
     page,
   }) => {

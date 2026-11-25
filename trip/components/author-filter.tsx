@@ -34,7 +34,7 @@ import { useAuthorFilter } from '@/hooks/use-author-filter';
  * `<name>` is the raw display name, so a name with a space yields e.g.
  * `author-filter-author-Jane Doe` — quote it in a selector.
  *
- * 🔴 S383 made this control render ONCE per page. It used to be mounted by BOTH
+ * 🔴 This control renders ONCE per page. It used to be mounted by BOTH
  * `calendar-planner.tsx` and `trip-timeline.tsx`, which since both render on `/plan` — so the
  * identical chip row appeared twice. (#94 has since deleted `trip-timeline.tsx` entirely, so
  * `calendar-planner.tsx` is the ONLY mount site now.) Do not re-mount it elsewhere without

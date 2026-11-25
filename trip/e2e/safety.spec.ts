@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S152 — the travel-safety kit (`/safety`, `components/travel-safety-kit.tsx`) E2E pack.
+ * The travel-safety kit (`/safety`, `components/travel-safety-kit.tsx`) E2E pack.
  *
  * Signs in with a real Trip Token EXPLICITLY (mirrors `journal-browse.spec.ts` /
- * `nightlife-gate.spec.ts`) rather than riding the shared `fixtures.ts` default, deliberately
- * (S152). `/safety`, like every route, sits behind the front-door wall (D-241) — the
+ * `nightlife-gate.spec.ts`) rather than riding the shared `fixtures.ts` default, deliberately.
+ * `/safety`, like every route, sits behind the front-door wall (D-241) — the
  * signed-in token passes it with zero gate code of this slice's own.
  *
  * Proves, on real rendered output against the served static `out/` build (never `next dev`):
@@ -22,8 +22,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -38,7 +38,7 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await expect(page.locator('h1').first()).toBeVisible();
 }
 
-test.describe('S152 safety kit — renders the three sections', () => {
+test.describe('safety kit — renders the three sections', () => {
   test('emergency & embassy, phrasebook, and checklist sections all render', async ({ page }) => {
     await gotoAsTraveler(page, '/safety/');
     await expect(page.getByTestId('safety-kit')).toBeVisible();
@@ -103,7 +103,7 @@ test.describe('safety kit — native script is present and language-tagged (#2)'
   });
 });
 
-test.describe('S152 safety kit — tel: hrefs are correct and reachable', () => {
+test.describe('safety kit — tel: hrefs are correct and reachable', () => {
   test('emergency contact links carry the exact tel: href from the content module', async ({ page }) => {
     await gotoAsTraveler(page, '/safety/');
 
@@ -134,7 +134,7 @@ test.describe('S152 safety kit — tel: hrefs are correct and reachable', () => 
   });
 });
 
-test.describe('S152 axe — /safety (run twice for determinism)', () => {
+test.describe('axe — /safety (run twice for determinism)', () => {
   for (const run of [1, 2] as const) {
     test(`axe run ${run}: /safety has zero serious/critical violations`, async ({ page }, testInfo) => {
       await gotoAsTraveler(page, '/safety/');
@@ -170,7 +170,7 @@ test.describe('safety kit — country order follows the trip clock (#756)', () =
   });
 });
 
-test.describe('S152 safety kit — reduced motion', () => {
+test.describe('safety kit — reduced motion', () => {
   test('renders the same content under prefers-reduced-motion: reduce', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await gotoAsTraveler(page, '/safety/');

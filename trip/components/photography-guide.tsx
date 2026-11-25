@@ -71,7 +71,7 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
           </div>
           <div>
             <h3 className="text-t-body font-semibold text-ink-hi flex items-center gap-1.5">
-              {/* V6-10: the details control is the TITLE, not the card body. A button
+              {/* The details control is the TITLE, not the card body. A button
                   wrapping flow content is non-conforming HTML, and `button` is a
                   children-presentational ARIA role — it swallowed this <h3> so the ~60
                   card titles per page were absent from the heading outline. The `::after`

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 //
-// S237 (rewritten S329) — `hooks/use-concierge-chat.ts`, exercised by RENDERING the real hook
+// `hooks/use-concierge-chat.ts`, exercised by RENDERING the real hook
 // (the renderHook shim over react-dom/client + act, mirrors `use-sync-status.test.ts`).
 // `fetch` is injected as a fake returning a real `Response` so the driver's parse path runs
 // exactly as in production — no live network.
 //
-// As of D-234/S329 the concierge turn is ONE `application/json` `{reply, ops}` object, NOT SSE.
+// As of D-234 the concierge turn is ONE `application/json` `{reply, ops}` object, NOT SSE.
 // Proves: (1) the reply text lands in the assistant message and the raw `ops` are surfaced on the
 // turn (unvalidated — the component validates against live plans); (2) a non-200 JSON error
 // surfaces OUR OWN status-class sentence — never the response body (#13) — and drops the empty
@@ -75,8 +75,8 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-// S389-C: the offline pre-check reads the SAME `navigator.onLine` signal as `hooks/use-online.ts`
-// (S154). Set it BEFORE rendering — the hook corrects its SSR-safe `true` default in a mount effect.
+// The offline pre-check reads the SAME `navigator.onLine` signal as `hooks/use-online.ts`
+// Set it BEFORE rendering — the hook corrects its SSR-safe `true` default in a mount effect.
 function setNavigatorOnLine(value: boolean) {
   Object.defineProperty(window.navigator, 'onLine', { value, writable: true, configurable: true });
 }
@@ -176,12 +176,12 @@ function renderConciergeChat(fetchImpl: typeof fetch): Handle {
   };
 }
 
-describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
+describe('useConciergeChat ({reply, ops} JSON envelope)', () => {
   beforeEach(() => {
     localStorage.clear(); // #10: the account-gate tests drive the real registry/pointer
     gate.url = 'https://concierge.example.workers.dev';
     remote.on = false; // the environment every pre-#10 test was written against
-    setNavigatorOnLine(true); // every pre-S389 test in this file assumes a connection
+    setNavigatorOnLine(true); // every older test in this file assumes a connection
   });
 
   it('parses the JSON reply into the assistant message and surfaces the raw ops on the turn', async () => {
@@ -486,7 +486,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('S362: the POST carries an abort signal, so a hung upstream cannot pin the UI in streaming', async () => {
+  it('the POST carries an abort signal, so a hung upstream cannot pin the UI in streaming', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ reply: 'ok', ops: [] }),
     ) as unknown as typeof fetch;
@@ -500,7 +500,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('S362: a timeout abort surfaces a FRIENDLY error and pops the empty bubble, not a raw DOMException', async () => {
+  it('a timeout abort surfaces a FRIENDLY error and pops the empty bubble, not a raw DOMException', async () => {
     // What AbortSignal.timeout(CHAT_TIMEOUT_MS) actually rejects fetch with. Raw, its message is
     // "signal timed out" — useless to a traveler, so the hook swaps in its own text.
     const fetchImpl = vi.fn(async () => {
@@ -547,12 +547,12 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  // ── S389-C — offline send + retry ──────────────────────────────────────────────────────────
+  // ── Offline send + retry ──────────────────────────────────────────────────────────
   // The load-bearing assertion is `fetchImpl` NOT being called. A test that only checked the copy
   // would pass on code that still hits the network and merely dresses up the rejection afterwards
   // — which is the shape of the defect (the raw browser `TypeError: Failed to fetch` reached the
   // traveller through the catch's `err.message` pass-through).
-  it('S389-C: an offline send never touches the network and says so in plain words', async () => {
+  it('an offline send never touches the network and says so in plain words', async () => {
     setNavigatorOnLine(false);
     const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
 
@@ -611,7 +611,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
   // the spec that pins it ("no status leaks the body it came with") are above; keeping a test
   // asserting the old contract would have made the suite disagree with itself.
 
-  it('S389-C: "Try again" re-sends the last attempted turn once the connection is back', async () => {
+  it('"Try again" re-sends the last attempted turn once the connection is back', async () => {
     setNavigatorOnLine(false);
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ reply: 'Added it.', ops: [] }),
@@ -634,7 +634,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('S389-C: retry re-sends a turn that failed at the SERVER too, not just an offline one', async () => {
+  it('retry re-sends a turn that failed at the SERVER too, not just an offline one', async () => {
     // One control covers every error the panel can show — the last attempted message is recorded
     // before the request, so a 500 is as retryable as a lost connection.
     const fetchImpl = vi
@@ -660,7 +660,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('S363: parses `model` onto the assistant turn when the Worker sends one', async () => {
+  it('parses `model` onto the assistant turn when the Worker sends one', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ reply: 'Try Ichiran in Shibuya.', ops: [], model: 'gemini-2.5-flash-lite' }),
     ) as unknown as typeof fetch;
@@ -672,7 +672,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('S363/R3: a reply with no `model` leaves it undefined, and does not throw or surface an error', async () => {
+  it('R3: a reply with no `model` leaves it undefined, and does not throw or surface an error', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ reply: 'Try Ichiran in Shibuya.', ops: [] }), // the real deployed (v1.4.0) shape
     ) as unknown as typeof fetch;
@@ -686,7 +686,7 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('S363/R3: a blank or non-string `model` also collapses to undefined, never an empty badge', async () => {
+  it('R3: a blank or non-string `model` also collapses to undefined, never an empty badge', async () => {
     const blank = vi.fn(async () =>
       jsonResponse({ reply: 'ok', ops: [], model: '   ' }),
     ) as unknown as typeof fetch;
@@ -705,14 +705,14 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
   });
 });
 
-// ── S395 / owner ruling Q6 — the `trip` descriptor on the wire ───────────────────────────────
+// ── The `trip` descriptor on the wire ───────────────────────────────
 //
 // `@/core/trips` is deliberately NOT mocked here: these tests drive the real gateway pointer +
 // trip registry through jsdom's localStorage, so what they exercise is the same resolution path
 // the browser runs. The load-bearing assertions are (a) the ABSENCE of the key on the default
 // trip and (b) the EXACT key set when it is present — an over-broad descriptor is a body-budget
 // regression that only shows up as a 413 on a long conversation.
-describe('S395 — the trip descriptor on the POST body', () => {
+describe('the trip descriptor on the POST body', () => {
   const CUSTOM = {
     start: '2027-03-01',
     end: '2027-03-05',
@@ -780,7 +780,7 @@ describe('S395 — the trip descriptor on the POST body', () => {
   it("#10: an UNKNOWN custom trip (pointer set, never joined) is refused — no digest, no fetch", async () => {
     // The registry does not know this id: nothing ever joinTrip'd it, so it is not on the
     // account. The refusal must happen BEFORE any request forms — the load-bearing assertion is
-    // fetchImpl never being called, same shape as the S389-C offline test.
+    // fetchImpl never being called, same shape as the offline test.
     setActiveTripId('ghost-trip-nobody-joined');
 
     const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;

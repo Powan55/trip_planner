@@ -2,8 +2,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
 /**
- * S218 haptics — the Vibration API feature-detect no-op and the reduced-motion gate. Mirrors
- * the `lib/fly-chip.ts` (S134) test shape: jsdom has no `matchMedia`/`navigator.vibrate` by
+ * Haptics: the Vibration API feature-detect no-op and the reduced-motion gate. Mirrors
+ * the `lib/fly-chip.ts` test shape: jsdom has no `matchMedia`/`navigator.vibrate` by
  * default, so both branches are exercised deterministically with stubs.
  */
 
@@ -24,7 +24,7 @@ function stubReducedMotion(matches: boolean) {
   })) as unknown as typeof window.matchMedia;
 }
 
-describe('haptic (S218)', () => {
+describe('haptic', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     // @ts-expect-error test cleanup of a possibly-stubbed property

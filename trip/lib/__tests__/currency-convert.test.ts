@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { parseConversionQuery, convertCurrency } from '@/lib/currency-convert';
 
 /**
- * S207 — currency-converter command logic. DETERMINISTIC: `fetch` is mocked (the same
+ * Currency-converter command logic. DETERMINISTIC: `fetch` is mocked (the same
  * injectable-fetchImpl pattern `fetchCurrencyRate` itself uses), no live network is
  * touched.
  *
@@ -13,7 +13,7 @@ import { parseConversionQuery, convertCurrency } from '@/lib/currency-convert';
  *     malformed shape.
  *   - `convertCurrency` combines two fetchCurrencyRate results into a converted amount;
  *     USD is never fetched (rate 1, implicit).
- *   - D-189/S276: NPR is derived from INR by fetchCurrencyRate; when that fails and nothing
+ *   - D-189: NPR is derived from INR by fetchCurrencyRate; when that fails and nothing
  *     is cached it resolves via the labeled static reference rate (`source:'reference'`,
  *     never `unavailable`).
  *   - offline/cache-miss on the non-NPR side also degrades to `unavailable`, never throws.
@@ -80,7 +80,7 @@ describe('convertCurrency (total; reuses fetchCurrencyRate, D-189-aware)', () =>
     if (result.status === 'ok') expect(result.converted).toBeCloseTo(100, 5);
   });
 
-  it('D-189/S276: NPR with no cache and no INR in the response resolves via the labeled static reference rate', async () => {
+  it('D-189: NPR with no cache and no INR in the response resolves via the labeled static reference rate', async () => {
     const result = await convertCurrency({ amount: 100, from: 'USD', to: 'NPR' }, async () =>
       jsonResponse(FRANKFURTER_JPY_FIXTURE),
     );
@@ -91,7 +91,7 @@ describe('convertCurrency (total; reuses fetchCurrencyRate, D-189-aware)', () =>
     }
   });
 
-  it('NPR with a prior cached rate converts using the cached value, tagged stale + source live (pre-S276 cache shape)', async () => {
+  it('NPR with a prior cached rate converts using the cached value, tagged stale + source live (older cache shape)', async () => {
     localStorage.setItem(
       'nepal_japan_currency_rate_cache',
       JSON.stringify({ NPR: { currency: 'NPR', rate: 138.1, asOf: '2026-07-01', stale: false, fetchedAt: 'x' } }),

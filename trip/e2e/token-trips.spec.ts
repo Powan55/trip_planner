@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S233 → S338B — capability-token trips UX E2E pack (D-205 amended / D-209 / D-172 / **D-239**).
+ * Capability-token trips UX E2E pack (D-205 amended / D-209 / D-172 / **D-239**).
  *
  * Proves, on the served static `out/` build (dormant; #10 retired NEXT_PUBLIC_TRIP_ID outright —
  * the default pack is a LOCAL-ONLY SAMPLE with no Trip Token in ANY build, deterministic):
@@ -61,7 +61,7 @@ async function gotoSignedIn(page: Page, path = '/settings/', token = 'Powan') {
 const readActiveTrip = (page: Page) =>
   page.evaluate((k) => window.localStorage.getItem(k), ACTIVE_TRIP_KEY);
 
-// S238 — the known-trips registry (gateway key 26): every switch surface must register the trip.
+// The known-trips registry (gateway key 26): every switch surface must register the trip.
 const KNOWN_TRIPS_KEY = 'tripPlannerKnownTrips';
 const readKnownTrips = (page: Page): Promise<Array<{ id: string; name: string }>> =>
   page.evaluate((k) => JSON.parse(window.localStorage.getItem(k) ?? '[]'), KNOWN_TRIPS_KEY);
@@ -175,7 +175,7 @@ test.describe('D-660 — front door: username + password', () => {
   });
 });
 
-test.describe('S233 — Settings Trip group', () => {
+test.describe('Settings Trip group', () => {
   test('the DEFAULT pack shows a note, not a Trip Token', async ({ page }) => {
     await gotoSignedIn(page);
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
@@ -214,13 +214,13 @@ test.describe('S233 — Settings Trip group', () => {
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
     expect(await readActiveTrip(page)).toBe(A_UUID);
 
-    // S238: the joined trip is REGISTERED in the known-trips list with the shared-trip name.
+    // The joined trip is REGISTERED in the known-trips list with the shared-trip name.
     const known = await readKnownTrips(page);
     expect(known).toContainEqual(expect.objectContaining({ id: A_UUID, name: 'Shared trip' }));
   });
 });
 
-test.describe('S233 — ?trip= shared-link handshake', () => {
+test.describe('?trip= shared-link handshake', () => {
   test('Cancel strips the param and stays on the current trip', async ({ page }) => {
     await gotoSignedIn(page, `/?trip=${A_UUID}`);
     const dialog = page.getByTestId('trip-join-dialog');
@@ -241,13 +241,13 @@ test.describe('S233 — ?trip= shared-link handshake', () => {
     await page.getByTestId('trip-join-confirm').click();
     // Full reload to the clean URL; the pack pointer is now the linked token.
     await expect.poll(async () => await readActiveTrip(page), { timeout: 15_000 }).toBe(A_UUID);
-    // S238: lands on the HOME dashboard (origin + '/', param-free) and registers the trip.
+    // Lands on the HOME dashboard (origin + '/', param-free) and registers the trip.
     await expect(page).toHaveURL(/^https?:\/\/[^/]+\/$/);
     const known = await readKnownTrips(page);
     expect(known).toContainEqual(expect.objectContaining({ id: A_UUID, name: 'Shared trip' }));
   });
 
-  test('Join from a NON-Home route lands on the home dashboard (S238)', async ({ page }) => {
+  test('Join from a NON-Home route lands on the home dashboard', async ({ page }) => {
     await gotoSignedIn(page, `/settings/?trip=${A_UUID}`);
     const dialog = page.getByTestId('trip-join-dialog');
     await expect(dialog).toBeVisible({ timeout: 15_000 });
@@ -270,7 +270,7 @@ test.describe('S233 — ?trip= shared-link handshake', () => {
   });
 });
 
-test.describe('S233 — axe', () => {
+test.describe('axe', () => {
   test('front-door gate has zero serious/critical violations', async ({ page }) => {
     await gotoFresh(page, '/');
     await expect(page.locator('[role="dialog"]')).toHaveCount(1);

@@ -1,4 +1,4 @@
-// S160 — PhotoMeta pure-core unit suite: sanitize (identity required, alt/dims repairable), owner
+// PhotoMeta pure-core unit suite: sanitize (identity required, alt/dims repairable), owner
 // filter, add/remove, and the expense-owner re-point. TOTAL / never-throw, mirrors journal-core. D-159.
 
 import { describe, it, expect } from 'vitest';

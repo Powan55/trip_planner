@@ -16,10 +16,10 @@ import {
 } from '@/core/dates';
 import { NPT_OFFSET_MIN, JST_OFFSET_MIN } from '@/core/dates/item-time';
 
-// S181 — the trip-pack model + its derivation of the date backbone. Two jobs:
+// The trip-pack model + its derivation of the date backbone. Two jobs:
 //  (1) pack-shape invariants (a malformed pack is caught here, not at runtime), and
 //  (2) explicit PARITY assertions: every legacy constant deep-equals the value the pack now
-//      derives, freezing byte-identity independently of the FU-10/S82 facade suites.
+//      derives, freezing byte-identity independently of the trip-data/countdown facade suites.
 
 const DEFAULT = TRIP_PACKS[DEFAULT_TRIP_ID];
 
@@ -65,7 +65,7 @@ describe('registry resolution (total, never-throw)', () => {
   it('getTripConfig(unknown) falls back to the default pack', () => {
     expect(getTripConfig('does-not-exist')).toBe(DEFAULT);
   });
-  it('getActiveTrip() returns the default pack (S181: hardcoded until S183)', () => {
+  it('getActiveTrip() returns the default pack (hardcoded)', () => {
     expect(getActiveTrip()).toBe(DEFAULT);
   });
 });
@@ -84,7 +84,7 @@ describe('legForDate — lexicographic, TZ-safe, total (mirrors getCountryForDat
   });
 });
 
-describe('PARITY — derived date backbone byte-equals the pre-S181 literals', () => {
+describe('PARITY — derived date backbone byte-equals the old literals', () => {
   it('trip/leg Date constants deep-equal the old hardcoded values', () => {
     expect(TRIP_START).toEqual(new Date('2026-12-09T00:00:00'));
     expect(TRIP_END).toEqual(new Date('2027-01-09T23:59:59'));
