@@ -110,8 +110,8 @@ const ALLOWED_LINES = [
   // address, even though it contains the account handle.
   ['owner-pii', /trip-planner-concierge\.official-shadowverse\.workers\.dev/],
   // LICENSE and the README credit name the author on purpose.
-  ['owner-pii', /^Copyright \(c\) \d{4} [A-Z][a-z]+ [A-Z][a-z]+$/],
-  ['owner-pii', /^Built by [A-Z][a-z]+ [A-Z][a-z]+ \(\[\w+\]\(https:\/\/github\.com\/\w+\)\)\.$/],
+  ['owner-pii', /^Copyright \(c\) \d{4} [A-Z][a-z]+ [A-Z][a-z]+\r?$/],
+  ['owner-pii', /^Built by [A-Z][a-z]+ [A-Z][a-z]+ \(\[\w+\]\(https:\/\/github\.com\/\w+\)\)\.\r?$/],
   // SVG keyword and the npm package name, neither related to work-slicing.
   ['process-prose', /xMidYMax slice|prototype\.slice/],
   // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md) are
