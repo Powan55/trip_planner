@@ -12,7 +12,7 @@ vi.mock('@/lib/download-blob', () => ({ downloadBlob: (_b: Blob, name: string) =
 
 import { buildAccountExport, downloadAccountExport } from '@/lib/account-export';
 import { STORAGE_KEYS, setSyncCode } from '@/core/storage/gateway';
-import { SHARED_TRIP_ID } from '@/lib/shared-trip';
+import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 
 const ACCOUNT = '11111111-2222-4333-8444-555555555555';
 const store: Record<string, Record<string, unknown>> = {};
@@ -46,8 +46,8 @@ beforeEach(() => {
   denied.clear();
   downloads.length = 0;
   localStorage.clear();
-  store['users/uid-a'] = { username: 'powan', accountId: ACCOUNT };
-  store[`trips/${ACCOUNT}/profile/identity`] = { name: 'Powan' };
+  store['users/uid-a'] = { username: SHARED_TRIP_USERNAMES[0].toLowerCase(), accountId: ACCOUNT };
+  store[`trips/${ACCOUNT}/profile/identity`] = { name: SHARED_TRIP_USERNAMES[0] };
   store[`trips/${ACCOUNT}/profile/tripList`] = { version: 1, trips: [{ id: 'trip-a' }, { id: 'trip-b' }] };
   store[`trips/${ACCOUNT}/profile/journal_trip-a`] = { entries: { '2026-12-10': 'hi' } };
   store['trips/trip-a'] = { members: { 'uid-a': 'owner' } };
@@ -58,23 +58,23 @@ beforeEach(() => {
 
 describe('buildAccountExport', () => {
   it('collects account docs, every listed trip, and only this app’s local keys', async () => {
-    localStorage.setItem(STORAGE_KEYS.userName, 'Powan');
+    localStorage.setItem(STORAGE_KEYS.userName, SHARED_TRIP_USERNAMES[0]);
     localStorage.setItem('trip:trip-a:journal', '[]');
     localStorage.setItem('someOtherSite', 'x');
-    const out = await buildAccountExport(handle('powan@accounts.trip-planner.invalid'));
+    const out = await buildAccountExport(handle(`${SHARED_TRIP_USERNAMES[0].toLowerCase()}@accounts.trip-planner.invalid`));
     expect(out.account.accountId).toBe(ACCOUNT);
-    expect(out.profile.identity).toEqual({ name: 'Powan' });
+    expect(out.profile.identity).toEqual({ name: SHARED_TRIP_USERNAMES[0] });
     expect(out.profile['journal_trip-a']).toBeTruthy();
     expect(Object.keys(out.trips).sort()).toEqual(['trip-a', 'trip-b']);
     expect(out.trips['trip-a'].days).toEqual({ '2026-12-10': { items: [] } });
-    expect(out.local).toEqual({ [STORAGE_KEYS.userName]: 'Powan', 'trip:trip-a:journal': '[]' });
+    expect(out.local).toEqual({ [STORAGE_KEYS.userName]: SHARED_TRIP_USERNAMES[0], 'trip:trip-a:journal': '[]' });
     expect(out.errors).toEqual([]);
   });
 
   it('a refused trip is recorded and the rest still exports', async () => {
     denied.add('trips/trip-a');
     denied.add('trips/trip-a/days');
-    const out = await buildAccountExport(handle('powan@accounts.trip-planner.invalid'));
+    const out = await buildAccountExport(handle(`${SHARED_TRIP_USERNAMES[0].toLowerCase()}@accounts.trip-planner.invalid`));
     expect(out.errors.map((e) => e.path).sort()).toEqual(['trips/trip-a', 'trips/trip-a/days']);
     expect(out.errors.every((e) => e.code === 'permission-denied')).toBe(true);
     expect(out.trips['trip-b']['meta/info']).toEqual({ name: 'B' });
@@ -85,7 +85,7 @@ describe('buildAccountExport', () => {
     const out = await buildAccountExport(handle(null));
     expect(out.account.link).toBeNull();
     expect(out.account.accountId).toBe(ACCOUNT);
-    expect(out.profile.identity).toEqual({ name: 'Powan' });
+    expect(out.profile.identity).toEqual({ name: SHARED_TRIP_USERNAMES[0] });
   });
 
   it('an anonymous session skips the shared trip instead of logging its refusal', async () => {
@@ -101,10 +101,10 @@ describe('buildAccountExport', () => {
 describe('downloadAccountExport', () => {
   it('with no server, still downloads this browser’s data and says why', async () => {
     authHandle = () => Promise.reject(new Error('offline'));
-    localStorage.setItem(STORAGE_KEYS.userName, 'Powan');
+    localStorage.setItem(STORAGE_KEYS.userName, SHARED_TRIP_USERNAMES[0]);
     const out = await downloadAccountExport();
     expect(out.errors).toEqual([{ path: '(server)', code: 'unavailable' }]);
-    expect(out.local).toEqual({ [STORAGE_KEYS.userName]: 'Powan' });
+    expect(out.local).toEqual({ [STORAGE_KEYS.userName]: SHARED_TRIP_USERNAMES[0] });
     expect(downloads).toHaveLength(1);
   });
 });

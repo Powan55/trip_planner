@@ -126,7 +126,7 @@ export function consumeNameHint(): void {
  *
  * THE NUDGE RIDES ALONG. `consumeNameHint`'s toast used to fire from its own mount effect, i.e.
  * BEFORE this read lands — post-fix it would tell a user their name is Traveler moments before it
- * becomes Powan. It now fires only where the placeholder really is the final answer: no account
+ * becomes Alex. It now fires only where the placeholder really is the final answer: no account
  * name to adopt, or the gates being shut (dormant / no account / signed out), where no account layer exists to
  * correct it. Accepted: a read still in flight when the tab is closed leaves the one-shot flag for
  * the next load, which is the same behaviour it already had across a reload.

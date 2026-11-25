@@ -493,20 +493,20 @@ describe('storage gateway (D-097)', () => {
   // ── identityStore (keys 3 + 4) — incl. risk 2: clearIdentity clears BOTH ──
   describe('identityStore (keys 3 + 4)', () => {
     it('name round-trips on localStorage and trims on write (unchanged contract)', () => {
-      identityStore.setName('  Powan  ');
-      expect(identityStore.getName()).toBe('Powan');
-      expect(window.localStorage.getItem('tripPlannerUserName')).toBe('Powan'); // on-disk value
+      identityStore.setName('  Alex  ');
+      expect(identityStore.getName()).toBe('Alex');
+      expect(window.localStorage.getItem('tripPlannerUserName')).toBe('Alex'); // on-disk value
     });
 
     it('token round-trips on localStorage under the exact key', () => {
-      identityStore.setToken('Sushil');
-      expect(identityStore.getToken()).toBe('Sushil');
-      expect(window.localStorage.getItem('tripPlannerToken')).toBe('Sushil');
+      identityStore.setToken('Rina');
+      expect(identityStore.getToken()).toBe('Rina');
+      expect(window.localStorage.getItem('tripPlannerToken')).toBe('Rina');
     });
 
     it('RISK 2 — clearIdentity clears BOTH the token AND the name (sign-out)', () => {
-      identityStore.setName('Uttam');
-      identityStore.setToken('Uttam');
+      identityStore.setName('Sam');
+      identityStore.setToken('Sam');
       identityStore.clearIdentity();
       expect(identityStore.getName()).toBeNull();
       expect(identityStore.getToken()).toBeNull();

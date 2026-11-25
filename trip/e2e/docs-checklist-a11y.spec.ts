@@ -10,7 +10,7 @@ import AxeBuilder from '@axe-core/playwright';
  * (proves the line-through/checked styling and the note input introduce no new violation).
  */
 
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

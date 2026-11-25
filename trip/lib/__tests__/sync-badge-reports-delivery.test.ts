@@ -102,17 +102,17 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
   });
 
   it('names the audience once someone else is actually on the trip', () => {
-    h.presence = [peer('Uttam')];
+    h.presence = [peer('Sam')];
     const r = render(createElement(SyncStatusBadge));
 
     expect(r.text()).toBe('Synced · 1 here');
     expect(r.state()).toBe('synced');
-    expect(r.summary()).toContain('Uttam is on it right now');
+    expect(r.summary()).toContain('Sam is on it right now');
     r.unmount();
   });
 
   it('counts more than one, and the region announces the state', () => {
-    h.presence = [peer('Uttam'), peer('Sabin')];
+    h.presence = [peer('Sam'), peer('Sabin')];
     const r = render(createElement(SyncStatusBadge));
 
     expect(r.text()).toBe('Synced · 2 here');
@@ -126,7 +126,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
     const region = r.q('[role="status"]');
     expect(r.text()).toMatch(/^Saved /);
 
-    h.presence = [peer('Uttam')];
+    h.presence = [peer('Sam')];
     r.rerender(createElement(SyncStatusBadge));
 
     expect(r.text()).toBe('Synced · 1 here');
@@ -135,7 +135,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
   });
 
   it('a live outbox fact still outranks the audience — pending and blocked are unchanged', () => {
-    h.presence = [peer('Uttam')];
+    h.presence = [peer('Sam')];
     h.sync = { pending: 3, blocked: 0, readBlocked: false, readDead: false, lastAckAt: ACKED, localOnly: false, signInRequired: false };
     const pendingRender = render(createElement(SyncStatusBadge));
     expect(pendingRender.text()).toBe('3 pending');
@@ -150,7 +150,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
   });
 
   it('a dead read listener reads "Not receiving updates", never "synced" (#845)', () => {
-    h.presence = [peer('Uttam')];
+    h.presence = [peer('Sam')];
     h.sync = { pending: 0, blocked: 0, readBlocked: false, readDead: true, lastAckAt: ACKED, localOnly: false, signInRequired: false };
     const r = render(createElement(SyncStatusBadge));
     expect(r.text()).toBe('Not receiving updates');
@@ -171,7 +171,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
 
   it('nothing to report is still nothing to render (dormant / guest)', () => {
     h.sync = { pending: 0, blocked: 0, readBlocked: false, readDead: false, lastAckAt: null, localOnly: false, signInRequired: false };
-    h.presence = [peer('Uttam')];
+    h.presence = [peer('Sam')];
     const r = render(createElement(SyncStatusBadge));
 
     expect(r.q('[data-testid="sync-status-badge"]')).toBeNull();
@@ -196,7 +196,7 @@ describe('D-546 — the sync badge reports delivery, not just transport', () => 
     h.sync = { ...h.sync, lastAckAt: new Date().toISOString() };
     r.rerender(createElement(SyncStatusBadge));
     // A peer joining moves the pill to "Synced · 1 here", but the announced word stays put.
-    h.presence = [peer('Uttam')];
+    h.presence = [peer('Sam')];
     r.rerender(createElement(SyncStatusBadge));
     await Promise.resolve(); // MutationObserver delivers on a microtask
     expect(r.text()).toBe('Synced · 1 here');

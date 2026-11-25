@@ -424,7 +424,7 @@ function readIdentityName(data: Record<string, unknown> | undefined): string | u
  *
  * It also returns the account's display NAME out of that same snapshot (D-277's `name` field),
  * because the door needs both and this is the document that holds both: one read serves the
- * validation and the "I log in as Powan and it says Traveler" fix, under this ONE 8s budget.
+ * validation and the "I log in as Alex and it says Traveler" fix, under this ONE 8s budget.
  *
  * `getDocFromServer`, never a plain `getDoc`: a cold/stale cache reports absence, and a cached
  * absence rejecting a REAL user is the one wrong the fail-open design cannot tolerate. A rules

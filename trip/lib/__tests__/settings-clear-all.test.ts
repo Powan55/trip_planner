@@ -72,7 +72,7 @@ vi.mock('@/lib/budget-ports', async (importOriginal) => {
 });
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 import { useItinerary } from '@/hooks/use-itinerary';
@@ -192,7 +192,7 @@ describe('itinerary.clearAll', () => {
     const friendAdd = (dpt: number): ItineraryItem => ({
       ...tomb,
       deleted: false,
-      hlc: serialize({ pt: tHlc.pt + dpt, ct: tHlc.ct, actor: 'Sushil' }),
+      hlc: serialize({ pt: tHlc.pt + dpt, ct: tHlc.ct, actor: 'Rina' }),
     });
     const later = mergeDay(cleared, { date: D1, city: '', country: 'nepal', items: [friendAdd(1000)] }).items;
     expect(later.find((i) => i.id === 'a')!.deleted).toBe(false); // later add wins → survives
@@ -251,7 +251,7 @@ describe('expenses.clearAll', () => {
     const friendEdit = (dpt: number): Expense => ({
       ...tomb,
       deleted: false,
-      hlc: serialize({ pt: tHlc.pt + dpt, ct: tHlc.ct, actor: 'Sushil' }),
+      hlc: serialize({ pt: tHlc.pt + dpt, ct: tHlc.ct, actor: 'Rina' }),
     });
     const later = mergeItems([tomb], [friendEdit(1000)]);
     expect(later.find((e) => e.id === tomb.id)!.deleted).toBe(false);

@@ -773,7 +773,7 @@ describe('#295 — docsChecklist commit uses the injected restore-shaped path wh
 describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges instead of overwriting', () => {
   it('expenses/budget/docs/my-places are all enqueued; the local-only domains are not', async () => {
     gate.remoteOn = true;
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
 
     const store = makeInMemoryBlobStore();
     await seedAll(store);
@@ -803,7 +803,7 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
   // that would push the rejected data to every other member while this device kept its old copy.
   it('a domain whose local write is refused (quota) is not enqueued; the others still are', async () => {
     gate.remoteOn = true;
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
 
     const seedStore = makeInMemoryBlobStore();
     await seedAll(seedStore);
@@ -841,7 +841,7 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
   // erase the restore, so it must be rolled back and reported refused.
   it('a refused outbox write rolls the domain back and reports it refused', async () => {
     gate.remoteOn = true;
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
 
     const seedStore = makeInMemoryBlobStore();
     await seedAll(seedStore);
@@ -870,7 +870,7 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
 
   it('a refused journal write does not re-stamp/push the OLD local journal', async () => {
     gate.remoteOn = true;
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
 
     const seedStore = makeInMemoryBlobStore();
     await seedAll(seedStore);
@@ -893,7 +893,7 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
 
   it('#857: a restore also pushes the local-only journal dates, so they get tombstoned remotely', async () => {
     gate.remoteOn = true;
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
 
     const seedStore = makeInMemoryBlobStore();
     await seedAll(seedStore);
@@ -1150,7 +1150,7 @@ describe('an all-empty backup is refused pre-write, not committed and reported a
 describe('#570 — a synced restore must come from the same shared trip', () => {
   const syncOn = (tripId: string) => {
     gate.remoteOn = true;
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
     gate.tripId = tripId;
   };
   async function backupFromSharedTrip(tripId: string): Promise<Blob> {

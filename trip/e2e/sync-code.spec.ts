@@ -25,8 +25,8 @@ async function gotoSettings(page: Page) {
       const FIRST_NAV = '__e2e_settings_identity_seeded__';
       if (window.sessionStorage.getItem(FIRST_NAV) === null) {
         window.sessionStorage.setItem(FIRST_NAV, '1');
-        window.localStorage.setItem('tripPlannerToken', 'Powan');
-        window.localStorage.setItem('tripPlannerUserName', 'Powan');
+        window.localStorage.setItem('tripPlannerToken', 'Alex');
+        window.localStorage.setItem('tripPlannerUserName', 'Alex');
         window.localStorage.setItem(key, id);
       }
       window.localStorage.setItem(tour, '1');
@@ -82,8 +82,8 @@ test.describe('D-660 — no key surfaces', () => {
 
   test('/trips has no pointer to a key', async ({ page }) => {
     await page.addInitScript((tour: string) => {
-      window.localStorage.setItem('tripPlannerToken', 'Powan');
-      window.localStorage.setItem('tripPlannerUserName', 'Powan');
+      window.localStorage.setItem('tripPlannerToken', 'Alex');
+      window.localStorage.setItem('tripPlannerUserName', 'Alex');
       window.localStorage.setItem(tour, '1');
     }, TOUR_SEEN);
     await page.goto('/trips/', { waitUntil: 'domcontentloaded' });

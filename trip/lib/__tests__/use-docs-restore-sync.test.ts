@@ -42,7 +42,7 @@ vi.mock('@/lib/docs-ports', async (importOriginal) => {
 });
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 import { useDocs } from '@/hooks/use-docs';

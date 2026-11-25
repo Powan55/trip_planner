@@ -26,7 +26,7 @@ const EXPENSES_KEY = 'nepal_japan_expenses';
 const IN_TRIP_DAY = '2026-12-20';
 
 /** Seed a signed-in Trip Token before any app script runs (token + name, the real sign-in keys). */
-async function seedTraveler(page: Page, token = 'Powan') {
+async function seedTraveler(page: Page, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

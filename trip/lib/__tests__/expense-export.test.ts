@@ -28,8 +28,8 @@ const E2: Expense = {
   category: 'transportation',
   amount: 1200,
   createdAt: '2026-12-20T10:00:00.000Z',
-  paidBy: 'Powan',
-  split: ['Powan', 'Friend'],
+  paidBy: 'Alex',
+  split: ['Alex', 'Friend'],
 };
 
 afterEach(() => {

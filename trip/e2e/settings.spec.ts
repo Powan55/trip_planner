@@ -35,7 +35,7 @@ type Seed = {
 };
 
 /** Sign in as a traveler (before any app script) + optionally seed domain localStorage slots. */
-async function gotoSettings(page: Page, seed: Seed = {}, token = 'Powan') {
+async function gotoSettings(page: Page, seed: Seed = {}, token = 'Alex') {
   await page.addInitScript(
     ({ t, s }: { t: string; s: Seed }) => {
       // ALL seeding below (identity + the domain seedOnce calls) fires ONLY on this test's
@@ -138,7 +138,7 @@ test.describe('settings — structure + discoverability', () => {
 test.describe('settings — sign out', () => {
   test('sign out clears the Trip Token and the front-door gate returns', async ({ page }) => {
     await gotoSettings(page);
-    await expect(page.getByTestId('settings-identity-name')).toHaveText('Powan');
+    await expect(page.getByTestId('settings-identity-name')).toHaveText('Alex');
 
     // D-249: sign-out is now a confirm-gated full teardown, not a bare one-click action.
     await page.getByTestId('settings-sign-out').click();
@@ -157,7 +157,7 @@ test.describe('settings — sign out', () => {
 /**
  * Claim everything stamped with a name you used to go by.
  *
- * The owner renamed himself Traveler → Powan and his pre-rename entries kept the old stamp, so he
+ * The owner renamed himself Traveler → Alex and his pre-rename entries kept the old stamp, so he
  * appears as two people. This is the owner-initiated rewrite, NOT a Vault migration: 'Traveler' is
  * also the login placeholder (`DEFAULT_TRAVELER_NAME`), so a stored 'Traveler' is ambiguous, and
  * the COUNT SHOWN BEFORE THE BUTTON is the safety mechanism — this spec asserts that the count is
@@ -170,7 +170,7 @@ test.describe('settings — sign out', () => {
  * strings but are MONEY: `core/budget/settlement.ts` de-duplicates split members before dividing,
  * so renaming into a split that already holds the new name drops the divisor and re-points every
  * balance. The expense seeded below is built to expose exactly that (`paidBy: 'Traveler'`,
- * `split: ['Traveler','Powan']`) — this spec asserts those bytes survive the claim untouched.
+ * `split: ['Traveler','Alex']`) — this spec asserts those bytes survive the claim untouched.
  */
 test.describe('settings — claim entries stamped with an old name', () => {
   /** The itinerary slot is a bare array as SEEDED but a versioned Vault envelope once the store
@@ -205,8 +205,8 @@ test.describe('settings — claim entries stamped with an old name', () => {
           id: 'q3-done',
           title: 'Q3 ticked-off item',
           category: 'food',
-          createdBy: 'Sushil',
-          updatedBy: 'Sushil',
+          createdBy: 'Rina',
+          updatedBy: 'Rina',
           updatedAt: STAMP,
           doneBy: 'Traveler',
           done: true,
@@ -216,8 +216,8 @@ test.describe('settings — claim entries stamped with an old name', () => {
           id: 'q3-other',
           title: 'Q3 someone else',
           category: 'food',
-          createdBy: 'Sushil',
-          updatedBy: 'Sushil',
+          createdBy: 'Rina',
+          updatedBy: 'Rina',
           updatedAt: STAMP,
         },
       ],
@@ -234,7 +234,7 @@ test.describe('settings — claim entries stamped with an old name', () => {
       amount: 3000,
       createdAt: '2026-12-01T09:00:00.000Z',
       paidBy: 'Traveler',
-      split: ['Traveler', 'Powan'],
+      split: ['Traveler', 'Alex'],
       createdBy: 'Traveler',
       updatedBy: 'Traveler',
     },
@@ -245,10 +245,10 @@ test.describe('settings — claim entries stamped with an old name', () => {
       category: 'food',
       amount: 4000,
       createdAt: '2026-12-01T10:00:00.000Z',
-      paidBy: 'Sushil',
-      split: ['Sushil', 'Uttam'],
-      createdBy: 'Sushil',
-      updatedBy: 'Sushil',
+      paidBy: 'Rina',
+      split: ['Rina', 'Sam'],
+      createdBy: 'Rina',
+      updatedBy: 'Rina',
     },
   ];
 
@@ -267,7 +267,7 @@ test.describe('settings — claim entries stamped with an old name', () => {
       section: 'dayzero',
       label: 'Online check-in completed',
       checked: true,
-      updatedBy: 'Sushil',
+      updatedBy: 'Rina',
       updatedAt: STAMP,
     },
   ];
@@ -288,20 +288,20 @@ test.describe('settings — claim entries stamped with an old name', () => {
 
     await page.getByTestId('settings-claim-name-submit').click();
     await expect(page.getByTestId('settings-claim-name-status')).toHaveText(
-      'Claimed 2 entries as “Powan”.',
+      'Claimed 2 entries as “Alex”.',
     );
 
     // What actually landed on disk — and the count matches the number he approved.
     const byId = Object.fromEntries(storedItems(await readKey(page, ITINERARY_KEY)).map((i) => [i.id as string, i]));
-    expect(byId['q3-all'].createdBy).toBe('Powan');
-    expect(byId['q3-all'].updatedBy).toBe('Powan');
-    expect(byId['q3-all'].doneBy).toBe('Powan');
-    // Per FIELD: Sushil keeps the authorship that is genuinely his.
-    expect(byId['q3-done'].doneBy).toBe('Powan');
-    expect(byId['q3-done'].createdBy).toBe('Sushil');
-    expect(byId['q3-done'].updatedBy).toBe('Sushil');
-    expect(byId['q3-other'].createdBy).toBe('Sushil');
-    expect(byId['q3-other'].updatedBy).toBe('Sushil');
+    expect(byId['q3-all'].createdBy).toBe('Alex');
+    expect(byId['q3-all'].updatedBy).toBe('Alex');
+    expect(byId['q3-all'].doneBy).toBe('Alex');
+    // Per FIELD: Rina keeps the authorship that is genuinely his.
+    expect(byId['q3-done'].doneBy).toBe('Alex');
+    expect(byId['q3-done'].createdBy).toBe('Rina');
+    expect(byId['q3-done'].updatedBy).toBe('Rina');
+    expect(byId['q3-other'].createdBy).toBe('Rina');
+    expect(byId['q3-other'].updatedBy).toBe('Rina');
     // updatedAt preserved — a claim must not float old items to the top of the activity feed.
     expect(byId['q3-all'].updatedAt).toBe(STAMP);
     expect(byId['q3-done'].updatedAt).toBe(STAMP);
@@ -320,9 +320,9 @@ test.describe('settings — claim entries stamped with an old name', () => {
   test('the no-op cases refuse loudly: your own current name, and a name nobody carries', async ({ page }) => {
     await gotoSettings(page, { itinerary: claimSeed });
 
-    await page.getByTestId('settings-claim-name-input').fill('Powan');
+    await page.getByTestId('settings-claim-name-input').fill('Alex');
     await expect(page.getByTestId('settings-claim-name-status')).toHaveText(
-      '“Powan” is your current name. Enter the name you used before.',
+      '“Alex” is your current name. Enter the name you used before.',
     );
     await expect(page.getByTestId('settings-claim-name-submit')).toBeDisabled();
 
@@ -346,8 +346,8 @@ test.describe('settings — claim entries stamped with an old name', () => {
     // Nothing was written by any of that.
     expect(storedItems(await readKey(page, ITINERARY_KEY)).map((i) => i.updatedBy)).toEqual([
       'Traveler',
-      'Sushil',
-      'Sushil',
+      'Rina',
+      'Rina',
     ]);
     expect(await readKey(page, 'tripPlannerPriorNames')).toBeNull();
   });
@@ -365,36 +365,36 @@ test.describe('settings — claim entries stamped with an old name', () => {
 
     await page.getByTestId('settings-claim-name-submit').click();
     await expect(page.getByTestId('settings-claim-name-status')).toHaveText(
-      'Claimed 4 entries as “Powan”.',
+      'Claimed 4 entries as “Alex”.',
     );
 
     // ── Expenses: attribution claimed … ──────────────────────────────────────────────────────
     const expenses = (await readKey(page, EXPENSES_KEY)) as Array<Record<string, unknown>>;
     const expById = Object.fromEntries(expenses.map((e) => [e.id as string, e]));
-    expect(expById['q3-exp-split'].createdBy).toBe('Powan');
-    expect(expById['q3-exp-split'].updatedBy).toBe('Powan');
+    expect(expById['q3-exp-split'].createdBy).toBe('Alex');
+    expect(expById['q3-exp-split'].updatedBy).toBe('Alex');
     // 🔴 … and the money is byte-identical. Had the rewrite widened, `split` would read
-    // ['Powan','Powan'], settlement's `uniq` would collapse it to ONE member, and the 3000 NPR
+    // ['Alex','Alex'], settlement's `uniq` would collapse it to ONE member, and the 3000 NPR
     // bill would divide by 1 instead of 2 — every balance and transfer on the leg re-pointed.
     expect(expById['q3-exp-split'].paidBy).toBe('Traveler');
-    expect(expById['q3-exp-split'].split).toEqual(['Traveler', 'Powan']);
+    expect(expById['q3-exp-split'].split).toEqual(['Traveler', 'Alex']);
     expect(expById['q3-exp-split'].createdAt).toBe('2026-12-01T09:00:00.000Z'); // never re-dated
     expect(expById['q3-exp-other']).toEqual(claimExpenses[1]); // untouched, byte for byte
 
     // ── Documents: `updatedBy` is the only identity field, and the only one that moved ───────
     const docs = (await readKey(page, DOCS_KEY)) as Array<Record<string, unknown>>;
     const docById = Object.fromEntries(docs.map((d) => [d.id as string, d]));
-    expect(docById['passport-validity'].updatedBy).toBe('Powan');
+    expect(docById['passport-validity'].updatedBy).toBe('Alex');
     expect(docById['passport-validity'].updatedAt).toBe(STAMP); // not re-stamped
     expect(docById['passport-validity'].checked).toBe(true);
-    expect(docById['online-checkin']).toEqual(claimDocs[1]); // Sushil's row, untouched
+    expect(docById['online-checkin']).toEqual(claimDocs[1]); // Rina's row, untouched
 
     // The itinerary half still works alongside the two new stores.
     const byId = Object.fromEntries(
       storedItems(await readKey(page, ITINERARY_KEY)).map((i) => [i.id as string, i]),
     );
-    expect(byId['q3-all'].doneBy).toBe('Powan');
-    expect(byId['q3-other'].createdBy).toBe('Sushil');
+    expect(byId['q3-all'].doneBy).toBe('Alex');
+    expect(byId['q3-other'].createdBy).toBe('Rina');
 
     // Survives a reload (the client-side hard guarantee) with nothing left to claim anywhere.
     await page.reload({ waitUntil: 'load' });
@@ -404,7 +404,7 @@ test.describe('settings — claim entries stamped with an old name', () => {
     );
     await expect(page.getByTestId('settings-claim-name-submit')).toBeDisabled();
     const afterReload = (await readKey(page, EXPENSES_KEY)) as Array<Record<string, unknown>>;
-    expect(afterReload.find((e) => e.id === 'q3-exp-split')?.split).toEqual(['Traveler', 'Powan']);
+    expect(afterReload.find((e) => e.id === 'q3-exp-split')?.split).toEqual(['Traveler', 'Alex']);
   });
 });
 
@@ -417,7 +417,7 @@ test.describe('sign-out is a full local teardown, not just an identity clear', (
       expenses: [{ id: 'e1', leg: 'nepal', category: 'food', amount: 10, createdAt: 'x' }],
       journal: [{ date: '2026-12-10', text: 'Trip so far' }],
     });
-    await expect(page.getByTestId('settings-identity-name')).toHaveText('Powan');
+    await expect(page.getByTestId('settings-identity-name')).toHaveText('Alex');
 
     await page.getByTestId('settings-sign-out').click();
     await page.getByTestId('settings-sign-out-confirm').click();
@@ -437,7 +437,7 @@ test.describe('sign-out is a full local teardown, not just an identity clear', (
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
     expect(await readKey(page, BUDGET_KEY)).toEqual(BUDGET_100_300);
     // tripPlannerToken is a plain string (not JSON) — read it directly, not via the JSON-parsing readKey.
-    expect(await page.evaluate(() => window.localStorage.getItem('tripPlannerToken'))).toBe('Powan');
+    expect(await page.evaluate(() => window.localStorage.getItem('tripPlannerToken'))).toBe('Alex');
   });
 });
 

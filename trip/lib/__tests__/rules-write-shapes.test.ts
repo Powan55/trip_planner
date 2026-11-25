@@ -108,7 +108,7 @@ vi.mock('@/lib/firebase-remote', async (orig) => {
 });
 vi.mock('@/lib/token-auth', async (orig) => ({
   ...(await orig<typeof import('@/lib/token-auth')>()),
-  getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }),
+  getActiveTraveler: () => ({ name: SHARED_TRIP_USERNAMES[0], token: SHARED_TRIP_USERNAMES[0], accent: '#000' }),
 }));
 
 import type { Firestore } from 'firebase/firestore';
@@ -143,6 +143,7 @@ import { createInvite, redeemInvite } from '@/lib/invites-remote';
 import { setPref, unionPref } from '@/lib/account-prefs-remote';
 import { pushJournalEntry } from '@/lib/journal-remote';
 import { startPresence, stopPresence } from '@/lib/presence';
+import { SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 
 // Who rules-check.mjs replays a group as: a member of a gated trip, the owner of it, a non-member
 // holding an invite, a device creating a new trip, or any signed-in device on its account path.
@@ -187,21 +188,21 @@ describe('#973: the docs each remote writer sends match the fixture rules-check 
     // Trip content, written by a member of the trip.
     const day = SAMPLE_ITINERARY[0];
     const [withItem] = addItem([day], day.date, { id: 'item-f973', title: 'Pashupatinath', category: 'sightseeing', time: '09:30' }, (i) =>
-      stampSyncCreated(stampCreated(i, () => 'Powan', iso), now, 'Powan'),
+      stampSyncCreated(stampCreated(i, () => SHARED_TRIP_USERNAMES[0], iso), now, SHARED_TRIP_USERNAMES[0]),
     );
     await capture(groups, 'days/{date} (pushDayMerged)', 'member', () => pushDayMerged(db, fs, withItem, ID.TRIP));
 
     const expenses = addExpense([], { leg: 'nepal', category: 'food', amount: 1200, date: day.date, note: 'Dal bhat' }, 'exp-f973', iso,
-      (e) => ({ ...e, createdBy: 'Powan', updatedBy: 'Powan', ...firstSyncStamp(now, 'Powan') }));
+      (e) => ({ ...e, createdBy: SHARED_TRIP_USERNAMES[0], updatedBy: SHARED_TRIP_USERNAMES[0], ...firstSyncStamp(now, SHARED_TRIP_USERNAMES[0]) }));
     await capture(groups, 'expenses/{leg} (pushChunkMerged)', 'member', () => pushChunkMerged(db, fs, 'nepal', expenses, [], ID.TRIP));
 
-    const budget = stampBudgetChanges(DEFAULT_BUDGET, { ...DEFAULT_BUDGET, homeCurrency: 'JPY', legBudgets: { ...DEFAULT_BUDGET.legBudgets, nepal: 150000 } }, now, 'Powan');
+    const budget = stampBudgetChanges(DEFAULT_BUDGET, { ...DEFAULT_BUDGET, homeCurrency: 'JPY', legBudgets: { ...DEFAULT_BUDGET.legBudgets, nepal: 150000 } }, now, SHARED_TRIP_USERNAMES[0]);
     await capture(groups, 'budget/model (pushBudgetMerged)', 'member', () => pushBudgetMerged(db, fs, budget, ID.TRIP));
 
-    const checklist = toggleItem(DEFAULT_TEMPLATE, DEFAULT_TEMPLATE[0].id, (it) => ({ ...it, updatedBy: 'Powan', ...nextSyncStamp(it, now, 'Powan') }));
+    const checklist = toggleItem(DEFAULT_TEMPLATE, DEFAULT_TEMPLATE[0].id, (it) => ({ ...it, updatedBy: SHARED_TRIP_USERNAMES[0], ...nextSyncStamp(it, now, SHARED_TRIP_USERNAMES[0]) }));
     await capture(groups, 'docs/checklist (pushChecklistMerged)', 'member', () => pushChecklistMerged(db, fs, checklist, ID.TRIP));
 
-    const places = addPlace([], { id: 'place-f973', name: 'Boudhanath Stupa', legId: 'nepal', addedAt: iso, lat: 27.7215, lng: 85.362, ...firstSyncStamp(now, 'Powan') });
+    const places = addPlace([], { id: 'place-f973', name: 'Boudhanath Stupa', legId: 'nepal', addedAt: iso, lat: 27.7215, lng: 85.362, ...firstSyncStamp(now, SHARED_TRIP_USERNAMES[0]) });
     await capture(groups, 'places/list (pushPlacesMerged)', 'member', () => pushPlacesMerged(db, fs, places, ID.TRIP));
 
     upsertKnownTrip(ID.TRIP, 'Nepal x Japan');
@@ -232,15 +233,15 @@ describe('#973: the docs each remote writer sends match the fixture rules-check 
     });
 
     // Account docs under trips/{syncCode}/profile/.
-    await capture(groups, 'profile/identity (pushAccountIdentity)', 'account', () => pushAccountIdentity(ID.ACCT, 'Powan'));
-    await capture(groups, 'profile/identity heal (healAccountIdentity)', 'account', () => healAccountIdentity(ID.ACCT, 'Powan'));
+    await capture(groups, 'profile/identity (pushAccountIdentity)', 'account', () => pushAccountIdentity(ID.ACCT, SHARED_TRIP_USERNAMES[0]));
+    await capture(groups, 'profile/identity heal (healAccountIdentity)', 'account', () => healAccountIdentity(ID.ACCT, SHARED_TRIP_USERNAMES[0]));
     upsertKnownTrip('f973f973-0000-4000-8000-0000000000aa', 'Old trip');
     removeKnownTrip('f973f973-0000-4000-8000-0000000000aa');
     await capture(groups, 'profile/tripList (pushTripList)', 'account', () => pushTripList(ID.ACCT));
     await capture(groups, 'profile/prefs set, update, union (account-prefs-remote)', 'account', async () => {
       await setPref('homeCurrency', 'JPY');
       await setPref('homeCurrency', 'USD');
-      await unionPref('priorNames', ['Powan']);
+      await unionPref('priorNames', [SHARED_TRIP_USERNAMES[0]]);
     });
     await capture(groups, 'profile/journal_{tripId} create, edit, delete (pushJournalEntry)', 'account', async () => {
       saveJournal(upsertEntry(loadJournal(), day.date, { text: 'Landed in Kathmandu.', mood: 'great', highlight: 'Pashupati' }, iso));

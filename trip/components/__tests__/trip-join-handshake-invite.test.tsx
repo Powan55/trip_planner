@@ -25,7 +25,7 @@ vi.mock('@/core/trips/registry', async (importOriginal) => {
   };
 });
 vi.mock('@/hooks/use-active-traveler', () => ({
-  useActiveTraveler: () => ({ traveler: { name: 'Powan' } }),
+  useActiveTraveler: () => ({ traveler: { name: 'Alex' } }),
 }));
 
 import TripJoinHandshake from '@/components/trip-join-handshake';
@@ -77,8 +77,8 @@ describe('TripJoinHandshake with an invite (#641)', () => {
     ['refused when unknown', false, 'This link can’t be opened'],
     ['offered when already a row', true, null],
   ])('a legacy-name link is %s', async (_label, known, title) => {
-    if (known) window.localStorage.setItem('tripPlannerKnownTrips', JSON.stringify([{ id: 'Sushil', name: 'Old', joinedAt: 1 }]));
-    window.history.replaceState(null, '', '/?trip=Sushil');
+    if (known) window.localStorage.setItem('tripPlannerKnownTrips', JSON.stringify([{ id: 'Rina', name: 'Old', joinedAt: 1 }]));
+    window.history.replaceState(null, '', '/?trip=Rina');
     await act(async () => root.render(<TripJoinHandshake />));
     const dialog = document.querySelector('[data-testid="trip-join-dialog"]');
     expect(dialog).not.toBeNull();

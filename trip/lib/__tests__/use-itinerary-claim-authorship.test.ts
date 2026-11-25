@@ -91,7 +91,7 @@ function renderItinerary(): HookHandle {
 
 const DATE = '2026-12-20';
 const OLD = 'Traveler'; // the login placeholder AND, ambiguously, the owner's pre-rename name
-const ME = 'Powan';
+const ME = 'Alex';
 const STAMP = '2026-12-01T08:00:00.000Z';
 
 /** Seeded stamps written straight to disk, so the test controls them exactly. */
@@ -114,8 +114,8 @@ function seed(): DayPlan[] {
       id: 'done-only',
       title: 'Thamel walk',
       category: 'sightseeing',
-      createdBy: 'Sushil',
-      updatedBy: 'Sushil',
+      createdBy: 'Rina',
+      updatedBy: 'Rina',
       updatedAt: STAMP,
       doneBy: OLD,
       done: true,
@@ -125,8 +125,8 @@ function seed(): DayPlan[] {
       id: 'other',
       title: 'Momo crawl',
       category: 'food',
-      createdBy: 'Uttam',
-      updatedBy: 'Uttam',
+      createdBy: 'Sam',
+      updatedBy: 'Sam',
       updatedAt: STAMP,
     },
     // A tombstone stamped with the old name: invisible to the filter, the feed and the count the
@@ -186,11 +186,11 @@ describe('claimAuthorship — SYNC ON', () => {
     expect(all?.updatedBy).toBe(ME);
     expect(all?.doneBy).toBe(ME);
 
-    // Per FIELD: only `doneBy` matched, so Sushil keeps the authorship that is genuinely his.
+    // Per FIELD: only `doneBy` matched, so Rina keeps the authorship that is genuinely his.
     const doneOnly = stored('done-only');
     expect(doneOnly?.doneBy).toBe(ME);
-    expect(doneOnly?.createdBy).toBe('Sushil');
-    expect(doneOnly?.updatedBy).toBe('Sushil');
+    expect(doneOnly?.createdBy).toBe('Rina');
+    expect(doneOnly?.updatedBy).toBe('Rina');
 
     // Untouched, byte for byte.
     expect(stored('other')).toEqual(seed()[0].items[2]);

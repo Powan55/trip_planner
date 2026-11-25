@@ -20,10 +20,60 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert';
+
+// Real people's names and email local-parts, stored as sha256 of the token so this
+// file does not publish the very strings it keeps out. Compared lowercased, except
+// CASED_DIGESTS, whose lowercase forms are branch names (one is also an airport code).
+// STEM_DIGESTS are email local-parts, matched with any trailing digits. The last
+// entry of each is a made-up token for the self-test.
+const NAME_DIGESTS = new Set([
+  '023ff4ad5a7604b3ce7ed8ff5380224c9dd5a7dbec4f36831b5285c011e9d894',
+  'bd7ddaa8035ea112234a0f4a79af3c46bc68ed8ef7e7180c19f571f5dfe404c7',
+  '49bbee12a7afcd48082b77328dd763e76503640d87b07c47fcf01be22f61546e',
+  '728068a3765e0c9adf694f09c127d9e631c1ee5aa3fec76597dfe2e2ae1931bf',
+  '2b4c763aa95acf8310311e67b9b5689e24e0dbbfd0bf7b8c842dab5549030f27',
+  '36f0fd46334d87b1f96d2a9512712394e35be08db8b4362ba8a69095f918d7b2',
+]);
+const CASED_DIGESTS = new Set([
+  '531f41cbcf803854dc3a68d558c576cee911d60891f452939650850d47e9df90',
+  '60927118b03b76138171c251d407082f235a4e9a9ebb04125eb41e7de26e3680',
+  '772d6aeb338e73b8c338eed69e81ea11a60c91dd61354ea53ae3e517848ea47d',
+]);
+const STEM_DIGESTS = new Set([
+  '7b7d55d2b0583f6c0221afd65f2b228e12f910fa64e81210d264e2cd385300e5',
+  'c17c78e83dd0d854325c3661a61c20180764795cb53476624b0baadfcfe1e7dc',
+]);
+const sha256 = (s) => createHash('sha256').update(s).digest('hex');
+const nameTokens = new Map();
+function isNameToken(word) {
+  if (!nameTokens.has(word)) {
+    const lower = word.toLowerCase();
+    nameTokens.set(word, NAME_DIGESTS.has(sha256(lower)) || CASED_DIGESTS.has(sha256(word))
+      || STEM_DIGESTS.has(sha256(lower.replace(/\d+$/, ''))));
+  }
+  return nameTokens.get(word);
+}
+// camelCase pieces count too, so `asName` and `nameSurname` are caught.
+const WORKER_HOST = /trip-planner-concierge\.[\w-]+\.workers\.dev/g;
+function hasNameToken(line) {
+  return (line.replace(WORKER_HOST, '').match(/[A-Za-z0-9]+/g) ?? [])
+    .some((w) => isNameToken(w) || w.split(/(?<=[a-z])(?=[A-Z])/).some(isNameToken));
+}
+
+// The live shared trip's accounts are named in these on purpose: the rules and the
+// client must agree on them. Exempt from `personal-name` only.
+const NAME_FILES = new Set([
+  'firestore.rules',
+  'scripts/rules-check.mjs',
+  'scripts/roster-inspect.mjs',
+  'trip/core/trips/shared-trip.ts',
+  'trip/lib/__tests__/__fixtures__/rules-write-shapes.json',
+]);
 
 // Ticket-style ids (S219, D-097, FU-15, M19) are deliberately NOT listed here.
 // They read as ordinary internal ticket references, the same as a JIRA key, and
@@ -36,10 +86,9 @@ import assert from 'node:assert';
 // than the full marker set.
 const PATTERNS = [
   ['role-word', /\b(Apex|tech-lead|[A-Za-z]+-engineer|ponytail)\b/g],
-  ['owner-name', /\bLax('s)?\b/g],
-  // The owner's personal identity. The scrubber can never fix these
-  // automatically: a hit means the source line has to be rewritten by hand.
-  ['owner-pii', /laxmipoudel|official\.shadowverse@|\bLaxmi\b|\bPoudel\b/gi],
+  // Not a RegExp, but the same shape: scanText only resets lastIndex and calls test().
+  // The deployed Worker hostname contains the account handle and is a public endpoint.
+  ['personal-name', { lastIndex: 0, test: hasNameToken }],
   ['gate-word', /\b(Gate\s?[12]|gate-pass|no-gate|re-gate|handback|ratified)\b/g],
   ['section-mark', /§/g],
   // "design-spec" and "blueprint" are deliberately NOT listed. Both name real
@@ -105,13 +154,9 @@ const ALLOWED_LINES = [
   ['role-word', /reverse-engineer/i],
   // Real place names and UI copy, not the review-gate sense of "gate".
   ['gate-word', /Thunder Gate|torii gate|length gate/i],
-  // The deployed Worker hostname is a public endpoint the app has to call, and
-  // it already ships inside lib/concierge-config.ts. It is not a private
-  // address, even though it contains the account handle.
-  ['owner-pii', /trip-planner-concierge\.official-shadowverse\.workers\.dev/],
   // LICENSE and the README credit name the author on purpose.
-  ['owner-pii', /^Copyright \(c\) \d{4} [A-Z][a-z]+ [A-Z][a-z]+\r?$/],
-  ['owner-pii', /^Built by [A-Z][a-z]+ [A-Z][a-z]+ \(\[\w+\]\(https:\/\/github\.com\/\w+\)\)\.\r?$/],
+  ['personal-name', /^Copyright \(c\) \d{4} [A-Z][a-z]+ [A-Z][a-z]+\r?$/],
+  ['personal-name', /^Built by [A-Z][a-z]+ [A-Z][a-z]+ \(\[\w+\]\(https:\/\/github\.com\/\w+\)\)\.\r?$/],
   // SVG keyword and the npm package name, neither related to work-slicing.
   ['process-prose', /xMidYMax slice|prototype\.slice/],
   // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md) are
@@ -185,6 +230,7 @@ function scanText(text, relPath) {
   const hits = [];
   text.split('\n').forEach((line, idx) => {
     for (const [rule, re] of PATTERNS) {
+      if (rule === 'personal-name' && NAME_FILES.has(relPath)) continue;
       re.lastIndex = 0;
       if (re.test(line) && !allowed(rule, line)) {
         hits.push({ file: relPath, line: idx + 1, rule, text: line.trim().slice(0, 120) });
@@ -264,13 +310,9 @@ function scanTripIds(text, relPath) {
 // asserts these keys are exactly the rule names in PATTERNS, so the gate cannot
 // go green on a partial marker set: deleting a rule, renaming one, or leaving a
 // pattern in place that has quietly stopped matching all fail here.
-//
-// The PII line is assembled from fragments on purpose. A working address written
-// out in full would be the exact thing that rule exists to keep out of the repo.
 const MUST_CATCH = {
   'role-word': '// Apex reviewed this',
-  'owner-name': "// Lax's call",
-  'owner-pii': '// mail ' + 'laxmi' + 'poudel311@example.invalid',
+  'personal-name': '// mail zzqtestname@example.invalid',
   'gate-word': '// Gate 2 passed',
   'section-mark': '// see blueprint §4',
   'codename': '// the Last Train run',
@@ -305,6 +347,22 @@ function selfTest() {
   assert.deepEqual(t('// TD-01g is still open'), ['debt-id']); // letter suffix
   // Punctuation: a marker glued to a typographic apostrophe is the same marker.
   assert.deepEqual(t('// the brief’s deadline'), ['process-prose']);
+  // Names match as whole tokens, in any case, except the cased set.
+  assert.deepEqual(t("// ZZQTESTNAME's call"), ['personal-name']);
+  assert.deepEqual(t("// Zzqcased's call"), ['personal-name']);
+  assert.deepEqual(t('// zzqcased branch'), []);
+  assert.deepEqual(t('// zzqtestnames'), []);
+  for (const s of ['asZzqtestname', 'zzqtestnameSurname', 'zzqtestname_x', 'zzqtestname-dev', 'zzqtestname@x', 'asZzqcased']) {
+    assert.deepEqual(t(`// ${s}`), ['personal-name'], s);
+  }
+  assert.deepEqual(t('// zzqstem311@x'), ['personal-name']);
+  // A cased name's lowercase form is a branch, so a branch row passes and the name does not.
+  assert.deepEqual(t('| `zzqcased` | A working branch. |'), []);
+  assert.deepEqual(t('| `zzqcased` | Zzqcased\'s branch. |'), ['personal-name']);
+  // The Worker hostname is stripped for this rule only; a name beside it still counts.
+  assert.deepEqual(t('// https://trip-planner-concierge.zzqtestname.workers.dev zzqtestname'), ['personal-name']);
+  // The load-bearing files are exempt from this rule and no other.
+  assert.deepEqual(scanText('// zzqtestname, per the brief', 'firestore.rules').map((h) => h.rule), ['process-prose']);
 
   // Every allowlist entry names a rule that exists. A typo'd key exempts nothing,
   // which is loud rather than silent — but it also means the false positive the
@@ -331,7 +389,7 @@ function selfTest() {
   assert.deepEqual(t('// near Thunder Gate in Asakusa'), []);
   assert.deepEqual(t('// a brief stop in Nara'), []);
   assert.deepEqual(t('// the wave of tourists'), []);
-  assert.deepEqual(t('// calls https://trip-planner-concierge.official-shadowverse.workers.dev'), []);
+  assert.deepEqual(t('// calls https://trip-planner-concierge.zzqtestname.workers.dev'), []);
   assert.deepEqual(t('// docs/ and reports/ are ordinary words'), []);
 
   // The dangling-doc-ref rule is part of the marker set too, and its left edge
@@ -356,10 +414,10 @@ function selfTest() {
     tripIds('Copy the result (a v4 UUID, e.g. `e1a9c2f4-7b3d-4c1a-9e2b-6f8a1d4c7b90`).'),
     [],
   );
-  // The Worker hostname is exempt from `owner-pii` and from nothing else. Its one
+  // The Worker hostname is exempt from `personal-name` and from nothing else. Its one
   // real site (docs/RELEASES.md) also carries a deploy UUID, which stays exempt on
   // its own merits — the "Version ID" entry above — and not as a side effect of this one.
-  assert.deepEqual(tripIds('https://trip-planner-concierge.official-shadowverse.workers.dev '
+  assert.deepEqual(tripIds('https://trip-planner-concierge.zzqtestname.workers.dev '
     + '`157ed2e0-2cfb-4044-af3e-ea80bc1b4ce6`'), ['trip-id']);
 
   // The read cap warns before it bites, and only in the band where it is still true

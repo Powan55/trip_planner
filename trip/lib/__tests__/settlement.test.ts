@@ -17,7 +17,7 @@ import SettleUpSummary from '@/components/settle-up-summary';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const ROSTER = ['Powan', 'Sushil', 'Uttam'];
+const ROSTER = ['Alex', 'Rina', 'Sam'];
 
 function exp(over: Partial<Expense> = {}): Expense {
   return {
@@ -32,30 +32,30 @@ function exp(over: Partial<Expense> = {}): Expense {
 
 describe('settle — even division + net balances', () => {
   it('two-person: A pays 300 split A+B → B owes A 150', () => {
-    const [s] = settle([exp({ paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 300 })], ROSTER);
+    const [s] = settle([exp({ paidBy: 'Alex', split: ['Alex', 'Rina'], amount: 300 })], ROSTER);
     expect(s.leg).toBe('nepal');
     expect(s.currency).toBe('NPR');
-    expect(s.balances).toEqual({ Powan: 150, Sushil: -150 });
-    expect(s.transfers).toEqual([{ from: 'Sushil', to: 'Powan', amount: 150 }]);
+    expect(s.balances).toEqual({ Alex: 150, Rina: -150 });
+    expect(s.transfers).toEqual([{ from: 'Rina', to: 'Alex', amount: 150 }]);
   });
 
   it('even division: 300 split three ways = 100 each; payer nets to +200', () => {
     const [s] = settle(
-      [exp({ paidBy: 'Powan', split: ['Powan', 'Sushil', 'Uttam'], amount: 300 })],
+      [exp({ paidBy: 'Alex', split: ['Alex', 'Rina', 'Sam'], amount: 300 })],
       ROSTER,
     );
-    expect(s.balances).toEqual({ Powan: 200, Sushil: -100, Uttam: -100 });
+    expect(s.balances).toEqual({ Alex: 200, Rina: -100, Sam: -100 });
     // Two debtors → two transfers, each to the single creditor (≤ n−1 = 2).
     expect(s.transfers).toEqual([
-      { from: 'Sushil', to: 'Powan', amount: 100 },
-      { from: 'Uttam', to: 'Powan', amount: 100 },
+      { from: 'Rina', to: 'Alex', amount: 100 },
+      { from: 'Sam', to: 'Alex', amount: 100 },
     ]);
     expect(s.transfers.length).toBeLessThanOrEqual(ROSTER.length - 1);
   });
 
   it('self-payment: payer is the sole split member ⇒ owes nothing, no transfer', () => {
-    const [s] = settle([exp({ paidBy: 'Powan', split: ['Powan'], amount: 500 })], ROSTER);
-    expect(s.balances).toEqual({ Powan: 0 });
+    const [s] = settle([exp({ paidBy: 'Alex', split: ['Alex'], amount: 500 })], ROSTER);
+    expect(s.balances).toEqual({ Alex: 0 });
     expect(s.transfers).toEqual([]);
   });
 });
@@ -65,27 +65,27 @@ describe('settle — circular debt nets flat', () => {
     // Each pays 30 for a pair; the ring of debts nets to nothing.
     const settlements = settle(
       [
-        exp({ paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 30 }), // Powan +15, Sushil −15
-        exp({ paidBy: 'Sushil', split: ['Sushil', 'Uttam'], amount: 30 }), // Sushil +15, Uttam −15
-        exp({ paidBy: 'Uttam', split: ['Uttam', 'Powan'], amount: 30 }), // Uttam +15, Powan −15
+        exp({ paidBy: 'Alex', split: ['Alex', 'Rina'], amount: 30 }), // Alex +15, Rina −15
+        exp({ paidBy: 'Rina', split: ['Rina', 'Sam'], amount: 30 }), // Rina +15, Sam −15
+        exp({ paidBy: 'Sam', split: ['Sam', 'Alex'], amount: 30 }), // Sam +15, Alex −15
       ],
       ROSTER,
     );
     const [s] = settlements;
-    expect(s.balances).toEqual({ Powan: 0, Sushil: 0, Uttam: 0 });
+    expect(s.balances).toEqual({ Alex: 0, Rina: 0, Sam: 0 });
     expect(s.transfers).toEqual([]);
   });
 
   it('NON-VACUOUS: a wrong net does NOT settle flat (guard against a trivially-passing test)', () => {
-    // Powan pays for everyone twice, nobody reciprocates → he is owed, others owe. Must NOT be flat.
+    // Alex pays for everyone twice, nobody reciprocates → he is owed, others owe. Must NOT be flat.
     const [s] = settle(
       [
-        exp({ paidBy: 'Powan', split: ['Powan', 'Sushil', 'Uttam'], amount: 300 }),
-        exp({ paidBy: 'Powan', split: ['Powan', 'Sushil', 'Uttam'], amount: 300 }),
+        exp({ paidBy: 'Alex', split: ['Alex', 'Rina', 'Sam'], amount: 300 }),
+        exp({ paidBy: 'Alex', split: ['Alex', 'Rina', 'Sam'], amount: 300 }),
       ],
       ROSTER,
     );
-    expect(s.balances).toEqual({ Powan: 400, Sushil: -200, Uttam: -200 });
+    expect(s.balances).toEqual({ Alex: 400, Rina: -200, Sam: -200 });
     expect(s.transfers.length).toBeGreaterThan(0);
   });
 });
@@ -94,8 +94,8 @@ describe('settle — per-leg / per-currency isolation (D-110)', () => {
   it('NPR and JPY settle SEPARATELY and are never summed', () => {
     const settlements = settle(
       [
-        exp({ leg: 'nepal', paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 300 }),
-        exp({ leg: 'japan', paidBy: 'Sushil', split: ['Sushil', 'Uttam'], amount: 2000 }),
+        exp({ leg: 'nepal', paidBy: 'Alex', split: ['Alex', 'Rina'], amount: 300 }),
+        exp({ leg: 'japan', paidBy: 'Rina', split: ['Rina', 'Sam'], amount: 2000 }),
       ],
       ROSTER,
     );
@@ -103,11 +103,11 @@ describe('settle — per-leg / per-currency isolation (D-110)', () => {
     const nepal = settlements.find((s) => s.leg === 'nepal')!;
     const japan = settlements.find((s) => s.leg === 'japan')!;
     expect(nepal.currency).toBe('NPR');
-    expect(nepal.balances).toEqual({ Powan: 150, Sushil: -150 });
+    expect(nepal.balances).toEqual({ Alex: 150, Rina: -150 });
     expect(japan.currency).toBe('JPY');
-    expect(japan.balances).toEqual({ Sushil: 1000, Uttam: -1000 });
-    // Powan is NOT a participant on the Japan leg — cross-leg amounts never leak.
-    expect(japan.balances.Powan).toBeUndefined();
+    expect(japan.balances).toEqual({ Rina: 1000, Sam: -1000 });
+    // Alex is NOT a participant on the Japan leg — cross-leg amounts never leak.
+    expect(japan.balances.Alex).toBeUndefined();
   });
 });
 
@@ -119,16 +119,16 @@ describe('settle — fast path contributes zero', () => {
   it('split expenses settle; sibling no-split expenses on the same leg add nothing', () => {
     const [s] = settle(
       [
-        exp({ paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 300 }),
+        exp({ paidBy: 'Alex', split: ['Alex', 'Rina'], amount: 300 }),
         exp({ amount: 5000 }), // fast path — must not move any balance
       ],
       ROSTER,
     );
-    expect(s.balances).toEqual({ Powan: 150, Sushil: -150 });
+    expect(s.balances).toEqual({ Alex: 150, Rina: -150 });
   });
 
   // ── D-333 · a split row with no payer is UNATTRIBUTABLE, not "mine" ────────────────────────
-  // These replace a test that pinned the OPPOSITE: `settle(…, ROSTER, 'Powan')` attributed a
+  // These replace a test that pinned the OPPOSITE: `settle(…, ROSTER, 'Alex')` attributed a
   // payer-less row to a third `self` argument. That made a settlement a function of who was
   // looking — the same synced row settled to a different person on each device, and a
   // claim-authorship rename moved its balance to the new name. D-288 keeps the claim rewrite away
@@ -148,37 +148,37 @@ describe('settle — fast path contributes zero', () => {
   ) => LegSettlement[];
 
   it('REGRESSION (D-333): paidBy absent + split present ⇒ NO settlement, for ANY supplied identity', () => {
-    const nopayer = [exp({ split: ['Powan', 'Sushil'], amount: 300 })];
+    const nopayer = [exp({ split: ['Alex', 'Rina'], amount: 300 })];
     expect(settle(nopayer, ROSTER)).toEqual([]);
     // The three that fail on the pre-D-333 code: an identity in the split, one outside it, and the
     // empty-string edge. Each used to hand the whole 300 to whoever was passed in.
-    expect(settleWithIdentity(nopayer, ROSTER, 'Powan')).toEqual([]);
-    expect(settleWithIdentity(nopayer, ROSTER, 'Uttam')).toEqual([]);
+    expect(settleWithIdentity(nopayer, ROSTER, 'Alex')).toEqual([]);
+    expect(settleWithIdentity(nopayer, ROSTER, 'Sam')).toEqual([]);
     expect(settleWithIdentity(nopayer, ROSTER, '')).toEqual([]);
     // `paidBy: ''` — the shape `sanitizeExpense` produces from an import or a merged peer row when
     // the payer field is present but empty: the split survives, the payer does not.
-    expect(settle([exp({ paidBy: '', split: ['Powan', 'Sushil'], amount: 300 })], ROSTER)).toEqual([]);
+    expect(settle([exp({ paidBy: '', split: ['Alex', 'Rina'], amount: 300 })], ROSTER)).toEqual([]);
   });
 
   it('REGRESSION (D-333): who is looking cannot change a settlement', () => {
     // The device-local half of the defect, which the rename only made visible: `self` was
     // `traveler?.name`, so the SAME synced rows settled differently on each traveller's device.
     const rows = [
-      exp({ paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 300 }),
-      exp({ split: ['Powan', 'Sushil'], amount: 800 }), // no payer
+      exp({ paidBy: 'Alex', split: ['Alex', 'Rina'], amount: 300 }),
+      exp({ split: ['Alex', 'Rina'], amount: 800 }), // no payer
     ];
-    const asPowan = settleWithIdentity(rows, ROSTER, 'Powan');
-    expect(settleWithIdentity(rows, ROSTER, 'Sushil')).toEqual(asPowan);
-    expect(settleWithIdentity(rows, ROSTER, undefined)).toEqual(asPowan);
+    const asAlex = settleWithIdentity(rows, ROSTER, 'Alex');
+    expect(settleWithIdentity(rows, ROSTER, 'Rina')).toEqual(asAlex);
+    expect(settleWithIdentity(rows, ROSTER, undefined)).toEqual(asAlex);
     // NON-VACUOUS: the leg does settle, and to EXACTLY the attributable row's numbers. Attributing
     // the 800 to any name at all — including one already in the split — breaks both equalities.
-    expect(asPowan[0].balances).toEqual({ Powan: 150, Sushil: -150 });
-    expect(asPowan[0].transfers).toEqual([{ from: 'Sushil', to: 'Powan', amount: 150 }]);
+    expect(asAlex[0].balances).toEqual({ Alex: 150, Rina: -150 });
+    expect(asAlex[0].transfers).toEqual([{ from: 'Rina', to: 'Alex', amount: 150 }]);
   });
 
   it('tombstoned split expense is ignored', () => {
     expect(
-      settle([exp({ paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 300, deleted: true })], ROSTER),
+      settle([exp({ paidBy: 'Alex', split: ['Alex', 'Rina'], amount: 300, deleted: true })], ROSTER),
     ).toEqual([]);
   });
 });
@@ -186,30 +186,30 @@ describe('settle — fast path contributes zero', () => {
 describe('settle — prototype-named payer does not corrupt balances (#485)', () => {
   it('payer "constructor": balances still sum to zero and the transfer is correct', () => {
     const [s] = settle(
-      [exp({ paidBy: 'constructor', split: ['constructor', 'Sushil'], amount: 300 })],
+      [exp({ paidBy: 'constructor', split: ['constructor', 'Rina'], amount: 300 })],
       ROSTER,
     );
-    expect(s.balances).toEqual({ constructor: 150, Sushil: -150 });
+    expect(s.balances).toEqual({ constructor: 150, Rina: -150 });
     expect(Object.values(s.balances).reduce((a, b) => a + b, 0)).toBe(0);
-    expect(s.transfers).toEqual([{ from: 'Sushil', to: 'constructor', amount: 150 }]);
+    expect(s.transfers).toEqual([{ from: 'Rina', to: 'constructor', amount: 150 }]);
   });
 
   it('payer "__proto__": the credit is not swallowed; balances sum to zero', () => {
     const [s] = settle(
-      [exp({ paidBy: '__proto__', split: ['__proto__', 'Sushil'], amount: 300 })],
+      [exp({ paidBy: '__proto__', split: ['__proto__', 'Rina'], amount: 300 })],
       ROSTER,
     );
     expect(s.balances.__proto__).toBe(150);
-    expect(s.balances.Sushil).toBe(-150);
+    expect(s.balances.Rina).toBe(-150);
     expect(Object.values(s.balances).reduce((a, b) => a + b, 0)).toBe(0);
-    expect(s.transfers).toEqual([{ from: 'Sushil', to: '__proto__', amount: 150 }]);
+    expect(s.transfers).toEqual([{ from: 'Rina', to: '__proto__', amount: 150 }]);
   });
 });
 
 describe('settle — largest-remainder rounding keeps balances summing to 0 (D-337 family)', () => {
   it('a 3-way split of an odd amount rounds balances so a creditor’s transfers-received sum to exactly their balance', () => {
     const [s] = settle(
-      [exp({ leg: 'nepal', paidBy: 'Powan', split: ['Powan', 'Sushil', 'Uttam'], amount: 1000 })],
+      [exp({ leg: 'nepal', paidBy: 'Alex', split: ['Alex', 'Rina', 'Sam'], amount: 1000 })],
       ROSTER,
     );
     // 1000 / 3 = 333.33...; unrounded balances would not sum to a clean 0. Rounded, they must.
@@ -226,10 +226,10 @@ describe('paidBy/split — sanitize passthrough + mergeItems row merge (no new s
   it('sanitizeExpense passes paidBy + split through; a no-split expense is byte-identical', () => {
     const withSplit = sanitizeExpense({
       id: 'e1', leg: 'nepal', category: 'food', amount: 300, createdAt: 't',
-      paidBy: 'Powan', split: ['Powan', 'Sushil'],
+      paidBy: 'Alex', split: ['Alex', 'Rina'],
     });
-    expect(withSplit?.paidBy).toBe('Powan');
-    expect(withSplit?.split).toEqual(['Powan', 'Sushil']);
+    expect(withSplit?.paidBy).toBe('Alex');
+    expect(withSplit?.split).toEqual(['Alex', 'Rina']);
 
     // Fast path: no split fields in, none out — object has exactly the pre-split keys.
     const plain = { id: 'e2', leg: 'nepal', category: 'food', amount: 300, createdAt: 't' };
@@ -243,15 +243,15 @@ describe('paidBy/split — sanitize passthrough + mergeItems row merge (no new s
 
   it('paidBy/split survive the mergeItems row merge — the winning row carries them unchanged', () => {
     const local: Expense[] = [
-      exp({ id: 'x', paidBy: 'Powan', split: ['Powan', 'Sushil'], hlc: '1', rev: 1 }),
+      exp({ id: 'x', paidBy: 'Alex', split: ['Alex', 'Rina'], hlc: '1', rev: 1 }),
     ];
     const remote: Expense[] = [
-      exp({ id: 'x', paidBy: 'Sushil', split: ['Sushil', 'Uttam'], hlc: '2', rev: 2, note: 'edited' }),
+      exp({ id: 'x', paidBy: 'Rina', split: ['Rina', 'Sam'], hlc: '2', rev: 2, note: 'edited' }),
     ];
     const [winner] = mergeItems(local, remote);
     // Higher HLC wins (remote) and its split fields ride the merge with no extra sync handling.
-    expect(winner.paidBy).toBe('Sushil');
-    expect(winner.split).toEqual(['Sushil', 'Uttam']);
+    expect(winner.paidBy).toBe('Rina');
+    expect(winner.split).toEqual(['Rina', 'Sam']);
   });
 });
 

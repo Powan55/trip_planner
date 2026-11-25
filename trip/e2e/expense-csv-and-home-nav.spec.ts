@@ -26,7 +26,7 @@ async function settleSW(page: Page) {
 }
 
 /** Sign in as a traveler + optionally seed the expenses slot, then land on /settings. */
-async function gotoSettings(page: Page, expenses?: unknown, token = 'Powan') {
+async function gotoSettings(page: Page, expenses?: unknown, token = 'Rina') {
   await page.addInitScript(
     ({ t, e }: { t: string; e: unknown }) => {
       window.localStorage.setItem('tripPlannerToken', t);
@@ -80,8 +80,8 @@ test.describe('expense CSV export', () => {
         category: 'transportation',
         amount: 1200,
         note: 'JR pass "unlimited"',
-        paidBy: 'Powan',
-        split: ['Powan', 'Alex'],
+        paidBy: 'Rina',
+        split: ['Rina', 'Alex'],
         createdAt: '2026-12-20T09:00:00.000Z',
       },
     ];
@@ -111,8 +111,8 @@ test.describe('expense CSV export', () => {
     // Comma inside the note → quoted, no interior quotes to double.
     expect(lines[1]).toBe('2026-12-10,nepal,food,NPR,500,"Dal bhat, extra rice",,');
     // Quotes inside the note → quoted AND doubled; leg-derived currency is JPY for japan;
-    // paidBy/split flatten to "Powan" / "Powan; Alex".
-    expect(lines[2]).toBe(',japan,transportation,JPY,1200,"JR pass ""unlimited""",Powan,Powan; Alex');
+    // paidBy/split flatten to "Rina" / "Rina; Alex".
+    expect(lines[2]).toBe(',japan,transportation,JPY,1200,"JR pass ""unlimited""",Rina,Rina; Alex');
     expect(lines).toHaveLength(3);
   });
 });

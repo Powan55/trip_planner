@@ -31,7 +31,7 @@ const SEED_DAY = '2026-12-09';
 const MID_TRIP_DAY = '2026-12-20';
 const POST_TRIP_DAY = '2027-01-15';
 
-async function seedTraveler(page: Page, token = 'Powan') {
+async function seedTraveler(page: Page, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

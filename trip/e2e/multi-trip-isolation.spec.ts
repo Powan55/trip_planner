@@ -45,7 +45,7 @@ const TOUR_SEEN = 'nepal_japan_first_run_tour_seen';
 const KNOWN_DAY = '2026-12-11'; // a real Nepal-leg date the sample itinerary populates
 
 /** Seed a signed-in traveler before any app script (identity is app-scoped → safe across reloads). */
-async function seedTraveler(page: Page, token = 'Powan') {
+async function seedTraveler(page: Page, token = 'Alex') {
   await page.addInitScript(
     ({ t, tour }: { t: string; tour: string }) => {
       window.localStorage.setItem('tripPlannerToken', t);
@@ -338,8 +338,8 @@ test.describe('a fresh (non-default) pack does not weaken the front-door wall', 
   test('a signed-in traveler on a fresh (non-default) pack passes the wall on a non-Home route', async ({ page }) => {
     await page.addInitScript(
       ({ tour, token }: { tour: string; token: string }) => {
-        window.localStorage.setItem('tripPlannerToken', 'Powan');
-        window.localStorage.setItem('tripPlannerUserName', 'Powan');
+        window.localStorage.setItem('tripPlannerToken', 'Alex');
+        window.localStorage.setItem('tripPlannerUserName', 'Alex');
         window.localStorage.setItem('tripPlannerActiveTrip', token);
         window.localStorage.setItem(tour, '1');
       },

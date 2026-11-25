@@ -105,7 +105,7 @@ vi.mock('firebase/auth', () => ({
           : {
               uid: authCtl.currentUid,
               isAnonymous: authCtl.anonymous,
-              email: authCtl.anonymous ? null : 'powan@accounts.trip-planner.invalid',
+              email: authCtl.anonymous ? null : 'alex@accounts.trip-planner.invalid',
               getIdToken: async () => {
                 if (authCtl.idTokenFails) throw new Error('token mint failed');
                 return authCtl.idToken;
@@ -277,8 +277,8 @@ describe('password accounts (D-660)', () => {
   it('sign-up LINKS the anonymous session, so the uid already in trip rosters is the account', async () => {
     const { getAuthHandle: getRemote, createPasswordAccount } = await freshRemote();
     const before = await getRemote();
-    const uid = await createPasswordAccount('powan@x.invalid', 'longenough');
-    expect(authCtl.calls).toEqual(['link:powan@x.invalid']);
+    const uid = await createPasswordAccount('alex@x.invalid', 'longenough');
+    expect(authCtl.calls).toEqual(['link:alex@x.invalid']);
     expect(uid).toBe(before.uid);
     expect((await getRemote()).uid).toBe(before.uid);
   });
@@ -304,7 +304,7 @@ describe('password accounts (D-660)', () => {
   it('sign-in rebinds the cached handle to the account uid (no stale anonymous uid)', async () => {
     const { getAuthHandle: getRemote, signInWithPassword } = await freshRemote();
     expect((await getRemote()).uid).toBe('anon-uid-new');
-    expect(await signInWithPassword('powan@x.invalid', 'pw')).toBe('account-uid');
+    expect(await signInWithPassword('alex@x.invalid', 'pw')).toBe('account-uid');
     expect((await getRemote()).uid).toBe('account-uid');
     expect(authCtl.signInCalls).toBe(1); // the password session is never replaced by a new anon one
   });
@@ -321,8 +321,8 @@ describe('password accounts (D-660)', () => {
   it('readAccountLink: null when absent, the link when present, REJECTS when unreachable', async () => {
     const { readAccountLink } = await freshRemote();
     expect(await readAccountLink('u1')).toBeNull();
-    docs.store.set('users/u1', { username: 'powan', accountId: 'acct-1' });
-    expect(await readAccountLink('u1')).toEqual({ username: 'powan', accountId: 'acct-1' });
+    docs.store.set('users/u1', { username: 'alex', accountId: 'acct-1' });
+    expect(await readAccountLink('u1')).toEqual({ username: 'alex', accountId: 'acct-1' });
     docs.readFails = true;
     await expect(readAccountLink('u1')).rejects.toThrow('offline');
   });
@@ -332,11 +332,11 @@ describe('password accounts (D-660)', () => {
 
   it('writeAccountLink writes users + accountClaims once; a retry adopts what is there', async () => {
     const { writeAccountLink } = await freshRemote();
-    expect(await writeAccountLink('u1', { username: 'powan', accountId: ID1 })).toBe(ID1);
-    expect(docs.store.get('users/u1')).toEqual({ username: 'powan', accountId: ID1 });
+    expect(await writeAccountLink('u1', { username: 'alex', accountId: ID1 })).toBe(ID1);
+    expect(docs.store.get('users/u1')).toEqual({ username: 'alex', accountId: ID1 });
     expect(docs.store.get(`accountClaims/${ID1}`)).toEqual({ uid: 'u1' });
-    expect(await writeAccountLink('u1', { username: 'powan', accountId: ID2 })).toBe(ID1);
-    expect(docs.store.get('users/u1')).toEqual({ username: 'powan', accountId: ID1 });
+    expect(await writeAccountLink('u1', { username: 'alex', accountId: ID2 })).toBe(ID1);
+    expect(docs.store.get('users/u1')).toEqual({ username: 'alex', accountId: ID1 });
     expect(docs.store.has(`accountClaims/${ID2}`)).toBe(false);
   });
 
@@ -367,7 +367,7 @@ describe('password accounts (D-660)', () => {
 
   it('changePassword passes the SDK rejection through', async () => {
     const { signInWithPassword, changePassword } = await freshRemote();
-    await signInWithPassword('powan@x.invalid', 'temp');
+    await signInWithPassword('alex@x.invalid', 'temp');
     authCtl.errorCode = 'auth/weak-password';
     await expect(changePassword('newpassword')).rejects.toMatchObject({ code: 'auth/weak-password' });
   });
@@ -394,7 +394,7 @@ describe('needsAccountUpgrade — fail-open (D-660)', () => {
     authCtl.restored = { uid: 'account-uid' };
     authCtl.currentUid = 'account-uid';
     authCtl.anonymous = false;
-    docs.store.set('users/account-uid', { username: 'powan', accountId: 'acct-1' });
+    docs.store.set('users/account-uid', { username: 'alex', accountId: 'acct-1' });
     const again = await freshRemote();
     expect(await again.needsAccountUpgrade()).toBeNull();
   });
@@ -407,7 +407,7 @@ describe('needsAccountUpgrade — fail-open (D-660)', () => {
     expect(await needsAccountUpgrade()).toEqual({
       kind: 'claim',
       uid: 'account-uid',
-      username: 'powan',
+      username: 'alex',
     });
   });
 
@@ -446,7 +446,7 @@ describe('isPasswordSession and the pre-sign-in flush (D-660)', () => {
   it('false for anonymous and dormant, true after a password sign-in', async () => {
     const { isPasswordSession, signInWithPassword } = await freshRemote();
     expect(await isPasswordSession()).toBe(false);
-    await signInWithPassword('powan@x.invalid', 'pw');
+    await signInWithPassword('alex@x.invalid', 'pw');
     expect(await isPasswordSession()).toBe(true);
     gate.on = false;
     const dormant = await freshRemote();
@@ -455,7 +455,7 @@ describe('isPasswordSession and the pre-sign-in flush (D-660)', () => {
 
   it('flushes writes queued under the old uid before swapping the session', async () => {
     const { signInWithPassword } = await freshRemote();
-    await signInWithPassword('powan@x.invalid', 'pw');
-    expect(authCtl.calls).toEqual(['flush', 'signin:powan@x.invalid']);
+    await signInWithPassword('alex@x.invalid', 'pw');
+    expect(authCtl.calls).toEqual(['flush', 'signin:alex@x.invalid']);
   });
 });

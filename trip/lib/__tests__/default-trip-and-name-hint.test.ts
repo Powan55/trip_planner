@@ -209,7 +209,7 @@ describe('A5 — post-login name-hint one-shot', () => {
   // token-only login still writes "Traveler" locally and this assertion stays literally true. What
   // changed is that the placeholder is now TRANSIENT — `runAccountIdentitySync` in
   // itinerary-provider replaces it with the account's real name on the very next load. The
-  // END-TO-END guarantee ("Powan stays Powan on a fresh device") lives in
+  // END-TO-END guarantee ("Alex stays Alex on a fresh device") lives in
   // lib/__tests__/account-identity.test.ts, NOT here. Do not "strengthen" this test by forcing
   // a name lookup into the door — that would violate D-239's firebase-free clause.
   it('the door defaults the local name slot to the transient placeholder and flags the hint (real handleLogin)', async () => {

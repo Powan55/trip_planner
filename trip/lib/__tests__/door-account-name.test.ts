@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// "I log in as Powan and it says Traveler."
+// "I log in as Alex and it says Traveler."
 //
 // The door's login path (components/token-gate) does not ask for a name, so on a
 // device with nothing in the local name slot it used to sign in as the literal placeholder
@@ -38,7 +38,7 @@ vi.mock('@/lib/firebase-config', () => ({
 type ProbeResult = { verdict: 'exists' | 'missing' | 'unavailable'; name?: string };
 const probeAccountIdentityMock = vi.fn<(code: string) => Promise<ProbeResult>>(async () => ({
   verdict: 'exists',
-  name: 'Powan',
+  name: 'Alex',
 }));
 vi.mock('@/lib/trips-remote', () => ({
   probeAccountIdentity: (code: string) => probeAccountIdentityMock(code),
@@ -50,7 +50,7 @@ vi.mock('@/lib/trips-remote', () => ({
 const KEY = '11111111-2222-3333-4444-555555555555';
 
 vi.mock('@/lib/account-handoff-remote', () => ({
-  signInWithHandoff: async () => ({ uid: 'uid-1', link: { username: 'powan', accountId: KEY } }),
+  signInWithHandoff: async () => ({ uid: 'uid-1', link: { username: 'alex', accountId: KEY } }),
 }));
 
 import TokenGate from '@/components/token-gate';
@@ -102,7 +102,7 @@ function typeInto(input: HTMLInputElement, value: string) {
 async function logInWithPassword(view: { container: HTMLElement }) {
   const q = (id: string) =>
     view.container.querySelector<HTMLInputElement>(`[data-testid="${id}"]`)!;
-  await act(async () => typeInto(q('token-gate-username'), 'powan'));
+  await act(async () => typeInto(q('token-gate-username'), 'alex'));
   await act(async () => typeInto(q('token-gate-password'), 'password1'));
   await act(async () => {
     q('token-gate-submit')
@@ -125,7 +125,7 @@ afterEach(() => {
 });
 
 describe("the door signs in as the account's name, not the placeholder", () => {
-  it('a fresh device logging in to the account is Powan the moment the door finishes', async () => {
+  it('a fresh device logging in to the account is Alex the moment the door finishes', async () => {
     stubLocation();
     expect(getUserName()?.trim()).toBeFalsy(); // fresh device: nothing in the local name slot
 
@@ -145,9 +145,9 @@ describe("the door signs in as the account's name, not the placeholder", () => {
     // and the name is what got signed in.
     expect(probeAccountIdentityMock).toHaveBeenCalledTimes(1);
     expect(probeAccountIdentityMock).toHaveBeenCalledWith(KEY);
-    expect(getActiveTraveler()?.name).toBe('Powan');
+    expect(getActiveTraveler()?.name).toBe('Alex');
     // Both identity slots agree — the chip shows what attribution stamps (the trap D-277 names).
-    expect(getUserName()).toBe('Powan');
+    expect(getUserName()).toBe('Alex');
     expect(getUserName()).toBe(getActiveTraveler()?.name);
     // No "you're signed in as Traveler" nudge: the placeholder never happened.
     expect(sessionStorage.getItem('name-hint')).toBeNull();

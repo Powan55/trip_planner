@@ -73,9 +73,9 @@ describe('expensesToCsv', () => {
 
   it('flattens paidBy/split — semicolon-joined members; both absent on the fast path', () => {
     const csv = expensesToCsv([
-      exp({ note: 'Dinner', paidBy: 'Powan', split: ['Powan', 'Alex', 'Sam'] }),
+      exp({ note: 'Dinner', paidBy: 'Rina', split: ['Rina', 'Alex', 'Sam'] }),
     ]);
-    expect(csv).toBe(`${HEADER}\r\n,nepal,food,NPR,1000,Dinner,Powan,Powan; Alex; Sam\r\n`);
+    expect(csv).toBe(`${HEADER}\r\n,nepal,food,NPR,1000,Dinner,Rina,Rina; Alex; Sam\r\n`);
   });
 
   it('escapes a note containing a comma, a double quote, AND a newline (round-trips)', () => {
@@ -169,9 +169,9 @@ describe('expensesToCsv — formula injection', () => {
 
   it('an ordinary note is byte-identical to the pre-fix output (no stray apostrophe)', () => {
     const csv = expensesToCsv([
-      exp({ date: '2026-12-10', amount: 1500, note: 'Taxi fare', paidBy: 'Powan' }),
+      exp({ date: '2026-12-10', amount: 1500, note: 'Taxi fare', paidBy: 'Rina' }),
     ]);
-    expect(csv).toBe(`${HEADER}\r\n2026-12-10,nepal,food,NPR,1500,Taxi fare,Powan,\r\n`);
+    expect(csv).toBe(`${HEADER}\r\n2026-12-10,nepal,food,NPR,1500,Taxi fare,Rina,\r\n`);
     expect(csv).not.toContain("'");
   });
 

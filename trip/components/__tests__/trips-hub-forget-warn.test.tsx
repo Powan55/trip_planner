@@ -55,8 +55,8 @@ async function openForget(): Promise<void> {
 
 beforeEach(() => {
   localStorage.clear();
-  localStorage.setItem('tripPlannerToken', 'Uttam');
-  localStorage.setItem('tripPlannerUserName', 'Uttam');
+  localStorage.setItem('tripPlannerToken', 'Sam');
+  localStorage.setItem('tripPlannerUserName', 'Sam');
   localStorage.setItem('tripPlannerSyncCode', 'already-has-one');
   joinTrip(TRIP_TOKEN, 'Shared trip');
   joinTrip(OTHER_TOKEN, 'Other trip');

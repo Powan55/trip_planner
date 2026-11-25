@@ -8,14 +8,14 @@
 // ── 🔴 THE MONEY GUARD IS THE POINT OF THIS FILE ─────────────────────────────────────────────
 // `Expense.paidBy` and `Expense.split[]` hold DISPLAY-NAME STRINGS, not stable ids — the field
 // comment in core/budget/expenses.ts calls them "TRAVELERS id" and it reads safer than the code is
-// (e2e/expenses.spec.ts pins ['Powan','Sushil','Uttam'] literally). So a name rewrite genuinely
+// (e2e/expenses.spec.ts pins ['Alex','Rina','Sam'] literally). So a name rewrite genuinely
 // COULD reach them. It must not: `core/budget/settlement.ts` de-duplicates the split members before
 // dividing —
 //     const members = uniq(e.split.filter(…));  …  const share = amount / members.length;
-// — so renaming 'Traveler' → 'Powan' inside a split that ALREADY contains 'Powan' collapses two
+// — so renaming 'Traveler' → 'Alex' inside a split that ALREADY contains 'Alex' collapses two
 // members into one, DROPS THE DIVISOR, and silently re-points every balance and every transfer.
 // The seed below is built to make exactly that happen if the rewrite ever widens: `exp-shared` is
-// paid by 'Traveler', split ['Traveler','Powan'].
+// paid by 'Traveler', split ['Traveler','Alex'].
 //
 // ── AND THE SYNC STAMP, PROVEN NOT ASSERTED ──────────────────────────────────────────────────
 // Neither store has a migration mechanism or a version field, and both merge last-write-wins on
@@ -62,8 +62,8 @@ import { setUserName } from '@/lib/identity';
 
 const DOCS_KEY = 'nepal_japan_docs_checklist';
 const OLD = 'Traveler'; // the login placeholder AND, ambiguously, the owner's pre-rename name
-const ME = 'Powan';
-const ROSTER = [ME, 'Sushil', 'Uttam'];
+const ME = 'Alex';
+const ROSTER = [ME, 'Rina', 'Sam'];
 /** A peer's stamp from BEFORE the claim — the "stale remote copy" the merge must lose to. */
 const SEED_HLC = serialize({ pt: Date.parse('2026-01-05T09:00:00.000Z'), ct: 0, actor: 'peer-device' });
 
@@ -100,7 +100,7 @@ function renderStore<S>(useStore: () => S) {
 /**
  * Six expenses, seeded straight to disk so the test controls every byte.
  * The money in here is REAL: `exp-shared` is a 3000 NPR bill fronted by 'Traveler' and split with
- * 'Powan'. Claiming the NAME must leave that settlement untouched.
+ * 'Alex'. Claiming the NAME must leave that settlement untouched.
  *
  * The last two rows exist because the fixture was too narrow to prove what this file claims:
  * `exp-dead` was the ONLY row with `paidBy` absent, and the rewrite skips a tombstone BEFORE any
@@ -110,7 +110,7 @@ function renderStore<S>(useStore: () => S) {
 function seedExpenses(): Expense[] {
   return [
     // 🔴 The dangerous row. `paidBy` is the old name; `split` contains BOTH the old name and the
-    // claiming name — so a widened rewrite would produce ['Powan','Powan'] → uniq → 1 member.
+    // claiming name — so a widened rewrite would produce ['Alex','Alex'] → uniq → 1 member.
     {
       id: 'exp-shared',
       leg: 'nepal',
@@ -131,10 +131,10 @@ function seedExpenses(): Expense[] {
       category: 'transportation',
       amount: 1200,
       createdAt: '2026-01-05T10:00:00.000Z',
-      paidBy: 'Sushil',
-      split: ['Sushil', 'Uttam'],
+      paidBy: 'Rina',
+      split: ['Rina', 'Sam'],
       createdBy: OLD,
-      updatedBy: 'Sushil',
+      updatedBy: 'Rina',
       rev: 1,
       hlc: SEED_HLC,
     },
@@ -145,10 +145,10 @@ function seedExpenses(): Expense[] {
       category: 'food',
       amount: 4000,
       createdAt: '2026-01-05T11:00:00.000Z',
-      paidBy: 'Uttam',
-      split: ['Uttam', 'Sushil'],
-      createdBy: 'Uttam',
-      updatedBy: 'Uttam',
+      paidBy: 'Sam',
+      split: ['Sam', 'Rina'],
+      createdBy: 'Sam',
+      updatedBy: 'Sam',
       rev: 1,
       hlc: SEED_HLC,
     },
@@ -195,7 +195,7 @@ function seedExpenses(): Expense[] {
       amount: 2500,
       createdAt: '2026-01-05T14:00:00.000Z',
       paidBy: OLD,
-      split: [OLD, 'Uttam'],
+      split: [OLD, 'Sam'],
       createdBy: OLD,
       updatedBy: OLD,
     },
@@ -230,7 +230,7 @@ function seedDocs(): DocItem[] {
       section: 'dayzero',
       label: 'Online check-in completed',
       checked: true,
-      updatedBy: 'Sushil',
+      updatedBy: 'Rina',
       updatedAt: '2026-01-05T10:00:00.000Z',
       rev: 1,
       hlc: SEED_HLC,
@@ -311,8 +311,8 @@ describe('expenses — the money guard: a claim rewrites attribution and NOTHING
     expect(storedExpense('exp-legacy')?.updatedBy).toBe(ME);
     // The absent field STAYS absent: the rewrite never invents a payer for the implicit-payer row.
     expect('paidBy' in (storedExpense('exp-nopayer') as Expense)).toBe(false);
-    // Per FIELD: Sushil keeps the edit that is genuinely his.
-    expect(storedExpense('exp-mine')?.updatedBy).toBe('Sushil');
+    // Per FIELD: Rina keeps the edit that is genuinely his.
+    expect(storedExpense('exp-mine')?.updatedBy).toBe('Rina');
 
     // 🔴 …and not one byte of the money names moved.
     expect(moneyBytes(storedExpenses())).toBe(before);
@@ -335,9 +335,9 @@ describe('expenses — the money guard: a claim rewrites attribution and NOTHING
   });
 
   it('REGRESSION (D-333): the two sides of the rename settle IDENTICALLY', async () => {
-    // `exp-nopayer` is live, split ['Traveler','Powan'] and worth 800 NPR — everything a settling
+    // `exp-nopayer` is live, split ['Traveler','Alex'] and worth 800 NPR — everything a settling
     // row needs except a payer. It used to be attributed to the signed-in traveller, so a claim,
-    // which changes who is signed in from 'Traveler' to 'Powan', moved 800 NPR of balance onto the
+    // which changes who is signed in from 'Traveler' to 'Alex', moved 800 NPR of balance onto the
     // new name while every byte of `paidBy`/`split` sat still. The byte-identity guard above is
     // blind to that by construction: no byte moved. This is the assertion that sees it.
     //
@@ -469,7 +469,7 @@ describe('documents — updatedBy is the only identity field, and the only one t
     expect(claimed).toBe(2);
     expect(storedDoc('passport-validity')?.updatedBy).toBe(ME);
     expect(storedDoc('nepal-visa')?.updatedBy).toBe(ME);
-    expect(storedDoc('online-checkin')).toEqual(seed[2]); // Sushil's row, byte for byte
+    expect(storedDoc('online-checkin')).toEqual(seed[2]); // Rina's row, byte for byte
 
     // `updatedAt` is the SyncedRow legacy-HLC seed AND the itinerary claim's precedent: a name
     // fix must never re-date the edit.

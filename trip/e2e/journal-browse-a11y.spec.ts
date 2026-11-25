@@ -17,7 +17,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 const JOURNAL_KEY = 'nepal_japan_journal';
 
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

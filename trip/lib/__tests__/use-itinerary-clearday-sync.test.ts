@@ -48,7 +48,7 @@ vi.mock('@/lib/itinerary-ports', async (importOriginal) => {
 });
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 import { useItinerary } from '@/hooks/use-itinerary';
@@ -174,7 +174,7 @@ describe('SYNC ON — clearDay tombstones ALL in ONE write; concurrent-add survi
     // relative to the tombstone). `actor` defaults to a DIFFERENT friend for the strict cases;
     // the equal-tie case reuses the tombstone's OWN actor to force an EXACT HLC tie.
     const tombHlc: Hlc = parse(tombstone.hlc!);
-    const friendAddAt = (ptDelta: number, actor = 'Sushil'): ItineraryItem => ({
+    const friendAddAt = (ptDelta: number, actor = 'Rina'): ItineraryItem => ({
       ...tombstone,
       deleted: false,
       hlc: serialize({ pt: tombHlc.pt + ptDelta, ct: tombHlc.ct, actor }),

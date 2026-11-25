@@ -45,7 +45,7 @@ vi.mock('@/lib/itinerary-ports', async (importOriginal) => {
 
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 vi.mock('@/lib/trip-now', async (importOriginal) => {
@@ -229,16 +229,16 @@ describe('reorderSyncStamps — the ordering stamp is convergent', () => {
   // still parses to the right `pt`, but the raw string compares below (and the one inside
   // `reorderSyncStamps`) would then be comparing mismatched widths and could pass on padding.
   const rows = (): Row[] => [
-    { id: 'a', title: 'a', rev: 1, hlc: '001700000001000:000000:Powan' },
-    { id: 'b', title: 'b', rev: 1, hlc: '001700000002000:000000:Powan' },
-    { id: 'c', title: 'c', rev: 1, hlc: '001700000003000:000000:Powan' },
+    { id: 'a', title: 'a', rev: 1, hlc: '001700000001000:000000:Alex' },
+    { id: 'b', title: 'b', rev: 1, hlc: '001700000002000:000000:Alex' },
+    { id: 'c', title: 'c', rev: 1, hlc: '001700000003000:000000:Alex' },
   ];
   const byId = (list: Row[]) => list.map((r) => r.id);
   const pick = (list: Row[], order: string[]): Row[] =>
     order.map((id) => list.find((r) => r.id === id)!);
 
   it('stamps strictly ascending ords in array order, so the merge sort reproduces that order', () => {
-    const out = reorderSyncStamps(pick(rows(), ['c', 'a', 'b']), 1_700_000_005_000, 'Powan');
+    const out = reorderSyncStamps(pick(rows(), ['c', 'a', 'b']), 1_700_000_005_000, 'Alex');
     expect(byId(out)).toEqual(['c', 'a', 'b']);
     expect(out[0].ord! < out[1].ord!).toBe(true);
     expect(out[1].ord! < out[2].ord!).toBe(true);
@@ -248,7 +248,7 @@ describe('reorderSyncStamps — the ordering stamp is convergent', () => {
     // this fixture, not of the function; see the docstring for the lagging-clock case.
     const before = rows();
     pick(before, ['c', 'a', 'b']).forEach((r, i) => expect(out[i].ord! > r.hlc!).toBe(true));
-    expect(out[0].ord! > '001700000003000:000000:Powan').toBe(true);
+    expect(out[0].ord! > '001700000003000:000000:Alex').toBe(true);
     // A drag is not a revision and must not touch the CONFLICT key: leaving both alone is what
     // stops the dragging device's whole row-set from beating a peer's unseen edits.
     expect(out.map((r) => r.rev)).toEqual([1, 1, 1]);
@@ -296,10 +296,10 @@ describe('reorderSyncStamps — the ordering stamp is convergent', () => {
     const tied: Row[] = ['a', 'b', 'c'].map((id) => ({
       id,
       title: id,
-      hlc: '001700000001000:000000:Powan',
+      hlc: '001700000001000:000000:Alex',
       rev: 1,
     }));
-    const out = reorderSyncStamps([tied[2], tied[0], tied[1]], 1_700_000_001_000, 'Powan');
+    const out = reorderSyncStamps([tied[2], tied[0], tied[1]], 1_700_000_001_000, 'Alex');
     expect(byId(out)).toEqual(['c', 'a', 'b']);
     expect(out[0].ord! < out[1].ord! && out[1].ord! < out[2].ord!).toBe(true);
   });

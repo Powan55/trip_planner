@@ -200,7 +200,7 @@ describe('lifetime visit set — survives a FULL trip wipe (issue #29, D-314)', 
 
   it('signOut() — the whole user-facing teardown — also leaves it intact, identity cleared', () => {
     seedTripData();
-    signIn('Powan');
+    signIn('Alex');
     addVisit({ city: 'Kathmandu', country: 'Nepal' });
 
     signOut();

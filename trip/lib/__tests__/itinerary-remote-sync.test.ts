@@ -43,7 +43,7 @@ vi.mock('@/lib/firebase-config', () => ({
 // suite's implicit precondition). The guest gate itself lives in the outbox (core-sync-outbox.test.ts).
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 const TRIP_ID = 'nepal-japan-2026';

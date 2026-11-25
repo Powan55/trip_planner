@@ -108,8 +108,8 @@ beforeEach(() => {
 describe('fetchAccountIdentity is three-way', () => {
   it('missing / exists+name / error', async () => {
     expect(await fetchAccountIdentity(KEY)).toEqual({ status: 'missing' });
-    store.set(PATH, { version: 1, name: ' Sushil ' });
-    expect(await fetchAccountIdentity(KEY)).toEqual({ status: 'exists', name: 'Sushil' });
+    store.set(PATH, { version: 1, name: ' Rina ' });
+    expect(await fetchAccountIdentity(KEY)).toEqual({ status: 'exists', name: 'Rina' });
     hooks.readFails = true;
     expect(await fetchAccountIdentity(KEY)).toEqual({ status: 'error' });
   });
@@ -122,15 +122,15 @@ describe('healAccountIdentity is create-only', () => {
   });
 
   it('never overwrites an existing doc', async () => {
-    store.set(PATH, { version: 1, name: 'Powan' });
+    store.set(PATH, { version: 1, name: 'Alex' });
     await healAccountIdentity(KEY, 'Sora');
-    expect(store.get(PATH)).toEqual({ version: 1, name: 'Powan' });
+    expect(store.get(PATH)).toEqual({ version: 1, name: 'Alex' });
   });
 
   it('race: a doc created between read and commit is not overwritten', async () => {
-    hooks.beforeCommit = () => store.set(PATH, { version: 1, name: 'Powan' });
+    hooks.beforeCommit = () => store.set(PATH, { version: 1, name: 'Alex' });
     await healAccountIdentity(KEY, 'Sora');
-    expect(store.get(PATH)).toEqual({ version: 1, name: 'Powan' });
+    expect(store.get(PATH)).toEqual({ version: 1, name: 'Alex' });
   });
 });
 
@@ -145,7 +145,7 @@ describe('reconciler over the real module', () => {
   });
 
   it('server doc with a name ⇒ untouched', async () => {
-    const doc = { version: 1, name: 'Powan' };
+    const doc = { version: 1, name: 'Alex' };
     store.set(PATH, doc);
     setSyncCode(KEY);
     signIn('Sora');

@@ -21,7 +21,7 @@ import {
   defaultShareReloadGuard,
   setSyncCode,
 } from '@/core/storage/gateway';
-import { SHARED_TRIP_ID } from '@/lib/shared-trip';
+import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 import {
   listKnownTrips,
   upsertKnownTrip,
@@ -261,7 +261,7 @@ describe('trip registry', () => {
     });
 
     // #775 — legacy account names are account paths (trips/<Name>/profile/...), never trips.
-    it.each(['Sushil', 'powan', '  UTTAM '])('refuses the legacy account name %j as a new trip', (raw) => {
+    it.each([SHARED_TRIP_USERNAMES[2], SHARED_TRIP_USERNAMES[0].toLowerCase(), `  ${SHARED_TRIP_USERNAMES[1].toUpperCase()} `])('refuses legacy account name #%# as a new trip', (raw) => {
       expect(parseTripToken(raw)).toBeNull();
       expect(joinTrip(raw, 'Shared trip')).toBe(false);
       expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBeNull();
@@ -276,7 +276,7 @@ describe('trip registry', () => {
       expect(window.localStorage.getItem(KEY)).toBeNull();
     });
 
-    it.each([['Sushil'], [SHARED_TRIP_ID]])('an existing %j row is kept and still switchable', (id) => {
+    it.each([[SHARED_TRIP_USERNAMES[2]], [SHARED_TRIP_ID]])('existing row #%# (legacy name, shared trip id) is kept and still switchable', (id) => {
       window.localStorage.setItem(KEY, JSON.stringify([{ id, name: 'Old', joinedAt: 1 }]));
       expect(listKnownTrips().some((t) => t.id === id)).toBe(true);
       expect(mergeTripLists([{ id, name: 'Old', joinedAt: 1 }], []).merged.some((t) => t.id === id)).toBe(true);

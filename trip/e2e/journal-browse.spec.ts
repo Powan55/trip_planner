@@ -27,7 +27,7 @@ const JOURNAL_KEY = 'nepal_japan_journal';
  * idiom). Without that settle the reload can fire mid-test and detach the open editor (seen on
  * a real run as a "journal-save not stable / detached" 30s timeout).
  */
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

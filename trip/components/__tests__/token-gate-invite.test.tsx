@@ -23,7 +23,7 @@ vi.mock('@/lib/account-handoff-remote', () => ({
   }),
 }));
 vi.mock('@/lib/trips-remote', () => ({
-  probeAccountIdentity: async () => ({ verdict: 'exists', name: 'Powan' }),
+  probeAccountIdentity: async () => ({ verdict: 'exists', name: SHARED_TRIP_USERNAMES[0] }),
 }));
 vi.mock('@/lib/invites-remote', () => ({
   redeemInvite: async (tripId: string, token: string) => {
@@ -60,6 +60,7 @@ vi.mock('framer-motion', async () => {
 
 import TokenGate from '@/components/token-gate';
 import TripJoinHandshake from '@/components/trip-join-handshake';
+import { SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 
 const TOKEN = '0f8b6c2e-1d3a-4b5c-8d7e-9f0a1b2c3d4e';
 const realLocation = window.location;
@@ -93,7 +94,7 @@ async function logIn() {
   });
   await act(async () => q('landing-cta-login')!.click());
   act(() => {
-    type('token-gate-username', 'powan');
+    type('token-gate-username', SHARED_TRIP_USERNAMES[0].toLowerCase());
     type('token-gate-password', 'correct horse');
   });
   await act(async () => q('token-gate-submit')!.click());
@@ -150,7 +151,7 @@ describe('TokenGate with an invite link (#641)', () => {
   });
 
   it('an unusable token (a legacy account name) lands /trips/ and joins nothing', async () => {
-    window.history.replaceState(null, '', `/?trip=Sushil&invite=${TOKEN}`);
+    window.history.replaceState(null, '', `/?trip=${SHARED_TRIP_USERNAMES[2]}&invite=${TOKEN}`);
     await logIn();
     expect(h.calls).toEqual([]);
     expect(replace.mock.calls[0][0]).toMatch(/\/trips\/$/);

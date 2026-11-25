@@ -12,8 +12,8 @@ async function seed(page: Page, custom: boolean) {
   await page.addInitScript(
     ({ url, word, token, day, custom }) => {
       const ls = window.localStorage;
-      ls.setItem('tripPlannerToken', 'Powan');
-      ls.setItem('tripPlannerUserName', 'Powan');
+      ls.setItem('tripPlannerToken', 'Alex');
+      ls.setItem('tripPlannerUserName', 'Alex');
       ls.setItem('nepal_japan_first_run_tour_seen', '1');
       ls.setItem('nepal_japan_install_hint_dismissed', '1');
       ls.setItem(

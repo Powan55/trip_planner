@@ -32,7 +32,7 @@ async function settleSW(page: Page) {
 }
 
 /** Sign in as a traveler on FRESH storage (no tour-seen flag) and land on Home. */
-async function gotoFreshHome(page: Page, token = 'Powan') {
+async function gotoFreshHome(page: Page, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
@@ -214,7 +214,7 @@ test.describe('reduced motion (D-007/D-056)', () => {
     await page.addInitScript((t: string) => {
       window.localStorage.setItem('tripPlannerToken', t);
       window.localStorage.setItem('tripPlannerUserName', t);
-    }, 'Powan');
+    }, 'Alex');
     await page.goto('/', { waitUntil: 'load' });
     await settleSW(page);
 

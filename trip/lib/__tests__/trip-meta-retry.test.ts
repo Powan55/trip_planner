@@ -20,7 +20,7 @@ vi.mock('@/lib/firebase-config', async (orig) => ({
 }));
 vi.mock('@/lib/token-auth', async (orig) => ({
   ...(await orig<typeof import('@/lib/token-auth')>()),
-  getActiveTraveler: () => ({ name: 'Powan' }),
+  getActiveTraveler: () => ({ name: 'Alex' }),
 }));
 
 const docs = new Map<string, Record<string, unknown>>();

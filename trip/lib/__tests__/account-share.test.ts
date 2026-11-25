@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
-import { SHARED_TRIP_ID } from '@/lib/shared-trip';
+import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 
 vi.mock('@/lib/firebase-config', async (orig) => ({
   ...(await orig<typeof import('@/lib/firebase-config')>()),
@@ -8,7 +8,7 @@ vi.mock('@/lib/firebase-config', async (orig) => ({
 }));
 vi.mock('@/lib/token-auth', async (orig) => ({
   ...(await orig<typeof import('@/lib/token-auth')>()),
-  getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }),
+  getActiveTraveler: () => ({ name: SHARED_TRIP_USERNAMES[0], token: SHARED_TRIP_USERNAMES[0], accent: '#000' }),
 }));
 
 // Stand-in for the one Firestore read settle() makes: the shared trip doc, from the server.
@@ -24,7 +24,7 @@ const fs = {
     return { exists: () => sharedDoc === 'exists' };
   },
 };
-const MEMBER = 'powan@accounts.trip-planner.invalid';
+const MEMBER = `${SHARED_TRIP_USERNAMES[0].toLowerCase()}@accounts.trip-planner.invalid`;
 let email: string | null = MEMBER;
 vi.mock('@/lib/firebase-remote', () => ({
   getAccountRemote: () =>
@@ -262,7 +262,7 @@ describe('the default pack moves onto the one shared trip', () => {
   });
 
   it('#1107: the member check ignores email case', async () => {
-    email = 'Powan@accounts.trip-planner.invalid';
+    email = MEMBER.toUpperCase();
     await syncDefaultShare();
     expect(getStoredDefaultTripShareId()).toBe(SHARED_TRIP_ID);
   });

@@ -9,7 +9,7 @@ wrong.
 | Branch | What it is |
 |---|---|
 | `lax` | One working branch. Force-push it, rebase it, break it. Nobody else builds on it. |
-| `uttam` | Uttam's working branch. Same freedom. |
+| `uttam` | The other working branch. Same freedom. |
 | `dev` | Where the two meet. Everything is tested here together before it can ship. It is **not** the repository's default branch, so check the base before you open a pull request — GitHub will offer you `main`. |
 | `main` | What is live at https://powan55.github.io/trip_planner/. Every push to it deploys. |
 

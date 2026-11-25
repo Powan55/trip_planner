@@ -18,7 +18,7 @@ import AxeBuilder from '@axe-core/playwright';
  *   5. (#2) Every phrase row carries its native script under `lang="ne"` / `lang="ja"`.
  */
 
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

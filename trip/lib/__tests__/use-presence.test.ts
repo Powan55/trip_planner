@@ -275,10 +275,10 @@ describe('#439 — stable identity across re-renders', () => {
     const h = renderRecording();
     await flush();
     act(() => {
-      presenceCtl.cb?.([{ uid: 'u2', name: 'Powan', lastSeen: Date.now() }]);
+      presenceCtl.cb?.([{ uid: 'u2', name: 'Alex', lastSeen: Date.now() }]);
     });
     const afterSnapshot = h.seen[h.seen.length - 1];
-    expect(afterSnapshot.map((p) => p.name)).toEqual(['Powan']);
+    expect(afterSnapshot.map((p) => p.name)).toEqual(['Alex']);
 
     h.rerender();
     const afterRerender = h.seen[h.seen.length - 1];
@@ -291,20 +291,20 @@ describe('#439 — stable identity across re-renders', () => {
     const h = renderRecording();
     await flush();
     act(() => {
-      presenceCtl.cb?.([{ uid: 'u2', name: 'Powan', lastSeen: Date.now() }]);
+      presenceCtl.cb?.([{ uid: 'u2', name: 'Alex', lastSeen: Date.now() }]);
     });
     const first = h.seen[h.seen.length - 1];
 
     act(() => {
       presenceCtl.cb?.([
-        { uid: 'u2', name: 'Powan', lastSeen: Date.now() },
-        { uid: 'u3', name: 'Sushil', lastSeen: Date.now() },
+        { uid: 'u2', name: 'Alex', lastSeen: Date.now() },
+        { uid: 'u3', name: 'Rina', lastSeen: Date.now() },
       ]);
     });
     const second = h.seen[h.seen.length - 1];
 
     expect(second).not.toBe(first);
-    expect(second.map((p) => p.name).sort()).toEqual(['Powan', 'Sushil']);
+    expect(second.map((p) => p.name).sort()).toEqual(['Alex', 'Rina']);
     h.unmount();
   });
 });

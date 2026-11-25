@@ -32,7 +32,7 @@ const PNG_1PX = Buffer.from(
 );
 
 /** Mirrors `e2e/journal-browse.spec.ts`'s `gotoAsTraveler` (a real Trip Token, D-073 SW settle). */
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
