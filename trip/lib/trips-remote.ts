@@ -1,39 +1,12 @@
-// The trip-meta remote-sync seam — carries a trip's IDENTITY (name + config)
-// to Firestore, so someone joining via a `?trip=` link receives
-// who/what the trip is, not just its raw itinerary/expenses/etc. rows.
+// Trip identity (name + config) in `trips/{tripId}/meta/info`, so someone joining by link gets
+// the trip itself, not just its rows. `meta` and `profile` are reserved subcollection names.
 //
-// SHAPE: ONE doc `trips/{tripId}/meta/info` = `{ name, config?, updatedAt? }` (the `meta` subcollection name
-// is RESERVED within a trip doc, alongside the-future `profile` subcollection — never reuse
-// either name for a different purpose).
-//
-// WRITE (local → remote): `pushTripMeta(tripId, meta)` — best-effort `setDoc`; never rejects
-// (failures are swallowed to console.warn). Not an outbox domain, but a failed push stays queued
-// in key 58 (#1125, D-880) and `flushPendingTripSync` retries it from the registry's current
-// entry on the same triggers as the journal and prefs queues. The trip list queues the same way.
-//
-// ⚠ — AWAIT IT IF YOU ARE ABOUT TO NAVIGATE. This used to read "callers must NOT
-// await this for correctness", and that instruction shipped the defect: `window.location.
-// assign` unloads the page in 370–740 ms, but this function must first `await getRemote()`
-// (a ~456 kB dynamic import + initializeApp + a WebChannel handshake) before `setDoc` is
-// even issued, so the write died in flight — measured absent after 20 s on 5 of 6 creates,
-// vs 179 ms to land when the caller did not navigate. Every trip shared before its first
-// rename was affected: the joiner's /plan rendered no day cells. A NAVIGATING caller must
-// now await this under a timeout (see `CREATE_PUSH_BUDGET_MS` in components/trips-hub);
-// a caller that stays on the page (`saveRename`) is still correctly fire-and-forget.
-// READ (remote → local): `fetchTripMeta(tripId)` — a ONE-SHOT `getDoc` (no subscribe — this is
-// a joiner's self-heal read, not a live sync channel), sanitized via the registry's
-// own `sanitizeTripConfig` so a malformed remote doc degrades to `undefined`/a name-only
-// result rather than corrupting local state. Its caller (`runTripMetaSelfHeal` in
-// components/itinerary-provider) runs it ONCE PER PAGE LOAD and applies it by updatedAt LWW
-// (D-600), so a peer's rename lands on the next load.
-//
-// DORMANT-SAFE: firebase is reached ONLY through the shared `getRemote()` (lazy, gated on
-// `isRemoteConfigured()`). This module is itself imported only dynamically (from trips-hub's
-// create/rename handlers + the provider's gated self-heal effect), so the dormant build pulls no
-// firebase.
-//
-// NO RULES CHANGE: tripId IS the capability; the existing `trips/{tripId}/**` rules
-// already cover this new `meta/info` doc path.
+// Writes are best-effort and never reject; a failed push is queued in key 58 (D-880) and
+// retried by flushPendingTripSync. If you're about to navigate, await the push under a timeout
+// (CREATE_PUSH_BUDGET_MS in trips-hub): the lazy firebase load takes longer than a page unload,
+// and an unawaited write dies in flight.
+// Reads are one-shot; the provider applies them once per load by updatedAt (D-600).
+// Imported only dynamically, so dormant builds load no firebase.
 
 'use client';
 
@@ -77,14 +50,8 @@ import { SHARED_TRIP_ID } from './shared-trip';
 export type TripMetaPayload = { name: string; config?: TripConfigBlock; updatedAt?: number };
 
 /**
- * Best-effort push of a trip's name/config to `trips/{tripId}/meta/info`. Never rejects to the
- * caller (a failed push is swallowed to console.warn). The trip is queued in key 58 before the
- * write and dequeued once a push of its current entry lands, so `flushPendingTripSync` retries a
- * failure (#1125). `tripId` is caller-supplied (NOT read from the active-trip pointer) because a
- * rename can target any known trip row, not only the currently-active one.
- *
- * The returned promise settles only after the lazy firebase load AND the `setDoc` ack, so a caller
- * that is about to unload the page must await it under a timeout.
+ * Push a trip's name/config. Never rejects; queued for retry until it lands. `tripId` is passed
+ * in because a rename can target any known trip. Settles after the setDoc ack.
  */
 export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return;
@@ -113,11 +80,8 @@ async function writeTripMeta(tripId: string, meta: TripMetaPayload, retry: boole
   // JSON round-trip both clones and strips `undefined`-valued optional fields (`currency`),
   // which Firestore's setDoc rejects — same defensive move as docs-remote's sanitizeRowsForWrite.
   if (meta.config) payload.config = JSON.parse(JSON.stringify(meta.config));
-  // merge:true ONLY when config is absent — a joiner's device has no local `config`
-  // (getKnownTrip returns none), so its rename must not blow away the creator's synced
-  // config field (#543). But merge:true deep-merges nested maps, so a caller that DOES
-  // have a config (the creator, editing it) must send a plain overwrite, or a key the
-  // creator just deleted inside config would survive merged in from the old doc.
+  // Merge only without a config: a joiner's rename mustn't erase the creator's config, but a
+  // config edit must overwrite so deleted keys don't survive the deep merge.
   const opts = meta.config ? {} : { merge: true };
   if (!retry) return setDoc(ref, payload, opts);
   await runTransaction(db, async (tx) => {
@@ -130,12 +94,9 @@ async function writeTripMeta(tripId: string, meta: TripMetaPayload, retry: boole
   });
 }
 
-// ── #1125: the retry queue for trip meta and the trip list (key 58, D-880). ──────────────────
-// A failed push used to be swallowed and forgotten, so a rename made offline never reached the
-// other travellers. Like the journal and prefs queues, the record is WHICH thing is unsynced, not
-// a payload: a retry re-reads the current registry entry (or list), so the newest local state is
-// what lands. Cleared only on success. A refusal is skipped for the rest of the page load and
-// stays queued (read-denied.ts), the same rule as the outbox's #267.
+// Retry queue for trip meta and the trip list (key 58, D-880). It records which things are
+// unsynced, not payloads, so a retry sends the current local state. Refusals are skipped until
+// reload but stay queued, like the outbox.
 
 function queueTripSync(edit: (q: TripSyncQueue) => TripSyncQueue): void {
   const q = edit(readTripSyncQueue());
@@ -197,12 +158,7 @@ export function flushPendingTripSync(): Promise<void> {
   return tripSyncFlush;
 }
 
-/**
- * One-shot fetch of a trip's remote meta doc. Returns `undefined` when dormant, unreachable, the
- * doc doesn't exist, or the doc is malformed (no name) — TOTAL, never throws. A present-but-bad
- * `config` field degrades to a name-only result (`sanitizeTripConfig` returns `undefined`) rather
- * than failing the whole fetch.
- */
+/** One-shot meta read; undefined on any failure. A bad config degrades to name-only. */
 export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | undefined> {
   if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return undefined;
   try {
@@ -223,38 +179,18 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
   }
 }
 
-// ── Sync Code: cross-device known-trips list ────────────────────────────────────────────────
-//
-// SHAPE: ONE doc `trips/{syncCode}/profile/tripList` = `{ version: 1, trips: TripMeta[],
-// removed?: RemovedTrip[] }`. `removed` is ADDITIVE — an old client simply ignores it (it can
-// re-add a forgotten trip until updated; accepted). The syncCode is just another capability token in
-// the SAME `trips/` collection, so the existing `trips/{id}/**` rules already cover this
-// `profile/tripList` path — NO Firestore rules change. The DEFAULT pack is never pushed, merged, or
-// tombstoned (mergeTripLists strips it — its id is a secret).
+// Known-trips list across devices: `trips/{syncCode}/profile/tripList` =
+// `{ version: 1, trips, removed? }`. Older clients ignore `removed`. The sample pack is never
+// pushed (its id is secret).
 
-// ──: the ACCOUNT's display name ─────────────────────────────────────────────────────
-//
-// SHAPE: ONE doc `trips/{userToken}/profile/identity` = `{ version: 1, name }` — its OWN document,
-// deliberately NOT a `name` field on `profile/tripList`. `pushTripList` above writes the whole
-// document (`tx.set`, no `{merge:true}`): a full overwrite with two independent deleters — a client
-// on an older service-worker-cached bundle, and `subscribeTripList`'s own re-push/seed. Either one
-// deleting a `name` field there would make the reverts-to-"Traveler" defect come back
-// INTERMITTENTLY, which is strictly worse than the defect: no longer reproducible on demand.
-//
-// Both functions mirror pushTripMeta/fetchTripMeta exactly: best-effort, TOTAL, never reject,
-// console.warn on failure. NO outbox, and — per — NO timeout/budget branch, because no
-// identity write is ever issued from a code path that navigates (the two writers are the Settings
-// rename and the provider's mount reconciler, both on surfaces that stay put), so the
-// write-dies-in-flight shape is unreachable here rather than mitigated.
+// Account display name: `trips/{userToken}/profile/identity` = `{ version: 1, name }`. A separate
+// doc because tripList is written as a full overwrite, and a stale client would drop the name.
+// No timeout handling: identity is never written from a navigating code path.
 
 /**
- * Best-effort publish of an account's display name to `trips/{userToken}/profile/identity`.
- * Fire-and-forget: never rejects (a failed publish stays local-only via console.warn, and the
- * provider's reconciler retries it on the next page load — the cheap equivalent of a retry queue).
- *
- * 🔴 Callers MUST NOT publish the transient login placeholder (`DEFAULT_TRAVELER_NAME`) — see
- * `runAccountIdentitySync`'s branch 2. This function does not police that: the Settings rename may
- * legitimately set any name the user actually typed, including that one. Intent is the discriminator.
+ * Publish the account's display name. Never rejects; the provider retries on the next load.
+ * Callers must not publish the login placeholder (DEFAULT_TRAVELER_NAME); a deliberate rename
+ * to that name is allowed, so this function doesn't filter it.
  */
 export async function pushAccountIdentity(code: string, name: string): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
@@ -268,14 +204,8 @@ export async function pushAccountIdentity(code: string, name: string): Promise<v
 }
 
 /**
- * The identity doc's ONE writer — `trips/{code}/profile/identity`. Omitting `name` writes
- * `{ version: 1 }`: the account EXISTS and knows no name, which is precisely the state
- * `readIdentityName` already answers `undefined` for and the probe already reports as
- * `'exists'` with no name. That nameless form is what lets the two callers below create an
- * account WITHOUT publishing `DEFAULT_TRAVELER_NAME` — publishing the placeholder would
- * overwrite the real name on every other device (see its comment in lib/token-auth).
- *
- * Rejects on a transport failure; every caller wraps it, because none of them may fail loudly.
+ * The only identity-doc writer. Without `name` it writes `{ version: 1 }`: the account exists
+ * with no name, so callers can create it without publishing the placeholder. Rejects on failure.
  */
 async function writeIdentityDoc(code: string, name?: string): Promise<void> {
   const { db, fs } = await getRemote();
@@ -287,19 +217,9 @@ async function writeIdentityDoc(code: string, name?: string): Promise<void> {
 }
 
 /**
- * BOTH account documents for a freshly minted key — `profile/identity` and `profile/tripList`,
- * the same pair the door's create path writes (components/token-gate).
- *
- * The two grandfathered mint sites — trips-hub's "Finish setting up your account" and Settings'
- * "Create my key" — used to seed only the trip list. A key minted from either therefore had no
- * identity doc, which is the one document the door probes, so the account was rejected on every
- * OTHER device, permanently. The minting device never noticed: it holds the key, so the door
- * skips the probe entirely for it. Seeding both here is the root fix; the legacy-tripList
- * fallback in `probeAccountIdentity` is what rescues the keys minted before it.
- *
- * `name` is this device's stored display name, and the placeholder filter lives HERE rather than
- * at either call site — one rule, no drift. Best-effort throughout: a failed identity write is
- * swallowed, and the next login's fallback backfills it anyway.
+ * Seed both account docs for a new key, as the door's create path does. Without the identity
+ * doc the door rejects the key on every other device. Filters the placeholder name here.
+ * Best-effort; the login fallback backfills a failed identity write.
  */
 export async function seedAccountDocs(code: string, name?: string | null): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
@@ -320,13 +240,8 @@ export type AccountIdentityRead =
   | { status: 'error' };
 
 /**
- * One-shot SERVER read of an account's identity doc, for the provider's post-load reconciler.
- * Three-way and total: an error must never read as "missing", or the reconciler would write this
- * device's name over a real one it simply failed to see. `getDocFromServer` for the same reason:
- * a cold cache reports absence. `name` is sanitised to `trim().slice(0, 24)`.
- *
- * The DOOR does not call this — its login path gets the same name off `probeAccountIdentity`'s
- * single read.
+ * Server read of the identity doc for the provider's reconciler. An error is never reported as
+ * "missing", or the reconciler would overwrite a real name it failed to see.
  */
 export async function fetchAccountIdentity(code: string): Promise<AccountIdentityRead> {
   if (!isRemoteConfigured() || !isSafeTripSegment(code)) return { status: 'error' };
@@ -346,15 +261,9 @@ export async function fetchAccountIdentity(code: string): Promise<AccountIdentit
 }
 
 /**
- * D-565's gate: does ANY evidence say `code` is a real, previously-synced account rather than a
- * key someone just typed? `#10`'s door probe fails OPEN on a timeout/offline read (`'unavailable'`
- * admits), so a typo'd/invented key can reach the app; if that device is later online when this
- * reconciler runs and the identity doc is genuinely `'missing'`, `healAccountIdentity` must not
- * mint a permanent doc for it (identity docs are never deleted — see the profile/identity comment
- * block above). A `profile/tripList` doc is written only by a deliberate account action
- * (`seedAccountDocs`/`pushTripList`), so its presence is the same positive-evidence test
- * `readAccountVerdict`'s legacy fallback already relies on. Total — dormant/unsafe/error read
- * `false`, never throws.
+ * Whether a tripList doc proves `code` is a real account (D-565). The door fails open offline,
+ * so a typo'd key can get in; this stops the reconciler minting a permanent identity doc for it.
+ * False on any error.
  */
 export async function hasRemoteTripList(code: string): Promise<boolean> {
   if (!isRemoteConfigured() || !isSafeTripSegment(code)) return false;
@@ -369,12 +278,8 @@ export async function hasRemoteTripList(code: string): Promise<boolean> {
   }
 }
 
-/**
- * CREATE-ONLY write of the identity doc, for a device holding a key whose account has none
- * (legacy keys minted before `seedAccountDocs`; the door rejects those on every other device).
- * A transaction, so a doc another device created meanwhile is never overwritten. The placeholder
- * is filtered here: a nameless `{ version: 1 }` still makes the account exist. Never rejects.
- */
+/** Create-only identity write for legacy keys that lack one; a transaction so it never
+ * overwrites. Never rejects. */
 export async function healAccountIdentity(code: string, name?: string): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
   const trimmed = name?.trim().slice(0, 24);
@@ -396,12 +301,7 @@ export async function healAccountIdentity(code: string, name?: string): Promise<
 
 export type AccountProbe = 'exists' | 'missing' | 'unavailable';
 
-/**
- * The probe's answer: the verdict, plus the account's display name when the read found one.
- * `name` is only ever set alongside `verdict: 'exists'`, and is `undefined` for a doc that has no
- * usable `name` field — so a caller reading it gets "the account knows no name" and "the account
- * isn't there" as the same fallback, which is what the door wants.
- */
+/** `name` is only set with `verdict: 'exists'`. */
 export type AccountProbeResult = { verdict: AccountProbe; name?: string };
 
 /** How long the door waits for the identity read before admitting anyway (#10). */
@@ -414,26 +314,13 @@ function readIdentityName(data: Record<string, unknown> | undefined): string | u
 }
 
 /**
- * ONE server read of `trips/{code}/profile/identity`, raced against a timer — the door's login
- * validation (#10). Tri-state, and the mapping IS the security posture:
- * - 'exists'      → the identity doc is there: a real account.
- * - 'missing'     → the SERVER answered and the doc is absent: an invented/mistyped key.
- * - 'unavailable' → dormant build, blank code, timeout, or ANY error. The caller must ADMIT on
- *   this value — validation fails OPEN, because a network failure must never lock a real user out
- *   of their own data.
- *
- * It also returns the account's display NAME out of that same snapshot (D-277's `name` field),
- * because the door needs both and this is the document that holds both: one read serves the
- * validation and the "I log in as Alex and it says Traveler" fix, under this ONE 8s budget.
- *
- * `getDocFromServer`, never a plain `getDoc`: a cold/stale cache reports absence, and a cached
- * absence rejecting a REAL user is the one wrong the fail-open design cannot tolerate. A rules
- * change that denies this read (code 'permission-denied') is logged loudly, because it silently
- * turns validation off for every login while everything else keeps working.
- *
- * The 8s budget now wraps the WHOLE call, `getRemote()`'s lazy firebase load included, rather than
- * only the read — the legacy fallback below can add a second read and a write, and all of it has
- * to stay inside the one budget the door was sized for.
+ * The door's login check, one server read under an 8s budget (which covers the firebase load):
+ * - 'exists': a real account (with its display name, if any)
+ * - 'missing': the server says no such account
+ * - 'unavailable': timeout or any error. Callers admit on this: a network failure must never
+ *   lock someone out of their own data.
+ * Server read, not cache: a cold cache reports absence. permission-denied is logged loudly
+ * because it would silently disable the check.
  */
 export async function probeAccountIdentity(code: string): Promise<AccountProbeResult> {
   if (!isRemoteConfigured() || !code) return { verdict: 'unavailable' };
@@ -458,21 +345,9 @@ export async function probeAccountIdentity(code: string): Promise<AccountProbeRe
 }
 
 /**
- * The probe's actual reads, unraced — `probeAccountIdentity` owns the budget and the catch.
- *
- * THE LEGACY FALLBACK. An absent identity doc is NOT sufficient evidence that the key is invented:
- * the two grandfathered mint sites shipped for months writing `profile/tripList` and nothing else
- * (see `seedAccountDocs`), so the travellers this feature exists for hold keys that the absence
- * test rejects. A second server read of `profile/tripList` distinguishes the two cases on POSITIVE
- * evidence — a document nothing but a deliberate account write creates. No document, no admit: an
- * invented or mistyped key is still 'missing', which is the whole of what the validation buys.
- *
- * Then backfill the identity doc, so an account pays for the extra read exactly once. The backfill
- * is best-effort by construction — its failure is swallowed and the verdict is already decided, so
- * it can never turn an admit into a reject.
- *
- * COST: one extra document read against the Spark free tier's 50k/day, and only on the path that
- * was about to reject, which is rare by definition. The admit path is unchanged at one read.
+ * The probe's reads. Older keys have a tripList doc but no identity doc, so a missing identity
+ * falls back to reading tripList before rejecting, then backfills identity so the extra read
+ * happens once.
  */
 async function readAccountVerdict(code: string): Promise<AccountProbeResult> {
   const { db, fs } = await getRemote();
@@ -491,31 +366,18 @@ async function readAccountVerdict(code: string): Promise<AccountProbeResult> {
   return { verdict: 'exists' };
 }
 
-// ── #10 — the opt-in member lock ────────────────────────────────────────────────────────────
-//
-// A trip doc MAY carry `members: { <uid>: 'owner' | 'member' }`. A map naming an owner switches
-// that trip from the grandfathered capability model (whoever holds the unguessable tripId can
-// read+write it) to membership. That is deliberate and is spelled out at length in
-// `firestore.rules`: a rules deploy is instant and global, so a mandatory members map would
-// permission-deny every trip minted before it and every `?trip=` link already pasted into a chat,
-// with no migration window. Opt-in is the migration window.
-//
-// WHO WRITES WHAT. `createTripDoc` mints the map at creation time with the creator as `owner`
-// (rules reject a create whose map does not name the creator owner). `ensureMembership` adds ONE
-// entry — this device's — using a FIELD-PATH update so the write touches only the members map: a
-// whole-document overwrite is rejected for a non-owner, whose only legal edit is an add-only
-// members diff. `owner` may remove/re-role; `member` may add, and only as 'member' (D-642).
+// Member lock. A trip doc may carry `members: { <uid>: 'owner' | 'member' }`; one naming an owner
+// switches the trip from "anyone with the id" to membership. Opt-in so existing trips and links
+// keep working (see firestore.rules).
+// createTripDoc names the creator owner. Others add themselves via a field-path update, since a
+// non-owner may only make add-only members edits. Members may only add 'member' (D-642).
 
 export type TripRole = 'owner' | 'member';
 
 /**
- * Dispatched on `window` when the rules refuse this device's enrolment — i.e. the trip HAS a
- * members map and this uid is not in it. The provider listens for it and shows one toast; nothing
- * throws, because "you are not a member yet" is a normal state, not an error.
- *
- * 🔴 `components/itinerary-provider.tsx` listens for this by LITERAL, deliberately: importing the
- * constant would drag this module (and firebase) onto the provider's static chunk. The literal and
- * this constant are pinned equal by `lib/__tests__/trip-membership.test.ts`.
+ * Fired when the rules refuse this device's enrolment; the provider shows a toast.
+ * itinerary-provider.tsx uses the string literal to keep firebase off its chunk; keep in step
+ * (trip-membership.test.ts checks).
  */
 export const TRIP_ACCESS_PENDING_EVENT = 'trip:access-pending';
 
@@ -531,15 +393,8 @@ export function readMembers(data: Record<string, unknown> | undefined): Record<s
 }
 
 /**
- * Create a brand-new trip's doc, naming THIS device `owner` (#10). Best-effort and TOTAL, exactly
- * like `pushTripMeta`.
- *
- * MUST RUN BEFORE the trip's first subcollection write. Two reasons, both structural:
- * - the members map can only be minted on the CREATE (`claimsSelfAsOwner` in the rules gates the
- *   create; a later whole-doc overwrite by anyone but the owner is refused), and
- * - once the map exists, every write under `trips/{id}/**` is membership-gated, so the creator has
- *   to already be in it.
- * `trips-hub`'s create awaits this inside its existing navigation budget, ahead of the meta push.
+ * Create a new trip's doc with this device as owner. Must run before any subcollection write:
+ * rules only accept the members map on create, and later writes need the creator in it.
  */
 export async function createTripDoc(tripId: string): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(tripId)) return;
@@ -558,36 +413,13 @@ export async function createTripDoc(tripId: string): Promise<void> {
 }
 
 /**
- * Enrol THIS device in the caller-supplied trip (#10). TOTAL — never rejects.
- *
- * Four outcomes, and each is a deliberate no-drama branch:
- * - trip doc ABSENT ⇒ return. There is nothing to join yet; the creator (or the legacy seed path)
- *   writes the doc, and this device enrols on a later load.
- * - already in `members` ⇒ return, with no write at all. This is the common case on every load
- *   after the first, so it must cost one read and nothing else.
- * - members map ABSENT (a grandfathered capability trip), or one the rules read as open because
- *   it names no owner (`readMembers`) ⇒ return, with no write at all. #477: this branch used to
- *   take `'owner'`, on the theory that the first device to open a pre-lock trip is overwhelmingly
- *   its creator. It is not — a `?trip=` link forwarded into a group chat makes whoever taps it
- *   first the sole owner and locks the real creator out for good, with no self-service route back.
- *   Nothing local distinguishes the creator from a tapper (the registry records `joinedAt` for
- *   both), and `'member'` is not the safer answer either: `rosterIsWellFormed()` refuses any
- *   update leaving the map naming no owner, so it would be denied and raise access-pending on a
- *   trip this device can in fact read and write. So: no write. An owner-less trip stays OPEN to
- *   every token holder, which is the grandfather contract (D-540/#453), and a roster is minted
- *   only where the creator is actually known — `createTripDoc` and the first-snapshot seed.
- * - anyone else ⇒ `'member'`.
- *
- * The explicit target is intentional: the normal page-load caller passes the active trip, while
- * Google-account adoption calls this once for every known remote trip even if the local-only
- * sample is active.
- *
- * The write is a FIELD PATH (`members.<uid>`), never a whole-document `setDoc`: rules allow a
- * non-owner exactly one shape of edit — a diff that touches only `members` and only ADDS keys.
- *
- * A `permission-denied` (the trip is member-gated and this device is not in the map — the read
- * itself is refused) dispatches `trip:access-pending` instead of throwing. Joining a gated trip
- * takes an invite link (`lib/invites-remote.ts`); there is no self-join.
+ * Enrol this device in a trip. Never rejects.
+ * - No trip doc, or already a member: no write.
+ * - Open trip (no owner): no write. Claiming owner here would let whoever taps a forwarded link
+ *   first lock out the creator, and 'member' would be refused by the rules. Open trips stay open
+ *   (D-540).
+ * - Otherwise add as 'member' via a field-path update.
+ * permission-denied fires `trip:access-pending`; gated trips need an invite link.
  */
 export async function ensureMembership(tripId: string): Promise<void> {
   // This function also repairs every known trip after Google-account adoption, when the
@@ -597,13 +429,8 @@ export async function ensureMembership(tripId: string): Promise<void> {
     const { db, fs, uid } = await getRemote();
     const { doc, getDocFromServer, updateDoc } = fs;
     const ref = doc(db, 'trips', tripId);
-    // SERVER read: a cached copy can be stale in both directions, and BOTH are silent.
-    // - absent members map that has since been written ⇒ we read the trip as still open and skip
-    //   the enrolment the rules now require, with no access-pending toast to explain the denials
-    //   that follow.
-    // - stale roster missing this uid where the server already has it as `'owner'` ⇒ the write
-    //   below is `members.<uid> = 'member'`, and the rules evaluate `isOwner()` against the STORED
-    //   doc, so it is ALLOWED: the owner silently demotes itself.
+    // Server read: a stale cache could skip a required enrolment, or make an owner write itself
+    // as 'member' and silently demote itself.
     const snap = await getDocFromServer(ref);
     if (!snap.exists()) return;
     const members = readMembers(snap.data() as Record<string, unknown>);
@@ -637,11 +464,8 @@ export async function ensureKnownTripMemberships(): Promise<void> {
 }
 
 /**
- * What a roster read could establish. The three states were ONE `undefined` until #477, and
- * collapsing them is now a user-visible bug rather than a tidy simplification: since the UI hides
- * the add-device control on `'open'`, "this trip has no roster" and "I could not find out" must
- * not be the same answer. `getDocFromServer` REJECTS offline rather than serving the cache, so
- * `'unknown'` is a routine state for an ordinary member-gated trip, not an exotic one.
+ * Keep 'open' and 'unknown' distinct: the UI hides controls on 'open', and 'unknown' is routine
+ * offline because the server read rejects instead of using the cache.
  */
 export type TripRosterRead =
   /** A read that came back with a roster the rules will actually gate on. */
@@ -654,11 +478,7 @@ export type TripRosterRead =
   /** Nothing was established — dormant, offline, unreachable, or refused. */
   | { state: 'unknown' };
 
-/**
- * The trip's roster. TOTAL, never throws — every failure answers `{ state: 'unknown' }`, which the
- * caller must render differently from `'open'` (a grandfathered capability trip, where "everyone
- * holding the link" is the honest answer and a list would be a lie).
- */
+/** The trip's roster. Any failure is `{ state: 'unknown' }`. */
 export async function fetchTripMembers(tripId: string): Promise<TripRosterRead> {
   if (!isTripRemoteConfigured() || !isSafeTripSegment(tripId)) return { state: 'unknown' };
   try {
@@ -679,42 +499,24 @@ export async function fetchTripMembers(tripId: string): Promise<TripRosterRead> 
 /** What a roster write did. `denied` is the rules refusing it, which the UI must explain. */
 export type MemberWriteResult = 'ok' | 'denied' | 'failed';
 
-/**
- * Add someone else's device code to this trip (#10). ANY member may do this — the rules accept an
- * add-only members diff from a member — which is what makes "send me your code and I'll add you"
- * work without an invite server.
- *
- * Always `'member'`: the rules refuse any other role from a member (D-642).
- */
+/** Any member may add another device, always as 'member' (D-642). */
 export async function addTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
   return writeMemberField(tripId, uid, 'member');
 }
 
-/**
- * Remove a device from this trip (#10). OWNER ONLY, and enforced twice: the control is not
- * rendered for a member, and the rules refuse a non-owner edit that removes a members key.
- */
+/** Owner only; the rules enforce it too. */
 export async function removeTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
   return writeMemberField(tripId, uid, null);
 }
 
-/**
- * Leave a trip (#859): remove THIS device's own roster key. The rules let any member write that
- * and nothing else, and refuse it when it would leave the roster with no owner, so the last owner
- * gets `'denied'`. It does not forget the trip locally and does not stop another member adding the
- * uid back by its code.
- */
+/** Remove this device's own key. The last owner gets 'denied'. Doesn't forget the trip locally. */
 export async function leaveTrip(tripId: string, uid: string): Promise<MemberWriteResult> {
   return writeMemberField(tripId, uid, null);
 }
 
 /**
- * Change a member's role (#858): promote a member to a second `'owner'`, or step an owner down to
- * `'member'`. OWNER ONLY, enforced twice like `removeTripMember`: the controls render for owners,
- * and the rules refuse a non-owner role write. The rules also refuse any roster left naming no
- * owner (`rosterIsWellFormed`), so the last owner cannot step down and strand the trip. An
- * ownership TRANSFER is these two writes in turn, which is why a lost owner device stops being fatal
- * once a second owner exists; it cannot be recovered after the fact, since only an owner may write.
+ * Promote or demote, owner only. The last owner can't step down. A transfer is promote then
+ * demote; a second owner is the only recovery from a lost owner device.
  */
 export async function setTripMemberRole(
   tripId: string,
@@ -759,17 +561,8 @@ function docToRemoved(data: Record<string, unknown>): RemovedTrip[] {
 }
 
 /**
- * Best-effort push of THIS browser's known-trips list to `trips/{syncCode}/profile/tripList`: read
- * the remote doc, additive-union it with the local list, write the union back. Fire-and-forget —
- * never rejects to the caller (a failed push stays queued in key 58 for `flushPendingTripSync`,
- * #1125). The JSON
- * round-trip strips `undefined`-valued optional fields (config/updatedAt/currency) Firestore rejects.
- *
- * Transactional, like every sibling push (`pushDayMerged`, `pushBudgetMerged`, `pushChecklistMerged`,
- * `pushPlacesMerged`): the plain read-merge-setDoc this used to do let two devices forgetting two
- * different trips both read the same doc and the second write clobber the first, so a forgotten trip
- * could reappear or a new one vanish (#125). A concurrent peer write now forces a retry that
- * re-merges instead.
+ * Merge the local trip list into the remote one in a transaction, so concurrent devices
+ * re-merge instead of clobbering. Never rejects; failures are queued for retry.
  */
 export async function pushTripList(code: string): Promise<void> {
   if (!isRemoteConfigured() || !isSafeTripSegment(code)) return;
@@ -803,20 +596,10 @@ export async function pushTripList(code: string): Promise<void> {
 }
 
 /**
- * Subscribe to the remote trip list (remote → local). Opens ONE `onSnapshot` on
- * `trips/{syncCode}/profile/tripList` (first-snapshot marker = DOC PRESENCE, docs-remote recipe):
- * PRESENT ⇒ merge into the local registry (`importRemoteTrips`) + push the union back when local had
- * extras; ABSENT on the first snapshot ⇒ NOTHING (#10 — the auto-seed is DELETED). Seeding an
- * absent doc here is what used to manufacture a working account for ANY pasted string, which made
- * the door's validation meaningless; the tripList doc is now created only by the deliberate
- * writers (the door's create path, trips-hub's list pushes, `finishAccount`). Gated + lazy +
- * self-degrading: no-op unsub when dormant; any failure → local-only via console.warn, never
- * throws. Best-effort, so — unlike the domain subscribes — it carries NO online-reconnect retry
- * (a dropped stream re-subscribes on the next reload). `onMerge(activeTripChanged)` fires after a
- * present-snapshot merge; `activeTripChanged` is true ONLY when the merge actually MOVED the
- * active-trip pointer (an incoming tombstone for the active trip — `importRemoteTrips`), which
- * obliges the caller to reload the same way a local trip switch does. It must stay false on an
- * ordinary merge: reloading on every sync would be worse than the drift it fixes.
+ * Subscribe to the remote trip list and merge it in, pushing back when local had extras.
+ * A missing doc is left alone: seeding it would make any pasted string a working account.
+ * No reconnect retry; a dropped stream resubscribes on reload. `activeTripChanged` is true only
+ * when a tombstone moved the active trip, and then the caller reloads.
  */
 export function subscribeTripList(
   code: string,

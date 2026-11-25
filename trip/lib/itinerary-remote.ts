@@ -1,38 +1,14 @@
-// The remote-sync seam — the ONLY new architectural surface for.
-//
-// This module wraps the existing store; it never replaces it. It has two
-// directions:
-// READ (remote → local): a Firestore `onSnapshot` on the trip's `days` collection
-// maps docs back to `DayPlan[]`, writes them through the existing
-// `savePlans()`, and dispatches the existing
-// `itinerary:changed` CustomEvent. Because that event is already what
-// `use-itinerary.ts`'s reread() listens for, the whole reactive UI (calendar,
-// dashboard, timeline, every card) updates with ZERO component edits.
-// WRITE (local → remote): the store's `commit()` hands each changed day to the outbox
-// (`withOutbox(itineraryChunkSync)` in `itinerary-ports.ts`) AFTER the local `savePlans(next)`,
-// which calls `pushDayChunk` → `pushDayMerged`: a merge-aware transactional write of ONLY the
-// changed `trips/{TRIP_ID}/days/{date}` doc. Whole-day removal is not a user-reachable operation.
-//
-// ECHO-SUPPRESSION: the write path runs ONLY from `commit()`
-// (genuine local mutations), NEVER from the snapshot-ingest path — the snapshot path
-// calls `savePlans()` + dispatch DIRECTLY, so it can never re-push. Firestore's own
-// local-write echo is additionally skipped via `snapshot.metadata.hasPendingWrites`
-// Together these break any write→read→write loop.
-//
-// FIRST-SNAPSHOT RECONCILIATION:
-// on the first snapshot we read the trip-doc marker to distinguish "never synced" from
-// "deliberately emptied", then either apply remote authoritatively (incl. empty) or
-// seed remote from local — never losing user data, never resurrecting the sample over a
-// deliberately-emptied shared plan.
-//
-// DORMANT-SAFE: firebase is imported ONLY via dynamic `import()` behind
-// the `isRemoteConfigured()` gate. With the env absent the gate is false, the handle's
-// SDK code never executes, and firebase tree-shakes off the hot path. A
-// misconfigured/unreachable Firebase degrades to local-only (try/catch → console.warn,
-// never throw) — it must never crash the app.
-//
-// CONFIG single-source: config + the on/off gate are read ONLY from
-// lib/firebase-config.ts. No process.env.NEXT_PUBLIC_FIREBASE_* reads here.
+// Itinerary sync with Firestore, wrapped around the local store.
+// - Read: onSnapshot on trips/{id}/days, written through savePlans() plus the
+//   `itinerary:changed` event, so the UI updates without component changes.
+// - Write: commit() hands each changed day to the outbox, which calls pushDayMerged, a
+//   transactional merge of that one day doc.
+// The snapshot path never calls commit(), so it can't re-push; our own write echoes are skipped
+// via hasPendingWrites.
+// The first snapshot reads the trip-doc marker to tell "never synced" (seed from local) from
+// "synced" (apply remote).
+// Firebase is only imported dynamically behind isRemoteConfigured(); any failure degrades to
+// local-only and never throws. Config comes only from lib/firebase-config.ts.
 
 'use client';
 
@@ -60,68 +36,25 @@ import { realClock } from './trip-now';
 import { getSharedRemote, type FirestoreMod } from './firebase-remote';
 
 /**
- * Map a raw Firestore day-doc into a DayPlan. Defensive: tolerate partial/legacy docs
- * so a malformed remote doc degrades gracefully (it just yields a thin-but-valid
- * DayPlan) rather than throwing inside the snapshot handler.
+ * Map a raw day doc to a DayPlan without throwing on partial or legacy docs.
  *
- * UNKNOWN DAY-LEVEL KEYS PASS THROUGH (#42). The doc's own keys are spread in FIRST and the
- * four type-checked fields written over the top, so a day-level field THIS build has no code
- * for still survives the trip back from Firestore. This used to be a four-field literal, which
- * made this function the single place in the whole chain that narrowed a day: Firestore stores
- * what it is handed, `sanitizeDayForWrite` is a JSON clone, and the Vault's read schema is
- * `.passthrough()` (`core/vault/schema.ts`, "unknown future fields survive a read"). Every
- * other layer already keeps unknown keys, and now this one agrees with them. A new per-day
- * field therefore needs NO edit here; do NOT reintroduce a field list. The one-off
- * `countryLabel` line this replaced (the Dec-9 header reverting to "New York, Nepal" after a
- * sync) was the same bug hit once and patched by name.
+ * Unknown day-level keys pass through: the doc is spread first and the checked fields written
+ * over it, matching every other layer. Don't reintroduce a field list.
+ * `countryLabel` is removed when mistyped rather than copied when valid, because the spread
+ * has already put it on the object; a number there would throw in dayPlaceLabel.
  *
- * `countryLabel` is nonetheless the ONE key still checked by name below, and the check is a
- * `delete`, not a copy. That shape is load-bearing now that the doc's keys are spread in: a
- * wrong-typed `countryLabel` is ALREADY on the object by the time the guard runs, so a guard
- * that only ever assigns would leave it there, and a number would then reach `compose`'s
- * `label.includes(city)` via `dayPlaceLabel` (`lib/leg-label.ts`) and throw. Do not "simplify"
- * it back to `if (typeof … === 'string') day.countryLabel = …`.
- *
- * BEHAVIOR-FROZEN: this mapper is pinned by the merge-primitive suite
- * (`itinerary-remote.test.ts`) and MUST stay a pure shape-mapper (no field defaulting).
- * Pass-through does not default anything: an absent key stays absent, so #42 holds the freeze.
- * The items sanitize (#123, at the `items` line) holds it too, for the same reason: dropping an
- * unsalvageable ROW is not defaulting a FIELD, and every surviving row is returned verbatim.
- * The freeze has been deliberately broken EXACTLY ONCE, with the owner's sign-off: the `country`
- * assertion was re-pointed so a LEG ID passes through instead of being coerced to 'nepal' (see
- * D-303 and the note at that line — the old rule silently corrupted every synced custom trip).
- * Every other assertion is untouched; treat the suite as frozen again from here.
- * The Sync-v2 default-on-read is a
- * SEPARATE step, `defaultDayForMerge` below, applied at the two merge boundaries (snapshot
- * assembly + the transactional-push remote read) — NOT inside `docToDayPlan`. Keeping the
- * two concerns separate is what lets the frozen mapper stay frozen while new clients still
- * treat v1 remote docs as mergeable v2.
+ * Pure shape-mapper, pinned by itinerary-remote.test.ts: no field defaulting here. Sync-v2
+ * defaults are applied separately by `defaultDayForMerge` at the merge boundaries.
  */
 export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan {
   const date = typeof data.date === 'string' ? data.date : id;
-  // LEG-ID PASS-THROUGH (was `data.country === 'japan' ? 'japan' : 'nepal'`). `DayPlan.country`
-  // is a LEG ID (lib/trip-data.ts), not a nepal/japan union — a custom trip's single leg is
-  // 'main' (core/trips/custom.ts). The old coercion rewrote a synced custom trip's leg id to
-  // 'nepal' on every authoritative first snapshot AND wrote it back to Firestore, because
-  // `pushDayMerged` takes day-level fields from the REMOTE side of `mergeDay`. The rule here is
-  // now the Vault read schema's own (`z.string().min(1)`, core/vault/schema.ts): any non-empty
-  // string passes through; missing/blank/wrong-typed still defaults to 'nepal'. Still a pure
-  // shape-mapper — the default fills ABSENT input, it never rewrites input that is present. D-303.
+  // `country` is a leg id (custom trips use 'main'), so any non-empty string passes through.
+  // Coercing it to nepal/japan corrupted synced custom trips (D-303).
   const country = typeof data.country === 'string' && data.country ? data.country : 'nepal';
   const city = typeof data.city === 'string' ? data.city : '';
-  // SANITIZED, was `data.items as ItineraryItem[]` — a bare cast over untrusted remote bytes
-  // (#123), and the two ways one bad row in a day doc hurt were BOTH downstream of it:
-  // - a `null`/primitive element threw on `it.id`/`it.rev` in `defaultDayForMerge`+`mergeItems`
-  //   (both dereference every row unconditionally). The throw is swallowed by the snapshot
-  //   handler's catch, so sync went silently dead for that trip — no apply, no push, no error.
-  // - a row that is an OBJECT but fails the vault's item contract did not throw: it rode through
-  //   to `savePlans()`, and the NEXT load quarantined the whole payload and fell back to the
-  //   sample/empty shells. That is the reported wipe, and it reached every device the snapshot
-  //   did. The read half is fixed too (`parseItineraryPayload`); this is the write half.
-  // `sanitizeItineraryItems` IS the vault's contract (core/itinerary/model.ts wraps
-  // `itineraryItemSchema`), so the two boundaries can no longer disagree about what a row is.
-  // Inside the freeze: it DROPS unsalvageable rows and defaults nothing — an absent field on a
-  // surviving row stays absent, and `.passthrough()` keys still ride through.
+  // Same contract as the vault read. One bad row would otherwise either throw in the merge
+  // (silently killing sync) or get saved and quarantine the whole plan on the next load.
+  // Drops bad rows only; defaults nothing.
   const items = sanitizeItineraryItems(data.items);
   const day = { ...data, date, city, country, items } as DayPlan;
   // `countryLabel` keeps its type guard because it is a DECLARED field with a real consumer:
@@ -132,10 +65,8 @@ export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan
 }
 
 /**
- * Default a single item's Sync v2 fields on read. Pure, clock-free — the
- * hlc is DERIVED from `updatedAt` via `seedHlcFromLegacy`, never minted, so every client
- * seeds the identical stamp for the same legacy item (no divergence). A v2 item that
- * already carries the fields (incl. a `deleted:true` tombstone) passes through unchanged.
+ * Default an item's Sync v2 fields. The hlc is derived from `updatedAt`, not minted, so every
+ * client seeds the same stamp. v2 items pass through.
  */
 export function defaultItemSyncFields(it: ItineraryItem): ItineraryItem {
   return {
@@ -147,50 +78,22 @@ export function defaultItemSyncFields(it: ItineraryItem): ItineraryItem {
 }
 
 /**
- * Default a whole day's items for merging. The deployed shared trip's
- * `days/{date}` docs are v1 — items carry NO `rev`/`hlc`/`deleted`. Applying this at the
- * merge boundary makes a v1 remote doc a fully valid, MERGEABLE `DayPlan` in a new client's
- * memory WITHOUT any remote write — the core of the dual-read window. Tombstones are
- * KEPT (they must reach `mergeDay` to propagate + win); the UI-exposed `plans` selector
- * filters them downstream, not here.
+ * Make a v1 remote day mergeable in memory without writing it back. Tombstones are kept so they
+ * reach mergeDay; the UI filters them later.
  */
 export function defaultDayForMerge(day: DayPlan): DayPlan {
   return { ...day, items: (day.items ?? []).map(defaultItemSyncFields) };
 }
 
-/**
- * Strip `undefined`-valued fields from a day's items before writing to Firestore.
- * Firestore rejects `undefined` field values; our `ItineraryItem` has many optional
- * fields (time/notes/sourceId/updatedBy/...) that are commonly undefined. JSON
- * round-trip drops them cleanly and is also a defensive deep-clone.
- */
+/** Firestore rejects undefined values; a JSON round-trip drops them and deep-clones. */
 export function sanitizeDayForWrite(day: DayPlan): Record<string, unknown> {
   return JSON.parse(JSON.stringify(day)) as Record<string, unknown>;
 }
 
 /**
- * SYNC-V2 MERGE-AWARE WRITE. Today's blind
- * `setDoc(whole day)` is the lost-update bug at the TRANSPORT layer: even with a correct
- * local merge, two clients pushing the SAME day still overwrite each other's items. So each
- * changed day is written inside a `runTransaction`:
- * 1. read the CURRENT remote day-doc,
- * 2. default its v1 items on read (`docToDayPlan`) so it is a valid mergeable DayPlan,
- * 3. `mergeDay(localDay, remoteNow)` — item-level merge inside the day,
- * 4. write the merged doc.
- * A concurrent peer write to the same doc between the transaction's read and write forces
- * Firestore to RETRY the transaction, which re-reads the peer's now-committed state and
- * re-merges — so simultaneous same-day pushes NEVER lose an item (the headline v2 fix at
- * the write side). `mergeDay` is commutative+idempotent, so the retry is safe. Cost
- * is one extra doc read per changed day per edit — negligible on Spark FREE at 32 day-docs /
- * 3 editors. A day newly-created locally (absent remote) merges against an
- * empty remote and writes the local items — same code path, no special-casing.
- *
- *
- * Merge-aware transactional write of ONE changed day. Reads the
- * current remote day-doc inside a transaction, `mergeDay`s the local day on top of it, and
- * writes the merged result — so a concurrent same-day peer write forces a retry that
- * re-merges rather than clobbering. Exported for the wired-behavior unit test (fake
- * Firestore).
+ * Write one day in a transaction: read the remote doc, merge the local day into it, write the
+ * result. A concurrent write to the same day forces a retry that re-merges, so neither client
+ * loses items. mergeDay is commutative and idempotent, so retries are safe.
  */
 export async function pushDayMerged(
   db: import('firebase/firestore').Firestore,
@@ -210,17 +113,9 @@ export async function pushDayMerged(
       // name — including the new `countryLabel`. Spreading the local day is the same value for
       // the four named fields and cannot drift again.
       : { ...localDay, items: [] };
-    // GC BOUNDARY ①: prune past-horizon, unreferenced tombstones from the
-    // MERGED result before writing — never in the hot merge path, never as its own write (the
-    // GC'd doc ships on THIS genuine edit). Structurally cannot drop a live or recent-tombstone
-    // item (gcTombstones' first guard). `nowPt` via `realClock` — the `?today=` override would set
-    // the horizon months ahead and drop live-elsewhere tombstones out of a doc we then write back.
-    // LOCAL FIRST, matching the snapshot path's `mergeDays(loadPlans(), remoteDays)`. `mergeDay`
-    // resolves day metadata to its first argument, so passing `remoteNow` there made the two
-    // directions disagree: local's `date`/`city`/`country`/`countryLabel` could never be
-    // overwritten by remote on either path, and remote's could never be overwritten by local on
-    // the push — write-once on both sides, and free to disagree forever. Items are unaffected:
-    // the `mergeItems` join is commutative, so only the metadata precedence moves.
+    // Old tombstones are pruned here, riding on a real edit. realClock, not the ?today= override,
+    // or a future horizon would drop tombstones still needed elsewhere.
+    // Local first, as in the snapshot path: mergeDay takes day metadata from its first argument.
     const merged = gcTombstones(mergeDay(localDay, remoteNow), realClock.now().getTime());
     const out = sanitizeDayForWrite(merged);
     // Rows this build can't parse (a newer peer's schema) would be erased by the set; carry them verbatim. #848
@@ -240,14 +135,9 @@ export async function pushDayMerged(
 }
 
 /**
- * Push ONE itinerary chunk (a day, keyed by `date`) from the CURRENT local state — the
- * `ChunkSync.pushChunk` impl the offline outbox drives. MUST REJECT on
- * failure: `getRemote()` rejects when unreachable and `pushDayMerged` rejects on a transport
- * error, so the outbox decorator keeps the chunk dirty (this function is NOT the swallower —
- * the decorator is). A dirty date whose day is ABSENT from `current` at flush time is SKIPPED
- * (resolve as a no-op → acked), never a blind `deleteDoc` — an unmerged whole-day delete could
- * clobber a peer's re-created day, and whole-day removal is not a user-reachable op (trip dates
- * are fixed; `clearDay` keeps the day). Gated + lazy firebase stays behind `getRemote()`.
+ * The outbox's pushChunk for one day. Rejects on failure so the chunk stays dirty. A date with
+ * no local day is skipped, never deleted remotely: days can't be removed by users, and a blind
+ * delete could clobber a peer.
  */
 export async function pushDayChunk(current: DayPlan[], date: string, tripId: string): Promise<void> {
   const day = current.find((d) => d.date === date);
@@ -257,36 +147,10 @@ export async function pushDayChunk(current: DayPlan[], date: string, tripId: str
 }
 
 /**
- * Subscribe to remote itinerary changes (remote → local).
- *
- * Opens ONE Firestore `onSnapshot` on `trips/{TRIP_ID}/days` after a silent
- * anonymous sign-in. On each snapshot it assembles the day-docs into a
- * `DayPlan[]` (sorted by date), writes through `savePlans()` and dispatches the
- * `itinerary:changed` CustomEvent — so the existing reactive UI updates with no
- * component edits. Returns an unsubscribe fn.
- *
- * FIRST-SNAPSHOT RECONCILIATION. On the
- * FIRST snapshot we read the trip-doc marker `trips/{TRIP_ID}` once to distinguish
- * "never synced" from "deliberately emptied":
- * - Trip doc EXISTS (group synced before): remote is authoritative → apply the days
- * snapshot INCLUDING empty (`savePlans(remoteDays)` even if `[]`). This respects a
- * deliberately-emptied shared plan (no sample resurrection).
- * - Trip doc ABSENT (never synced): THIS client seeds → create the trip doc and push
- * the local state up. Seed source by local intent: localStorage
- * key PRESENT ⇒ push the user's local edits; key ABSENT ⇒ local is the untouched
- * SAMPLE_ITINERARY → seed from the sample. Local is left as-is (never overwritten
- * with an empty remote).
- *
- * STEADY-STATE (later snapshots): apply remote → `savePlans(remoteDays incl. [])` +
- * dispatch, SKIPPING any snapshot whose `metadata.hasPendingWrites` is true (the
- * client's own optimistic-write echo —). Another device's edits + deletions
- * appear; local edits aren't clobbered because they were pushed before they round-trip.
- *
- * Gating & safety: no-ops (returns a no-op unsubscribe) when `isRemoteConfigured()` is
- * false. All SDK/network work is wrapped so any failure degrades to local-only
- * via console.warn and never throws.
- *
- * @returns an unsubscribe function (always safe to call, even on the dormant path).
+ * Subscribe to remote day docs. First snapshot: if the trip doc exists, remote is applied as
+ * is; otherwise this client seeds remote from local. Later snapshots are merged into local,
+ * skipping our own pending-write echoes. No-op when sync isn't configured; never throws.
+ * @returns an unsubscribe function, always safe to call.
  */
 export function subscribeRemote(onDead?: () => void): () => void {
   // Dormant gate: with no config — or on the local-only default pack (#10) — never touch firebase.
@@ -312,13 +176,7 @@ export function subscribeRemote(onDead?: () => void): () => void {
   // snapshot landing during that await must not be overwritten by the older first-load days (#542).
   let latestRemoteDays: DayPlan[] = [];
 
-  // One-shot `online` retry plumbing. If the INITIAL
-  // setup fails while offline (e.g. anonymous sign-in can't reach the network, so no
-  // listener is ever established), there is nothing for Firestore to auto-reconnect.
-  // We register a window `online` listener that re-attempts setup when connectivity
-  // returns, then remove it once we're established (or on unsubscribe). Gated + lazy +
-  // dormant-safe: this whole function only runs when `isRemoteConfigured()` is true and
-  // firebase is reached solely via the dynamic import in getRemote().
+  // If setup fails offline there's no listener for Firestore to reconnect, so retry on `online`.
   let onlineHandler: (() => void) | null = null;
   const removeOnlineHandler = () => {
     if (onlineHandler && typeof window !== 'undefined') {
@@ -360,40 +218,18 @@ export function subscribeRemote(onDead?: () => void): () => void {
     }
   };
 
-  // AUTHORITATIVE apply.
-  // Remote is taken verbatim, INCLUDING empty — this is what makes "A deletes everything → B
-  // reflects empty and STAYS empty after reload" true: a deliberately-emptied
-  // shared plan is a real state, NOT a trigger to reseed, and must NOT be merged against the
-  // local items (which would resurrect them). Used ONLY on the first, marker-gated snapshot.
-  //
-  // RETURNS whether the snapshot was HANDLED. `false` means it REFUSED (see the floor below) and
-  // the caller still owns the decision — `reconcileFirstSnapshot` falls through to its seed branch.
+  // First-snapshot apply: remote verbatim, including emptied days, so a cleared shared plan
+  // stays cleared instead of being merged back. Returns false when it refuses, and the caller
+  // falls through to seeding.
   const applyRemoteAuthoritative = (plans: DayPlan[]): boolean => {
-    // D-544 — THE NEVER-WIPE FLOOR, and the one place every verbatim apply routes through.
-    // A remote reporting ZERO day docs is NOT evidence that the plan was emptied: emptying
-    // keeps the day (`clearDay`/`removeItem` leave `items: []`, D-091) and whole-day removal is
-    // not a user-reachable op, so a deliberately-emptied plan always arrives as N docs with
-    // empty items — which is `plans.length > 0` and still applies verbatim below. Zero docs can
-    // only mean the content was never pushed, and the trip-doc marker does not distinguish the
-    // two because it is a DIFFERENT document from the content: a seed whose marker write landed
-    // and whose day pushes did not leaves exactly this shape, and reading it as "emptied" saved
-    // `[]` over the user's real itinerary on the next load.
+    // Never wipe (D-544). Clearing a plan keeps its day docs (D-091), so zero docs means the
+    // content was never pushed, not that it was emptied.
     if (plans.length === 0 && loadPlans().length > 0) return false;
-    // THE DIRTY-CHUNK MERGE EXCEPTION. If the offline
-    // outbox still holds unpushed local day-edits (flush-then-subscribe may not have completed
-    // before this first server snapshot arrives), those dirty dates must NOT be overwritten
-    // authoritatively — they are steady-state MERGED instead so the offline edit survives.
-    //
-    // SAFE AGAINST (delete-all-stays-empty, no sample resurrection): a chunk can be
-    // dirty ONLY via a real commit() by an identified traveler on a configured build. The
-    // sample-resurrection / delete-all-stays-empty path involves ZERO commits ⇒ the outbox is
-    // EMPTY ⇒ this takes the plain authoritative branch below ⇒ byte-identical to today.
+    // Days still dirty in the outbox are merged instead, so an unpushed offline edit survives.
     const dirty = outboxDirty('itinerary');
     if (dirty.length === 0) {
-      // Remote is the shape: its days and its ids, incl. empty (delete-all-stays-empty), and an id
-      // only local holds is NOT kept (no resurrection). The one exception is an id on BOTH sides
-      // where the local row has a strictly newer HLC (an edit the outbox no longer remembers):
-      // it wins per row and its day is pushed (#1124).
+      // Remote decides which days and ids exist. A local-only id is not kept, but a shared id
+      // whose local row has a newer HLC wins and its day is pushed.
       const remoteDefaulted = plans.map(defaultDayForMerge);
       const localByDate = new Map(loadPlans().map((d) => [d.date, d]));
       // The winner can equal remote with its keys in another order; that is not a change to push.
@@ -439,33 +275,19 @@ export function subscribeRemote(onDead?: () => void): () => void {
     return true;
   };
 
-  // STEADY-STATE apply.
-  // SYNC-V2: MERGE the incoming remote days against the CURRENT local view item-by-item
-  // (`mergeDays(loadPlans(), remoteDays)`) before persisting, so a local edit that hasn't
-  // round-tripped yet is preserved (different items, same day both survive — the headline
-  // fix) while a peer's edits/deletes are folded in. The merge is item-level;
-  // tombstones from either side are retained in the persisted/merged layer and filtered out
-  // of the UI-exposed `plans` downstream. Applied DIRECTLY (savePlans +
-  // dispatch), never via commit() — so it can never re-push, and
-  // because mergeDay is idempotent, re-applying a snapshot we ourselves produced is a
-  // value-identical no-op.
+  // Later snapshots merge item by item into local, so unpushed local edits survive. Applied
+  // directly, never via commit(), so it can't re-push.
   const applyRemoteMerged = (remoteDays: DayPlan[]) => {
     // Default v1 remote items on read so a legacy day-doc merges as valid v2, then
     // item-merge against the current local view. Local is already v2 (migrated on load).
     const merged = mergeDays(loadPlans(), remoteDays.map(defaultDayForMerge));
-    // GC BOUNDARY ②: the steady-state snapshot apply — prune past-horizon,
-    // unreferenced tombstones from each MERGED day before persist (never in the hot merge path).
-    // Convergent + conservative: a tombstone one client keeps re-enters via merge until every doc
-    // holding it is rewritten past the 365-day horizon (D-567).
+    // Prune old tombstones before saving (D-567).
     const nowPt = realClock.now().getTime();
     keepLosses(merged);
     persistAndDispatch(merged.map((d) => gcTombstones(d, nowPt)));
   };
 
-  // Lazy, gated setup. All wrapped — any failure degrades to local-only and
-  // never throws. Idempotent + retryable:
-  // returns early if already established/cancelled, and on failure arms the `online` retry
-  // so a cold-offline start recovers when the network returns.
+  // Idempotent; on failure arms the `online` retry.
   const attemptSetup = async () => {
     if (cancelled || established || settingUp) return;
     settingUp = true;
@@ -484,22 +306,11 @@ export function subscribeRemote(onDead?: () => void): () => void {
           // no reload needed). Unconditional and cheap (a Set check that only writes on a flip).
           setReadDenied('itinerary', false);
 
-          // Skip the echo of the client's OWN optimistic write: when we push a
-          // day, Firestore fires a local snapshot with hasPendingWrites=true before the
-          // server round-trip. Applying it is redundant (local already has it) and could
-          // race; the authoritative server snapshot follows with hasPendingWrites=false.
+          // Our own optimistic write; the server snapshot follows.
           if (snapshot.metadata.hasPendingWrites) return;
 
-          // FIRST-SNAPSHOT must reconcile against SERVER truth, never a cold/empty cache
-          // onSnapshot can deliver a cache-sourced first event (e.g. right
-          // after the listener (re)establishes following an offline window) — an EMPTY one
-          // would wrongly look like "never synced" and could drive the seed branch, wiping a
-          // peer's real remote with the local sample. So we DEFER reconciliation until the
-          // first `fromCache === false` (server) snapshot. A pre-server cache snapshot is
-          // simply ignored here: the local store already holds the correct first-paint data
-          //, so skipping it is non-destructive.
-          // Once reconciled, steady-state applies every later snapshot (cache or server),
-          // by which point the cache is warm and correct.
+          // Reconcile only against a server snapshot: an empty cached one would look like
+          // "never synced" and seed over a peer's real data.
           if (!firstSnapshotHandled && snapshot.metadata.fromCache) return;
 
           (async () => {
@@ -511,30 +322,19 @@ export function subscribeRemote(onDead?: () => void): () => void {
 
               if (!firstSnapshotHandled) {
                 firstSnapshotHandled = true;
-                // A-20: reconcileFirstSnapshot awaits getDoc/getDocFromServer/setDoc, and
-                // `cancelled` can flip true (sign-out's wipeAllTripData + reload) while that's
-                // in flight. Re-check at the point the callback actually fires, not just at the
-                // call site above, so a late-arriving continuation can never write a wiped-out
-                // account's itinerary back to disk.
+                // Sign-out can cancel during the awaits; re-check when the callback fires so a
+                // wiped account's plan is never written back.
                 await reconcileFirstSnapshot(
                   remoteDays,
                   { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid },
-                  // Answers "handled — do not fall through to the seed" (D-544). A CANCELLED
-                  // reconcile is handled by definition: it must write nothing AND seed nothing,
-                  // so it answers true without applying.
-                  // Applies the NEWEST snapshot, not `plans`: one that arrived during the await
-                  // was already merged in, and writing the older first-load days would undo it.
+                  // Cancelled counts as handled (write nothing, seed nothing). Uses the newest
+                  // snapshot, since one may have arrived during the await.
                   () => (cancelled ? true : applyRemoteAuthoritative(latestRemoteDays)),
                 );
                 return;
               }
 
-              // Steady-state: MERGE remote against current local, apply incl. empty
-              // This is also the path Firestore drives when it
-              // AUTO-RECONNECTS after an offline window: the listener stays attached and
-              // re-delivers the server state (a friend's offline edits flushed on reconnect
-              // arrive here), and our own offline writes round-trip through the
-              // hasPendingWrites guard — no duplicate, no wipe, no lost same-day item.
+              // Also the path for Firestore's own reconnect after an offline window.
               applyRemoteMerged(remoteDays);
             } catch (err) {
               // A bad single snapshot must not break the stream or the app.
@@ -543,18 +343,12 @@ export function subscribeRemote(onDead?: () => void): () => void {
           })();
         },
         (err) => {
-          // Stream error (rules/network/quota). Firestore retries transient/network errors
-          // on its own behind a live listener, so we stay local-only and never throw
-          // For a terminal error it detaches the listener; arm the `online` retry
-          // so a later reconnect can re-establish from scratch.
+          // Firestore retries transient errors itself; a terminal one detaches the listener,
+          // so arm the `online` retry.
           console.warn('[itinerary-remote] snapshot stream error:', err);
           established = false;
           firestoreUnsub = null;
-          // #271: a permission-denied read answers IDENTICALLY on every retry — this device
-          // isn't in the trip's `members` map — so arming the `online` retry here is exactly the
-          // forever-loop the bug reports, not resilience. Record it and stop; the snapshot
-          // handler above clears the flag itself if a later reconnect (membership granted,
-          // reload) ever re-establishes a working listener.
+          // Permission denied fails the same way every time, so record it and don't retry.
           if (isPermissionDenied(err)) {
             setReadDenied('itinerary', true);
             return;
@@ -575,10 +369,7 @@ export function subscribeRemote(onDead?: () => void): () => void {
         established = false;
       }
     } catch (err) {
-      // Init / sign-in / dynamic-import failure → degrade to local-only.
-      // The common cause is a cold start while OFFLINE (anonymous sign-in can't reach the
-      // network). getRemote() clears its cached promise on failure, so a retry gets a
-      // fresh attempt; arm the `online` listener to fire that retry on reconnect.
+      // Usually a cold start offline. getRemote() resets on failure, so the retry starts fresh.
       console.warn('[itinerary-remote] remote sync unavailable, staying local-only:', err);
       if (!cancelled) retry();
     } finally {
@@ -602,11 +393,8 @@ export function subscribeRemote(onDead?: () => void): () => void {
 }
 
 /**
- * First-snapshot reconciliation handshake. Reads the trip-doc marker once
- * to decide between "remote authoritative" and "this client seeds".
- *
- * Imports nothing eagerly — the firestore fns are passed in from the gated, lazy
- * getRemote() handle so this stays off the dormant hot path.
+ * Reads the trip-doc marker once to choose between applying remote and seeding it. Firestore
+ * functions are passed in so nothing is imported eagerly.
  */
 async function reconcileFirstSnapshot(
   remoteDays: DayPlan[],
@@ -620,25 +408,16 @@ async function reconcileFirstSnapshot(
     /** This device's uid — named `owner` in the seed marker's members map (#10). */
     uid: string;
   },
-  // The AUTHORITATIVE applier (not the merging one): on the first snapshot, a synced group's
-  // remote is taken verbatim incl. empty. Merging here
-  // would resurrect local items over a deliberately-emptied shared plan — so the first
-  // snapshot deliberately does NOT merge. Steady-state (later snapshots) does merge.
-  //
-  // Answers HANDLED, not "applied" (D-544): false means it refused to persist this remote (its
-  // never-wipe floor) and the seed below should run instead. A cancelled reconcile answers true.
+  // Not the merging applier: merging here would resurrect items in a cleared plan. False means
+  // it refused (D-544) and the seed should run.
   applyRemote: (plans: DayPlan[]) => boolean,
 ): Promise<void> {
   const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid } = ctx;
   const tripId = getTripId();
   const tripRef = doc(db, 'trips', tripId);
 
-  // The trip-doc marker is the "has this group ever synced" signal. Read it from
-  // the SERVER so a fresh client doesn't see a stale/absent cached value as authoritative
-  // — using getDocFromServer makes that explicit ( hardening: a plain getDoc may serve
-  // an empty cache after an offline window, which would wrongly look like "never synced"
-  // and seed the sample over a peer's real remote). Fall back to a cache getDoc only if the
-  // server read fails, and even then only the never-wipe-on-empty interpretation applies.
+  // Read the marker from the server: an empty cache would look like "never synced". Falls back
+  // to the cache only if the server read fails.
   let tripExists = false;
   let serverFailed = false;
   try {
@@ -666,10 +445,7 @@ async function reconcileFirstSnapshot(
 
   const localWasPersisted = hasStoredPlans(); // present ⇒ user edits; absent ⇒ the built shells/sample
 
-  // D-544 adds the `applyRemote(...)` conjunct and nothing else: the applier REFUSES an empty
-  // remote over a non-empty local (its never-wipe floor) and answers `false`, in which case this
-  // falls through to the seed below — which re-pushes the local plan and HEALS the remote, rather
-  // than refusing forever. Every other combination answers `true` and returns exactly as before.
+  // If applyRemote refuses (empty remote, non-empty local), fall through and re-seed the remote.
   if (tripExists && (remoteDays.length > 0 || localWasPersisted) && applyRemote(remoteDays)) {
     // Group synced before → remote authoritative, apply INCLUDING empty.
     // This is what makes "A deletes everything → B reflects empty and STAYS empty after
@@ -677,45 +453,20 @@ async function reconcileFirstSnapshot(
     return;
   }
 
-  // #10 — THE MARKER IS NO LONGER THE ONLY SEED SIGNAL, and this branch is why. `createTripDoc`
-  // now writes the trip doc AT CREATION TIME (it has to: the members map must name the creator as
-  // owner, and rules only accept that on the create). So the creator's very first snapshot finds
-  // the marker PRESENT with ZERO day docs — which under the old single condition meant "the group
-  // synced and then emptied the plan", and applied `[]` authoritatively over the day shells
-  // `buildDayShells` had just derived from the trip's dates. A brand-new trip rendered no day
-  // cells at all, on the creator's own device.
-  //
-  // The added terms make that impossible while leaving every other path byte-identical: with ANY
-  // remote day doc, or with a local key already written (which every device that has ever received
-  // a snapshot has, because applying one calls savePlans), behaviour is exactly as before. Only
-  // "marker present, remote completely empty, this device never persisted anything" seeds — and
-  // whole-day removal is not a user-reachable operation (trip dates are fixed; `clearDay` keeps the
-  // day), so a completely empty remote means "never pushed to", never "deliberately emptied".
-  //
-  // The shared trip is never created from a device's defaults, nor filled with the sample when
-  // its doc exists but holds no days. A persisted local plan still takes the heal path below.
+  // The marker alone isn't enough: trips create their doc at creation (for the members map), so
+  // a new trip's first snapshot has a marker and no days. Marker + no remote days + nothing ever
+  // saved locally means "never pushed", so seed.
+  // The shared trip is never seeded from a device's defaults or the sample.
   if (tripId === SHARED_TRIP_ID && (!tripExists || (remoteDays.length === 0 && !localWasPersisted))) return;
 
-  // Trip doc ABSENT → never synced → THIS client seeds the group.
-  // Seed source by LOCAL intent: key present ⇒ the user's own
-  // local edits (incl. a deliberate empty); key absent ⇒ the untouched SAMPLE_ITINERARY
-  // that loadPlans() returned at first paint. Either way we read the local truth and
-  // push it up. We do NOT overwrite local (no applyRemote on this branch) — local is
-  // already correct; seeding makes remote match local. (`hasStoredPlans()` is read for
-  // the explicit intent signal even though we always seed from the local snapshot.)
-  // use the STATIC `loadPlans` imported at the top — the former `await import(...)` here
-  // was redundant (itinerary-storage is firebase-free, so importing it statically is dormant-safe).
+  // Seed: push local up, leave local as is.
   const localPlans = loadPlans();
   const localIsUserData = localWasPersisted; // present ⇒ user edits; absent ⇒ sample seed
 
   try {
-    // Create the trip-doc marker first so a concurrent second client sees "synced" and
-    // takes the authoritative branch instead of double-seeding. Skipped when the marker is
-    // already there (the create-path doc, #10) — rewriting it would clobber a `members` entry a
-    // peer added between the create and this first snapshot.
-    // #10: the marker carries the same `members` map `createTripDoc` writes, so a trip seeded
-    // through THIS legacy path is member-gated from birth too. #501: but only on the device that
-    // created the trip — otherwise a joiner arriving before the creator's doc landed would own it.
+    // Marker first, so a second client applies instead of double-seeding. Not rewritten if it
+    // exists (would clobber a peer's members entry). Only the creating device writes members,
+    // or an early joiner would own the trip.
     if (!tripExists) {
       await setDoc(tripRef, {
         schemaVersion: 1,
@@ -725,14 +476,8 @@ async function reconcileFirstSnapshot(
       });
     }
 
-    // Push every local day up through the OUTBOX-DECORATED port, not a bare push
-    // (D-544). Same per-day merge-aware writes, with an empty `prev` so every present day is
-    // written and no day is "removed" — but now write-ahead recorded: the dates are enqueued
-    // BEFORE any network, so a push that fails stays dirty, retries on the next ordinary flush
-    // (`online` / visible / app-start), and survives a reload. That makes the seed the same kind
-    // of write as every other one in the app instead of the only fire-and-forget one, and it
-    // arms the first-snapshot dirty-chunk merge exception above for exactly these dates, so a
-    // half-landed seed can no longer be read back as "the group emptied the plan".
+    // Through the outbox (D-544), so a half-landed seed stays dirty and retries rather than
+    // reading back as an emptied plan.
     await itinerarySyncPort.push([], localPlans);
   } catch (err) {
     console.warn('[itinerary-remote] first-snapshot seed failed, staying local-only:', err);

@@ -149,7 +149,7 @@
  *
  * Trip ids of parents that have no trip
  * doc are also withheld: the `trips` collection doubles as the account path (D-239/D-296 —
- * lib/trips-remote.ts:148 writes `trips/{userToken}/profile/identity`), the userToken IS the
+ * writeIdentityDoc in lib/trips-remote.ts writes `trips/{userToken}/profile/identity`), the userToken IS the
  * capability, and there is no reason to spray those into a terminal's scrollback. They are
  * counted as OPEN for ordinary trips only. A missing D-663 shared root is reported separately.
  */

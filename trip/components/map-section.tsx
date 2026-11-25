@@ -70,16 +70,9 @@ const FACET =
   'chip min-h-tap min-w-tap justify-center px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
 const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
 
-// ── MapSection: the /map page chrome that re-composes <TripMap> ─────────
-// Owns the category filter UI, the itinerary overlay toggle, the fullscreen
-// slot-swap, the geolocate note banner, and the
-// masthead. ( deleted the legend: it re-rendered the same 7 categories,
-// icons and CATEGORY_STYLES the filter chips above the map already carry.)
-// The map engine itself (init, style, markers, route, popups,
-// reduced-motion) lives in <TripMap>; this component just feeds it the visible
-// marker set + the whole-trip route and hosts its surface.
-// build the trip-day options offered by the popup's "Anchor to a day" control
-// and the day strip below the map. "Day 1 · Tue, Dec 9" — one per TRIP_DATE.
+// The /map page: filters, itinerary overlay, search, fullscreen and day planning around
+// TripMap, which owns the map engine itself.
+// One "Day 1 · Tue, Dec 9" option per trip date.
 const ASSIGN_DAYS: AssignDayOption[] = TRIP_DATES.map((date, i) => ({
   date,
   label: `Day ${i + 1} · ${formatDate(date)}`,
@@ -91,27 +84,12 @@ function visitedCountryLine(countries: readonly string[]): string {
   return `${countries.slice(0, -1).join(', ')} and ${countries[countries.length - 1]}`;
 }
 
-// ──: what the map search can resolve ───────────────────────────────────────────────────
-// One row shape for THREE in-bundle sources — the 73 curated places, the cities the trip
-// actually visits, and the user's own planned stops. `marker` is what the camera flies to, so
-// each source is ADAPTED here, at the call site, rather than widening `MapMarker` (which is the
-// curated-content type: 73 authored records with images and descriptions, consumed by the
-// popup, the favourites store and the guide cards — a city or a plan is none of those things,
-// and widening it would push an "is this real content?" branch into every one of them).
-//
-// 🔴 EVERY `SearchHit` IS IN-BUNDLE DATA. No geocoder, no provider, no network call reaches this
-// type — which is why it filters live, on every keystroke, with nothing to wait for.
-//
-// 🔴 ISSUE #22 CHANGED THE CEILING, NOT THIS PATH. A place that is not in the trip used to be
-// unreachable by name at all; it is now reachable through `lib/world-search.ts`, a keyless
-// Nominatim lookup that is a SEPARATE state (`world`), rendered in a SEPARATE list, and issued
-// ONLY from the submit handler. Two consequences worth stating where someone will read them:
-//   • trip places still win — they are computed here, from the bundle, and always render first;
-//     a world row naming one of them is dropped (`dropTripDuplicates`).
-//   • typing STILL never touches the network. Nominatim's usage policy forbids as-you-type
-//     querying, and `e2e/map-trip-mode.spec.ts` pins that: the old test asserted the query never
-//     reached the network at all, and now asserts it never reaches it FROM A KEYSTROKE. That is
-//     the same tripwire, aimed at the thing that is still forbidden.
+// Search hits from in-bundle data only (curated places, trip cities, the user's plans), so it
+// filters live per keystroke. Each source is adapted here rather than widening MapMarker, which
+// is the curated-content type.
+// World results (lib/world-search.ts, Nominatim) are a separate list fetched only on submit:
+// Nominatim forbids search-as-you-type, and e2e/map-trip-mode.spec.ts checks no keystroke hits
+// the network. Trip results render first and win duplicates.
 interface SearchHit {
   /** Stable row identity (react key + testid). */
   id: string;
@@ -126,11 +104,7 @@ interface SearchHit {
   marker: MapMarker;
   /** A planned stop is only DRAWN while the itinerary overlay is on — see focusStop. */
   needsOverlay?: boolean;
-  /**
-   * Issue #1 — the trip date a planned stop belongs to. The route is scoped to the selected
-   * day, so flying to this hit has to select its day too, or the pin it targets is not drawn.
-   * Absent on curated places and cities, which are browse markers and always on the map.
-   */
+  /** A planned stop's date; flying to it selects that day so its pin is drawn. */
   date?: string;
 }
 
@@ -144,19 +118,8 @@ const curatedHitsOf = (markers: MapMarker[]): SearchHit[] =>
   }));
 
 /**
- * The curated pack for the ACTIVE trip: the 73 authored Kathmandu-Valley/Japan places on the
- * default trip, nothing on a custom one.
- *
- * `MAP_MARKERS` is default-pack CONTENT, but `/map/` consumed it as if it were app chrome — and
- * Map is a PRIMARY tab on a custom trip (`primaryItemsForActiveTrip()`), so someone planning Peru
- * opened their Map tab onto Kathmandu and Tokyo, with the camera fitted to Nepal→Japan. Every
- * other N×J surface is gated (`DefaultTripOnly` on /nepal, /japan, /guides, /flights;
- * `defaultTripOnly` in lib/nav-items.ts); this one was missed. Gating the set HERE, where it
- * enters the component, empties the search hits, the saved count and the filter chips with it,
- * and leaves the itinerary overlay — the only trip-real pins — driving the camera.
- *
- * `mounted &&` is the same post-mount storage-read gate `command-palette.tsx` uses for exactly
- * this decision: the trip pointer is localStorage, so it must not be read before mount.
+ * Curated places for the sample pack, nothing for a custom trip; gating here empties search,
+ * saved count and chips too. Waits for mount because the trip pointer is in localStorage.
  */
 function curatedFor(mounted: boolean): MapMarker[] {
   return mounted && !isDefaultTrip() ? [] : MAP_MARKERS;
@@ -170,19 +133,12 @@ export default function MapSection() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [geoNote, setGeoNote] = useState<string | null>(null);
 
-  // "Saved" filter — mirrors the guide "Saved" chip idiom
-  // (components/recommendation-section.tsx). Same flat gateway-key-14
-  // favorites store; map marker ids (`np-*`/`jp-*`) are provably
-  // disjoint from guide rec ids (`na#`/`ja#`) so raw ids are reused as-is.
+  // Same favorites store as the guides; the id spaces don't overlap.
   const { favorites, hydrated: favoritesReady } = useFavorites();
   const [savedOnly, setSavedOnly] = useState(false);
   const online = useOnline();
 
-  // Issue #247 — keep-screen-awake, OFF by default and ONLY held while explicitly toggled
-  // on: unlike Travel Mode's Essentials card and the safety phrase card (both bounded,
-  // actively-in-hand reads), `/map` is a route someone can leave open in a pocket for a
-  // long stretch, so an always-on lock here would drain battery on a trip already rationing
-  // it. Persisted the same boolean-as-string way as `legibilityPrefs`/`nightlifeVisible`.
+  // Keep-awake is opt-in here: /map can sit open in a pocket and drain the battery.
   const [wakeLockOn, setWakeLockOn] = useState(false);
   useEffect(() => {
     const saved = mapWakeLockPrefs.get();
@@ -195,14 +151,8 @@ export default function MapSection() {
     mapWakeLockPrefs.set(next);
   };
 
-  // ──: map-linked day planning ───────────────────────────────────────────
-  // `anchors`: date → the marker id that day is "anchored" to. LOCAL-ONLY presentation
-  // state.: the anchor no longer re-orders anything —
-  // the day list sorts by TIME like every other surface — it is the day's BASE POINT, the
-  // origin of the per-row distance label. The assigned pin itself still rides the existing
-  // itinerary CRUD (`addItem`, the ONE synced write). Hydrated once on mount, persisted on
-  // every change. `selectedDay` is the day whose stop-list the panel shows; `dragOverDate`
-  // highlights a drop target.
+  // Day planning. `anchors` maps a date to its base-point marker, used for distance labels only.
+  // Local-only; the pin itself is added through the normal itinerary write.
   const [anchors, setAnchors] = useState<Record<string, string>>({});
   const [anchorsReady, setAnchorsReady] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -213,10 +163,7 @@ export default function MapSection() {
     setAnchorsReady(true);
   }, []);
 
-  // Assign a map pin to a trip day: add it as a stop via the
-  // EXISTING itinerary CRUD when it isn't already on that day (ONE vault commit; idempotent
-  // re-anchor writes nothing to the vault), then record the local anchor as that day's base
-  // point. Both survive reload (the stop in the Vault, the anchor in key 22).
+  // Add the pin to the day if it isn't there yet, then make it the day's anchor.
   const assignPinToDay = useCallback(
     (marker: MapMarker, date: string) => {
       const already = findPlacements(marker.id).some((p) => p.date === date);
@@ -268,13 +215,7 @@ export default function MapSection() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ── Issue #22 — the WORLD half of the search ────────────────────────────────────────────
-  // The trip half above is unchanged and still filters live as you type. This is the fallback
-  // underneath it, and it is a SEPARATE, EXPLICIT act: Nominatim's usage policy forbids
-  // search-as-you-type outright (see `lib/world-search.ts`), so there is a submit button and
-  // there is no effect anywhere that fires a lookup on a query change. That constraint is the
-  // reason for the shape, not a limitation of it — the trip search is the one that has to feel
-  // instant, and it is in-bundle, so it does.
+  // World search: submit only, never on a query change (Nominatim policy).
   const [world, setWorld] = useState<
     | { phase: 'idle' }
     | { phase: 'searching'; query: string }
@@ -290,11 +231,7 @@ export default function MapSection() {
   // underneath it, and the results are the next thing in tab order.
   const searchStatusRef = useRef<HTMLParagraphElement | null>(null);
 
-  // the camera, reflected into the DOM as "lng,lat,zoom" — the same `onViewChange` →
-  // `data-map-view` reflection `components/plan-day-map.tsx` already uses, so an E2E can assert
-  // that a search result MOVED the camera and moved it to the right place (there is no other
-  // observable signal that the camera went anywhere). The string de-dupes its own state, so the
-  // moveend stream does not re-render this section on every camera tick.
+  // Camera as "lng,lat,zoom" in data-map-view, for e2e assertions.
   const [mapView, setMapView] = useState('');
 
   // Portal mount guard: createPortal(…, document.body) must never
@@ -308,11 +245,8 @@ export default function MapSection() {
   const exitRafRef = useRef(0);
   useEffect(() => () => cancelAnimationFrame(exitRafRef.current), []);
 
-  // The GL map lives inside a single, persistent host div (`mapHostRef`) that we
-  // physically relocate between an inline slot and the portaled fullscreen slot
-  // React never reparents this node, so the MapLibre instance inside
-  // <TripMap> survives fullscreen enter/exit with zero state loss — only its
-  // size changes, which tripMapRef.resize() reconciles.
+  // The map lives in one host div that's moved by hand between the inline and fullscreen
+  // slots, so the MapLibre instance survives fullscreen toggles.
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const inlineSlotRef = useRef<HTMLDivElement | null>(null);
   const fullscreenSlotRef = useRef<HTMLDivElement | null>(null);
@@ -348,19 +282,11 @@ export default function MapSection() {
 
   const initialFocus = useMemo(() => currentLegMarkers(visibleMarkers), [visibleMarkers]);
 
-  // Issue #31 — the visited wash. Read ONCE per mount, deliberately: #30's autocount writes the
-  // visit record on boot, before this island's chunk has loaded, and nothing else on `/map` can
-  // add a visit. A poll or a storage listener here would be machinery for an event that cannot
-  // happen while the page is open. This component is `ssr:false`, so the storage read is never
-  // a prerender/hydration mismatch. Never filtered by the category chips: the footprint is
-  // where you have BEEN, not which restaurants are currently shown.
+  // Read once: nothing on /map can add a visit while it's open.
   const footprints = useMemo(() => visitedCountryFootprints(), []);
 
-  // /: EVERY itinerary item, in time order, each with its resolved placement —
-  // exact (a pin / a curated marker) or approximate (a district or the day's city) or, on a
-  // custom trip whose city we don't know, none. Derived from the shared store, so it
-  // live-updates on any itinerary:changed fan-out. `allRows` drives the day panel (one row
-  // per plan, always); `overlayStops` is the deduped PIN set fed to the map.
+  // Every plan in time order with its placement: exact, approximate (district or city), or none.
+  // `allRows` feeds the day panel; `overlayStops` is the deduped pin set.
   const allRows = useMemo(() => buildItineraryPlacements(plans), [plans]);
   const overlayStops = useMemo(() => placementStops(allRows), [allRows]);
   // Which pin a row flies to: items sharing one coordinate collapse to ONE pin,
@@ -383,15 +309,8 @@ export default function MapSection() {
     [anchors],
   );
 
-  // Itinerary route stops fed to TripMap — in TIME order (: one ordering on every
-  // surface; `buildItineraryPlacements` sorts, so the drawn day line is chronological),
-  // empty when the overlay is off.
-  //
-  // 🔴 ISSUE #1 — SCOPED TO THE SELECTED DAY. Picking a day used to change only the panel
-  // below the map while the canvas kept every one of the trip's 32 days drawn, so "select
-  // Dec 9" left the Kathmandu plans on screen. The filter is by DATE (`stopsForDay`), and a
-  // selected day with nothing planned yields `[]` — which CLEARS the route rather than
-  // leaving the last day's pins behind. No day selected still means the whole trip.
+  // Route stops in time order, scoped to the selected day (whole trip if none). An empty day
+  // yields [] and clears the route. Empty when the overlay is off.
   const stops = useMemo(
     () => (showItinerary ? stopsForDay(overlayStops, selectedDay) : []),
     [showItinerary, overlayStops, selectedDay],
@@ -404,11 +323,7 @@ export default function MapSection() {
     [selectedDay, allRows],
   );
 
-  // Per-day EXACT counts — how many of a day's plans sit at a coordinate somebody actually
-  // asserted (a pin, or a curated marker), as opposed to one this app derived for them.
-  // 🔴: this used to count "mapped" items, which under ladder is now every
-  // item — a ratio of N === M always, a number that can no longer fail. Exact-vs-total stays
-  // falsifiable and says the honest thing: how much of your plan is really located.
+  // Plans per day at an exact (not derived) position.
   const exactCountByDate = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of allRows) {
@@ -417,23 +332,14 @@ export default function MapSection() {
     return m;
   }, [allRows]);
 
-  // per-day TOTAL planned items — the honest headline number for the day-strip
-  // badge and the day-order empty state. The badge used to render `stopCountByDate`
-  // alone, so a day holding 3-6 real plans that the coordinate join could not place
-  // read "0 stops" — which a user reads
-  // as "I planned nothing", not "the map could not place these". Total is the headline;
-  // "N mapped" is the qualifier.
+  // Total plans per day, the day-strip headline number.
   const itemCountByDate = useMemo(() => {
     const m = new Map<string, number>();
     for (const p of plans) m.set(p.date, (m.get(p.date) ?? 0) + (p.items?.length ?? 0));
     return m;
   }, [plans]);
 
-  // — the cities this trip actually visits, read off the days themselves so a custom trip
-  // searches ITS cities, not the default pack's. Coordinates come from the ONE hand-authored
-  // city table — exact-key, deliberately not fuzzy. A city the table
-  // does not know (a custom trip's free-text city) yields no coordinate, so there is nothing to
-  // fly to and it is honestly left out rather than guessed at.
+  // The trip's own cities. Exact lookup in the city table; unknown cities are left out, not guessed.
   const cityHits = useMemo<SearchHit[]>(() => {
     const seen = new Set<string>();
     const hits: SearchHit[] = [];
@@ -469,14 +375,8 @@ export default function MapSection() {
     return hits;
   }, [plans, curatedNames]);
 
-  // — the user's own planned stops, straight off the SAME placement ladder the overlay
-  // draws: a runtime projection, never persisted, nothing written back to the
-  // item. One row PER PLAN, flying to that plan's GROUP pin (the same `stopByItemId` indirection
-  // flyToRow uses) — plans that share a coordinate collapse to one drawn pin, so a row keyed on
-  // the pin would have made every plan but the first unsearchable.
-  // Matched on the plan's TITLE only: matching a derived stop on its `area` too would return
-  // every plan in the city on a one-word query. Plans that resolve to a CURATED marker are
-  // skipped — that place is already row 1 of the results, under its real name.
+  // One row per plan, flying to its group's pin (plans sharing a spot share a pin). Title match
+  // only, since area would match every plan in the city. Curated places are already listed.
   const stopHits = useMemo<SearchHit[]>(() => {
     const seen = new Set<string>();
     const hits: SearchHit[] = [];
@@ -557,25 +457,10 @@ export default function MapSection() {
     requestAnimationFrame(() => searchStatusRef.current?.focus());
   };
 
-  // ── Flying to a PLANNED STOP (the one path both callers route through) ──────────────────
-  // A stop is drawn by the itinerary overlay, not by the marker layer, so the overlay must be
-  // ON: with it off the camera lands a popup over an empty basemap, and TripMap's stop-popup
-  // lookup misses (`routeStops` is empty), so a derived pin would render the CURATED popup —
-  // Directions to a city centroid, which(b) exists to prevent.
-  //
-  // 🔴: turning the overlay on ALSO makes TripMap refit the camera to the whole route,
-  // which would immediately override a camera move issued in the same tick. So when the
-  // overlay has to be switched on, the focus is QUEUED and fired from the effect below:
-  // a child's effects flush before its parent's, so TripMap's route fit has already been
-  // issued by the time this runs, and the focus wins. (The day-order rows have gone through
-  // this same path since and had the same race — one fix, both callers.)
-  //
-  // 🔴 ISSUE #1 adds the second half of the same rule: the stop's DAY must be the drawn one.
-  // Now that the route is scoped to `selectedDay`, flying to a stop on another day would land
-  // the popup on a pin that is not on the canvas AND miss TripMap's `routeStops` lookup —
-  // exactly the curated-popup-over-a-centroid failure the paragraph above exists to prevent.
-  // So callers pass the stop's date and it becomes the selected day. Switching day changes
-  // `stops`, which re-fits the camera, so that case QUEUES too rather than flying into a fit.
+  // Flying to a planned stop. The stop is only drawn with the overlay on and its day selected;
+  // otherwise the popup misses and falls back to the curated one. Turning either on refits the
+  // camera, so the focus is queued and fired from the effect below, which runs after TripMap's
+  // fit (child effects flush first).
   const pendingFocusRef = useRef<MapMarker | null>(null);
   const focusStop = (marker: MapMarker, date?: string) => {
     setFilter('All');
@@ -608,10 +493,7 @@ export default function MapSection() {
     closeSearch();
   };
 
-  // Issue #22 — pick a world result: the camera goes there and the note under the controls says
-  // which place is being shown. Deliberately NOT `focusMarker`: there is no marker, and inventing
-  // one would print a false country in the popup — see `TripMapHandle.flyToPoint`. The category
-  // filter is left alone too; it filters curated markers, and this is not one.
+  // World result: fly there and name it in the note. No marker (see flyToPoint).
   const selectWorldPlace = (place: WorldPlace) => {
     tripMapRef.current?.flyToPoint(place.lat, place.lng);
     setGeoNote(
@@ -620,22 +502,13 @@ export default function MapSection() {
     closeSearch();
   };
 
-  // A day-order row flies the camera to that stop and opens its popup —
-  // the SAME gesture as a search result, via the same imperative handle.
-  // a row addresses its GROUP's pin — several plans can share one coordinate and are
-  // drawn as a single pin whose popup lists them, so flying to the row's own
-  // synthesized marker would land the popup on a pin that was never drawn.
+  // Targets the row's group pin; the row's own marker is never drawn.
   const flyToRow = (row: PlacementRow) => {
     const stop = stopByItemId.get(row.item.id);
     if (stop) focusStop(stop.marker, stop.date);
   };
 
-  // ── Map-host relocation ─────────────────────────────────────────────
-  // Physically move the persistent map-host node between the inline slot and the
-  // portaled fullscreen slot (createPortal only reparents React-managed subtrees;
-  // the map-host is moved imperatively so MapLibre's canvas is never destroyed).
-  // Runs on mount (host → inline slot) and on every isFullscreen change; asks
-  // TripMap to resize() after each move so MapLibre recomputes its canvas size.
+  // Move the map host into the right slot, then resize the canvas.
   useEffect(() => {
     const host = mapHostRef.current;
     if (!host) return;
@@ -661,10 +534,7 @@ export default function MapSection() {
     };
   }, [isFullscreen, mounted]);
 
-  // ── Fullscreen (mobile takeover) — body scroll-lock + Esc ───────────────────
-  // Local body-pin — deliberately NOT imported from navbar. The
-  // shell itself is portaled + relocated above; this only owns scroll-lock, Esc,
-  // and the exit resize.
+  // Fullscreen: scroll lock, Esc, and the exit resize.
   useEffect(() => {
     if (typeof document === 'undefined' || !isFullscreen) return;
     const body = document.body;
@@ -715,11 +585,8 @@ export default function MapSection() {
       body.style.width = prev.width;
       body.style.overflow = prev.overflow;
       window.scrollTo(0, scrollY);
-      // Exit resize is handled by the relocation effect (host → inline slot);
-      // one more here guards the scroll-restore reflow.
-      // Reading .current late is the point: this rAF runs a frame AFTER cleanup and must resize
-      // whichever map is live then. tripMapRef holds an imperative TripMapHandle, not a React
-      // node, so the rule's "snapshot it in the effect" advice would capture the pre-mount null.
+      // One more resize after the scroll restore. Reads .current late on purpose: it must hit
+      // whichever map is live a frame after cleanup.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       exitRafRef.current = requestAnimationFrame(() => tripMapRef.current?.resize());
     };
@@ -742,10 +609,7 @@ export default function MapSection() {
     [plans],
   );
 
-  // Issue #22 — the ONE sentence the search panel says out loud. It carries the result COUNT
-  // (announced by `role="status"` as the trip list filters, and read aloud again when focus lands
-  // here after a world search) and, on a failure, the plain-words explanation from the one place
-  // those words live. Never a raw error string.
+  // The search status line (role="status"): result count, or a plain-words failure.
   const tripHitCount = searchResults.length;
   const tripCountText = `${tripHitCount} ${tripHitCount === 1 ? 'place' : 'places'} on your trip`;
   const searchStatusText =
@@ -777,11 +641,7 @@ export default function MapSection() {
           }
         />
 
-        {/* Category filter chips — the categories belong to the curated pack, so with no curated
-            pack there is nothing for them to filter and the whole row goes, wrapper included:
-            an empty flex row still spent its `mb-4` on a custom trip. The "Saved" chip inside
-            is safe under the same guard — `savedCount` is derived from `curated`, so it is
-            already 0 whenever this is. */}
+        {/* Category chips, only when there are curated places. */}
         {curated.length > 0 && (
         <div className="flex flex-wrap justify-center gap-2 mb-4 max-sm:mb-2 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:-mx-4 max-sm:px-4 max-sm:pb-1 max-sm:[&>*]:shrink-0">
           {filters.map((value) => {
@@ -852,10 +712,7 @@ export default function MapSection() {
                 data-testid="map-search-panel"
                 className="absolute z-10 top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-2 shadow-lg"
               >
-                {/* Issue #22 — a real <form>. Enter submits natively (no key handler of ours),
-                    and the submit button is the ONLY thing that ever queries the world: typing
-                    filters the trip, submitting adds the world. Nominatim's policy forbids
-                    as-you-type querying, so this separation is a requirement, not a preference. */}
+                {/* Typing filters the trip; only submit queries the world. */}
                 <form onSubmit={runWorldSearch}>
                   <label htmlFor="map-search-input" className="sr-only">
                     Search places on the map
@@ -878,10 +735,7 @@ export default function MapSection() {
                   />
                   <button
                     type="submit"
-                    // Disabled only on an EMPTY query, never while the request is in flight:
-                    // disabling a focused button blurs it to <body>, and losing the user's place
-                    // mid-search is the exact thing the focus handling here exists to prevent.
-                    // The in-flight guard lives in `runWorldSearch` instead.
+                    // Not disabled in flight: that would blur focus. runWorldSearch guards instead.
                     disabled={!searchQuery.trim()}
                     aria-busy={world.phase === 'searching'}
                     data-testid="map-search-world-submit"
@@ -931,10 +785,7 @@ export default function MapSection() {
                                 className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-r1 text-t-sm text-ink-hi hover:bg-[rgb(255_255_255/0.05)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
                                 <span className="block font-semibold">{hit.name}</span>
-                                {/* says WHAT this result is — a curated place ("Boudha,
-                                    Kathmandu · Nepal"), a city on the trip, or one of the user's
-                                    own plans — so three different kinds of thing don't read as
-                                    one undifferentiated list. */}
+                                {/* What kind of result this is. */}
                                 <span className="pr pr--lo block">{hit.source}</span>
                               </button>
                             </li>
@@ -944,10 +795,7 @@ export default function MapSection() {
 
                       {world.phase === 'done' && (
                         <>
-                          {/* The world group is a SEPARATE list under its own heading, with its
-                              own icon and the data's attribution (ODbL — the same courtesy the
-                              basemap's own attribution control pays). A row here is not a place
-                              on the trip and never renders as one. */}
+                          {/* World results: own list, with ODbL attribution. */}
                           <p
                             id="map-search-world-heading"
                             className="pr pr--lo flex items-center gap-1.5 px-2.5 pt-2.5 pb-1 border-t-hair border-[color:hsl(var(--border))] mt-1.5"
@@ -1041,12 +889,7 @@ export default function MapSection() {
           </p>
         )}
 
-        {/* schematic-line caveat — an honest passive note, only while the
-            itinerary overlay is on (the drawn line is a schematic day-order
-            connection between stops, not a routed driving/transit path).
-            Issue #1: it also has to say WHICH day is drawn. Scoping the route to one day
-            hides the other 31, and a map that quietly shows less than the user thinks it
-            does is the same class of defect as copy that claims more (D-271). */}
+        {/* The line is schematic, not a route; also says which day is drawn (D-271). */}
         {showItinerary && (
           <p
             data-testid="map-route-caveat"
@@ -1062,13 +905,8 @@ export default function MapSection() {
           </p>
         )}
 
-        {/* Issue #31 — the visited wash, IN WORDS. Two jobs, and both are load-bearing.
-            (1) The shapes live in a WebGL canvas, so a screen-reader user gets nothing from
-            them; this sentence is the whole feature for that user. (2) It says what the shape
-            IS. A gold blob over Honshu invites exactly one wrong reading — "that is Japan's
-            border" — and `lib/visited-footprint.ts` explains at length why it is not one and
-            why no border dataset was added. Copy that let the wrong reading stand would be the
-            D-271 defect the route caveat above already exists to avoid. */}
+        {/* The visited wash in words: screen readers get nothing from the canvas, and the
+            shapes aren't borders. */}
         {footprints.length > 0 && (
           <p
             data-testid="map-visited-note"
@@ -1080,10 +918,7 @@ export default function MapSection() {
           </p>
         )}
 
-        {/* The passive note under the controls. TWO writers now: TripMap's geolocate control
-            (`onGeoNote`), and issue #22's world search, which says which off-trip place the
-            camera was just centred on. One banner rather than two identical ones — it is the
-            same job (a calm, announced sentence about where the map is), and last message wins. */}
+        {/* Note from geolocate or world search; last message wins. */}
         {geoNote && (
           <div
             role="status"
@@ -1095,15 +930,8 @@ export default function MapSection() {
           </div>
         )}
 
-        {/* offline connectivity hint — passive, connectivity-only (useOnline()),
-            matching the geoNote banner's calm styling. It reports CONNECTIVITY, never
-            tile or map availability.
-            the engine is precached now, so offline the canvas, the marker circles
-            and the day route DO render — what is missing is the basemap imagery, because
-            tiles.openfreemap.org is cross-origin and hits the SW's untouched
-            cross-origin passthrough. The wording says exactly that and no more; the old
-            "the map needs a connection" now overstates the loss the same way v5.9.2's
-            "showing cached map tiles" overstated the win. */}
+        {/* Offline, pins and route still render; only the cross-origin basemap tiles are
+            missing. The copy says exactly that. */}
         {!online && (
           <div
             role="status"
@@ -1119,11 +947,7 @@ export default function MapSection() {
         )}
 
         <div className="rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-3 sm:p-4">
-          {/* Inline map slot. The persistent map-host node (mapHostRef, below)
-              lives here in normal mode and is relocated into the portaled
-              fullscreen shell on expand — see the relocation effect. This slot
-              keeps the layout box (definite height) so the card doesn't collapse
-              while the host is away in fullscreen. */}
+          {/* Inline slot; keeps its height while the host is in fullscreen. */}
           <div
             ref={inlineSlotRef}
             className="relative w-full h-[560px] sm:h-[600px] rounded-r1 overflow-hidden border-hair border-[color:hsl(var(--border))]"
@@ -1133,15 +957,8 @@ export default function MapSection() {
               directly above the map — a second row of noise carrying nothing new. */}
         </div>
 
-        {/* ──: day-target strip — pick the day the map shows, and assign pins to it ────
-            TWO jobs. Issue #1: tapping a day scopes the drawn route to that day (and opens
-            its panel below). And the map is an INPUT to planning: drag a pin's popup handle
-            onto a day (desktop pointer) OR use the popup's day <select> + Anchor button
-            (keyboard/touch). The dropped/selected pin is added to that day via the existing
-            itinerary CRUD and becomes the day's ANCHOR — which, since D-281, is the day's
-            BASE POINT (the origin of the per-row distance labels) and re-orders nothing.
-            The old "then re-order by client-side haversine distance" wording here described
-            behaviour the code has not had since `orderByProximity` was deleted. */}
+        {/* Day strip: tap to show a day, or drop a pin on it to make it that day's anchor
+            (the base point for distances, D-281). */}
         <div className="mt-6" data-testid="map-day-strip">
           <div className="flex flex-wrap items-center gap-1.5 mb-2">
             <CalendarPlus className="w-3.5 h-3.5 text-ink-lo" aria-hidden="true" />
@@ -1165,11 +982,7 @@ export default function MapSection() {
                 <li key={date} className="snap-start shrink-0">
                   <button
                     type="button"
-                    // Issue #1: picking a day SHOWS that day. Selecting also turns the
-                    // itinerary overlay on — the day's pins are drawn by the overlay, so
-                    // without this the gesture would answer "which day?" with an empty
-                    // canvas from a cold /map load (the overlay starts off). Deselecting
-                    // leaves the overlay alone and the whole trip comes back.
+                    // Selecting turns the overlay on, since it draws the day's pins.
                     onClick={() => {
                       if (isSelected) {
                         setSelectedDay(null);
@@ -1194,10 +1007,7 @@ export default function MapSection() {
                     aria-pressed={isSelected}
                     data-testid={`map-day-target-${date}`}
                     data-anchored={anchored ? 'true' : 'false'}
-                    // `data-stop-count` is the day's TOTAL planned items (what the
-                    // badge shows).: `data-mapped-count` was "how many the map
-                    // could place" — under that is now every one of them, so it now
-                    // counts the EXACTLY-placed ones, which is still able to fail.
+                    // stop-count: total plans; mapped-count: exactly placed ones.
                     data-stop-count={planned}
                     data-mapped-count={exact}
                     // Follows the visible text word for word so it contains it (WCAG 2.5.3).
@@ -1284,10 +1094,7 @@ export default function MapSection() {
                       )}
                     </p>
                     {selectedDayRows.length === 0 ? (
-                      // Only one honest empty case is left: a day with no plans at all. The
-                      // old second branch ("none of this day's N items have a map location")
-                      // is now false by construction — under every plan has a position.
-                      // The shape of the missing thing, at the size it will be.
+                      // Every plan has a position, so the only empty case is no plans.
                       <p data-testid="map-day-order-empty" className="empty-frame empty p-gut py-4 text-center">
                         Not yet planned. Drop a pin onto this day, or anchor one from a
                         popup, and its stops will be ruled in here.
@@ -1304,11 +1111,7 @@ export default function MapSection() {
                           const kmText =
                             km === null ? null : km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
 
-                          // Issue #224 — distance from the PREVIOUS stop (not the anchor), so a
-                          // backtrack (Asakusa → Shibuya → Asakusa) shows up: the anchor-distance
-                          // label above reads both Asakusa rows as "near the anchor" alike. Omitted
-                          // (not 0, not NaN) when either end has no coordinate, same as the anchor
-                          // label's own `p.kind === 'none'` handling.
+                          // From the previous stop, so backtracking shows. Omitted without coordinates.
                           const segFromPrevKm =
                             idx > 0 ? segmentKm(selectedDayRows[idx - 1].placement, p) : null;
                           const segNode = segFromPrevKm !== null && (
@@ -1362,12 +1165,7 @@ export default function MapSection() {
                           return (
                             <li key={row.item.id}>
                               {segNode}
-                              {/* A real <button>, not a click handler on the
-                                  <li> — native Enter/Space, native focus, 44px tap target. The
-                                  fly/zoom/popup engine is TripMap's existing focusMarker (which
-                                  already branches on prefers-reduced-motion); this only calls it.
-                                  keyed and testid'd by the ITEM id — two plans can share a
-                                  marker, and a marker-keyed row duplicated both. */}
+                              {/* Keyed by item id: two plans can share a marker. */}
                               <button
                                 type="button"
                                 onClick={() => flyToRow(row)}
@@ -1427,17 +1225,8 @@ export default function MapSection() {
         </div>
       </div>
 
-      {/* Persistent map-host node. Rendered exactly ONCE, here at the section
-          root, and relocated imperatively (appendChild) between the inline slot
-          and the portaled fullscreen slot — so React never reparents it and the
-          MapLibre instance inside <TripMap> survives fullscreen toggles.
-          className toggles inline (absolute, fills the relative inline slot) vs
-          fullscreen (fixed inset-0 → resolves against the VIEWPORT because its
-          parent is the body-portaled shell). The card around the inline slot no
-          longer carries a backdrop-filter, so it no longer creates a containing
-          block of its own — the portal now guarantees rather than rescues that.
-          The fullscreen buttons are direct children so they travel with the host
-          and stay clickable in both modes. */}
+      {/* The map host, rendered once and moved with appendChild between slots. The
+          fullscreen buttons are children so they travel with it. */}
       <div
         ref={mapHostRef}
         data-testid="map-shell"
@@ -1446,13 +1235,7 @@ export default function MapSection() {
         aria-label={isFullscreen ? 'Map' : undefined}
         data-visible-count={visibleMarkers.length}
         data-map-view={mapView}
-        // Issue #1 — the assertion seam for what is DRAWN. The route lives in a WebGL
-        // canvas, so without this there is no observable signal that the map is showing one
-        // day (or nothing) rather than the whole trip. Same idiom as `travel-day-map`'s
-        // `data-stop-ids`: the ids, not just a count, so a test can tell "the pins changed"
-        // from "the pins happen to number the same". `data-route-day` is the date being
-        // drawn, empty for the whole trip — the two together separate an EMPTY DAY (a day
-        // set, no ids) from an overlay that is simply off (no day, no ids).
+        // What the canvas draws, for tests: the day and the stop ids.
         data-route-day={showItinerary ? (selectedDay ?? '') : ''}
         data-route-stop-ids={stops.map((s) => s.marker.id).join(',')}
         // Issue #31 — the same assertion seam for the visited wash, for the same reason: the
@@ -1503,19 +1286,8 @@ export default function MapSection() {
           <button
             type="button"
             onClick={() => setIsFullscreen(false)}
-            // was `top-3 right-3`, which put it ON TOP of MapLibre's top-right
-            // control group and won on z-index — MEASURED in a real fullscreen browser:
-            // a 27×27 overlap of the 29×29 zoom-in button, and elementFromPoint at that
-            // button's centre returned this Close button, i.e. zoom-in was unclickable.
-            // Moved beside the fullscreen toggle so the
-            // app's own chrome sits together on the left and MapLibre keeps its conventional
-            // top-right corner untouched.
-            // CLEARANCE, and it moved once already: the toggle was w-9 and ended at ~51px,
-            // leaving 8.5px before this button's old `left-14` (59.5px @ the 17px root).
-            // Issue #105 grew the toggle to the 44px tap floor, so it now ends at 56.75px
-            // and that gap fell to 2.75px — still WCAG 2.5.8-clean (both ≥24px) but visually
-            // touching, and this pair has ALREADY caused one unclickable-control bug. `left-16`
-            // (68px) restores 11.25px. Recompute this if either control changes width again.
+            // Left side, beside the fullscreen toggle: top-right covered MapLibre's zoom-in.
+            // left-16 leaves ~11px after the 44px toggle; recheck if either width changes.
             className="chip absolute top-3 left-16 z-10 min-h-tap bg-surface-low px-2.5 text-ink-hi transition-colors hover:border-[color:var(--text-hi)] outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="w-4 h-4" aria-hidden="true" />
@@ -1524,16 +1296,8 @@ export default function MapSection() {
         )}
       </div>
 
-      {/* Fullscreen portal target: a bare mount point appended to
-          document.body. When fullscreen is active the map-host is relocated INTO
-          this slot, so its fixed-inset sizing resolves against the viewport and
-          cannot be captured by any transform or filter added to the card later.
-          Rendered
-          only after mount so the static-export prerender never touches document.
-          Kept mounted for the component's whole lifetime (not gated on
-          isFullscreen) so React never tears down a slot while the imperatively-
-          moved map-host is still inside it — the host relocates back to the
-          inline slot first, then this stays as an empty, harmless mount point. */}
+      {/* Fullscreen slot on document.body, so fixed sizing is against the viewport. Mounted
+          after hydration and never torn down while the host might be inside it. */}
       {mounted
         ? createPortal(
             <div ref={fullscreenSlotRef} data-map-fullscreen-slot="" />,

@@ -1,30 +1,12 @@
 /**
- * Typed storage gateway — the ONE module that fronts every ad-hoc persisted
- * web-storage key.
+ * Typed storage gateway: the only place app code declares a persisted key literal or touches
+ * localStorage/sessionStorage directly (the Vault and tests aside).
  *
- * This is the single place any of the persisted key *literals* is declared and the
- * single place raw `window.localStorage` / `window.sessionStorage` is touched in app
- * code.
- * After a grep for `localStorage.` / `sessionStorage.` outside this file (and the
- * Vault + tests) returns zero app hits — that makes storage-literal rule
- * *structural* rather than a convention.
+ * Key strings and value shapes are existing on-disk data. Never change one without a
+ * migration.
  *
- * BACK-COMPAT IS ABSOLUTE (the hard constraint for a LIVE, sync-enabled site): the
- * on-disk key *strings* and value *shapes* are byte-identical to the pre-gateway code.
- * The gateway is a typed wrapper over the SAME bytes — the only thing that moved is
- * where each string constant is declared, not what it is. Every deployed browser reads
- * name / token / nightlife-pref / today-override identically.
- *
- * Store-per-key: the gateway spans BOTH web-storage backends because
- * `tripPlannerTodayOverride` is genuinely sessionStorage. Each slot declares its
- * `Store`; the gateway does NOT unify or migrate across backends — session vs local is a
- * per-key fact preserved verbatim.
- *
- * SSR-safe + never-throw: every accessor guards on
- * `typeof window === 'undefined'` (read → typed fallback, write → no-op) and wraps every
- * get/set/remove in try/catch so quota / disabled-storage / privacy-mode degrade quietly.
- * The gateway NEVER throws to a caller — the invariant that already held in each source
- * module, made uniform and centrally tested here.
+ * Each key declares its store (local or session). Every accessor is SSR-safe and never
+ * throws: reads fall back, writes no-op, and quota or blocked storage degrade quietly.
  */
 
 import { SHARED_TRIP_ID } from '@/core/trips/shared-trip';
@@ -33,16 +15,9 @@ import { SHARED_TRIP_ID } from '@/core/trips/shared-trip';
 export type Store = 'local' | 'session';
 
 /**
- * Resolve the backing web-storage object for a store, or `null` when it is
- * unavailable (SSR — no window; or the property access itself throwing). Kept internal; the
- * primitives call it and degrade to the SSR/no-op path on `null`.
- *
- * The try/catch is NOT redundant with the per-operation ones below. Where site data is blocked for
- * the origin (Chrome/Edge "on-device site data" off, Safari "Block All Cookies", a sandboxed
- * iframe) the PROPERTY READ throws SecurityError — there is never an object to call `getItem` on,
- * so a per-operation catch never runs. `core/dates/trip-dates.ts` resolves the active trip at
- * MODULE SCOPE, so unguarded that throw lands during module evaluation on every route: the app
- * fails to boot rather than degrading.
+ * The storage object, or null on the server or when access throws. The try/catch matters: with
+ * site data blocked, reading `window.localStorage` itself throws SecurityError, and the active
+ * trip is resolved at module scope, so unguarded the app wouldn't boot.
  */
 function backing(store: Store): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -53,16 +28,13 @@ function backing(store: Store): Storage | null {
   }
 }
 
-// ── The single key registry ────────────────────────
 /**
- * Every persisted web-storage key literal lives here and NOWHERE else. Each entry pins
- * the exact on-disk string (unchanged) and its store. The previously duplicated raw
- * literal `tripPlannerUserName` (across identity/token-auth) now collapses to a single
- * reference.
- *
- * NOTE: the `packing_checklist` slot (formerly key 6) was removed along with the Home
- * packing checklist feature; the key numbering (7 onward) is kept as historical
- * documentation rather than renumbered.
+ * Every persisted key literal, with its store. Numbers ("key 26") are stable ids used in comments
+ * elsewhere; retired numbers are never reused. Scopes:
+ * - trip-scoped: listed in TripScopedSlot, namespaced per trip by keyFor, wiped with the trip
+ * - app-scoped: device or person data, not namespaced
+ * - lifetime: survives every wipe and sign-out (D-314)
+ * Value shapes are owned by the module named on each key; the gateway only moves bytes.
  */
 export const STORAGE_KEYS = {
   /** localStorage — plain display-name string (identity, key 3). */
@@ -70,441 +42,128 @@ export const STORAGE_KEYS = {
   /** localStorage — plain traveler-token string (identity, key 4). */
   token: 'tripPlannerToken',
   /**
-   * localStorage — JSON `string[]` of display names this user PREVIOUSLY went by (identity,
-   * key 30;-C). Appended by `identityStore.addPriorName` at rename time only, and cleared
-   * with the rest of identity on sign-out. Exists so "My edits" still matches items stamped
-   * before a rename; it is never used to guess who an unknown stored name belongs to.
-   * App-scoped like keys 3/4 (an identity is the person, not the trip). ADDITIVE — absent on
-   * every existing browser, and `getPriorNames` reads absence as `[]`.
+   * local, JSON string[]: names this user previously went by, so "My edits" still matches items
+   * stamped before a rename. Never used to guess who an unknown name is. App-scoped; cleared on
+   * sign-out.
    */
   priorNames: 'tripPlannerPriorNames',
   /** localStorage — boolean-as-string (`String(next)`) nightlife visibility (ui-prefs, key 7). */
   nightlifeVisible: 'nightlife_section_visible',
   /** sessionStorage — `YYYY-MM-DD` `?today=` override. */
   todayOverride: 'tripPlannerTodayOverride',
-  /**
-   * localStorage — `Record<city, WeatherNow>` JSON cache of the last successful Open-Meteo
-   * response per trip city. Enables the offline "last updated"
-   * fallback. Value shape is owned by
-   * `lib/weather.ts` (the gateway is byte-transport only — it does not know the WeatherNow
-   * shape). ADDITIVE: a brand-new key, so no back-compat surface changes.
-   */
+  /** local, JSON Record<city, WeatherNow>: last forecast per city for offline. lib/weather.ts. */
   weatherCache: 'nepal_japan_weather_cache',
-  /**
-   * localStorage — JSON `BudgetModel` for the trip budget. Holds per-leg
-   * + per-category budgets in each leg's LOCAL currency, the home/display currency, and the
-   * user-overridable (build-seeded) exchange rates. Client-side only, offline-safe, ZERO rate
-   * APIs. Value shape is owned by `core/budget/model.ts` (the gateway is byte-
-   * transport only — it does not know the BudgetModel shape). ADDITIVE: a brand-new key, so no
-   * back-compat surface changes and NO migration (it is NOT part of the itinerary Vault).
-   */
+  /** local, JSON BudgetModel (key 10): per-leg budgets, display currency, rates. core/budget/model.ts. */
   budget: 'nepal_japan_budget',
-  /**
-   * localStorage — JSON `Expense[]` for logged trip expenses. Each
-   * entry holds an amount in the leg's LOCAL currency (NPR / JPY, mirroring the budget model,
-   *), a leg, a category, and optional date/note. Client-side only, offline-safe (/
-   *). Value shape is owned by `core/budget/expenses.ts` (the gateway is byte-transport only
-   * — it does not know the Expense shape). ADDITIVE: a brand-new key, so no back-compat surface
-   * changes and NO migration (it is NOT part of the itinerary Vault; it mirrors the key-10
-   * `budgetStore` pattern exactly). The aggregate feeds `rollUp` `spent` seam.
-   */
+  /** local, JSON Expense[] (key 11), amounts in the leg's currency. core/budget/expenses.ts. */
   expenses: 'nepal_japan_expenses',
-  /**
-   * localStorage — JSON `JournalEntry[]` for the in-trip per-day text journal (journal, key 12;
-   *). Each entry holds a `YYYY-MM-DD` trip day (≤ 1 entry per date), a free-text body, an
-   * optional mood, and an optional highlight. Client-side only, offline-safe; photos
-   * / IndexedDB are OUT (the XL photo phase of #11 is a declared future boundary). Value shape is
-   * owned by `core/journal/model.ts` (the gateway is byte-transport only — it does not know the
-   * JournalEntry shape). ADDITIVE: a brand-new key, so no back-compat surface changes and NO migration
-   * (it is NOT part of the itinerary Vault; it mirrors the key-11 `expensesStore` pattern exactly).
-   */
+  /** local, JSON JournalEntry[] (key 12), at most one per day. core/journal/model.ts. */
   journal: 'nepal_japan_journal',
-  /**
-   * sessionStorage — presence flag `'1'` marking that the ChunkLoadError handler has already
-   * auto-reloaded ONCE this session. SESSION store: a
-   * chunk-load race should be recovered by a single reload; if it recurs after that reload the
-   * flag is set, so the handler logs and STOPS instead of looping. Cleared naturally when the tab
-   * closes. ADDITIVE: a brand-new key, no back-compat surface changes.
-   */
+  /** session, '1' (key 13): the ChunkLoadError handler already reloaded once; stops a reload loop. */
   chunkReloadOnce: 'chunk_reload_once',
-  /**
-   * localStorage — JSON `string[]` of favorited `Recommendation` ids (favorites, key 14;
-   *). Guides-scoped bookmarks across both countries' recommendation cards (`na…`/`ja…`
-   * ids from `lib/nepal-data.ts` / `lib/japan-data.ts`). Client-side only, offline-safe,
-   * local-only. Value shape is owned by
-   * `hooks/use-favorites.ts` (the gateway is byte-transport only). ADDITIVE: a brand-new key,
-   * no back-compat surface changes and NO migration (it is NOT part of the itinerary Vault;
-   * mirrors the key-12 `journalStore` pattern exactly).
-   */
+  /** local, JSON string[] (key 14): favourited guide and map ids. Not synced. hooks/use-favorites.ts. */
   favorites: 'nepal_japan_favorites',
   /**
-   * localStorage — JSON `OutboxSlot` for the offline sync push outbox (sync-outbox, key 15;
-   *). Records WHICH chunks have unconfirmed local changes per synced domain
-   * (`{ version, dirty: { itinerary?: string[]; expenses?: string[]; budget?: string[] } }`),
-   * so an offline edit survives a reload and is re-pushed exactly once on reconnect. STATE-
-   * based (dirty-chunk sets), NOT an op-log. Client-side only; the value shape is owned by
-   * `core/sync/outbox.ts` (the gateway is byte-transport only). Written ONLY on a configured +
-   * identified-traveler build (the outbox self-gates), so the dormant build NEVER touches
-   * this key and stays byte-identical. ADDITIVE: a brand-new key, no back-compat
-   * surface changes and NO migration (it is NOT part of the itinerary Vault). NOTE: the
-   * sketched key 14 for this slot, but favorites took 14 first — the outbox is
-   * the next free number, key 15.
+   * local, JSON OutboxSlot (key 15): which chunks per domain have unpushed changes. Only written
+   * when sync is configured and someone is signed in. core/sync/outbox.ts.
    */
   syncOutbox: 'nepal_japan_sync_outbox',
-  /**
-   * localStorage — JSON `PhotoMeta[]` photo-metadata index.
-   * METADATA ONLY — blob bytes live in IndexedDB behind `BlobStorePort`, NEVER in web storage.
-   * Local-only: NOT part of the itinerary Vault, NOT part of any sync path;
-   * NO photo field exists on any synced/Vault schema (the photo↔owner link lives only here). Value
-   * shape owned by `core/photos/model.ts` (the gateway is byte-transport only). ADDITIVE: a brand-new
-   * key, no back-compat surface changes and NO migration. Mirrors `favoritesStore`/`journalStore`. */
+  /** local, JSON PhotoMeta[]: metadata only; bytes live in IndexedDB. Never synced. core/photos/model.ts. */
   photos: 'nepal_japan_photos',
-  /**
-   * localStorage — presence flag `'1'` marking the first-run guided tour has been seen
-   * Gates a ≤5-step coach-mark stepper (Today · Plan ·
-   * Budget · Journal · Map) shown exactly once, right after the TokenGate first resolves
-   * (a traveler signs in). Local-only (mirrors `chunkReloadGuard`'s
-   * presence-flag shape, but on the LOCAL store since this must survive a reload, unlike
-   * the session-scoped chunk guard) — NOT part of any sync path. `tourStore.hasSeenTour()`
-   * is the presence read; `markTourSeen()` sets it on Skip OR finishing the last step —
-   * either path is terminal (exactly-once, reload-proof). ADDITIVE: a brand-new key, no
-   * back-compat surface changes and NO migration.
-   */
+  /** local, '1': first-run tour seen (set on skip or finish). */
   firstRunTour: 'nepal_japan_first_run_tour_seen',
-  /**
-   * localStorage — the active trip-pack id pointer. PACK-INDEPENDENT:
-   * this key is NEVER itself namespaced — it is the pointer that drives namespacing. Absent
-   * ⇒ the default pack (grandfather). Written only by the switcher, which then does a full
-   * reload. APP-SCOPED: deliberately NOT in `TripScopedSlot`, so
-   * `keyFor` cannot be handed it (type error). ADDITIVE: a brand-new key, no back-compat surface
-   * change and NO migration (an existing browser with no pointer resolves to the default pack).
-   */
+  /** local: active trip id, the pointer keyFor namespaces by. Absent means the sample pack. */
   activeTrip: 'tripPlannerActiveTrip',
   /**
-   * localStorage — boolean-as-string (`String(next)`) Travel Mode outdoor high-legibility
-   * toggle. Mirrors `nightlifeVisible`'s (key 7) exact
-   * `uiPrefs` shape — lenient `=== 'true'` read, `String(boolean)` write, NOT JSON — this is
-   * v5's deliberate TM-LOCAL substitute for a site-wide light mode: flipping it
-   * ON stamps `html[data-tm-legibility='high']` (only while mounted on `/travel`, removed on
-   * route leave/unmount) so `globals.css` can re-value the semantic tokens for a higher-
-   * contrast, larger-type presentation. ADDITIVE: a brand-new key, no back-compat surface
-   * changes and NO migration.
+   * local, 'true'/'false': Travel Mode high legibility. On /travel it sets
+   * html[data-tm-legibility='high'], which globals.css re-values.
    */
   travelLegibility: 'nepal_japan_travel_legibility',
   /**
-   * localStorage — Travel Mode gateway flag + arrival-toast "seen" marker (travel-mode, key 19;
-   * /). A 3-STATE presence string, NOT JSON: ABSENT = never entered, toast never
-   * shown; `'seen'` = the arrival toast was dismissed OR Travel Mode was entered-then-exited
-   * (suppress the toast forever, and NO PWA-relaunch re-enter); `'active'` = currently IN Travel
-   * Mode (a PWA relaunch re-enters `/travel`). Folded into ONE key deliberately ( — no extra
-   * key for "seen"): `'active'` implies seen, so `hasSeen()` is mere key-presence. LOCAL store so it
-   * survives a reload/relaunch (unlike the session-scoped chunk guard). Never written for an
-   * unidentified visitor. ADDITIVE: brand-new key, no back-compat surface change and NO migration. */
+   * local (key 19): absent = never entered; 'seen' = toast dismissed or mode exited; 'active' =
+   * in Travel Mode, so a PWA relaunch re-enters /travel. Any value means the toast was seen.
+   */
   travelMode: 'nepal_japan_travel_mode',
-  /**
-   * sessionStorage — the route to restore when Travel Mode is EXITED (travel-return, key 20;
-   *). SESSION store: an in-app entry records the exact
-   * `pathname+search` it left from so the exit X returns there with NO history trap; a cold start /
-   * PWA relaunch / deep link into `/travel` has NO stored value → the exit X falls back to `/`.
-   * Cleared on exit and on a relaunch re-enter. Value shape is a plain route string (byte-transport
-   * only). ADDITIVE: brand-new key, no back-compat surface change and NO migration. */
+  /** session (key 20): route to return to on leaving Travel Mode; falls back to /. */
   travelReturn: 'tripPlannerTravelReturn',
-  /**
-   * localStorage — JSON `PackingItem[]` packing checklist. Country-scoped
-   * template (Nepal-leg / Japan-leg / universal items) seeded from a fixed built-in template on
-   * first load — NO empty state (: this is genuinely a different item set from the-
-   * candidate critical-docs checklist). Client-side only, offline-safe. Value shape
-   * owned by `core/packing/model.ts` (the gateway is byte-transport only — it does not know the
-   * PackingItem shape). ADDITIVE: a brand-new key, no back-compat surface changes and NO migration
-   * (it is NOT part of the itinerary Vault). Mirrors `favoritesStore`/`photosStore` exactly. */
+  /** local, JSON PackingItem[], seeded from a template. core/packing/model.ts. */
   packing: 'nepal_japan_packing',
   /**
-   * localStorage — JSON `Record<dateISO, markerId>` per-day map anchors.
-   * Records which map pin a trip day is "anchored" to, so the /map day view can re-order that day's
-   * stops by client-side haversine distance from the anchor ( free-tools-only — NO routing
-   * API). LOCAL-ONLY, presentation-only: NOT part of the itinerary Vault, NOT part of any sync path
-   * ( — the reorder is a derived view; the assigned pin itself rides the existing itinerary CRUD,
-   * `addItem`, which is the ONE synced write). Self-healing: an anchor id no longer present among a
-   * day's stops simply yields no reorder — so no migration/versioning is needed. Value shape owned by
-   * `hooks`/`components/map-section.tsx` (the gateway is byte-transport only). ADDITIVE: a brand-new
-   * key, no back-compat surface changes and NO migration. Mirrors `favoritesStore` exactly. */
+   * local, JSON Record<date, markerId> (key 22): each day's map anchor, the base point for
+   * distances on /map. Local-only; a stale id is simply ignored.
+   */
   dayAnchors: 'nepal_japan_day_anchors',
-  /**
-   * localStorage — JSON `ShareItem[]` OS-share-target triage inbox.
-   * The installed PWA registers as a `share_target` (GET, `scripts/gen-sw.mjs::buildManifest()`);
-   * shared title/text/url land here as an unassigned item, triaged to a trip day or deleted. Held
-   * NEWEST-FIRST, capped at 100 (drop-oldest, `core/share/model.ts` `SHARE_CAP`) so the value stays
-   * small. localStorage backend; additive, no migration, LOCAL-ONLY (NOT part of the
-   * itinerary Vault, NOT part of any sync path). Value shape owned by `core/share/model.ts` (the
-   * gateway is byte-transport only). ADDITIVE: a brand-new key, no back-compat surface changes.
-   * Mirrors `favoritesStore`/`packingStore` exactly. */
+  /** local, JSON ShareItem[] (key 23): OS share-target inbox, newest first, capped. core/share/model.ts. */
   shareInbox: 'nepal_japan_share_inbox',
-  /**
-   * localStorage — the itinerary Vault's main slot. This
-   * literal was historically owned by `lib/itinerary-storage.ts` as a bare constant and never
-   * routed through the gateway — the ONE trip-scoped domain that predated the registry and was
-   * missed by the consolidation. Moved here (byte-identical string) so `keyFor('itinerary')`
-   * namespaces a non-default pack's itinerary exactly like every other synced domain (the local-data-
-   * bleed fix multi-trip work exposed). The Vault still owns the value SHAPE (versioned
-   * envelope, Zod, migrations —); this registry owns only the key string. TRIP-SCOPED. */
+  /** local: the itinerary Vault slot. The Vault owns the versioned envelope. Trip-scoped. */
   itinerary: 'nepal_japan_itinerary',
-  /**
-   * localStorage — the itinerary Vault's quarantine slot for corrupt payloads (itinerary-corrupt;
-   *). Same move as `itinerary` above — moved verbatim from `lib/itinerary-storage.ts` so
-   * a non-default pack quarantines under `trip:{id}:itineraryCorrupt` rather than colliding on the
-   * legacy literal. TRIP-SCOPED (paired with `itinerary`). */
+  /** local: quarantine for a corrupt itinerary payload. Trip-scoped. */
   itineraryCorrupt: 'nepal_japan_itinerary_corrupt',
-  /**
-   * localStorage — a per-device stable id. Minted once via
-   * `crypto.randomUUID()` and persisted, read thereafter (mirrors the presence-flag slots' shape).
-   * Replaces the Firebase Auth `uid` as the presence heartbeat doc id after the full auth strip
-   * with no `request.auth`, presence needs a locally-generated,
-   * reload-stable id. APP-SCOPED (NOT in `TripScopedSlot` — it identifies the device, not a trip;
-   * one device id is shared across every pack the browser views). ADDITIVE: a brand-new key, no
-   * back-compat surface change. */
+  /** local: random per-device id, used for presence. App-scoped. */
   deviceId: 'nepal_japan_device_id',
   /**
-   * localStorage — JSON `DocItem[]` critical-documents & day-zero-readiness checklist (docs, key 25;
-   *). A fixed built-in template (10 critical documents + 8 day-zero readiness items) seeded on
-   * first load — check/uncheck + an optional per-item note, NO add/remove. Client-
-   * side + offline-safe, AND SYNCED across travelers via the row-merge recipe (a
-   * single doc `trips/{tripId}/docs/checklist`, `lib/docs-remote.ts`). TRIP-SCOPED (paired with the
-   * remote per-trip doc, like `expenses`/`budget`). Value shape owned by `core/docs/model.ts` (the
-   * gateway is byte-transport only). The additive sync stamps (rev/hlc) are written ONLY on a
-   * configured build (the hook self-gates), so the dormant slot stays byte-identical.
-   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration. */
+   * local, JSON DocItem[] (key 25): fixed documents checklist, no add/remove. Synced to
+   * trips/{id}/docs/checklist. Trip-scoped. core/docs/model.ts.
+   */
   docsChecklist: 'nepal_japan_docs_checklist',
-  /**
-   * localStorage — JSON `TripMeta[]` of known trips. APP-SCOPED (NOT in
-   * `TripScopedSlot` — it is the list the pointer selects from, like `activeTrip`). Local-only,
-   * additive, no migration. Value shape (parse/sanitize/default-first/self-heal) is owned by
-   * `core/trips/registry.ts`.
-   */
+  /** local, JSON TripMeta[] (key 26): known trips. App-scoped. core/trips/registry.ts. */
   knownTrips: 'tripPlannerKnownTrips',
-  /**
-   * sessionStorage — comma-joined `string[]` of trip ids that have already run the trip-meta
-   * SELF-HEAL reload once this session (trip-meta-self-heal, key 27). Mirrors `chunkReloadOnce`'s
-   * session-scoped one-shot-guard shape, but keyed per trip id (not a single
-   * flag) since a session can legitimately switch between several trips, each deserving its own
-   * one-shot heal attempt. Cleared naturally when the tab closes. APP-SCOPED. ADDITIVE: a
-   * brand-new key, no back-compat surface change.
-   */
+  /** session, comma-joined ids (key 27): trips that already did their one trip-meta heal reload. */
   tripMetaSelfHeal: 'trip_meta_self_heal_once',
   /**
-   * localStorage — the personal Sync Code. A high-entropy capability token
-   * (`crypto.randomUUID()`, minted on first reveal) that mirrors THIS browser's known-trips list to
-   * `trips/{syncCode}/profile/tripList`; entering the same code on another device merges the list
-   * there, so trips created on one device appear on all of them. APP-SCOPED (NOT in `TripScopedSlot`)
-   * — it identifies the OWNER's device-set, not a trip, and is never namespaced by pack (mirrors
-   * `knownTrips`/`activeTrip`). Just another `trips/{id}` subtree, so the existing Firestore rules
-   * cover it (NO rules change). Value shape/merge policy lives in `core/trips/registry.ts` +
-   * `lib/trips-remote.ts`. ADDITIVE: a brand-new key, no
-   * back-compat surface change. Key 27 was taken by `tripMetaSelfHeal` guard.
+   * local (key 28): the account key, a random token. The trip list syncs to
+   * trips/{syncCode}/profile/tripList. App-scoped.
    */
   syncCode: 'tripPlannerSyncCode',
-  /**
-   * localStorage — JSON `RemovedTrip[]` (`[{ id, removedAt }]`) trip-forget tombstones (removedTrips,
-   * key 29;). When a trip is forgotten it is dropped from `knownTrips` (key 26) AND a
-   * tombstone is recorded here, so the Sync Code merge (`trips/{code}/profile/tripList`) can DROP the
-   * trip from the additive union instead of resurrecting it — a re-join (newer entry) still beats a
-   * stale tombstone. APP-SCOPED (NOT in `TripScopedSlot`, like `knownTrips`/`syncCode`). Local-only
-   * transport; shape/policy (sanitize, LWW-by-removedAt, default-pack exclusion) lives in
-   * `core/trips/registry.ts`. Never deletes remote trip
-   * DATA (only the local list entry). ADDITIVE: a brand-new key, no back-compat surface change.
-   */
+  /** local, JSON RemovedTrip[] (key 29): forget tombstones for the trip-list merge. core/trips/registry.ts. */
   removedTrips: 'tripPlannerRemovedTrips',
-  /**
-   * localStorage — a one-shot-ever presence flag for the install-to-Home-Screen education hint
-   * Mirrors `firstRunTour`'s exact shape (
-   * presence signal, LOCAL store so the dismissal survives a reload/new tab forever). Written by
-   * `components/storage-persistence.tsx` when the user dismisses the hint. APP-SCOPED (NOT in
-   * `TripScopedSlot` — installation is a device fact, not a trip fact). ADDITIVE: a brand-new
-   * key, no back-compat surface change.
-   */
+  /** local, '1' (key 30): install hint dismissed. App-scoped. */
   installHintDismissed: 'nepal_japan_install_hint_dismissed',
   /**
-   * localStorage — JSON `MyPlace[]` user-imported Google places. A place
-   * shared/pasted from a Google Maps link becomes a user-owned "My place" card in its country leg.
-   * TRIP-SCOPED (added to the `TripScopedSlot` union, resolved via `keyFor('myPlaces')`) so a custom
-   * trip's places never bleed into the default pack. Held NEWEST-FIRST, capped at 200 (drop-oldest,
-   * `core/places/model.ts` `PLACES_CAP`) so the value stays small — the cap applies to live rows
-   * and to tombstones separately. localStorage backend; additive, no migration. NOT part of the
-   * itinerary Vault, but — since the D-229 addendum (issue #17) — this slot IS on a sync path: it
-   * mirrors to `trips/{tripId}/places/list` on a custom trip. On the DEFAULT pack `getTripId()` is
-   * '' (the remote id is retired), so places there stay local-only and the row keeps its pre-#17
-   * bytes (no `rev`/`hlc`/`deleted`). Value shape owned by `core/places/model.ts` and the merge by
-   * `core/places/merge.ts` (the gateway is byte-transport only, either way). NOTE the sibling key
-   * 14 `favorites` is deliberately NOT synced — see the D-229 addendum. ADDITIVE: a brand-new key,
-   * no back-compat surface changes. Mirrors
-   * `shareInboxStore`/`favoritesStore` exactly. NOTE: the plan text sketched "key 30", but
-   * `installHintDismissed` took 30 first — this is the next free number, key 31.
+   * local, JSON MyPlace[] (key 31): imported Google Maps places, newest first, capped at 200 live
+   * rows plus 200 tombstones. Synced to trips/{id}/places/list when the trip has a remote id
+   * (D-229). Trip-scoped. core/places/model.ts and merge.ts.
    */
   myPlaces: 'nepal_japan_my_places',
   /**
-   * localStorage — JSON `{ cities: string[]; countries: string[] }` of every city and country this
-   * person has EVER been to (lifetime-visits, key 32; issue #29). LIFETIME-SCOPED — a THIRD scope
-   * beside trip-scoped and app-scoped, and the reason it is spelled out here rather than filed as
-   * "another app-scoped key": it sits outside the trip namespace AND outside `wipeAllTripData()` on
-   * purpose, so clearing a trip or signing out of this device never erases a permanent travel record
-   * that no trip owns and nothing can reconstruct (D-314). It is NOT in `TripScopedSlot` (handing it
-   * to `keyFor` is a compile error) and must NEVER be added to the wipe below. The `tripPlanner*`
-   * spelling rather than `nepal_japan_*` is deliberate: the pack-flavoured prefix reads as trip data
-   * at a glance, and this is not. Value shape + the unique/idempotent/insertion-order policy are
-   * owned by `core/places/visited.ts` (the gateway is byte-transport only — it does not know the
-   * `VisitedPlaces` shape). ADDITIVE: a brand-new key, no back-compat surface change and NO
-   * migration.
+   * local, JSON { cities, countries } (key 32): everywhere this person has been. Lifetime: never
+   * add it to the wipes below; nothing could rebuild it (D-314). core/places/visited.ts.
    */
   lifetimeVisits: 'tripPlannerLifetimeVisits',
   /**
-   * sessionStorage — comma-joined `string[]` of SURFACE ids whose entrance has already played
-   * this browser session (entrance ledger, key 33; issue #24). Backs D-293 rule 7, "the tenth
-   * visit is quieter than the first": a surface animates its entrance on the FIRST view per
-   * session and is simply present, at its end state, on every later view. (Key 32 was taken by
-   * `lifetimeVisits`, which landed on dev while this was in flight — this is the next free
-   * number, exactly as `installHintDismissed` took 30 from `myPlaces`.)
-   *
-   * SESSION store, and the choice IS the rule — a new tab or a new browser session is a new
-   * greeting, everything inside one session is not. What that means concretely, because it is
-   * the part a later reader will get wrong: the ledger does NOT reset on a reload (sessionStorage
-   * survives a refresh in the same tab), on a client-side route change, on a component remount,
-   * on a reduced-motion toggle, or on sign-out. It DOES reset when the tab is closed. A
-   * DUPLICATED tab inherits the set, because browsers copy sessionStorage into the duplicate —
-   * accepted and named, not overlooked.
-   *
-   * Shape mirrors `tripMetaSelfHealGuard` (key 27) rather than one key per surface: the
-   * storage-literal rule wants one declared literal per slot, and there are at most 17 surfaces
-   * in the app, so the joined set stays tiny. APP-SCOPED (a greeting belongs to the tab session,
-   * not to a trip). ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   * session, comma-joined surface ids (key 33): entrances already played (D-293 rule 7). Survives
+   * reloads and route changes, resets when the tab closes; a duplicated tab inherits it.
    */
   motionEntranceSeen: 'motion_entrance_seen',
   /**
-   * localStorage — JSON `{ checkedOn: string | null; confirmed: VisitConfirmation[] }`, the
-   * GPS-confirmation half of the visit record (visit-confirmations, key 34; issue #30).
-   * (Key 33 went to `motionEntranceSeen`, which landed on dev while this was in flight — same
-   * next-free-number rule that gave #24 its own number after key 32.)
-   * LIFETIME-SCOPED for the same reasons as its sibling key 32, and held under the same three
-   * structural guarantees: not in `TripScopedSlot`, no `trip:` prefix, not among the teardown's
-   * removals. It is a separate key rather than a third field on key 32 so that #29's on-disk
-   * `{ cities, countries }` shape stays byte-stable — a reader written against D-314 must keep
-   * seeing exactly two fields.
-   *
-   * **This key is the one place the app persists anything derived from a device position, and the
-   * shape is the privacy contract (D-320 amends D-158).** `checkedOn` is the trip-clock day
-   * (`YYYY-MM-DD`) the one-shot location check last RAN, whatever came back — it is what makes the
-   * check one-shot-per-day rather than once-per-page-load, so a denied or timed-out check still
-   * writes it and still does not re-prompt. `confirmed[]` holds `{ city, country, at }`: a place
-   * name the app already had in its own coordinate table plus an ISO instant. **No latitude, no
-   * longitude, no accuracy, no altitude, no heading, no speed, and no raw `GeolocationPosition`
-   * field of any kind may ever be written here.** The fix is matched in memory against
-   * `lib/city-coords.ts` and discarded; only the resolved city name survives the call stack. Value
-   * shape and policy are owned by `core/places/visited.ts` (the gateway is byte-transport only).
-   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   * local, JSON { checkedOn, confirmed[] } (key 34): GPS-confirmed visits. Lifetime, like key 32.
+   * Privacy contract (D-320): only { city, country, at } is stored. Never write coordinates or
+   * any GeolocationPosition field; the fix is matched to a city in memory and discarded.
+   * `checkedOn` is set even on denial, so the check runs at most once a day.
    */
   visitConfirmations: 'tripPlannerVisitConfirmations',
   /**
-   * localStorage — JSON `string[]`, the countries whose passport stamp has ALREADY BEEN SHOWN
-   * (passport stamps, key 35; issue #5). Not a second copy of the visit set and never a source of
-   * truth for where anyone has been: key 32 owns that list, this one only remembers which of its
-   * entries the passport page has already greeted, so a stamp can animate on the visit that first
-   * counts a country and be simply present on every later one.
-   *
-   * LIFETIME-SCOPED, for a reason that is behavioural and not symmetry: key 32 survives
-   * `wipeAllTripData()` and `signOut()` (D-314), so a trip-scoped or session-scoped record here
-   * would come back empty against a country list that did not — and the next passport view would
-   * re-unlock every country the traveller has ever visited, at once. Held under the same three
-   * structural guarantees as its two siblings: not in `TripScopedSlot`, no `trip:` prefix, not
-   * among the teardown's removals.
-   *
-   * ABSENT IS NOT EMPTY, and that distinction is the whole feature. A missing slot means "this
-   * device has never rendered the passport", which SEEDS (every country already recorded is
-   * treated as history and celebrates nothing); `[]` means "seeded, and nothing has been greeted
-   * yet". `core/places/passport.ts` owns that rule — the gateway is byte-transport only. Values are
-   * the display strings key 32 stores, verbatim, so no second copy of its fold rule lives here.
-   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   * local, JSON string[] (key 35): countries whose passport stamp has been shown. Lifetime, or
+   * every stamp would re-unlock after a wipe. Absent is not []: absent seeds from history and
+   * celebrates nothing. core/places/passport.ts.
    */
   passportStamps: 'tripPlannerPassportStamps',
   /**
-   * sessionStorage — comma-joined `string[]` of CELEBRATION claim keys (`<weight>:<entity id>`)
-   * already spent this browser session (celebration ledger, key 36; issue #24). Backs D-293
-   * rule 5's second clause ("a celebration id fires at most once per session per entity") and
-   * rule 6's caps ("pop: 3 per session"), which the false→true edge in `lib/celebration.ts`
-   * cannot see on its own — re-entering a route rebuilds the ref and the edge fires again.
-   *
-   * Shape and store are `motionEntranceSeen`'s (key 33) EXACTLY, deliberately: same session
-   * scope, same comma-joined set, same reset semantics (survives a reload and a route change,
-   * dies with the tab, is inherited by a duplicated tab). The weight prefix is what makes one
-   * key carry both rules — the cap for a weight is how many entries start with `<weight>:`, so
-   * there is no counter to drift out of step with the set.
-   *
-   * SSR-safe + never-throw (inherited): unreadable storage reads as "nothing fired yet", so the
-   * degraded behaviour is a celebration that fires again, never one that is silently swallowed.
-   * Same permissive direction as the entrance ledger, for the same reason. APP-SCOPED.
-   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   * session, comma-joined `<weight>:<id>` (key 36): celebrations already fired (D-293 rules 5-6).
+   * Same lifetime as key 33. A weight's cap is the count of entries with its prefix.
    */
   motionCelebrationsFired: 'motion_celebrations_fired',
-  /**
-   * localStorage — the expense-import quarantine slot for rejected/corrupt backup payloads
-   * (expenses-corrupt, key 37; #100/A-10). Same move as `itineraryCorrupt` above: this literal was
-   * historically owned by `lib/expense-export.ts` as a bare constant, read/written via raw
-   * `window.localStorage` calls, and never routed through the gateway or `keyFor` — so a non-default
-   * pack's rejected import silently wrote into the SAME global key any other pack's quarantine used.
-   * Moved here (byte-identical string) so `keyFor('expensesCorrupt')` namespaces a non-default pack's
-   * quarantine slot exactly like every other `TRIP_SCOPED_SLOTS` member. TRIP-SCOPED (paired with
-   * `expenses`, key 11). NOTE: grepped for the highest existing "key N" before picking this one — key
-   * 36 (`motionCelebrationsFired`) was the highest at the time this was written, so 37 is the next
-   * free number.
-   */
+  /** local (key 37): quarantine for a rejected expense import. Trip-scoped. */
   expensesCorrupt: 'nepal_japan_expenses_corrupt',
-  /**
-   * localStorage — the Frankfurter currency-rate cache, a `Record<currency, CurrencyRateNow>` JSON
-   * map (currency-rate-cache, key 38; A-26). Same move as `expensesCorrupt` above: this literal was
-   * historically owned by `lib/currency-rate.ts` as a bare module constant, read/written via raw
-   * `window.localStorage` calls, deliberately outside the registry (see that file's own former
-   * header comment). Moved here for the one-registry invariant only — NOT added to
-   * `TripScopedSlot`/`ALL_TRIP_SCOPED_SLOTS` (mirrors `deviceId`/`firstRunTour`'s plain-registry-
-   * entry pattern): rates are genuinely global, not trip data, so this stays APP-SCOPED, is never
-   * namespaced by `keyFor`, and is never swept by `wipeAllTripData`/`wipeTripData` — retention policy
-   * is UNCHANGED by this move. Value shape owned by `lib/currency-rate.ts` (the gateway is
-   * byte-transport only). The key STRING is unchanged (same bytes, same cache) — only where the
-   * literal is declared moved.
-   */
+  /** local, JSON Record<currency, rate> (key 38): exchange-rate cache. App-scoped, never wiped. lib/currency-rate.ts. */
   currencyRateCache: 'nepal_japan_currency_rate_cache',
-  /**
-   * sessionStorage — presence flag `'1'` left by the token-only login door when the display name
-   * silently defaulted to the placeholder, consumed once by the provider after the reload to nudge
-   * the traveler to rename themselves (name-hint, key 39; #165). Mirrors `chunkReloadOnce`'s (key
-   * 13) one-shot-session-flag shape exactly: SESSION store so the nudge crosses the login reload
-   * and dies with the tab, presence-read, cleared on consumption so a later reload cannot re-fire
-   * it. APP-SCOPED (identity is the person, not the trip).
-   *
-   * The key STRING is unchanged (`name-hint`, same bytes, same store) — `token-gate.tsx` and
-   * `itinerary-provider.tsx` reached raw `sessionStorage` for this literal and were the last two
-   * app-code bypasses of the registry; only where the literal is declared moved.
-   */
+  /** session, '1' (key 39): login defaulted the name, so nudge a rename once after the reload. */
   nameHint: 'name-hint',
-  /**
-   * localStorage — boolean-as-string (`String(next)`) `/map` screen-wake-lock toggle
-   * (map-wake-lock, key 41; issue #247). Mirrors `travelLegibility` (key 33)/`nightlifeVisible`
-   * (key 7)'s exact `uiPrefs` shape — lenient `=== 'true'` read, `String(boolean)` write, NOT
-   * JSON. Deliberately OFF by default (absent ⇒ `null` ⇒ caller treats as off): unlike Travel
-   * Mode's Essentials card and the safety phrase card, `/map` is a route someone can leave open
-   * in a pocket, so an always-on lock here would drain battery for no active on-screen reading.
-   * APP-SCOPED, not trip data — a device preference, not part of any trip pack or the itinerary
-   * Vault. ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
-   */
+  /** local, 'true'/'false' (key 41): /map keep-awake, off by default. App-scoped. */
   mapWakeLockEnabled: 'nepal_japan_map_wake_lock_enabled',
   /**
-   * localStorage — plain string, the trip LEG the "back up your trip" nudge has already fired
-   * for (backup-prompt, key 42; issue #222). Absent ⇒ never nudged. TRIP-SCOPED (added to the
-   * `TripScopedSlot` union, resolved via `keyFor('backupPromptLeg')`, #330) — the stored value is
-   * a LEG ID, which is only meaningful relative to the trip it came from. It was originally
-   * APP-SCOPED like `installHintDismissed`/`firstRunTour`, which meant the first custom trip to
-   * store its single leg ('main') silently suppressed the nudge for every OTHER custom trip on
-   * the device. Plain-string like `uiPrefs`, not JSON. ADDITIVE: a brand-new key, no back-compat
-   * surface change. NOTE: three parallel slices each grabbed "next free key" independently off
-   * the same base and all landed on 40 (#228's `bookingOverrides`, #247's `mapWakeLockEnabled`
-   * renumbered to 41) — this one was renumbered to 42 at merge time, being the last of the three
-   * to land. Check for a fresher collision before reusing any of these numbers again.
+   * local, leg id (key 42): leg the backup nudge last fired for. Trip-scoped because leg ids like
+   * 'main' repeat across custom trips.
    */
   backupPromptLeg: 'nepal_japan_backup_prompt_leg',
   /**
@@ -520,23 +179,9 @@ export const STORAGE_KEYS = {
    */
   conciergeProvider: 'nepal_japan_concierge_provider',
   /**
-   * localStorage — plain string, the REMOTE trip id the DEFAULT pack syncs to, or absent for
-   * "this device only" (default-trip-share, key 45; D-542). APP-SCOPED, and deliberately NOT a
-   * `TripScopedSlot`: it does not namespace anything, it only answers "does the sample pack have
-   * a Firestore path yet". Absent ⇒ `getTripId()` returns `''` exactly as #10 left it, so every
-   * build that never opts in is byte-identical.
-   *
-   * This is the ONE thing that was missing after #10 retired `NEXT_PUBLIC_TRIP_ID`. That retirement
-   * was right — a `NEXT_PUBLIC_*` value inlines into the public bundle, so the "secret" trip id
-   * shipped to every visitor — but it left the default pack with NO way to ever sync, and no way
-   * to say so. The id here is minted per device by `crypto.randomUUID()` and stored locally, so it
-   * is a real capability token that was never in the bundle.
-   *
-   * Storage keys are UNAFFECTED: `keyFor` namespaces on `getActiveTripId()` (the PACK id, still
-   * `DEFAULT_TRIP_ID`), never on this. That separation is the whole point — the trip keeps its
-   * legacy on-disk bytes, its NPT/JST leg offsets and its guide content, and only gains a remote
-   * path. NOTE: key 44 (`conciergeProvider`) was the highest when this was written; parallel
-   * slices have collided on "next free key" before, so re-check before reusing 45.
+   * local (key 45, D-542): remote trip id the sample pack syncs to; absent means device-only.
+   * Minted per device, never in the bundle. keyFor still namespaces by the pack id, so local
+   * bytes don't move when sharing starts.
    */
   defaultTripShare: 'nepal_japan_default_trip_share',
   /**
@@ -546,10 +191,8 @@ export const STORAGE_KEYS = {
    */
   defaultTripAdopted: 'nepal_japan_default_trip_adopted',
   /**
-   * localStorage — JSON `string[]` of remote trip ids CREATED on this device (created-here, key 46;
-   * D-551). The first-snapshot seed names this device `owner` only for these, so a joiner who
-   * reaches a trip before its creator's doc landed cannot seed themselves owner. APP-SCOPED and
-   * deliberately NOT on the trip registry: that syncs across devices and drops unknown fields.
+   * local, JSON string[] (key 46, D-551): trips created on this device, the only ones where the
+   * first-snapshot seed may claim owner. Not in the registry, which syncs.
    */
   tripsCreatedHere: 'nepal_japan_trips_created_here',
   /**
@@ -589,24 +232,13 @@ export const STORAGE_KEYS = {
    */
   localRescue: 'nepal_japan_local_rescue',
   /**
-   * localStorage — JSON object of short strings, the emergency (ICE) card (ice, key 55; D-790).
-   * TRIP-SCOPED, DEVICE-ONLY: medical and contact details. No sync domain, share link, backup or
-   * concierge payload reads it. Wiped on sign-out and local forget, kept through a remote forget.
-   * Shape owned by `core/ice/ice.ts`.
+   * local (key 55, D-790): emergency card, medical and contact details. Device-only: no sync,
+   * share, backup or concierge path reads it. Trip-scoped. core/ice/ice.ts.
    */
   ice: 'nepal_japan_ice',
-  /**
-   * localStorage — JSON array, itinerary values this device lost to another person's edit in a
-   * merge (sync-conflicts, key 56; D-801). TRIP-SCOPED, DEVICE-ONLY: never on a row or Firestore
-   * doc, left out of the backup, wiped with the other trip-scoped slots. Shape owned by
-   * `core/sync/conflict-store.ts`.
-   */
+  /** local (key 56, D-801): values this device lost in a merge. Device-only. core/sync/conflict-store.ts. */
   conflicts: 'nepal_japan_sync_conflicts',
-  /**
-   * localStorage — JSON `{ meta: tripId[], list?: syncCode }`, trip renames and the trip list
-   * whose push has not landed yet (trip-sync-queue, key 58; D-880). APP-SCOPED, wiped on sign-out.
-   * Shape owned by `core/trips/registry.ts` (read) and `lib/trips-remote.ts` (write).
-   */
+  /** local (key 58, D-880): trip renames and trip list awaiting push. App-scoped. lib/trips-remote.ts. */
   tripSyncQueue: 'nepal_japan_trip_sync_queue',
 } as const;
 
@@ -625,42 +257,22 @@ export function wasTripCreatedHere(id: string): boolean {
   return tripsCreatedHere().includes(id);
 }
 
-// ── Active-trip pointer + trip-scoped key namespacing ──
-/**
- * Default pack id. The pack-INDEPENDENT `activeTrip` pointer being unset (or holding this value)
- * resolves to the default pack. Its keys are grandfathered VERBATIM. This is the single
- * source of truth for the id; `core/trips` re-exports it and `lib/firebase-config.ts`'s sync gate
- * reads it. #10: this id is LOCAL-ONLY — the default pack has no remote path (`getTripId()`
- * returns '' for it; the old NEXT_PUBLIC_TRIP_ID remote id is retired).
- */
+// Active trip and per-trip key namespacing
+
+/** The sample pack's id. Its keys keep their original un-prefixed names. Local-only. */
 export const DEFAULT_TRIP_ID = 'nepal-japan-2026';
 
 /**
- * The floor a trip id must clear before it can become a Firestore path segment (#476).
- *
- * THE INVARIANT, stated exactly: the id must occupy EXACTLY ONE path segment, so that `{tripId}`
- * in the ruleset binds the whole id and the membership subject is the same document the write
- * lands under. It is NOT about depth — `match /{sub}/{document=**}` is recursive and `{document=**}`
- * matches zero or more segments, so `trips/A/B/C/days/d` still binds `tripId=A` and `isMember()`
- * still resolves against `trips/A`. Rejecting `/` is the whole of what delivers the invariant; the
- * rest is hygiene on values that would silently name a neighbouring trip (`.`/`..` resolve away,
- * `__x__` is reserved by Firestore, whitespace/control bytes compose an empty one).
- *
- * Not a shape lock — a hand-made id stays legal.
- *
- * Lives here, beside the pointer accessors, so every place that needs it agrees by construction:
- * `core/trips/registry.ts` refuses such a token at the join AND drops it out of a parsed/merged
- * known-trips entry, and `lib/firebase-config.ts` refuses to compose a path out of a value already
- * on disk from before that guard existed.
+ * Whether an id is safe as one Firestore path segment. With a `/` in it, the rules would check
+ * membership against a different trip than the one written. The other checks reject ids that
+ * resolve away or are reserved (`.`, `..`, `__x__`, blank). Used by the registry and firebase-config.
  */
 export function isSafeTripSegment(id: string): boolean {
   if (id === '' || id.length > 128) return false;
   if (id === '.' || id === '..') return false;
   if (id.includes('/') || id.includes(' ')) return false;
-  // `[\s\S]`, not `.`: JS `.` does not match the two line-separator code points (U+2028,
-  // U+2029), so an id of that form would slip past the `__*__` name Firestore reserves. Neither
-  // character is written literally here, on purpose: one of them inside a line comment ENDS the
-  // line, and the rest of it is then parsed as code.
+  // `[\s\S]`, not `.`, which skips U+2028/U+2029. (Not written literally: in a comment they
+  // end the line.)
   if (/^__[\s\S]*__$/.test(id)) return false;
   // Control bytes by code point rather than a character class: an escape in a regex literal here
   // has been written through as the raw byte before now, which silently changes what is matched.
@@ -671,19 +283,12 @@ export function isSafeTripSegment(id: string): boolean {
   return true;
 }
 
-/**
- * Read the active pack id, or `DEFAULT_TRIP_ID` when the pointer is unset / SSR / unreadable.
- * TOTAL, never-throws (inherits `readString`). Read per call — the id only changes across a full
- * reload, so there is no cache to invalidate and SSR/first-paint ordering stays trivial.
- */
+/** Active pack id, or DEFAULT_TRIP_ID. Read per call; it only changes across a reload. */
 export function getActiveTripId(): string {
   return readString('local', STORAGE_KEYS.activeTrip) ?? DEFAULT_TRIP_ID;
 }
 
-/**
- * Write the active pack id. Write-ONLY — the CALLER performs the full page
- * reload. Never throws.
- */
+/** Caller reloads afterwards. */
 export function setActiveTripId(id: string): void {
   writeString('local', STORAGE_KEYS.activeTrip, id);
 }
@@ -698,12 +303,8 @@ export function getStoredDefaultTripShareId(): string {
 }
 
 /**
- * The remote trip id the DEFAULT pack syncs to: the stored id, else `''` (a local-only sample).
- *
- * D-811 — only `lib/account-share.ts` writes the shared trip's id, and only once the signed-in
- * account is one of the shared trip's members. A device with no id therefore stays local-only
- * whoever signs in, instead of sending every other account's reads and writes into refusals.
- * TOTAL, never-throws, SSR-safe (inherited from `readString`).
+ * Remote id the sample pack syncs to, or '' for local-only. Only lib/account-share.ts writes it,
+ * once the account is a member (D-811).
  */
 export function getDefaultTripShareId(): string {
   return getStoredDefaultTripShareId();
@@ -730,11 +331,7 @@ export function dropDefaultPackSyncedData(): void {
   for (const slot of DEFAULT_SHARE_SYNCED_SLOTS) removeKey('local', keyForTrip(DEFAULT_TRIP_ID, slot));
 }
 
-/**
- * Point the default pack at a remote trip id, or clear it with `''`. Write-ONLY — the CALLER
- * performs the full page reload, mirroring `setActiveTripId`. The reload is not optional: the
- * remote subscribe is established once per boot, so nothing syncs until the next load.
- */
+/** Set or clear ('') the sample pack's remote id. Caller must reload; subscriptions start at boot. */
 export function setDefaultTripShareId(id: string): void {
   const trimmed = id.trim();
   // D-561 — the outbox and the synced slots belong to the trip they were edited under, not to the
@@ -764,12 +361,7 @@ export function getDefaultTripAdopted(): DefaultTripAdopted | null {
   return typeof shareId === 'string' && typeof at === 'string' ? { shareId, at } : null;
 }
 
-/**
- * Raw known-trips accessor pair — byte-transport only, mirroring the
- * `activeTrip` pointer pattern. ALL shape/sanitize/policy logic (TripMeta parse, default-pack-
- * first, self-heal) lives in `core/trips/registry.ts`. APP-SCOPED like the pointer:
- * the list the pointer selects from is itself never namespaced. SSR-safe, never throws.
- */
+/** Raw known-trips string; core/trips/registry.ts owns the shape. */
 export function getKnownTripsRaw(): string | null {
   return readString('local', STORAGE_KEYS.knownTrips);
 }
@@ -779,17 +371,8 @@ export function setKnownTripsRaw(raw: string): void {
 }
 
 /**
- * ACCOUNT ID accessor pair — byte-transport only, mirroring `knownTrips`.
- *
- * The account id the signed-in user owns (`users/{uid}.accountId`, D-660): it keys the account's
- * trip list and identity docs. The on-disk key (`tripPlannerSyncCode`) and these accessor names
- * date from when this was a personal Sync Code and then the User Token the door logged in with;
- * they are INTERNAL MISNOMERS, kept because renaming them is churn with no behavior change. It is
- * NEVER a Trip Token and never shareable.
- *
- * Minting (`crypto.randomUUID()`) + all policy live in the callers (`components/token-gate.tsx`,
- * `lib/trips-remote.ts` push/subscribe); the gateway just reads/writes the raw string.
- * APP-SCOPED, never namespaced. `null` when never minted. Never throws.
+ * The account id (users/{uid}.accountId, D-660), keying the account's trip list and identity docs.
+ * "Sync code" is a historical name kept to avoid churn. Never a Trip Token, never shared.
  */
 export function getSyncCode(): string | null {
   return readString('local', STORAGE_KEYS.syncCode);
@@ -801,12 +384,7 @@ export function setSyncCode(code: string): void {
   writeString('local', STORAGE_KEYS.syncCode, code);
 }
 
-/**
- * Removed-trips tombstone accessor pair — byte-transport only, mirroring
- * `knownTrips`. ALL shape/sanitize/policy logic (RemovedTrip parse, LWW-by-removedAt, default-pack
- * exclusion, the merge) lives in `core/trips/registry.ts`. APP-SCOPED, never namespaced.
- * SSR-safe, never throws.
- */
+/** Raw forget-tombstone string; core/trips/registry.ts owns the shape. */
 export function getRemovedTripsRaw(): string | null {
   return readString('local', STORAGE_KEYS.removedTrips);
 }
@@ -815,12 +393,7 @@ export function setRemovedTripsRaw(raw: string): void {
   writeString('local', STORAGE_KEYS.removedTrips, raw);
 }
 
-/**
- * The trip-scoped slots — the ONLY slots `keyFor` accepts. App-scoped slots (`userName`, `token`,
- * `todayOverride`, `chunkReloadOnce`, `firstRunTour`, `nightlifeVisible`, `activeTrip`)
- * are STRUCTURALLY excluded: they are not in this union, so passing one to `keyFor` is a compile
- * error.
- */
+/** The only slots keyFor accepts; passing an app-scoped one is a type error. */
 export type TripScopedSlot =
   | 'weatherCache'
   | 'budget'
@@ -846,13 +419,8 @@ export type TripScopedSlot =
   | 'conflicts';
 
 /**
- * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
- * `wipeAllTripData()` (below) and the trip-scope test suites import, replacing two hand-maintained
- * copies that had already drifted from the type itself (both were missing `myPlaces`, later
- * addition — see the for the exact drift). `TripScopedSlot` is compile-time-only, so a
- * runtime array needs its own exhaustiveness guarantee: `satisfies` rejects a typo/invalid member
- * below, and the `_ExhaustiveTripScopedSlots` check rejects a MISSING one — add a member to
- * `TripScopedSlot` without adding it here and `tsc` fails, so a slot can never silently escape a wipe.
+ * TripScopedSlot as a runtime list, for the wipes and tests. `satisfies` rejects a bad member and
+ * `_ExhaustiveTripScopedSlots` a missing one, so no slot escapes a wipe.
  */
 const ALL_TRIP_SCOPED_SLOTS = [
   'weatherCache',
@@ -887,64 +455,27 @@ void _exhaustiveTripScopedSlots;
 export const TRIP_SCOPED_SLOTS: readonly TripScopedSlot[] = ALL_TRIP_SCOPED_SLOTS;
 
 /**
- * Resolve the on-disk key for a trip-scoped slot under the ACTIVE pack:
- * - default pack (id-equality with `DEFAULT_TRIP_ID`, NOT key-absence) ⇒ the legacy literal from
- * `STORAGE_KEYS[slot]` VERBATIM — grandfather, forever byte-identical;
- * - any other pack ⇒ `trip:{activeTripId}:{slot}`, where `slot` is the registry NAME (e.g.
- * `'journal'`), not the legacy literal.
- *
- * Changes ONLY the key STRING — never the `Store`: each slot keeps its own local/session fact
- * `todayOverride` is app-scoped and never routes here, so its sessionStorage fact
- * is untouched. TOTAL, never-throws.
+ * On-disk key for a slot in the active trip: the original literal for the sample pack, else
+ * `trip:{id}:{slot}` using the registry name. Only the key changes, never the store.
  */
 export function keyFor(slot: TripScopedSlot): string {
   return keyForTrip(getActiveTripId(), slot);
 }
 
-/**
- * `keyFor` for an EXPLICIT trip id rather than the active one — same grandfather rule. Needed by
- * the paths that touch a trip they are not standing in (forgetting a trip reads its photo index
- * before wiping it). TOTAL, never-throws.
- */
+/** keyFor for a given trip id rather than the active one. */
 export function keyForTrip(id: string, slot: TripScopedSlot): string {
   return id === DEFAULT_TRIP_ID ? STORAGE_KEYS[slot] : `trip:${id}:${slot}`;
 }
 
 /**
- * Full local teardown for sign-out. Clears
- * EVERY on-disk trace of the previous traveler's TRIP DATA on this device — not just the active pack:
- *
- * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the bare
- * `STORAGE_KEYS[slot]` literals from `TRIP_SCOPED_SLOTS` (the default pack's data — `keyFor`
- * grandfathers it to the UNPREFIXED literal, so a `trip:` sweep ALONE misses it entirely;
- * the default pack is the common case on a fresh/shared device, not an edge case).
- * - `itineraryCorrupt` IS included in both passes above — a deliberate
- * reversal of an earlier "must exclude" reading. The slot holds the ORIGINAL bytes of the previous
- * traveler's itinerary, kept for a migration-crash recovery path that has no reader once the trip
- * itself is wiped; leaving it behind would be simultaneously a privacy leak (a verbatim copy of
- * their plan surviving a "wipe this device" action) and orphaned data — exactly what this teardown
- * exists to remove. "independent lifecycle" clause protects the slot DURING migration; it
- * was never a rule about a deliberate, user-initiated device teardown. EVERY OTHER code path still
- * leaves the slot untouched (pinned at `gateway-trip-scope.test.ts`) — do not "restore" an exclusion
- * here, it was overturned on purpose.
- * - The app-scoped pointers/lists: `activeTrip`, `knownTrips`, `removedTrips`, `syncCode`.
- * - `travelMode` (Ruling 4): a stale `'active'` flag with no identity check is what made the
- * Travel Mode redirect loop reachable by ordinary use — clearing it on sign-out removes the trigger
- * state at its source.
- *
- * Deliberately NOT cleared: identity (the caller, `signOut()`, clears that itself); photo blobs
- * (IndexedDB, app-scoped — cleared only by "Forget this device": a photo is expensive to re-acquire
- * and is not identity-linked); and `lifetimeVisits` (key 32, D-314 — the lifetime record of cities
- * and countries visited is not this trip's data, outlives every trip, and cannot be reconstructed
- * from anything left on disk. It is absent from `TRIP_SCOPED_SLOTS` and from the removals below,
- * both on purpose; `lib/__tests__/visited-lifetime.test.ts` fails if either changes). `visitConfirmations`
- * (key 34, D-320 — issue #30) rides key 32's scope for the same reason: it records WHICH of those
- * lifetime visits a one-shot location check confirmed and when, which is an attribute of the
- * lifetime visit and not of any trip. It holds no coordinates, so what survives a teardown here is
- * a city name and a timestamp, never a position.
- *
- * SSR-safe, never throws. Mirrors the deleted `wipeSandbox`'s collect-then-delete shape for the prefix
- * sweep — removing while iterating re-indexes `s.key(i)` and silently skips half the keys.
+ * Sign-out teardown of all trip data on this device:
+ * - every `trip:*` key, plus the sample pack's un-prefixed literals (a prefix sweep alone misses them)
+ * - itineraryCorrupt too: it holds a copy of the plan. Other code paths leave it alone
+ *   (gateway-trip-scope.test.ts), but sign-out must not.
+ * - the trip pointer and lists, and travelMode (a stale 'active' caused a redirect loop)
+ * Not cleared: identity (signOut() does that), photo blobs, and the lifetime keys 32/34
+ * (D-314; visited-lifetime.test.ts checks).
+ * Keys are collected before deleting, since deleting while iterating skips entries.
  */
 export function wipeAllTripData(): void {
   const s = backing('local');
@@ -978,19 +509,8 @@ export function wipeAllTripData(): void {
 }
 
 /**
- * Full local teardown for ONE forgotten trip (A-10 / #100). Mirrors `wipeAllTripData()`'s
- * sweep above, but for a SINGLE non-default id, deleting its exact slot keys rather than a prefix
- * — every `TRIP_SCOPED_SLOTS` member under that id (itinerary, expenses,
- * budget, journal, photos meta, docs, packing, share-inbox, favorites, day-anchors, weather cache,
- * my-places, sync outbox, both quarantine slots) goes with it. `core/trips/registry.ts`'s
- * `removeKnownTrip` calls this alongside its existing list/tombstone writes, so forgetting a trip no
- * longer leaves its data on disk forever — bloat, a privacy leak on a shared device, and (since
- * `syncOutbox` is itself a `TRIP_SCOPED_SLOTS` member) a dirty outbox for that id can never survive
- * to replay stale local edits over the live remote on a later re-join.
- *
- * No-op on an empty id or `DEFAULT_TRIP_ID` (mirrors `removeKnownTrip`'s own guard — the default
- * pack is never removable, so it is never swept by id here; use `wipeAllTripData()` for that case).
- * SSR-safe, never throws.
+ * Delete every trip-scoped slot of one forgotten trip, outbox included so stale edits can't
+ * replay on a re-join. No-op for '' or the sample pack.
  */
 export function wipeTripData(id: string): void {
   if (!id || id === DEFAULT_TRIP_ID) return;
@@ -998,9 +518,7 @@ export function wipeTripData(id: string): void {
   for (const slot of TRIP_SCOPED_SLOTS) removeKey('local', keyForTrip(id, slot));
 }
 
-// ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────
-// These are the ONLY functions in app code that touch raw web storage. The domain
-// accessors below are the public API; keep these lean and total.
+// Primitives: the only functions in app code that touch raw web storage.
 
 /** Read a raw string, or `null` when absent / SSR / storage unreadable. */
 export function readString(store: Store, key: string): string | null {
@@ -1013,24 +531,15 @@ export function readString(store: Store, key: string): string | null {
   }
 }
 
-/**
- * Detect a QUOTA-exceeded failure specifically (vs. disabled storage / privacy mode, which
- * throw too but must stay silent — no event). Chrome/Safari/Edge: `DOMException` with
- * `name === 'QuotaExceededError'` (code 22). Firefox (older): `name === 'NS_ERROR_DOM_QUOTA_REACHED'`
- * (code 1014). Guards for non-`DOMException` throws.
- */
+/** Quota failure specifically; disabled storage throws too but stays silent. Includes old Firefox's name. */
 export function isQuotaError(e: unknown): boolean {
   if (!(e instanceof DOMException)) return false;
   return e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED';
 }
 
 /**
- * Defensive, never-throw notification that a write was dropped specifically because of a
- * quota failure — the REACTIVE complement to `storage-persistence.tsx`'s PROACTIVE
- * `estimate()` warning. `core/` stays framework-free (no sonner/React import here); the one
- * sonner toast lives in that island's `trip:quota-exceeded` listener. Wrapped so a missing
- * `CustomEvent` (old browser) or a throwing listener can NEVER propagate out of a write — the
- * never-throw invariant is absolute and takes priority over delivering this signal.
+ * Fires `trip:quota-exceeded` for storage-persistence.tsx to toast. Wrapped so nothing here can
+ * throw out of a write.
  */
 export function notifyQuotaExceeded(key: string): void {
   try {
@@ -1088,19 +597,9 @@ export function hasKey(store: Store, key: string): boolean {
 }
 
 /**
- * Read + `JSON.parse` a slot, returning `fallback` on absent / SSR / parse error / a parsed value
- * that cannot be the caller's shape. Used by the checklist accessor (the only JSON-shaped
- * non-itinerary slot). NOT used for the nightlife pref — that is `String(boolean)`, not JSON
- * (see `uiPrefs`).
- *
- * The shape gate is what keeps the never-throw contract at the top of this file true. A slot
- * holding a JSON SCALAR (`null`, `5`, `"x"` — devtools, another script on the origin, a corrupt
- * profile) parses fine, so it used to be handed back typed as the caller's `T`; the accessors that
- * dereference it directly rather than passing it to a domain sanitizer (`weatherCache`,
- * `outbox.loadSlot`) then threw a TypeError OUT of the gateway, and `weatherCache`'s escapes into
- * Home's render. Gated on an object-shaped fallback so the `ABSENT` sentinel callers (a symbol —
- * `lib/trip-backup.ts`'s export, which must tell an absent slot from a stored one) still get the
- * raw parsed value.
+ * Parse a JSON slot, or `fallback` if absent, unparseable or the wrong kind. With an object
+ * fallback, a stored scalar is rejected so callers that dereference it can't throw. A symbol
+ * fallback (trip-backup's ABSENT) gets the raw parsed value.
  */
 export function readJson<T>(store: Store, key: string, fallback: T, onReject?: (raw: string) => void): T {
   const raw = readString(store, key);
@@ -1126,11 +625,8 @@ export function readJson<T>(store: Store, key: string, fallback: T, onReject?: (
 type DeviceOnlySlot = 'journal' | 'packing' | 'photos' | 'shareInbox' | 'favorites' | 'ice';
 
 /**
- * `readJson` for a slot no remote copy can restore (#985, D-725). Stored bytes the read refuses are
- * copied into `localRescue` before the fallback goes back, because the caller's next save
- * overwrites them. Write-once per slot like the itinerary quarantine; an unreadable rescue slot is
- * left alone rather than replaced. Not capped: these slots are small, and a truncated journal
- * would not be a copy.
+ * readJson for device-only slots (D-725): rejected bytes are copied to localRescue first, since
+ * the next save would overwrite the only copy. Write-once per slot.
  */
 function readDeviceOnlyJson<T>(slot: DeviceOnlySlot, fallback: T, sanitize?: (parsed: unknown) => unknown): T {
   const rescue = (raw: string) => {
@@ -1174,20 +670,9 @@ export function writeJson<T>(store: Store, key: string, value: T): boolean {
   return writeString(store, key, serialized);
 }
 
-// ── Domain accessors — the actual public API ───────────────
+// Domain accessors
 
-/**
- * Identity slot (keys 3 + 4). `getName`/`setName` back `lib/identity.ts`;
- * `getToken`/`setToken` back `lib/token-auth.ts`.
- *
- * `clearIdentity` clears BOTH the name AND the token — this is the cross-module ownership
- * the calls out (risk 2): `token-auth.ts`'s sign-out historically removed
- * `tripPlannerUserName` (owned by `identity.ts`) as well as its own token. Centralizing
- * both removals here keeps that behavior exact while removing the duplicated literal.
- *
- * `setName` trims (matching the prior `identity.setUserName` contract verbatim). Tokens
- * are stored as-passed (the caller already resolved the canonical `traveler.token`).
- */
+/** Identity (keys 3 and 4) for lib/identity.ts and lib/token-auth.ts. setName trims. */
 export const identityStore = {
   getName(): string | null {
     return readString('local', STORAGE_KEYS.userName);
@@ -1201,19 +686,12 @@ export const identityStore = {
   setToken(token: string): void {
     writeString('local', STORAGE_KEYS.token, token);
   },
-  /**
-   *-C — display names this same user previously went by (key 30). Recorded at rename
-   * time, never inferred; see `addPriorName`. Read by `useAuthorFilter` so "My edits" still
-   * matches stamps written before the rename.
-   */
+  /** Names this user went by before a rename, for "My edits". */
   getPriorNames(): string[] {
     const list = readJson<unknown>('local', STORAGE_KEYS.priorNames, []);
     return Array.isArray(list) ? list.filter((n): n is string => typeof n === 'string') : [];
   },
-  /**
-   * Append the name being renamed AWAY FROM. No-op for an empty name or one already recorded,
-   * so repeated renames back and forth cannot grow the list without bound.
-   */
+  /** Record the old name on rename. Duplicates are ignored so the list stays bounded. */
   addPriorName(name: string): void {
     const prev = name.trim();
     if (!prev) return;
@@ -1228,11 +706,7 @@ export const identityStore = {
     if (add.length) writeJson('local', STORAGE_KEYS.priorNames, [...list, ...add]);
     return add.length > 0;
   },
-  /**
-   * Clear token, name AND the prior-name history (sign-out). Order is immaterial — all
-   * best-effort. The history MUST go with the identity: leaving it behind would let the next
-   * person on a handed-down device inherit the previous traveler's names as their own aliases.
-   */
+  /** Sign-out. Prior names go too, or the next person on the device would inherit them. */
   clearIdentity(): void {
     removeKey('local', STORAGE_KEYS.token);
     removeKey('local', STORAGE_KEYS.userName);
@@ -1241,17 +715,8 @@ export const identityStore = {
 } as const;
 
 /**
- * UI preferences slot (key 7) — the nightlife section's visibility.
- *
- * CRITICAL (risk 3): this value is stored as `String(boolean)` (`'true'` / `'false'`),
- * NOT JSON. The read parses it leniently with `=== 'true'` (any other stored string,
- * including a legacy value, reads as `false`) — it must NOT use `JSON.parse`. The write
- * uses `String(next)`, byte-identical to the component's prior behavior.
- *
- * `getNightlifeVisible` returns `null` when the key is ABSENT so the caller can keep its
- * own default (the component defaults `visible` to `true` and only overrides when a value
- * was actually stored — `if (saved !== null) setVisible(saved === 'true')`). Returning a
- * boolean here instead would silently change that first-visit default.
+ * Nightlife visibility (key 7). Stored as 'true'/'false', not JSON: don't JSON.parse it.
+ * Returns null when absent so the caller keeps its own default.
  */
 export const uiPrefs = {
   /** `true`/`false` if a value is stored (lenient `=== 'true'`), or `null` if absent. */
@@ -1265,12 +730,7 @@ export const uiPrefs = {
   },
 } as const;
 
-/**
- * Clock-override slot (key 8) — the `?today=` simulation date. SESSION store only
- * The
- * gateway wraps the raw string read/write/remove; all resolution/validation/precedence
- * logic stays in `lib/trip-now.ts` (the gateway is byte-transport only, not policy).
- */
+/** The ?today= override (key 8), session only. lib/trip-now.ts owns the logic. */
 export const clockOverride = {
   get(): string | null {
     return readString('session', STORAGE_KEYS.todayOverride);
@@ -1283,17 +743,7 @@ export const clockOverride = {
   },
 } as const;
 
-/**
- * Weather cache slot — the last successful Open-Meteo response PER CITY, so the
- * weather card can fall back to a "last updated …" value when a fetch fails (offline / network
- * / non-200). localStorage backend; the whole slot is a `Record<city, T>` JSON map.
- *
- * The gateway is byte-transport only: it does NOT know the `WeatherNow` shape —
- * the value type is a caller-supplied generic `T`, owned by `lib/weather.ts`. `get(city)`
- * returns the cached value or `null` (absent / SSR / corrupt); `set(city, value)` merges the
- * one city into the existing map and writes the whole map back (so caching one city never
- * evicts the other). Never throws (inherits `readJson`/`writeJson`'s total, SSR-safe behavior).
- */
+/** Per-city weather cache. `set` merges into the map so other cities survive. */
 export const weatherCache = {
   get<T>(city: string): T | null {
     const map = readJson<Record<string, T>>('local', keyFor('weatherCache'), {});
@@ -1306,17 +756,7 @@ export const weatherCache = {
   },
 } as const;
 
-/**
- * Budget slot — the trip `BudgetModel` JSON. localStorage backend;
- * additive, no migration, NOT part of the itinerary Vault.
- *
- * The gateway is byte-transport only: it does NOT know the `BudgetModel` shape —
- * the value type is a caller-supplied generic `T`, owned by `core/budget/model.ts`. `get(fallback)`
- * returns the parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER is responsible
- * for normalizing a partially-valid parsed value into a safe model (`normalizeModel`) — keeping
- * the "make a corrupt slot safe" policy in the budget domain, not in this transport layer.
- * `set(model)` writes the whole model as JSON. Never throws (inherits `readJson`/`writeJson`).
- */
+/** Budget. The caller normalizes what it reads (normalizeModel). */
 export const budgetStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('budget'), fallback);
@@ -1326,17 +766,7 @@ export const budgetStore = {
   },
 } as const;
 
-/**
- * Expenses slot — the trip `Expense[]` JSON list. localStorage backend;
- * additive, no migration, NOT part of the itinerary Vault. Mirrors `budgetStore` exactly.
- *
- * The gateway is byte-transport only: it does NOT know the `Expense` shape — the
- * value type is a caller-supplied generic `T`, owned by `core/budget/expenses.ts`. `get(fallback)`
- * returns the parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER normalizes a
- * partially-valid parsed value into a safe `Expense[]` (`sanitizeExpenses`) — keeping the "make a
- * corrupt slot safe" policy in the expense domain, not this transport layer. `set(expenses)` writes
- * the whole list as JSON. Never throws (inherits `readJson`/`writeJson`).
- */
+/** Expenses. The caller sanitizes (sanitizeExpenses). */
 export const expensesStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('expenses'), fallback);
@@ -1346,17 +776,7 @@ export const expensesStore = {
   },
 } as const;
 
-/**
- * Journal slot — the in-trip per-day `JournalEntry[]` JSON list. localStorage backend
- *; additive, no migration, NOT part of the itinerary Vault. Mirrors `expensesStore` exactly.
- *
- * The gateway is byte-transport only: it does NOT know the `JournalEntry` shape — the
- * value type is a caller-supplied generic `T`, owned by `core/journal/model.ts`. `get(fallback)`
- * returns the parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER normalizes a
- * partially-valid parsed value into a safe `JournalEntry[]` (`sanitizeEntries`) — keeping the "make a
- * corrupt slot safe" policy in the journal domain, not this transport layer. `set(entries)` writes the
- * whole list as JSON. Never throws (inherits `readJson`/`writeJson`).
- */
+/** Journal. The caller sanitizes (sanitizeEntries). */
 export const journalStore = {
   get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
     return readDeviceOnlyJson<T>('journal', fallback, sanitize);
@@ -1392,13 +812,7 @@ export const iceStore = {
   },
 } as const;
 
-/**
- * Chunk-reload guard slot — a one-shot-per-session flag for the ChunkLoadError
- * auto-reload. SESSION store (mirrors the `?today=` sessionStorage handling above): `hasReloaded()`
- * is the presence signal, `markReloaded()` sets it before the handler triggers `window.location
- * reload()`. This lets the handler recover a dev/first-load chunk race with a single reload while
- * refusing to loop if the error persists after that reload. SSR-safe + never-throw (inherited).
- */
+/** One ChunkLoadError reload per session, then stop. */
 export const chunkReloadGuard = {
   hasReloaded(): boolean {
     return readString('session', STORAGE_KEYS.chunkReloadOnce) === '1';
@@ -1408,13 +822,7 @@ export const chunkReloadGuard = {
   },
 } as const;
 
-/**
- * Name-hint slot (key 39, #165) — the one-shot post-login rename nudge. Mirrors
- * `chunkReloadGuard`'s session-scoped flag shape, with the read fused to the clear: `consume()` is
- * true at most ONCE per stored flag, so the caller cannot toast twice and cannot forget to clear
- * before it toasts. Strict `=== '1'` read (any other stored value reads as absent), byte-identical
- * to the raw `sessionStorage` calls this replaces. SSR-safe + never-throw (inherited).
- */
+/** Post-login rename nudge (key 39). `consume()` reads and clears, so it's true at most once. */
 export const nameHintFlag = {
   mark(): void {
     writeString('session', STORAGE_KEYS.nameHint, '1');
@@ -1426,13 +834,7 @@ export const nameHintFlag = {
   },
 } as const;
 
-/**
- * Trip-meta self-heal guard — a per-trip one-shot-per-session flag so the
- * joiner self-heal (`ItineraryProvider`) fetches remote trip meta + reloads AT MOST once per
- * trip id per session, refusing to loop when the remote genuinely has no meta doc yet. Mirrors
- * `chunkReloadGuard`'s session-scoped shape, extended to a comma-joined id set (a session can
- * switch between several trips). SSR-safe + never-throw (inherited).
- */
+/** At most one trip-meta heal reload per trip per session. */
 export const tripMetaSelfHealGuard = {
   hasRun(tripId: string): boolean {
     const raw = readString('session', STORAGE_KEYS.tripMetaSelfHeal);
@@ -1462,19 +864,8 @@ export const defaultShareReloadGuard = {
 } as const;
 
 /**
- * Entrance ledger (key 33) — the once-per-session record behind D-293 rule 7. Mirrors
- * `tripMetaSelfHealGuard` exactly: a comma-joined id set in the SESSION store, read as a
- * presence test and appended to at most once per id. Surface ids are route paths (`/`,
- * `/nepal`), which never contain the `,` separator.
- *
- * The policy — which surfaces are eligible, and whether reduced motion or the tier gate
- * short-circuits before the ledger is ever consulted — lives in `lib/motion.ts`. This is
- * byte-transport only, like every other slot here.
- *
- * SSR-safe + never-throw (inherited): with storage disabled or unreadable every read returns
- * `false` and every write no-ops, so the caller degrades to "always animate" and NEVER to
- * "always hidden". That direction is load-bearing — a re-greeted surface is a cosmetic miss;
- * a surface stuck at its start state is a blank screen.
+ * Entrance ledger (key 33); policy in lib/motion.ts. Broken storage reads as not greeted, so the
+ * failure mode is re-animating, never a stuck-hidden screen.
  */
 export const entranceLedger = {
   hasGreeted(surface: string): boolean {
@@ -1491,18 +882,8 @@ export const entranceLedger = {
 } as const;
 
 /**
- * Celebration ledger (key 36) — the once-per-session record behind D-293 rule 5's second clause
- * and rule 6's caps. The same slot as `entranceLedger` above with one difference: the whole set
- * is readable, because a cap ("pop: 3 per session") is a COUNT and not a presence test.
- *
- * The policy — what a claim key is, which weights are capped and at what, and whether reduced
- * motion short-circuits before the ledger is consulted — lives in `lib/celebration.ts`. This is
- * byte-transport only, like every other slot here.
- *
- * SSR-safe + never-throw (inherited): with storage disabled `fired()` is always `[]` and
- * `markFired` no-ops, so every claim succeeds. That direction is the same one the entrance
- * ledger picked and for the same reason — a repeated celebration is a cosmetic miss, a
- * celebration that can never fire is a feature that looks broken.
+ * Celebration ledger (key 36); policy in lib/celebration.ts. The whole set is readable because
+ * caps are counts. Broken storage lets every claim through, like the entrance ledger.
  */
 export const celebrationLedger = {
   fired(): string[] {
@@ -1517,18 +898,7 @@ export const celebrationLedger = {
   },
 } as const;
 
-/**
- * Favorites slot — the guides-scoped bookmarked-recommendation `string[]` of
- * ids. localStorage backend; additive, no migration, NOT part of the itinerary Vault,
- * NOT part of any sync path. Mirrors `journalStore`/`expensesStore` exactly.
- *
- * The gateway is byte-transport only: it does NOT know the id shape beyond "a
- * JSON array" — the value type is a caller-supplied generic `T`, owned by `hooks/use-favorites.ts`.
- * `get(fallback)` returns the parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER
- * sanitizes a partially-valid parsed value into a safe `string[]` — keeping the "make a corrupt
- * slot safe" policy in the favorites domain, not this transport layer. `set(ids)` writes the whole
- * list as JSON. Never throws (inherits `readJson`/`writeJson`).
- */
+/** Favourites. The caller sanitizes. */
 export const favoritesStore = {
   get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
     return readDeviceOnlyJson<T>('favorites', fallback, sanitize);
@@ -1538,17 +908,7 @@ export const favoritesStore = {
   },
 } as const;
 
-/**
- * Photos slot — the `PhotoMeta[]` photo-metadata index JSON. localStorage backend
- *; additive, no migration, local-only (: NOT part of the itinerary Vault, NOT part of any
- * sync path). Mirrors `favoritesStore`/`journalStore` exactly. BLOB BYTES ARE NOT HERE — they live in
- * IndexedDB behind `core/photos/blob-store.ts`; this slot carries only small JSON metadata.
- *
- * The gateway is byte-transport only: it does NOT know the `PhotoMeta` shape — the value
- * type is a caller-supplied generic `T`, owned by `core/photos/model.ts`. `get(fallback)` returns the
- * parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER sanitizes (`sanitizePhotos`).
- * `set(metas)` writes the whole list as JSON. Never throws (inherits `readJson`/`writeJson`).
- */
+/** Photo metadata; bytes are in IndexedDB (core/photos/blob-store.ts). Caller sanitizes. */
 export const photosStore = {
   get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
     return readDeviceOnlyJson<T>('photos', fallback, sanitize);
@@ -1558,13 +918,7 @@ export const photosStore = {
   },
 } as const;
 
-/**
- * First-run tour slot — a one-shot-ever presence flag. LOCAL store (unlike
- * `chunkReloadGuard`'s session-scoped one-shot-per-session flag): the tour must stay
- * dismissed across a reload/new tab, forever, until storage is explicitly cleared.
- * `hasSeenTour()` reads presence; `markTourSeen()`
- * writes the `'1'` flag. SSR-safe + never-throw (inherited from `hasKey`/`writeString`).
- */
+/** First-run tour, shown once ever. */
 export const tourStore = {
   hasSeenTour(): boolean {
     return hasKey('local', STORAGE_KEYS.firstRunTour);
@@ -1574,13 +928,7 @@ export const tourStore = {
   },
 } as const;
 
-/**
- * Travel Mode outdoor high-legibility toggle slot. Mirrors `uiPrefs`
- * exactly (RISK 3 shape): `String(boolean)`, NOT JSON, lenient `=== 'true'` parse. `get()`
- * returns `null` when the key is ABSENT so the caller (the TM toggle) can start from an
- * explicit "off" default without conflating "never set" and "set false". `set(value)` writes
- * `String(value)`. SSR-safe + never-throw (inherited from `readString`/`writeString`).
- */
+/** Travel Mode legibility. Same 'true'/'false' format as uiPrefs; null when unset. */
 export const legibilityPrefs = {
   get(): boolean | null {
     const raw = readString('local', STORAGE_KEYS.travelLegibility);
@@ -1592,13 +940,7 @@ export const legibilityPrefs = {
   },
 } as const;
 
-/**
- * `/map` screen-wake-lock toggle slot (issue #247). Mirrors `legibilityPrefs`/`uiPrefs` exactly:
- * `String(boolean)`, NOT JSON, lenient `=== 'true'` parse. `get()` returns `null` when the key is
- * ABSENT so the caller starts from an explicit OFF default — deliberately, unlike the always-on
- * Travel Mode/safety-card wake locks, since `/map` can be left open unattended. `set(value)`
- * writes `String(value)`. SSR-safe + never-throw (inherited from `readString`/`writeString`).
- */
+/** /map keep-awake. Same format as uiPrefs; null when unset, treated as off. */
 export const mapWakeLockPrefs = {
   get(): boolean | null {
     const raw = readString('local', STORAGE_KEYS.mapWakeLockEnabled);
@@ -1610,18 +952,7 @@ export const mapWakeLockPrefs = {
   },
 } as const;
 
-/**
- * Packing checklist slot — the `PackingItem[]` JSON list. localStorage backend
- *; additive, no migration, NOT part of the itinerary Vault. Mirrors `favoritesStore`/
- * `photosStore` exactly.
- *
- * The gateway is byte-transport only: it does NOT know the `PackingItem` shape —
- * the value type is a caller-supplied generic `T`, owned by `core/packing/model.ts`. `get(fallback)`
- * returns the parsed slot or `fallback` (absent/SSR/corrupt JSON); the CALLER seeds the built-in
- * template when the slot is absent/corrupt/empty (`sanitizeItems`) — keeping that policy in the
- * packing domain, not this transport layer. `set(items)` writes the whole list as JSON. Never
- * throws (inherits `readJson`/`writeJson`).
- */
+/** Packing list. The caller seeds the template when empty or corrupt. */
 export const packingStore = {
   get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
     return readDeviceOnlyJson<T>('packing', fallback, sanitize);
@@ -1631,18 +962,7 @@ export const packingStore = {
   },
 } as const;
 
-/**
- * Day-anchors slot — the `Record<dateISO, markerId>` per-day map anchor map.
- * localStorage backend; additive, no migration, LOCAL-ONLY (: NOT part of the
- * itinerary Vault, NOT part of any sync path — it is presentation state driving a derived,
- * client-side proximity reorder). Mirrors `favoritesStore`/`packingStore` exactly.
- *
- * The gateway is byte-transport only: it does NOT know the map's key/value shape
- * beyond "a JSON object" — the value type is a caller-supplied generic `T`, owned by
- * `components/map-section.tsx`. `get(fallback)` returns the parsed slot or `fallback` (absent /
- * SSR / corrupt JSON); `set(map)` writes the whole map as JSON. Never throws (inherits
- * `readJson`/`writeJson`). Self-healing: a stale anchor id simply produces no reorder.
- */
+/** Per-day map anchors, local-only. */
 export const dayAnchorStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('dayAnchors'), fallback);
@@ -1652,17 +972,7 @@ export const dayAnchorStore = {
   },
 } as const;
 
-/**
- * Share-inbox slot — the `ShareItem[]` OS-share-target triage inbox JSON list.
- * localStorage backend; additive, no migration, LOCAL-ONLY (NOT part of the itinerary
- * Vault, NOT part of any sync path). Mirrors `favoritesStore`/`packingStore` exactly.
- *
- * The gateway is byte-transport only: it does NOT know the `ShareItem` shape — the
- * value type is a caller-supplied generic `T`, owned by `core/share/model.ts`. `get(fallback)`
- * returns the parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER sanitizes
- * (`sanitizeItems`). `set(items)` writes the whole list as JSON. Never throws (inherits
- * `readJson`/`writeJson`).
- */
+/** Share-target inbox. The caller sanitizes. */
 export const shareInboxStore = {
   get<T>(fallback: T, sanitize?: (parsed: unknown) => unknown): T {
     return readDeviceOnlyJson<T>('shareInbox', fallback, sanitize);
@@ -1672,14 +982,7 @@ export const shareInboxStore = {
   },
 } as const;
 
-/**
- * Device-id slot — a per-browser stable id, minted once and persisted.
- * APP-SCOPED (never namespaced by pack). Replaces the Firebase Auth uid as the presence heartbeat
- * doc id after the full auth strip. `getId()` returns the persisted id, minting +
- * writing one via `crypto.randomUUID()` on first need (read thereafter, reload-stable). SSR-safe:
- * with no window the read/write no-op and a fresh (non-persisted) uuid is returned — harmless, since
- * presence only ever runs client-side (its start guards on `window`). Never throws (inherited).
- */
+/** Per-device id, minted on first use. On the server returns an unsaved uuid; presence is client-only. */
 export const deviceStore = {
   getId(): string {
     const existing = readString('local', STORAGE_KEYS.deviceId);
@@ -1693,17 +996,7 @@ export const deviceStore = {
   },
 } as const;
 
-/**
- * Docs-checklist slot — the `DocItem[]` critical-documents & day-zero-readiness
- * checklist JSON list. localStorage backend; SYNCED but the LOCAL slot is
- * byte-transport only, exactly like `expensesStore`. Mirrors `packingStore`/`expensesStore`.
- *
- * The gateway does NOT know the `DocItem` shape — the value type is a caller-supplied generic `T`,
- * owned by `core/docs/model.ts`. `get(fallback)` returns the parsed slot or `fallback` (absent /
- * SSR / corrupt JSON); the CALLER seeds the built-in template when absent/corrupt/empty
- * (`sanitizeItems`). `set(items)` writes the whole list as JSON. Never throws (inherits readJson/
- * writeJson).
- */
+/** Documents checklist. The caller seeds the template when empty or corrupt. */
 export const docsStore = {
   get<T>(fallback: T): T {
     return readJson<T>('local', keyFor('docsChecklist'), fallback);
@@ -1713,12 +1006,7 @@ export const docsStore = {
   },
 } as const;
 
-/**
- * Install-to-Home hint slot — a one-shot-ever presence flag. Mirrors `tourStore`
- * (key 17) exactly: LOCAL store so the dismissal survives a reload/new tab forever.
- * `hasBeenDismissed()` reads presence (any stored value counts); `markDismissed()` writes the
- * `'1'` flag. SSR-safe + never-throw (inherited from `hasKey`/`writeString`).
- */
+/** Install hint, dismissed once ever. */
 export const installHintStore = {
   hasBeenDismissed(): boolean {
     return hasKey('local', STORAGE_KEYS.installHintDismissed);
@@ -1729,17 +1017,8 @@ export const installHintStore = {
 } as const;
 
 /**
- * Backup-nudge slot (key 42; issue #222) — the trip leg the "back up your trip" toast has
- * already fired for, so a leg change nudges once rather than on every render/reload within the
- * same leg. TRIP-SCOPED via `keyFor` (#330) — see `STORAGE_KEYS.backupPromptLeg` above for why.
- * Plain string like `uiPrefs`/`installHintStore`, not JSON. `getPromptedLeg()` returns the stored
- * leg id or `null` if never prompted; `setPromptedLeg(leg)` overwrites it. SSR-safe + never-throw
- * (inherited from `readString`/`writeString`).
- *
- * KNOWN CEILING: a single last-value, not a per-leg seen-set, so a leg that repeats (A→B→A)
- * re-nudges on its second entry. This trip's legs only ever move forward chronologically, so
- * that's deliberate — upgrade to a comma-joined set (mirrors `motionEntranceSeen`) if a pack ever
- * legitimately revisits a leg.
+ * Leg the backup nudge last fired for (key 42), so it fires once per leg.
+ * KNOWN CEILING: last value only, so A, B, A nudges twice for A. Use a set if legs ever repeat.
  */
 export const backupPromptStore = {
   getPromptedLeg(): string | null {
@@ -1750,24 +1029,6 @@ export const backupPromptStore = {
   },
 } as const;
 
-// NOTE: the concierge accessors for keys 43/44 live in `core/storage/concierge-store.ts`, for the
-// same bundle reason as the two notes below: only the lazy concierge chunk reads them.
-
-// NOTE: the my-places accessor for key 31 (`myPlacesStore`) does NOT live here — it is in
-// `core/storage/my-places-store.ts`, for the SAME bundle reason as the Travel Mode accessors below:
-// `gateway.ts` sits in the app-wide First Load chunk, and `myPlacesStore` is consumed ONLY by the
-// non-shared, lazy My Places island + import sheet. Keeping its object literal out of this shared
-// module holds the route budgets at the 107 kB line (it otherwise tipped several routes 107→108).
-// The KEY literal (`STORAGE_KEYS.myPlaces`) + the `TripScopedSlot` union entry stay here.
-
-// NOTE: the Travel Mode accessors for keys 19/20 (`travelModeGate` / `travelReturn`) do NOT
-// live here — they are in `core/storage/travel-mode-store.ts`. They compose THIS file's primitives
-// (`readString`/`writeString`/`removeKey`) over the `STORAGE_KEYS.travelMode` / `.travelReturn`
-// literals declared above, so holds (raw storage + key literals stay in this module). They
-// were split out for ONE reason: `gateway.ts` sits in the app-wide First Load chunk (`token-gate.tsx`
-// imports `getSyncCode`/`setSyncCode` from here directly, and is itself mounted unconditionally by
-// `itinerary-provider.tsx`, which is static in the root `app/layout.tsx`), and only the non-shared
-// Travel Mode code (Home hero / the lazy navbar + toast/exit/relaunch islands) consume these
-// accessors — keeping the object literals out of the shared module holds the route budgets at the
-// 106/107 kB line (they were otherwise retained in the shared chunk, +~0.6 kB, tipping several routes
-// 106→107).
+// Accessors for concierge (keys 43/44), my-places (31) and Travel Mode (19/20) live in their own
+// core/storage/*-store.ts files. This module is in every route's first-load chunk, and only lazy
+// code uses those. Their key literals stay here.

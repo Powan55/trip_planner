@@ -1,35 +1,16 @@
 /**
- * Full-trip backup / restore — the "lifeboat".
+ * Whole-trip backup and restore: one gzip file with every local domain of the active trip,
+ * photos included, and the itinerary nested as its own Vault envelope. (export-import.ts stays
+ * itinerary-only.) Photos only leave the device in a file the user downloads; export walks the
+ * active trip's photo meta, so other trips' blobs can't ride along.
  *
- * whole-trip export/import is itinerary-ONLY by its own letter, and stays that way
- * (`export-import.ts` is untouched). THIS module is the wider "back up my WHOLE trip" that
- * "changes if the scope widens" clause names: one gzip file carrying every LOCAL user domain of the
- * ACTIVE trip — journal, photos (meta + blob bytes), expenses, budget, docs, packing, favorites,
- * day-anchors, share-inbox, my-places — plus the itinerary nested as its own
- * existing versioned Vault envelope.
- *
- * PRIVACY: photos are device-local, zero-egress. They are included here ONLY in a file the
- * user explicitly downloads to their own device — never a network egress — and the UI copy
- * (`components/backup-restore.tsx`) states plainly that the backup contains journal AND photos, so a
- * user can never be surprised that a "backup" carried their photos. Export iterates the active trip's
- * photo META ids (NOT `blobStore.list()`), so another trip's blobs can never ride along.
- *
- * NEVER-DESTROY on import:
- * Phase A — parse the whole file into memory with ZERO writes. A non-JSON / unrecognized file is
- * quarantined (via the itinerary corrupt slot) and rejected. A recognized full backup whose
- * `tripId` does not match the currently ACTIVE trip is refused outright (A-5) — export trip A,
- * switch to trip B, restore, and without this check every domain of B silently becomes A's. A
- * legacy itinerary-only file carries no trip id, so the same rule is applied to its DATES. A
- * malformed single domain is DROPPED (its current on-disk data left untouched), never aborting
- * the whole restore.
- * Phase B — commit each successfully-parsed domain via its existing accessor, and for the four
- * SYNCED domains through the outbox-decorated push as well, so a restore is not unwound by the
- * next server snapshot (`enqueueRestored`). Photo blobs are
- * written FIRST (id-preserving `putWithId`, so meta↔blob links survive) then the meta index; a
- * blob that fails to store leaves its meta as a placeholder and increments `photosSkipped`.
- * The caller reloads afterwards to re-hydrate every store.
- *
- * Framework-free: no React. Browser-facing (Blob/FileReader/IndexedDB). Client-only.
+ * Import never destroys:
+ * - Phase A parses everything with zero writes. Unrecognized files are quarantined. A backup of
+ *   a different trip is refused (for legacy files, by checking the dates). A malformed domain
+ *   is dropped and its current data left alone.
+ * - Phase B commits each domain; synced domains also go through the outbox so the next server
+ *   snapshot doesn't undo the restore. Photo blobs are written before the meta index.
+ * The caller reloads afterwards.
  */
 
 import {
@@ -79,31 +60,17 @@ const EXPORT_FILENAME = 'nepal-japan-trip-backup.json';
 const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
 
 /**
- * How the itinerary domain is committed on import — the DUAL PATH. Defaults to the local Vault
- * overwrite (`savePlans`); the UI injects the store's `restorePlans` (tombstone-replace MERGE) when a
- * synced traveler is signed in, so a restore PROPAGATES to the shared trip and survives the next server
- * snapshot instead of being unwound. Same `(plans) => void` shape either way.
+ * Itinerary commit on import. Defaults to a local overwrite; under sync the UI injects the store's
+ * `restorePlans` (tombstone-replace) so the restore propagates and survives the next snapshot.
  */
 export type CommitItinerary = (plans: DayPlan[]) => boolean | void;
 
-/**
- * How the myPlaces domain is committed on import — the SAME dual-path idea as `CommitItinerary`,
- * one domain narrower (issue #239). Absent ⇒ the generic bare write + `enqueueRestored` merge below
- * (unchanged default); the UI injects the store's `restoreMyPlaces` (tombstone-replace, mirroring
- * `restorePlans`/`restoreExpenses`) when a synced traveler is signed in, so a row added to myPlaces
- * after the backup was taken is tombstoned by the restore instead of surviving the next merge.
- */
+/** Same idea for myPlaces: tombstones rows added after the backup instead of merging them. */
 export type CommitMyPlaces = (places: MyPlace[]) => boolean | void;
 
 /**
- * How the docsChecklist domain is committed on import — issue #295, the deliberately-deferred
- * remainder of #239. NOT the same shape as `CommitMyPlaces`/`CommitItinerary`: docsChecklist's 18
- * ids are a FIXED template with no add/remove path, so there is nothing to tombstone and no id to
- * mint fresh — a same-id UPSERT is the whole restore. Absent ⇒ the generic bare write + merge
- * enqueue below (unchanged default); the UI injects the store's `restoreDocsChecklist`
- * (`mergeItems(current, backup)`, the same row-merge algebra `pushChecklistMerged` already uses
- * remotely) when a synced traveler is signed in, so a row edited after the backup was taken keeps
- * its win instead of being blindly clobbered by the restore's bare write.
+ * docsChecklist is a fixed template, so its restore is a per-id upsert (newer stamp wins), not a
+ * tombstone-replace. A row edited after the backup keeps its edit.
  */
 export type CommitDocsChecklist = (items: DocItem[]) => boolean | void;
 
@@ -114,10 +81,8 @@ export type CommitExpenses = (expenses: Expense[]) => Map<string, string> | bool
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
-/** Container version, read on import: anything HIGHER is refused (see `importTripBackup`). Bump it
- *  only alongside a migration for the shape it names — a bump on its own locks users out of the
- *  backups they already hold. Distinct from the itinerary Vault envelope's own `schemaVersion`
- *  nested at `domains.itinerary`, which has its own runner and its own forward-version rule. */
+/** Higher versions are refused on import. Only bump alongside a migration. Separate from the
+ *  nested itinerary envelope's schemaVersion. */
 export const BACKUP_VERSION = 1;
 
 /** On-disk envelope. `domains` holds each domain's raw JSON value (itinerary nests its Vault envelope);
@@ -152,55 +117,26 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * The nine generic (non-itinerary, non-photo) domains. Each entry knows how to READ its raw value for
- * export, WRITE a cleaned value on import, and VALIDATE an imported value — returning `null` to DROP a
- * malformed domain (never-destroy: a drop leaves the live on-disk data untouched). The validate gate is
- * a TOP-LEVEL shape check (array vs object) followed by the domain's own existing sanitizer; the shape
- * check is what turns "garbage that would coerce to an empty default" into a drop instead of a wipe.
+ * Generic domains. `validate` returns null to drop a malformed domain. The top-level shape check
+ * comes first so garbage is dropped rather than coerced to an empty default and wiping data.
  */
 type DomainSpec = {
   read: () => unknown;
-  /** Returns `false` only where the store surfaces `writeJson`'s result — expenses/budget/docs/
-   * myPlaces (via `enqueueRestore` below) and journal (its own `journal-remote` push, gated
-   * inline). The rest are genuinely fire-and-forget and return `undefined`, which `!== false`
-   * gates as OK. */
+  /** `false` means the write was refused; `undefined` counts as success. */
   write: (cleaned: unknown) => boolean | void;
   validate: (parsed: unknown) => unknown | null;
-  /** The 4 SyncPort-backed domains only — see `enqueueRestored`. Captures the pre-restore local
-   * state, so it MUST be called before `write`; its returned thunk must fire only once `write`
-   * reports success (issue #698 — a refused local write must not reach every member's device).
-   * Absent ⇒ either local-only, or (journal) synced through its own path that gates on `write`'s
-   * result itself rather than this hook. */
+  /** Synced domains only. Call before `write` (it captures the pre-restore state) and fire the
+   * thunk only after `write` succeeds, so a refused local write never reaches other members. */
   enqueueRestore?: (cleaned: unknown) => () => boolean;
 };
 
 /**
- * Make a restored domain's value survive the next server snapshot, instead of being silently
- * unwound by it.
+ * A bare gateway write doesn't mark anything dirty, so the first snapshot after the reload would
+ * overwrite the restored rows. Pushing through the domain's outbox-wrapped push marks the chunks
+ * dirty first, so the snapshot merges instead.
  *
- * The bare `spec.write` below is a gateway write: it never reaches `commit()`, so nothing is
- * enqueued in the sync outbox. On the reload that follows a restore, the first remote snapshot
- * takes its "remote is authoritative" branch for every chunk that is present remotely and NOT
- * dirty — which was all of them — and overwrote the just-restored rows while the UI reported
- * success. Only the itinerary escaped that, via the `CommitItinerary` dual path.
- *
- * So route the restored value through the domain's EXISTING outbox-decorated push (`withOutbox`,
- * the same seam every ordinary edit uses): the write-ahead enqueue is synchronous, so the dirty
- * chunks are on disk before the reload, and the first snapshot takes the MERGE branch for them.
- * Self-gating — dormant/guest builds no-op, exactly as before.
- *
- * KNOWN CEILING: merge, not tombstone-replace, for whichever domain has no restore-shaped commit
- * injected. A row the backup DROPPED (present remotely, absent in the file) survives the merge,
- * where the itinerary's `restorePlans` would tombstone it. Fixing that needs a restore-shaped
- * commit on each domain — expenses (`restoreExpenses`, injected via `CommitExpenses`), myPlaces
- * (`restoreMyPlaces`, injected via `CommitMyPlaces`) and docsChecklist (`restoreDocsChecklist`, injected via `CommitDocsChecklist`,
- * issue #295) all have one now. docsChecklist's is NOT a tombstone-replace: its 18 ids are a FIXED
- * template with no add/remove path, so the restore-shaped commit there is a same-id UPSERT
- * (`mergeItems(current, backup)` — whichever side's stamp is newer wins per id) rather than a
- * tombstone + fresh-id re-add. budget's field-level LWW model remains the one domain still on the
- * generic merge path; it needs its own restore design, not a copy of either shape here. Upgrade
- * path for a domain that DOES fit one of the two existing shapes: inject its restore fn the way
- * `commitItinerary`/`commitExpenses`/`commitMyPlaces`/`commitDocsChecklist` are injected.
+ * KNOWN CEILING: this is a merge, so rows the backup lacks survive. Budget is the one domain
+ * still on this path; the others inject a restore-shaped commit.
  */
 function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => () => boolean {
   return (cleaned) => {
@@ -223,11 +159,8 @@ const DOMAINS = {
     write: (v) => {
       const before = sanitizeEntries(journalStore.get<unknown>([])).map((e) => e.date);
       const ok = journalStore.set(v);
-      // Re-stamp each restored day so the restore wins on the author's other devices (D-596).
-      // Gated on `ok` (#698 follow-up): pushJournalEntry re-reads the LOCAL journal to stamp it,
-      // so on a refused write it would re-read the OLD (pre-restore) entry and push that with a
-      // fresh HLC — old content wins everywhere, and a date the backup dropped locally gets
-      // pushed out as a deletion.
+      // Re-stamp restored days so they win on other devices (D-596). Only if the write landed:
+      // the push re-reads the local journal, and would otherwise push the old entry as newest.
       if (ok && isRemoteConfigured()) {
         // Union with the pre-restore dates: a day the backup dropped gets a tombstone (#857).
         const dates = [...new Set([...before, ...(v as JournalEntry[]).map((e) => e.date)])];
@@ -286,12 +219,7 @@ const DOMAINS = {
     write: (v) => shareInboxStore.set(v),
     validate: (v) => (Array.isArray(v) ? sanitizeShare(v) : null),
   },
-  // A-9: the one TRIP_SCOPED_SLOTS domain the original DOMAINS list omitted. Same read/write/validate
-  // shape as every other generic domain, reusing the places domain's own total sanitizer
-  // (`core/places/model.ts`) rather than inventing one — an imported place is a `MyPlace[]`, same
-  // array-of-rows shape as journal/expenses/etc. `myPlacesStore` is imported from its own module
-  // (not `gateway.ts`, which deliberately omits it for bundle-size reasons — see that store's header)
-  // since backup.ts is not part of the app-wide First Load chunk.
+  // myPlacesStore comes from its own module; gateway.ts leaves it out for bundle size.
   myPlaces: {
     read: () => myPlacesStore.get<unknown>(ABSENT),
     write: (v) => myPlacesStore.set(v),
@@ -301,15 +229,8 @@ const DOMAINS = {
 } satisfies Record<string, DomainSpec>;
 
 /**
- * Root-cause guard for A-9: a compile-time tie between `DOMAINS`' keys and every `TripScopedSlot`,
- * the same exhaustiveness idiom `gateway.ts`'s `_ExhaustiveTripScopedSlots` uses. `itinerary` and
- * `photos` are handled OUTSIDE `DOMAINS` (their own sections above/below) rather than missing; the
- * other four are D-227's deliberate exclusions (`weatherCache` regenerable, `syncOutbox` transient
- * sync machinery, `itineraryCorrupt`/`expensesCorrupt` quarantine — #100/A-10 added the latter,
- * same bucket as its sibling: a quarantine slot holds raw corrupt bytes, not a domain worth
- * restoring). Add a member to `TripScopedSlot` without adding it to one of these buckets and `tsc`
- * fails here — so a slot can never again silently ride along in `TRIP_SCOPED_SLOTS` (and therefore
- * get wiped by the sign-out "back up first" button) without this backup module knowing to carry it.
+ * Compile-time check that every TripScopedSlot is either backed up or deliberately excluded
+ * (D-227: weather cache, outbox, quarantine slots). A new slot fails tsc here until it's handled.
  */
 type _ExhaustiveBackupDomains = [TripScopedSlot] extends
   [
@@ -341,12 +262,8 @@ type _ExhaustiveBackupDomains = [TripScopedSlot] extends
 const _exhaustiveBackupDomains: _ExhaustiveBackupDomains = true;
 void _exhaustiveBackupDomains;
 
-// ── base64 (large-blob safe) ────────────────────────────────────────────────
-/**
- * Blob → base64 data URL via `FileReader.readAsDataURL`. This is the large-blob-safe encoder — it does
- * NOT do `btoa(String.fromCharCode(...bytes))`, whose argument spread overflows the call stack on a
- * multi-hundred-KB photo. Rejects only if the underlying read fails.
- */
+// base64
+/** Via FileReader: spreading bytes into String.fromCharCode overflows the stack on big photos. */
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -356,11 +273,7 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-/**
- * base64 data URL → Blob via chunked `atob` (NOT a byte spread — same overflow trap in reverse). Reads
- * the MIME back out of the data URL header so the restored blob keeps its image type. Throws on a
- * malformed data URL (the caller catches and skips that one photo).
- */
+/** Data URL to Blob, keeping the MIME type. Throws on a malformed URL; the caller skips it. */
 function dataUrlToBlob(dataUrl: string): Blob {
   const comma = dataUrl.indexOf(',');
   if (comma < 0 || !dataUrl.startsWith('data:')) throw new Error('not a data URL');
@@ -384,11 +297,8 @@ export type TripBackupExport = {
 };
 
 /**
- * Serialize the ACTIVE trip's every in-scope local domain into one gzip blob (the existing
- * `compressToBlob` pipeline — no new dep, plain-JSON fallback where CompressionStream is absent).
- * Photos are inlined until a running byte budget (`maxBytes` minus headroom minus everything else) is
- * spent; the rest keep metadata only, which restore already treats as a placeholder, so the file
- * stays within what `importTripBackup` will open. `blobStore`/`maxBytes` are injectable for tests.
+ * Serialize the active trip into one gzip blob. Photos are inlined until the byte budget runs out;
+ * the rest keep metadata only (restored as placeholders), so the file stays importable.
  */
 export async function buildTripBackup(
   blobStore: BlobStorePort = defaultBlobStore,
@@ -451,12 +361,8 @@ export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobSto
 }
 
 /**
- * Download the active trip's whole-trip backup as a file; shared by `backup-restore.tsx` and the
- * sign-out confirm dialog's backup offer.
- *
- * Can THROW (a `FileReader` failure, a `CompressionStream` failure, or a trip too large for one
- * file) — the CALLER owns try/catch and the user-facing error copy. Returns the filename plus how
- * many photos were absent from storage (`missing`) or left out for size (`omitted`).
+ * Download the backup. Can throw; the caller owns the error copy. Reports photos missing from
+ * storage and photos left out for size.
  */
 export async function downloadTripBackup(
   blobStore: BlobStorePort = defaultBlobStore,
@@ -476,12 +382,7 @@ function isTripBackup(v: unknown): v is TripBackup {
 /** A backup this many days old or older earns the "made on" warning in the restore confirm. */
 export const STALE_BACKUP_DAYS = 7;
 
-/**
- * Whole days between a backup's `exportedAt` and `now`, or `null` when the file is not a full-trip
- * backup, carries no readable stamp, or cannot be read at all (#851). Read-only and best-effort: the
- * restore itself re-validates everything, so a failure here only means no warning is shown. A stamp
- * in the future counts as 0 days.
- */
+/** Age of a backup in whole days, or null if unreadable. Best-effort, only drives a warning. */
 export async function backupAgeDays(file: Blob, now: number = Date.now()): Promise<number | null> {
   try {
     const parsed: unknown = JSON.parse(await decompressBlobOrText(file));
@@ -494,15 +395,9 @@ export async function backupAgeDays(file: Blob, now: number = Date.now()): Promi
 }
 
 /**
- * Restore a whole-trip backup into the ACTIVE trip, replacing it. Fails safe:
- * - a non-JSON / unrecognized file OR a legacy itinerary-only export is routed to the importer,
- * which quarantines-or-imports the ITINERARY only and never touches another domain;
- * - a container stamped with a version this build does not know is refused outright, rather than
- * read as if it were a v1 one;
- * - a recognized full backup restores every WELL-FORMED domain and drops any malformed one, and
- * names what it committed in `restored` so the caller can report the truth rather than a fixed
- * success string.
- * The caller reloads on `ok:true` to re-hydrate the stores. `blobStore` is injectable for tests.
+ * Restore a backup into the active trip. Unrecognized and legacy files go to the itinerary
+ * importer only; unknown versions are refused; malformed domains are dropped and `restored` lists
+ * what landed. Caller reloads on ok.
  */
 export async function importTripBackup(
   file: Blob,
@@ -541,22 +436,13 @@ export async function importTripBackup(
     parsed = undefined;
   }
 
-  // Not a full-trip backup → treat as a legacy itinerary-only export (or garbage). Validate through the
-  // SAME trust boundary (`parseBackup` quarantines on failure, writing AT MOST the corrupt slot)
-  // and commit through the DUAL PATH — so a legacy file imported under sync also propagates (never the
-  // savePlans-overwrite hole). Every non-itinerary domain is untouched.
+  // Legacy itinerary-only export (or garbage): parseBackup quarantines on failure.
   if (!isTripBackup(parsed)) {
     const pr = parseBackup(text);
     if (!pr.ok) return { ok: false, error: pr.error };
     if (synced) return UNMATCHED;
-    // A-5 on the COMMIT, not on the envelope field. The legacy itinerary-only envelope
-    // (`{schemaVersion, updatedAt, payload}`) carries no trip identity at all, so it used to sail
-    // past the `env.tripId` check three lines below and replace whatever trip happened to be
-    // active — and under sync `commitItinerary` is `restorePlans`, which propagates that
-    // replacement to every other member. The only identity such a file carries is its DATES, so
-    // that is what gets checked: at least one day has to fall inside the active trip's span. A
-    // legitimate same-trip restore costs nothing (every day is in span, by construction); an empty
-    // payload is refused too, since committing it is the whole-trip wipe D-098 exists to prevent.
+    // Legacy files have no trip id, so check the dates: at least one day must fall in the active
+    // trip. An empty payload is refused too; committing it would wipe the trip (D-098).
     const trip = getActiveTrip();
     if (!pr.plans.some((d) => d.date >= trip.start && d.date <= trip.end)) {
       return {
@@ -568,18 +454,11 @@ export async function importTripBackup(
     return { ok: true, restored: ['itinerary'], photosSkipped: 0, refused: [], dropped: [] };
   }
 
-  // A-5: refuse a cross-trip restore rather than silently overwriting the active trip. `env.tripId`
-  // is stamped by `exportTripBackup` (above) at export time; comparing it to the CURRENTLY active
-  // trip is the only signal in the envelope naming which trip it belongs to. Without this, exporting
-  // trip A, switching to trip B, and restoring silently replaces every domain of B with A's — and
-  // under sync propagates to B's other members. Zero writes have happened yet (still Phase A).
+  // Refuse a backup of a different trip; it would replace this one everywhere under sync.
   const env = parsed;
 
-  // `version` was stamped on export and never read, so a v2 container was restored as if it were a
-  // v1 one — `DOMAINS` has no spec for a slot it does not know, so the loop below never visits it and
-  // the domain vanished into the success string. Checked BEFORE `tripId`: a format this build cannot
-  // claim to understand is not one whose fields it should be reading. The copy says NEWER rather than
-  // corrupt because those send the user hunting two different things, and only one of them exists.
+  // Checked before tripId: don't read fields of a format this build doesn't know. The copy says
+  // "newer", not "corrupt", because that's what the user needs to act on.
   if (env.version > BACKUP_VERSION) {
     return {
       ok: false,
@@ -635,11 +514,7 @@ export async function importTripBackup(
     else dropped.push('itinerary');
   }
 
-  // Photos — sanitize meta, decode each present blob. `hasMeta` is the shape gate the generic
-  // domains get from `spec.validate` above: photos are the only domain with no remote copy, so a
-  // malformed `meta` must DROP (leave the live index and its blobs alone), not commit an empty set.
-  // An EMPTY meta is treated as absent too (#751): replacing with nothing would delete every photo
-  // on this device, and they exist nowhere else.
+  // Photos exist nowhere else, so malformed or empty meta is dropped rather than committed.
   const rawMeta = env.photos?.meta;
   // Any invalid row rejects the whole photo set (#912): the replace would delete that row's live
   // photo and its bytes, and the originals exist nowhere else.
@@ -696,11 +571,7 @@ export async function importTripBackup(
   // literal keys — the cast is safe because `slot` only ever came FROM `Object.entries(DOMAINS)`.
   const domainsBySlot = DOMAINS as Record<string, DomainSpec>;
   for (const [slot, cleaned] of domainWrites) {
-    // myPlaces' injected dual path (issue #239): when the caller supplies `commitMyPlaces` (the
-    // UI passes the store's `restoreMyPlaces` under sync), route through it INSTEAD of the bare
-    // write + generic merge enqueue — same idea as `commitItinerary`, one domain narrower. Absent
-    // ⇒ unchanged default behavior below.
-    // Only an explicit `false` is a refusal, so a commit that returns nothing still counts as landed.
+    // Injected restore commits replace the generic write + merge. Only an explicit false is a refusal.
     if (slot === 'expenses' && commitExpenses) {
       const res = commitExpenses(cleaned as Expense[]);
       if (res instanceof Map) expenseIds = res;
@@ -718,10 +589,7 @@ export async function importTripBackup(
       (commitDocsChecklist(cleaned as DocItem[]) === false ? refused : restored).push(slot);
       continue;
     }
-    // Capture BEFORE the write: it reads the pre-restore local state as the push's `prev`. The
-    // returned thunk only fires below, once `write` reports the local save actually landed
-    // (issue #698) — a refused write (e.g. quota) must not queue a push that overwrites every
-    // other member's copy with data this device never kept.
+    // Before the write (captures prev); fired only if the write lands.
     const pushRestored = domainsBySlot[slot].enqueueRestore?.(cleaned);
     const ok = domainsBySlot[slot].write(cleaned);
     if (ok === false) {

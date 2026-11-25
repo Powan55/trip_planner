@@ -80,12 +80,7 @@ const closestItem: CollisionDetection = (args) => {
   return closestCenter({ ...args, droppableContainers: rows.length ? rows : args.droppableContainers });
 };
 
-// split-view map pane, mounted as a dynamic(ssr:false) island gated on the
-// map-view toggle below. Because it is NOT in the initial render tree (showMap is
-// off by default), its chunk — and the ~200 kB maplibre runtime it pulls via
-// trip-map's own `await import('maplibre-gl')` — only fetches when the user opens
-// the map. /plan First Load JS stays 106 kB (maplibre never in the shared
-// bundle). Sized loading skeleton fills the pane while the chunk streams in.
+// Only loaded when the map toggle is on, so maplibre stays out of /plan's first load.
 const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
   ssr: false,
   loading: () => (
@@ -96,12 +91,8 @@ const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
 });
 
 /**
- * `href` with only the `focus` query param removed, as a SAME-ORIGIN-RELATIVE url.
- *
- * Returned for `history.replaceState`, never for `router.replace`/`push`: the returned path
- * carries the deployed basePath (it comes out of `window.location`), and the App Router prepends
- * basePath itself — feeding one to the other is what doubled `/trip_planner/` and 404'd the
- * planner. Every other param (`?today=`, …) survives, unlike a bare `location.pathname`.
+ * `href` minus the `focus` param, for history.replaceState only. The path already includes the
+ * basePath, so passing it to the router would double it. Other params survive.
  */
 export function stripFocusParam(href: string): string {
   const url = new URL(href);
@@ -110,17 +101,8 @@ export function stripFocusParam(href: string): string {
 }
 
 /**
- * `.dens` — plan density across the whole trip: one column per trip day, height in
- * proportion to the real item count, screened by leg at the 14% tint ceiling with a
- * full-strength 1px border carrying the identity at no contrast cost.
- *
- * An EMPTY day is drawn hollow at the height it will occupy, not short — that is the empty state
- * rendered at full size rather than said in a sentence. A THIN day (at most half the mean) takes
- * the 45° hatch. Only every 4th day is labelled; 32 labels collide.
- *
- * Read-only: it reports the same per-day counts the day strip and the month grid read, so it can
- * never disagree with them. It is a single `role="img"` with the whole reading in its label, so
- * nothing here is available only to sighted users.
+ * Plan density: one column per day, height by item count. Empty days are hollow, thin days
+ * hatched; every 4th day labelled. One role="img" whose label carries the whole reading.
  */
 function PlanDensity({ meta, selectedDate }: { meta: DayStripDateMeta[]; selectedDate: string }) {
   const total = meta.reduce((n, m) => n + m.count, 0);
@@ -199,12 +181,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
   onCloseRef.current = onClose;
   const [title, setTitle] = useState(item?.title ?? '');
   const [category, setCategory] = useState<ItineraryCategory>(item?.category ?? 'sightseeing');
-  // Time picker state. The trigger shows `effectiveStartMinutes` —
-  // fallback parser, so opening the picker on a legacy-`time`-only item pre-positions it
-  // correctly — but the SAVE only dual-writes when the user actually touched the picker
-  // (`timeTouched`); an untouched item's original `time`/`startMinutes` are preserved
-  // byte-for-byte, so an unparseable legacy `time` string is never silently clobbered by
-  // an edit that never touched the time field.
+  // Save only rewrites the time if the picker was touched, so an unparseable legacy `time`
+  // survives unrelated edits.
   const [startMinutes, setStartMinutes] = useState<number | undefined>(() => (item ? effectiveStartMinutes(item) : undefined));
   const [timeTouched, setTimeTouched] = useState(false);
   const [durationMinutes, setDurationMinutesState] = useState<number | undefined>(() => (item ? effectiveDurationMinutes(item) : undefined));
@@ -212,12 +190,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
   const [location, setLocation] = useState(item?.location ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
 
-  // Manual pin-drop. The pin is now a single lat/lng PAIR chosen on
-  // the map, never two typed decimals: free-text fields could hold a half-entered or
-  // out-of-range pin, which is why they needed range validation, an inline error and a
-  // save-disable. Picking a coordinate off the map makes all three states unrepresentable —
-  // a pin is either absent or a complete, in-range pair, because it came from a real
-  // projection. `null` = no pin.
+  // Picked on the map, so it's either null or a complete in-range pair.
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
     item?.lat !== undefined && item?.lng !== undefined ? { lat: item.lat, lng: item.lng } : null,
   );
@@ -228,13 +201,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     if (pickedPin) setPin({ lat: pickedPin.lat, lng: pickedPin.lng });
   }, [pickedPin]);
 
-  // Multi-day span. Opt-in toggle → a native <select> of trip days strictly AFTER the
-  // item's start day (`startDate` = the day this editor operates on). Reuses the duplicate-
-  // picker idiom (native select / TRIP_DATES — SR/keyboard-friendly, no new dep). The item stays
-  // OWNED by its start day; only the render layer expands the band across the covered days (the
-  // MERGE INVARIANT — no multi-homing). Section starts open only when the item already spans
-  // If the start day is the last trip day there is no valid
-  // end day → the toggle is disabled.
+  // Span end options: trip days after the start day. The item stays owned by its start day;
+  // only rendering spreads it across days.
   const spanDayOptions = TRIP_DATES.filter((d) => d > startDate);
   const canSpan = spanDayOptions.length > 0;
   const [spanOpen, setSpanOpen] = useState(!!item?.endDate);
@@ -261,27 +229,16 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     setClashError(null);
   };
 
-  // Portal mount guard ( / mirrored from add-to-itinerary-dialog.tsx /
-  //). `createPortal(…, document.body)` must not run during the static-export
-  // prerender, so we only portal after the component has mounted on the client. The
-  // editor only ever mounts on a user click (post-hydration), so this is satisfied
-  // immediately in practice; it exists purely to keep `document` untouched on the
-  // server and to keep tsc/SSR honest.
+  // Portal only after mount; document doesn't exist during prerender.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Locks page scroll behind the modal (`body[data-dialog-open]`, globals.css), the half of
-  // the modal contract this editor never opted into. Ref-counted, so the nested time picker
-  // opening and closing can't clear it. Released while `hidden`: the pin picker hands the
-  // screen to the map pane, a non-modal surface the page is meant to scroll behind — and on
-  // `lg+` the map is a sticky aside the user may still have to scroll into view.
+  // Scroll lock, ref-counted with the nested time picker. Released while the pin picker has
+  // the screen, since the map pane may need scrolling into view.
   useDialogOpenFlag(!hidden);
 
-  // present as a slide-up bottom-sheet on `<lg` (the place-detail-sheet idiom) and
-  // as the existing centered panel on `lg+`. The layout is Tailwind-responsive (classes
-  // below), but framer's entrance variant can't be a media query — so we read the `lg`
-  // breakpoint once and pick translate-y (sheet) vs scale (desktop panel). Only runs
-  // post-mount (the portal itself is mount-guarded), so there is no SSR/hydration read.
+  // Bottom sheet below lg, centred panel above. Framer variants can't use media queries, so
+  // read the breakpoint once after mount.
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
@@ -291,14 +248,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     return () => mq.removeEventListener('change', sync);
   }, []);
 
-  // Google Maps research link-out.
-  // Reuses the shared, already-exported builder — no reimplementation of the URL
-  // scheme. Recomputed live off the editor's own title/location state; null (and
-  // therefore disabled) until the title is non-empty.
-  // coordinate-first once the item carries a pin (the same value Save would persist) —
-  // falls back to the existing title+location text search otherwise, byte-identical to
-  // pre- behavior.: the pin is now a single nullable pair, so the former
-  // `pinComplete` half-pin guard has nothing left to guard.
+  // Google Maps link: by pin when set, else title + location. Null until there's a title.
   const mapsUrl = buildMapsPlaceUrl(title, pin?.lat, pin?.lng, location);
 
   // which of the collapsed fields actually hold something, named in the disclosure's
@@ -324,10 +274,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
   const categoryLabelId = `${baseId}-category-label`;
   const endDateFieldId = `${baseId}-enddate`;
 
-  // Refs for focus management: the panel (focus-trap boundary) and the first
-  // field (focused on open). Returning focus to the trigger is the parent's job
-  // via AnimatePresence onExitComplete — doing it here in an effect cleanup
-  // raced framer-motion's exit animation and grabbed the wrong element.
+  // The parent returns focus on onExitComplete; doing it in cleanup here races the exit animation.
   const panelRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   // the control that armed the picker, so focus comes back to it when the editor
@@ -384,13 +331,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
       endDate: effectiveEndDate,
     };
 
-    // D-316 — hard refuse, DELTA-SCOPED. Only a write that moves the item's time footprint
-    // is guarded, so an already-overlapping item can still have its title, notes or category
-    // edited. That is no longer about the seed: D-327 un-nested the last three containments,
-    // and the seed is clean. What still arrives overlapping is a synced peer's write, a vault
-    // import, or a day saved by an older build. A brand-new item has no previous footprint and
-    // is therefore always guarded. There is no "Save anyway": the escape hatch is to clear the
-    // duration, which the message names.
+    // Refuse clashes (D-316), but only when the time footprint changes, so an item that already
+    // overlaps (synced or imported) can still be edited. The way out is clearing the duration.
     if (!item || timeFootprintChanged(item, startDate, next, startDate)) {
       const clash = firstClashWith(
         next,
@@ -424,12 +366,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     return () => clearTimeout(timer);
   }, []);
 
-  // Esc closes the dialog, handled at the document level so it fires wherever
-  // focus sits (even if the panel never holds it). onClose only flips parent
-  // state; the parent returns focus once the exit animation completes.
-  // while the picker is armed this editor is off-screen and Escape belongs to the
-  // pick bar (it cancels the pick and brings the editor back) — closing the whole editor
-  // there would throw away everything the user typed before going to the map.
+  // Document-level Esc closes the editor, except while picking a pin: then Esc belongs to the
+  // pick bar, and closing would lose what was typed.
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
   useEffect(() => {
@@ -484,11 +422,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     }
   };
 
-  // Don't render the overlay during the prerender / before the client mounts — the
-  // portal target (`document.body`) doesn't exist on the server. Returning null here
-  // is safe for the parent `AnimatePresence`: this only short-circuits for the single
-  // synchronous render before `useEffect` flips `mounted`, which never coincides with
-  // a user-driven open in the static-export client.
+  // Only the first render before mount returns null; opens are always user-driven after that.
   if (!mounted) return null;
 
   return createPortal(
@@ -568,14 +502,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             <label htmlFor={timeFieldId} className="pr pr--lo mb-1 block">Time</label>
             <TimePicker id={timeFieldId} value={startMinutes} onChange={handleTimeChange} testId="calendar-editor-time-input" />
           </div>
-          {/* — the editor opens as THREE fields (Title, Category, Time). Everything else
-              lives behind this one disclosure. Native <details>/<summary>: no state, no new dep,
-              keyboard-operable and screen-reader-announced for free (the default marker is
-              hidden and replaced by the chevron). It starts CLOSED even on a populated item, so
-              the summary names which of these fields actually hold something (: the label
-              carries the meaning, not a colour) — nothing is hidden without saying so.
-              The enclosed fields keep their original indentation: this change only WRAPS them,
-              and an unindented diff is what makes that reviewable. */}
+          {/* Title, category and time up front; the rest behind a native <details>. It starts
+              closed, and the summary names which hidden fields hold something. */}
           <details className="group rounded-r1 border-hair border-[color:hsl(var(--border))]" data-testid="calendar-editor-more">
             <summary
               data-testid="calendar-editor-more-toggle"
@@ -596,14 +524,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             <label htmlFor={locationFieldId} className="pr pr--lo mb-1 block">Location</label>
             <input id={locationFieldId} autoComplete="off" enterKeyHint="done" value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="e.g., Thamel, Kathmandu" />
           </div>
-          {/* Pin an exact location. Typing two decimals was
-              the only way to place a pin and nobody knows their coordinates — so the fields
-              are gone and the pin comes off the map instead. "Drop a pin" arms the picker on
-              the map pane that ALREADY exists on this route (desktop aside / mobile sheet),
-              so maplibre stays behind its interaction-lazy boundary and there is no
-              second map surface. The chosen pair is echoed here as text (and on
-              `data-lat`/`data-lng`) so the value is legible without a map, and readable by a
-              screen reader — the picked coordinate is never write-only. */}
+          {/* Pin: "Drop a pin" arms the picker on this route's existing map pane. The picked
+              coordinate is echoed as text so it's readable without the map. */}
           <div>
             <span className="pr pr--lo mb-1 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
@@ -642,10 +564,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
               )}
             </div>
           </div>
-          {/* Multi-day span — opt-in, collapsed unless the item already spans. A "spans
-              multiple days" toggle reveals a native <select> of trip days AFTER the start day.
-              The item stays owned by its start day (no multi-homing); only the render layer
-              expands a band across the covered days. Disabled if the start day is the last day. */}
+          {/* Multi-day span; disabled on the last trip day. */}
           <div>
             <button
               type="button"
@@ -709,11 +628,8 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         </div>
         </div>
         <div className="shrink-0 border-t-2 border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-5 sm:px-6 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {/* D-316 — the refusal. A BLOCKED user action, so `role="alert"` (assertive),
-              not `role="status"`: the pattern backup-restore.tsx/photo-attach.tsx already
-              use. Always mounted with a reserved height so the panel never jumps and the
-              live region exists before it has anything to say. Focus stays on the save
-              button for a clash; an empty title moves it to the field instead. */}
+          {/* role="alert" for a blocked save. Always mounted with reserved height so the live
+              region exists before it speaks and the panel doesn't jump. */}
           <p
             role="alert"
             data-testid="calendar-editor-clash-error"
@@ -750,12 +666,8 @@ export default function CalendarPlanner() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  // search-within-plan: cross-route focus channel. `?focus=<itemId>` (pushed by
-  // the command palette's "In your plan" results, which live OUTSIDE the provider and
-  // so cannot share `highlightId` state directly) is read reactively via
-  // `useSearchParams` — unlike the module-cached `?today=` override in trip-now.ts,
-  // this one must react to an in-place navigation (already on /plan, palette pushes a
-  // new `?focus=`) without a remount, which only the router-bound hook delivers.
+  // `?focus=<itemId>` from the command palette. Read reactively so a new focus while already
+  // on /plan works without a remount.
   const searchParams = useSearchParams();
 
   // The itinerary now lives in the shared reactive store instead of
@@ -803,17 +715,10 @@ export default function CalendarPlanner() {
   // split map/list view. OFF by default so the maplibre island stays
   // interaction-lazy.
   const [showMap, setShowMap] = useState(false);
-  // The marker id currently emphasized on the map + ringed in the list — the single
-  // shared highlight state that both directions write (row "show on map" ↔ marker click).
-  // generalizes what a row match means: `highlightId` also accepts a plain ITEM id
-  // (a search result), matched independently of `showMap`/marker-join in the row's
-  // `highlighted` computation below — same state, same clear-on-day-change effect, same
-  // scroll-into-view effect, no second highlight mechanism.
+  // Shared highlight for map markers and list rows; also takes a plain item id from search.
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  // when a search result lands on a DIFFERENT day than `selectedDate`, we must
-  // set the date first and apply the highlight only once that settles — otherwise the
-  // existing clear-highlight effect (below, keyed on `selectedDate`) wipes it out in the
-  // same commit (the ordering trap). Consumed by the effect right after that one.
+  // Cross-day focus: change the day first and highlight once it settles, or the day-change
+  // effect clears the highlight in the same commit.
   const pendingFocusRef = useRef<{ date: string; id: string } | null>(null);
   // Mobile bottom-sheet peek ⇄ expanded. `isDesktop` picks the inline split pane
   // (lg+) vs the bottom-sheet (`<lg`) — one <PlanDayMap> instance, placed responsively.
@@ -826,10 +731,8 @@ export default function CalendarPlanner() {
   const dayHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const lastDeleteAtRef = useRef(0);
 
-  // pin-pick. The editor asks for a coordinate; the MAP PANE (which lives out here,
-  // not in the portal) collects it. While `pickingPin` the editor is visually hidden but
-  // still mounted, so the trip to the map costs nothing the user has typed. `pickedPin` is
-  // a fresh object per pick so re-picking the identical spot still reaches the editor.
+  // Pin picking: the editor stays mounted but hidden while the map pane collects a point.
+  // A fresh object per pick, so re-picking the same spot still updates the editor.
   const [pickingPin, setPickingPin] = useState(false);
   const [pickedPin, setPickedPin] = useState<{ lat: number; lng: number } | null>(null);
   const handleRequestPin = () => {
@@ -847,35 +750,11 @@ export default function CalendarPlanner() {
   const { filter: authorFilter, myName, myPriorNames } = useAuthorFilter();
 
   /**
-   * 🔴 THE ONE PLACE THE FILTER IS APPLIED.
-   *
-   * Reported: *"when i click on the filter by name all everything thats not related to that person
-   * should dessipear from the calander"*. Before this, exactly one consumer (the day list)
-   * filtered, and every other piece of calendar chrome read the day straight off the store — so
-   * "Rina" showed 2 rows under a pill that said "7 items", a month grid with 7 dots, and a map
-   * plotting all 7.
-   *
-   * The fix is ONE filtered accessor, not seven guards. Every calendar surface already derives its
-   * data from `getDayPlan(date)` — the month grid, the agenda list, the mobile day strip, the day
-   * header, the split-view map. Handing those consumers this wrapper fixes all of them at once and,
-   * more importantly, makes the FUTURE consumer filtered by default. A per-call-site guard would
-   * leave the next one broken.
-   *
-   * 🔴 WHY THE `'all'` BRANCH RETURNS `getDayPlan` ITSELF, not a wrapper that filters to
-   * everything: with no filter selected the chrome must be BYTE-IDENTICAL to before. Returning the
-   * same function means the no-filter path is not "a filtered path that happens to match" — it is
-   * literally the original call, same object references, same memo identities, same render output.
-   * That is a structural guarantee rather than an assertion (and `e2e/author-filter-propagation`
-   * measures it anyway).
-   *
-   * 🔴 WHAT MUST NOT ROUTE THROUGH THIS — anything DESTRUCTIVE or anything that has to know the
-   * day's real contents:
-   * · `useCalendarDnd` (below) keeps the raw `getDayPlan` — reordering persists against the full
-   * stored array.
-   * · `handleClearDay` / `handleBulkDelete` read the raw store — "Clear day" must remove the
-   * items you cannot currently see, and its confirm copy must count them.
-   * · The empty-state branch keeps reading `dayItems` — that unfiltered count is the ONLY thing
-   * that distinguishes "no activities match this filter" from "no activities planned".
+   * The one place the author filter is applied. Every calendar surface reads days through this,
+   * so new ones are filtered by default. With no filter it returns `getDayPlan` itself, keeping
+   * the same references and memo identities.
+   * Don't route destructive or whole-day logic through it: drag reorder, Clear day, bulk delete
+   * and the empty-state check all need the unfiltered day.
    */
   const getVisibleDayPlan = useMemo(
     () =>
@@ -888,15 +767,8 @@ export default function CalendarPlanner() {
     [getDayPlan, authorFilter, myName, myPriorNames],
   );
 
-  // cost overlay — READ-ONLY / DISPLAY-ONLY. A SEPARATE reactive read of the
-  // expense store (NOT the itinerary store): the calendar's CRUD/DnD/select all still operate on
-  // `plans` from `useItineraryContext()`, entirely untouched. This adds a per-day leg-local spend
-  // figure to the single-day header and a subtle "has spend" marker on month-grid cells. The pure
-  // `expensesByDate` buckets logged expenses by their 'YYYY-MM-DD', excluding undated rows (matching
-  // the burn-rate view) AND rows whose `leg` is not the leg that owns that date — the day header and
-  // the grid cells format the bucket with the DAY's currency, so a cross-leg row would be mis-priced.
-  // It still counts in the leg total, the trip total and settle-up. Nothing here writes; it only
-  // decorates existing cells.
+  // Read-only spend per day. Rows from another leg are excluded because the day formats in its
+  // own currency; they still count in the leg and trip totals.
   const { expenses } = useExpenses();
   const spendByDate = useMemo(() => expensesByDate(expenses), [expenses]);
 
@@ -914,25 +786,13 @@ export default function CalendarPlanner() {
     reorderItems,
   });
 
-  // Load/save effects and the local getDayPlan/updateDayPlan are gone — the store
-  // owns load-on-mount, the savePlans-on-write + CustomEvent fan-out, and
-  // the existing-or-synthesized getDayPlan. The calendar is now a pure consumer.
-
-  // Travel-mode default: jump the initial selection to today when we are
-  // inside the trip window. Run ONCE post-mount ([] deps) — NOT during the initial
-  // render — so the SSR/first-client paint keeps the SSR-safe TRIP_DATES[0] default and
-  // there is no hydration mismatch. Only overrides the untouched initial selection;
-  // any later user selection is unaffected because this never re-runs.
+  // In-trip, start on today. Once, after mount, so the first paint matches the prerender.
   useEffect(() => {
     const t = getTodayInTrip();
     if (t) setSelectedDate(t.date);
   }, []);
 
-  // Seam 3: mirror the focused day into the in-memory selected-day signal so
-  // the quick-add FAB presets its date to whatever day the calendar shows. Covers every
-  // selection path uniformly — day-strip taps, month-grid clicks, agenda-list clicks,
-  // prev/next, and the today-init above — since all of them flow through
-  // `selectedDate`. In-memory only: setSelectedDay never touches storage.
+  // So the quick-add FAB defaults to the day on screen. In memory only.
   useEffect(() => {
     setSelectedDay(selectedDate);
   }, [selectedDate]);
@@ -946,11 +806,7 @@ export default function CalendarPlanner() {
     setShowEditor(true);
   };
 
-  // composer add: peel a leading/trailing time token off the typed text (the pinned
-  // `parseTimeString` is anchored and stays that way —), then write the SAME structured
-  // pair the editor writes, so a
-  // composer-created item and an editor-created one are byte-identical on disk. No time in the
-  // text → an untimed item, exactly as before. Same addItem → commit() choke-point.
+  // Peel a leading or trailing time off the text and write the same fields the editor does.
   const handleQuickAdd = (text: string) => {
     const { title, startMinutes } = extractQuickAddTime(text);
     if (!title) return;
@@ -986,16 +842,10 @@ export default function CalendarPlanner() {
     haptic(); // — subtle pulse on itinerary item save (gated internally on reduced-motion).
   };
 
-  // duplicate: a fresh-id copy of the item's CONTENT onto the chosen day, through the
-  // SAME addItem → commit() choke-point as every other add. `freshCopyOf` (the
-  // stripper, reused verbatim — not re-implemented) drops id/deleted/rev/hlc and mints a new
-  // id, so the copy NEVER reuses the source id; addItem then stamps attribution/rev/hlc.
+  // Copy with a fresh id (freshCopyOf drops id and sync stamps).
   const handleDuplicateItem = (item: ItineraryItem, targetDate: string) => {
     const copy = freshCopyOf(item);
-    // D-316: `freshCopyOf` carries time + duration verbatim, so duplicating onto the SAME
-    // day (the picker offers every trip day, including this one) is a guaranteed exact
-    // collision. The check runs on the COPY, whose id is already fresh — checking the
-    // source item would self-exclude against itself and wave the collision through.
+    // Check the copy, not the source: the source would exclude itself and miss a same-day clash.
     const clash = firstClashWith(
       copy,
       getDayPlan(targetDate).items ?? [],
@@ -1035,10 +885,7 @@ export default function CalendarPlanner() {
     });
   };
 
-  // clear-whole-day: capture the day's LIVE items BEFORE clearing (so Undo can restore the
-  // full list), clearDay (tombstone-all in one commit under sync / physical empty under dormant),
-  // then one undo toast whose action restores every captured item (fresh-id under sync). After
-  // the clear the day falls back to the existing empty-state design.
+  // Capture the items first so Undo can restore them all.
   const handleClearDay = () => {
     const day = selectedDate;
     const items = getDayPlan(day).items ?? []; // exposed = live items only
@@ -1072,12 +919,7 @@ export default function CalendarPlanner() {
     setHighlightId(null);
   }, [selectedDate]);
 
-  // consume a pending cross-day search focus. Declared right AFTER the
-  // clear-highlight effect above (same [selectedDate] dependency) so, within the same
-  // commit, the clear runs first and this one runs second — the later `setHighlightId`
-  // call wins. Only fires once `selectedDate` has actually settled onto the pending
-  // result's day; same-day selections never touch this ref (handled directly by
-  // `focusItem` below) and so this effect no-ops for them.
+  // Must stay after the clear-highlight effect so its setHighlightId wins.
   useEffect(() => {
     const pending = pendingFocusRef.current;
     if (pending && pending.date === selectedDate) {
@@ -1086,11 +928,7 @@ export default function CalendarPlanner() {
     }
   }, [selectedDate]);
 
-  // jump to an item's day + highlight it (shared by both the `/plan` search and
-  // the `?focus=` param consumed below). Same-day: highlight immediately — the
-  // clear-on-day-change effect above never fires because `selectedDate` doesn't change.
-  // Cross-day: stash the target in the pending ref and change the day; the effect above
-  // applies the highlight once that settles (the ordering trap, handled once, here).
+  // Same day: highlight now. Other day: queue it and switch days.
   const focusItem = (date: string, id: string) => {
     if (date === selectedDate) {
       setHighlightId(id);
@@ -1102,20 +940,8 @@ export default function CalendarPlanner() {
 
   const handleSearchSelect = (result: PlanSearchResult) => focusItem(result.date, result.item.id);
 
-  // consume `?focus=<itemId>` — the palette's cross-route hand-off (the palette is
-  // mounted outside ItineraryProvider and cannot call `focusItem` directly). Keyed on the
-  // reactive `searchParams` value (not a mount-only effect) so it fires both when
-  // navigating to /plan fresh AND when already on /plan and the palette pushes a new
-  // focus id. The param is stripped via history-replace (no new history entry, mirrors
-  // command-palette.tsx's own `history.replaceState` hash bookkeeping) so a manual
-  // reload doesn't re-highlight, without breaking the back button.
-  //
-  // The strip MUST NOT go through `router.replace`: `window.location.pathname` already carries
-  // the basePath and the App Router prepends it again, so on the deployed `/trip_planner/` build
-  // this navigated to `/trip_planner/trip_planner/plan/` and 404'd (empty basePath locally, which
-  // is why dev and e2e never saw it). Same-document `history.replaceState` is the fix
-  // `travel-date-picker.tsx` already made for this class; Next syncs it into `useSearchParams`,
-  // and only `focus` is deleted so `?today=` and friends survive.
+  // Consume ?focus= then strip it with history.replaceState so a reload doesn't re-highlight.
+  // Not the router: the path already has the basePath (see stripFocusParam).
   useEffect(() => {
     const focusId = searchParams?.get('focus');
     if (!focusId) return;
@@ -1146,21 +972,12 @@ export default function CalendarPlanner() {
       ?.scrollIntoView({ block: 'nearest' });
   }, [highlightId]);
 
-  // Bulk move the current selection to another day. Every selected id lives on selectedDate, so
-  // the move is (selection, selectedDate) → targetDate. moveItems is ONE commit (tombstone-source
-  // + fresh-id-target under sync; physical under dormant). Same-day is guarded out.
-  //
-  // the Undo its two destructive siblings already had. `bulkMoveWithUndo` owns the closure
-  // capture + the toast because the inverse MUST address the LANDED ids, not the selected ones —
-  // see the docblock there; that construction is what `use-itinerary-bulk-sync.test.ts` drives.
+  // One commit. bulkMoveWithUndo owns the undo, which must address the landed ids, not the
+  // selected ones.
   const handleBulkMove = (targetDate: string) => {
     if (!targetDate || targetDate === selectedDate || selectedIds.size === 0) return;
-    // D-316 — ALL-OR-NOTHING. Refuse the whole move if any selected item would collide on
-    // the target day, naming the first offender. Partial application would break
-    // `moveItems`' single-commit semantics and leave `bulkMoveWithUndo`'s inverse
-    // addressing ids that never landed. The selection is only ever checked against the
-    // TARGET day's existing items, never against each other: they already coexist on the
-    // source day, so a grandfathered pair must still be movable as a pair.
+    // All or nothing (D-316). Checked only against the target day's items, not each other,
+    // since they already coexist.
     const moving = (getDayPlan(selectedDate).items ?? []).filter((i) => selectedIds.has(i.id));
     const targetItems = getDayPlan(targetDate).items ?? [];
     const targetOffset = offsetForCountry(getCountryForDate(targetDate));
@@ -1215,12 +1032,8 @@ export default function CalendarPlanner() {
   const currentPlan = getDayPlan(selectedDate);
   const currentIdx = TRIP_DATES.indexOf(selectedDate);
 
-  // an optional, read-only contextual weather tag for the day header — pure derivation
-  // over the SAME Open-Meteo cache the Essentials/Today panels already fetch,
-  // zero new fetch. Read in an effect (not inline) so server/first-paint render matches the
-  // client before hydration (the gateway is SSR-safe and returns null, but we still avoid
-  // reading it during render to keep this consistent with the rest of the app's localStorage
-  // reads). `null` whenever the city/date isn't in whatever 7-day window was last cached.
+  // Weather tag from the existing forecast cache, no new fetch. Read in an effect, like other
+  // storage reads.
   const [dayWeatherTag, setDayWeatherTag] = useState<WeatherTag | null>(null);
   useEffect(() => {
     setDayWeatherTag(weatherTagForDay(getCachedForecastForDate(currentPlan.city, selectedDate)));
@@ -1243,21 +1056,9 @@ export default function CalendarPlanner() {
     () => getVisibleDayPlan(selectedDate),
     [getVisibleDayPlan, selectedDate],
   );
-  // The presentational view: narrowed by the active author filter (read-only). DnD reorder
-  // still reads the full set from the store in handleDragEnd, so persistence is unaffected;
-  // we only change what renders and which ids the SortableContext tracks (so a drag inside
-  // a filtered view stays consistent with what's visible).
-  // Identity is already stable — `visiblePlan` is itself a useMemo and `DayPlan.items` is
-  // required, so the `?? []` arm is unreachable. The wrapper is here for exhaustive-deps,
-  // which reads `visiblePlan.items ?? []` as a fresh value and warns on the four memos below;
-  // those warnings are fatal now that lint runs at --max-warnings 0. It also pins the property
-  // so a future nullable-items change can't silently un-memoize them.
+  // Filtered items for rendering. Memoized so exhaustive-deps doesn't flag the memos below.
   const visibleItems = useMemo(() => visiblePlan.items ?? [], [visiblePlan]);
-  // The day's place offset, for every instant-level derivation below (the grouping sort, the
-  // clash badge and the unplanned rules all take it). Declared here because the phase grouping
-  // is the first consumer — it used to sit further down, next to the clash badge alone.
-  // The zone comes from the FULL stored day: under the author filter the seeded rows that set it
-  // are hidden, and the visible rows would fall back to the leg offset (#1120).
+  // The day's UTC offset, from the full day: filtered-out rows may be what set it.
   const dayOffsetMin = dayZoneOffsetMin(
     currentPlan.items,
     selectedDate,
@@ -1267,14 +1068,8 @@ export default function CalendarPlanner() {
     () => daySunTimes(selectedDate, currentPlan.city, currentPlan.country),
     [selectedDate, currentPlan.city, currentPlan.country],
   );
-  // phase-of-day grouping, CHRONOLOGICAL (owner-instructed): timed items ascend by absolute
-  // instant, untimed items form one trailing "Anytime" run. `isNewPhase` marks where the render
-  // layer inserts a subtle phase header — which is the whole point of the sort, since a day
-  // holding a 3pm plan before a 10am one used to print "Afternoon" and then render the morning
-  // plan underneath it. View-level only: `groupItemsByPhase` is pure and writes nothing, so the
-  // persisted order is untouched (the zero-writes proof in e2e/sort-clash.spec.ts still holds).
-  // SortableContext's `items` below is this GROUPED order so dnd-kit's index math matches the
-  // actual DOM order.
+  // Timed items by instant, then an "Anytime" run. View only; stored order is untouched.
+  // SortableContext uses this order so dnd-kit matches the DOM.
   const phaseGroups = useMemo(
     () => groupItemsByPhase(visibleItems, selectedDate, dayOffsetMin),
     [visibleItems, selectedDate, dayOffsetMin],
@@ -1286,20 +1081,10 @@ export default function CalendarPlanner() {
     () => visibleItems.filter((i) => effectiveStartMinutes(i) !== undefined).length,
     [visibleItems],
   );
-  // day-at-a-glance pill row: item count + first-start time (composed alongside the
-  // existing spend/weather pills at the day header, below).
-  // derived from the VISIBLE set. "From 9:00 AM" pointing at an item the filter has hidden
-  // is exactly the reported disagreement. (Spend and weather stay day-level — money and
-  // weather are facts about the day, not about a person, so they are deliberately NOT filtered.)
+  // From the visible set. Spend and weather stay unfiltered: they're about the day.
   const firstTimedItem = useMemo(() => earliestTimedItem(visibleItems), [visibleItems]);
   const firstStartInfo = firstTimedItem ? describeItemTime(firstTimedItem, selectedDate) : null;
-  // warn-only clash badge, presentation-only — it never writes and never affects ordering.
-  // computed over the VISIBLE set. A badge warning about a collision with an item that is
-  // not on screen is unreadable. Narrowing the rows is safe; the zone is not narrowed, it comes
-  // from the full day via `dayOffsetMin` above.
-  // The overlap is judged on the absolute instant, so the day and its offset
-  // come along (`dayOffsetMin`, declared above the grouping) — a day can hold items in
-  // another zone.
+  // Warning only, over visible items, compared as absolute instants.
   const dayClashIds = useMemo(
     () => clashingItemIds(visibleItems, selectedDate, dayOffsetMin),
     [visibleItems, selectedDate, dayOffsetMin],
@@ -1312,22 +1097,14 @@ export default function CalendarPlanner() {
     [visibleItems, selectedDate, dayOffsetMin],
   );
 
-  // multi-day spans — a PURE view-layer render derivation off the existing `plans` (no
-  // store write, no multi-homing;). For the selected day, collect every spanning item
-  // (an item carrying an `endDate` genuinely after its start day) whose inclusive
-  // [startDay..endDate] window COVERS `selectedDate`. ISO `YYYY-MM-DD` strings compare
-  // lexicographically, so the date math is plain string comparison. `isStartDay` marks the day
-  // that actually OWNS the item (it also appears as an editable row in the list below); on every
-  // other covered day the item shows ONLY as this band — it is never re-inserted into a list.
+  // Spanning items covering the selected day (ISO dates compare as strings). On days other than
+  // the start day the item appears only as a band.
   const spanBands = useMemo(() => {
     const bands: { item: ItineraryItem; spanStart: string; spanEnd: string; isStartDay: boolean }[] = [];
     for (const plan of plans) {
       for (const item of plan.items ?? []) {
         if (!item.endDate || item.endDate <= plan.date) continue; // genuine forward span only
-        // bands iterate `plans` directly rather than going through `getVisibleDayPlan`,
-        // because a band's OWNING day is not the selected day — so it is the one calendar surface
-        // that cannot reuse the shared accessor and needs the predicate itself. `itemMatchesAuthor`
-        // is the same predicate `filterItemsByAuthor` applies, so the two cannot drift.
+        // A band's owning day isn't the selected one, so apply the filter predicate directly.
         if (!itemMatchesAuthor(item, authorFilter, myName, myPriorNames)) continue;
         if (plan.date <= selectedDate && selectedDate <= item.endDate) {
           bands.push({ item, spanStart: plan.date, spanEnd: item.endDate, isStartDay: plan.date === selectedDate });
@@ -1337,12 +1114,7 @@ export default function CalendarPlanner() {
     return bands;
   }, [plans, selectedDate, authorFilter, myName, myPriorNames]);
 
-  // day-scoped map data: the selected day's coordinate stops (marker-matched),
-  // re-derived from the live plan so a reorder yields a new ordered array → PlanDayMap
-  // re-passes it → TripMap redraws the polyline.
-  // built from the VISIBLE plan, so the split-view day map plots only the filtered person's
-  // stops. `buildItineraryStops` takes DayPlan[] and is UNCHANGED — `lib/itinerary-map.ts` is held
-  // by another lane; narrowing the plan we hand it needs no edit there.
+  // The visible day's stops; a reorder produces a new array and redraws the route.
   const dayStops = useMemo(() => buildItineraryStops([visiblePlan]), [visiblePlan]);
   // Per-item matched marker id — the same stopMarkerFor join buildItineraryStops uses (pin
   // BEATS name/sourceId match,), so a row and its map stop always agree. Drives the
@@ -1350,14 +1122,7 @@ export default function CalendarPlanner() {
   const markerIdFor = (item: ItineraryItem) =>
     stopMarkerFor(item, legLabel(currentPlan.country))?.id ?? null;
 
-  // Per-date meta for the mobile day-strip. Precomputed here so the strip stays a
-  // pure presentational consumer — same country + item-count source the month grid uses.
-  // The Today marker date comes from the single trip-clock.
-  // memoized — this walks all 32 trip days and calls the accessor on each, and it ran on
-  // EVERY render (a keystroke in the composer, a hover, a highlight change).
-  // reads `getVisibleDayPlan`, so a filtered strip counts only that person's items. That
-  // accessor's identity is `getDayPlan`'s (the itinerary version tick) PLUS the filter selection,
-  // so the scan still re-runs exactly when one of those changes and not once more.
+  // Per-day meta for the mobile strip. Memoized: it walks every trip day.
   const dayStripMeta: DayStripDateMeta[] = useMemo(
     () =>
       TRIP_DATES.map((date) => ({
@@ -1370,14 +1135,9 @@ export default function CalendarPlanner() {
   useTravelTick(); // re-render on the shared tick so the "today" strip rolls over past midnight (#791)
   const todayStripDate = getTodayInTrip()?.date ?? null;
 
-  // ONE PlanDayMap instance, placed either in the desktop inline pane or the
-  // mobile bottom-sheet by `isDesktop` — never both, so there is a single GL context.
-  //
-  // /: wrapped, because this is one of the 3 call sites gen-sw.mjs reports
-  // as maplibre-reduced ("gen-sw: maplibre withheld from N call site(s)") — the
-  // chunk is deliberately not precached, so cold-offline React.lazy throws HERE, and
-  // unwrapped that throw escapes to app/error.tsx and takes the whole /plan/ route
-  // down (planner, timeline, budget and all) the moment someone toggles map view.
+  // One map instance, desktop pane or mobile sheet, never both.
+  // The boundary is required: the maplibre chunk isn't precached, so offline the lazy load
+  // throws here and would otherwise take down all of /plan. gen-sw.mjs checks for it.
   const mapEl = (
     <MapIslandBoundary label="The day map">
       <PlanDayMap
@@ -1395,15 +1155,9 @@ export default function CalendarPlanner() {
   return (
     <section id="itinerary" aria-labelledby="itinerary-heading" className="py-4 px-4 sm:px-6 sm:py-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* The running head. STATIC here, not sticky, and that is a deliberate exception:
-            /plan already pins two bands with measured offsets (the day strip at the navbar's 64px
-            and the composer at navbar+strip), so a third sticky band would either collide with
-            them or push both offsets, which are documented as must-never-drift. Every field is
-            live: the day, its place, what is on it and how much of it is struck. */}
-        {/* tabIndex=0 + a named group for the same reason as flights-section: `.head` scrolls
-            horizontally with a hidden scrollbar and holds nothing focusable, so at ~480px the
-            overflowing fields were pointer-only (#365). `group`, not `region` — axe's
-            aria-allowed-role rejects `region` on a <header>. Inset ring — full-bleed. */}
+        {/* Running head. Not sticky: the day strip is already pinned below the navbar. */}
+        {/* Focusable because it scrolls sideways with nothing focusable inside. role="group",
+            since axe rejects "region" on a header. */}
         <header
           className="head static mb-3 -mx-4 sm:-mx-6 max-sm:hidden outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           tabIndex={0}
@@ -1438,16 +1192,9 @@ export default function CalendarPlanner() {
             the trip-wide density overview sits below the planner in a disclosure. */}
         <h2 id="itinerary-heading" className="sr-only">Itinerary planner</h2>
 
-        {/* ── ROW 1: the sticky date strip (`<lg`) ────────────────────────────────
-            Lifted out of the left grid cell to get here. `position:sticky` only sticks
-            within its own containing block, and the strip's block used to be the day-picker
-            pane — a box exactly as tall as the strip, so `sticky` was a no-op there. As a
-            direct child of the planner container it now stays pinned under the navbar for
-            the whole scroll, which is the point: the day you are editing is always visible.
-            `top-[calc(var(--nav-h)+2px)]` is the fixed navbar's height plus its 2px border; `h-[104px]` is declared, not
-            incidental: it is the strip's resting height and `h-[72px]` its compact height once the page
-            scrolls (#776; hysteresis below stops flicker at the threshold). Nothing else parks on it
-            now that the composer scrolls. Desktop keeps the month grid as its picker and never renders this. */}
+        {/* Sticky day strip below lg. A direct child of the planner so sticky spans the whole
+            scroll. Top is navbar height plus its 2px border; 104px resting, 72px compact once
+            scrolled. */}
         <div className={`sticky top-[calc(var(--nav-h)+2px)] z-20 -mx-4 mb-4 flex ${stripCompact ? 'h-[72px]' : 'h-[104px]'} items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 sm:-mx-6 sm:px-6 lg:hidden`}>
           <div className="min-w-0 flex-1">
             <DayStrip
@@ -1471,21 +1218,10 @@ export default function CalendarPlanner() {
           </button>
         </div>
 
-        {/* ── ROW 2: the one planner toolbar ──────────────────────────────────────
-            Before this change the planner stacked its controls as separate full-width
-            strata: a Calendar/Agenda switch, the author filter, the map toggle, the month-
-            view expander, and — inside the day card, a third of the way down the page — the
-            Select / Clear-day pair. Five bands of chrome between the heading and the plan.
-            They are now ONE 44px row (`min-h-[44px]`, the project's touch-target floor),
-            with the day-scoped actions sitting beside the view-scoped ones because from the
-            user's side they are all "things I do to this day".
-            Under `sm` (640px) everything but the map toggle folds into an overflow
-            disclosure. The controls are declared ONCE and the SAME nodes are either laid
-            out inline (`sm:`) or dropped into the panel — duplicating them per breakpoint
-            would double every testid and break Playwright's strict mode. */}
-        {/* Search shares the toolbar's row below `sm` (the two buttons go icon-only) so the day
-            workspace clears the tab bar on a phone (#960). Read-only over titles/notes/categories
-            across every day; a cross-day pick jumps `selectedDate` and highlights the row. */}
+        {/* One 44px toolbar. Below sm everything but the map toggle folds into an overflow
+            panel; the same nodes are reused rather than duplicated, which would double the
+            testids. */}
+        {/* Search shares this row on phones so the day clears the tab bar. */}
         <div className="flex items-start gap-2 max-sm:mb-3 sm:block">
         <PlanSearch plans={plans} onSelect={handleSearchSelect} />
         <div
@@ -1494,11 +1230,7 @@ export default function CalendarPlanner() {
           data-testid="calendar-toolbar"
           className="relative flex min-h-tap shrink-0 items-center justify-center gap-2 sm:mb-6 sm:flex-wrap"
         >
-          {/* split map/list toggle. OFF by default → the maplibre island stays
-              interaction-lazy. On → the selected day's stops + polyline render on
-              <TripMap> beside the list (lg+) or in a bottom-sheet peek (`<lg`). Kept out of
-              the overflow at every width: it is the toolbar's primary action and the one
-              the pin picker arms. */}
+          {/* Map toggle, off by default so maplibre loads lazily. Never in the overflow. */}
           <button
             type="button"
             onClick={() => setShowMap((v) => !v)}
@@ -1555,19 +1287,10 @@ export default function CalendarPlanner() {
               Agenda View
             </button>
 
-            {/* Author filter: presentational, read-only. Self-hides when no item is
-                attributed (dormant/portfolio build unchanged). Narrows the day-detail list
-                below AND the rest of this day's chrome (shared selection via
-                lib/author-filter). (#94: the timeline it also used to drive is deleted — this
-                is the only mount site now.) */}
+            {/* Author filter; hides itself when nothing is attributed. */}
             <AuthorFilterControl plans={plans} />
 
-            {/* Clear day + Select — moved out of the day card into this row. Both
-                still appear only when the day has items, and Select still toggles the
-                multi-select mode (OFF by default, no change to the single-item flow).
-                🔴: DELIBERATELY `dayItems` (unfiltered). These are DESTRUCTIVE day-level
-                actions — "Clear day" removes the items the filter is hiding too, so it must stay
-                offered on a day whose visible list is empty. Do not "finish the job" here. */}
+            {/* Unfiltered dayItems on purpose: Clear day also removes hidden items. */}
             {dayItems.length > 0 && (
               <>
                 <button
@@ -1632,10 +1355,7 @@ export default function CalendarPlanner() {
                   />
                   Day {currentIdx + 1} · {dayPlaceLabel(currentPlan)}
                 </p>
-                {/* day-at-a-glance pill row — composes the existing spend pill +
-                    weather pill (unchanged testids/markup below) alongside two new pills (item
-                    count, first-start time). A flex-wrap row so it degrades gracefully on narrow
-                    viewports; renders nothing when the day has none of the four facts. */}
+                {/* Count, first start, spend, weather. */}
                 <div
                   data-testid="calendar-day-glance"
                   className="mt-1 flex flex-wrap justify-center items-center gap-1.5"
@@ -1680,10 +1400,7 @@ export default function CalendarPlanner() {
                       </span>
                     </span>
                   )}
-                  {/* quiet contextual weather tag — pure derivation over whatever the
-                      Open-Meteo cache (already fetched elsewhere, e.g. the Today/Essentials
-                      panel) happens to cover for this exact city/date. No cache hit → nothing
-                      rendered, no layout shift. */}
+                  {/* Only when the cache covers this city and date. */}
                   {dayWeatherTag && (
                     <span
                       data-testid="calendar-day-weather-tag"
@@ -1698,21 +1415,9 @@ export default function CalendarPlanner() {
               <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" data-testid="calendar-next-day" className="shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 hover:bg-white/5 text-ink-mid disabled:text-ink-lo disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
             </div>
 
-            {/* — the composer. Moved out from under the list to directly under the day
-                header and made STICKY, so on a long day the primary add path never scrolls away.
-                `top-[var(--nav-h)]` is the fixed navbar's exact height, so it parks just below it;
-                `z-10` keeps it inside this card's stacking context, far under the editor portal
-                (z-50) and the map sheet (z-40). Full-bleed via -mx to cover the card's padding
-                gutters while rows scroll behind it.
-                Type a title → Enter → the item lands on the selected day through the same
-                addItem → commit() choke-point as every other write. A leading or
-                trailing time token ("7pm dinner", "dinner 19:00") is peeled by
-                `extractQuickAddTime` and dual-written as time + startMinutes, exactly
-                the pair the editor writes. "Details" opens the FULL editor for anything one
-                line can't say — it is the same trigger the dashed "Add Activity" button was,
-                relocated, not removed (it is the ONLY path to a blank editor). */}
-            {/* scrolls with the content (#776): only the navbar + day strip stay pinned, so the add row
-                no longer costs another ~89px of the viewport. */}
+            {/* Composer. A leading or trailing time ("7pm dinner") becomes the item's time.
+                "Details" is the only way to open a blank editor. */}
+            {/* Scrolls with the content; only the navbar and day strip stay pinned. */}
             <div className="z-10 -mx-4 sm:-mx-6 mb-3 border-b-2 border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] px-4 py-2 sm:px-6">
               <div className="flex items-center gap-2">
                 <QuickAddInput
@@ -1735,14 +1440,7 @@ export default function CalendarPlanner() {
                   Details
                 </button>
               </div>
-              {/* — the visible affordance for the time syntax. had to cut the hint
-                  from the placeholder because at 390px the input shares its row with the submit
-                  and Details buttons and anything past ~20 characters truncated MID-WORD, and it
-                  moved the hint into the accessible name — which left the feature's whole value
-                  invisible to everyone not using a screen reader.
-                  On its own line the constraint disappears: the hint owns the full row width, and
-                  it WRAPS rather than truncates (no `truncate`/`text-ellipsis`/`whitespace-nowrap`
-                  here, deliberately) so no width can ever clip it mid-word. */}
+              {/* Time-syntax hint on its own line so it wraps instead of truncating. */}
               <p
                 data-testid="calendar-quick-add-hint"
                 className="mt-1 text-t-sm leading-snug text-ink-mid max-sm:[@media(max-height:699px)]:hidden"
@@ -1751,11 +1449,9 @@ export default function CalendarPlanner() {
               </p>
             </div>
 
-            {/* the Select / Clear-day pair that used to sit here is now in the one
-                planner toolbar above (Row 2), beside the map and filter controls. */}
+            {/* Select and Clear day live in the toolbar above. */}
 
-            {/* bulk-action bar — extracted to CalendarBulkToolbar (pure move). Visible
-                only in select mode; the parent still owns the selection + the delete confirm. */}
+            {/* Bulk actions in select mode; this component owns selection and the confirm. */}
             {selectMode && (
               <CalendarBulkToolbar
                 selectedCount={selectedIds.size}
@@ -1791,10 +1487,7 @@ export default function CalendarPlanner() {
               <AlertDialogContent className="bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 text-ink-hi" data-testid="calendar-clear-confirm">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Clear this day?</AlertDialogTitle>
-                  {/* 🔴: `dayItems` (unfiltered) ON PURPOSE — this warns about what will
-                      ACTUALLY be deleted, which is the whole stored day including anything the
-                      active filter is hiding. Filtering this number would understate a
-                      destructive action. */}
+                  {/* Unfiltered count: it states what will actually be deleted. */}
                   <AlertDialogDescription className="text-t-body text-ink-mid">
                     This removes all {dayItems.length} item{dayItems.length === 1 ? '' : 's'} planned for {formatDateLong(selectedDate)}. You can undo it right after.
                   </AlertDialogDescription>
@@ -1812,12 +1505,7 @@ export default function CalendarPlanner() {
               </AlertDialogContent>
             </AlertDialog>
 
-            {/* multi-day span bands — the view-layer expansion of spanning items across the
-                days they cover. Rendered ABOVE the timed list on every covered day (including the
-                start day, where the item ALSO appears as an editable row below). On non-start days
-                this band is the ONLY trace of the item — it is never re-inserted into the list, so
-                the item stays owned by its single start-day doc. Each band carries an accessible
-                label describing the span. */}
+            {/* Multi-day span bands, above the list on every covered day. */}
             {spanBands.length > 0 && (
               <div className="space-y-2 mb-3" data-testid="calendar-span-bands">
                 {spanBands.map(({ item, spanStart, spanEnd, isStartDay }) => {
@@ -1854,10 +1542,8 @@ export default function CalendarPlanner() {
                 <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
                   <div className="list" ref={listRef}>
                     {visibleItems.length === 0 ? (
-                      /* 9.8 — the empty state renders the SHAPE of the day at the size it will
-                         be: three ruled, hollow slots plus the condition in words at --t-body /
-                         --text-mid. The two condition strings are LOAD-BEARING and neither may
-                         drift into the other (e2e/author-filter-propagation.spec.ts asserts both). */
+                      /* Hollow slots plus the condition in words. Both strings are asserted by
+                         e2e/author-filter-propagation.spec.ts. */
                       <div data-testid="calendar-empty-state">
                         <div aria-hidden="true">
                           {['Morning', 'Afternoon', 'Evening'].map((slot) => (
@@ -1871,10 +1557,7 @@ export default function CalendarPlanner() {
                             </div>
                           ))}
                         </div>
-                        {/* 🔴: `dayItems` (unfiltered) is LOAD-BEARING here — it is the only
-                            thing that tells these two states apart. Route it through the filtered
-                            set and both branches collapse into "no activities planned", which
-                            would tell a traveller their day is empty when it is not. */}
+                        {/* Unfiltered: tells "nothing planned" from "nothing matches". */}
                         {dayItems.length === 0 ? (
                           <p className="empty px-gut py-4">
                             No activities planned for this day. The day is open from morning to
@@ -1899,11 +1582,7 @@ export default function CalendarPlanner() {
                         const gapMin = dayGaps.get(item.id) ?? null;
                         return (
                         <div key={item.id}>
-                          {/* phase-of-day header — subtle, non-interactive, shown only at a
-                              phase boundary in the rendered (chronological) order; a phase whose
-                              rank has already been headed never repeats, which is what keeps a
-                              date-line day from printing "Afternoon" twice — see
-                              lib/phase-of-day.ts. Not a sortable/draggable node. */}
+                          {/* Phase header; never repeats on a date-line day (lib/phase-of-day.ts). */}
                           {isNewPhase && (
                             <p
                               data-testid={`calendar-phase-header-${phase}-${item.id}`}
@@ -1920,11 +1599,7 @@ export default function CalendarPlanner() {
                           <SortableItem
                             item={item}
                             date={selectedDate}
-                            /* A TIMED row's position is decided by its time, so its grip is
-                               disabled — a drag that silently snapped back would be worse than
-                               no drag at all. The untimed "Anytime" run stays draggable, and
-                               reordering it has a real effect because the sort preserves the
-                               relative order of untimed items. */
+                            /* Timed rows sort by time, so only "Anytime" rows can be dragged. */
                             dragDisabled={phase !== 'anytime'}
                             clashes={dayClashIds.has(item.id)}
                             sunsetMin={daySun?.sunsetMin}
@@ -1989,16 +1664,9 @@ export default function CalendarPlanner() {
         </div>
       </details>
 
-      {/* mobile map bottom-sheet peek (`<lg`). Reuses the rounded-t-2xl glass sheet
-          idiom: a non-modal peek fixed to the bottom that the
-          page scrolls behind, expandable to near-full height. Rendered only when the map is
-          on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl).
-          Tab-bar clearance is PADDING, not a `bottom` offset: the box stays flush to
-          `bottom-0`, so both height states keep the top edge they had and the expanded 85dvh
-          can't be pushed off the top of a short viewport. Only the canvas shrinks, which is
-          what has to move — maplibre docks the tile attribution bottom-right of it, and
-          that's a licence condition. `md:pb-0` because the tab bar is `md:hidden` while this
-          sheet renders up to `lg`. */}
+      {/* Mobile map sheet, non-modal. Tab-bar clearance is padding, not a bottom offset, so
+          the expanded sheet can't be pushed off the top and the map attribution (a licence
+          condition) stays visible. */}
       {showMap && !isDesktop && (
         <div
           data-testid="plan-map-sheet"
@@ -2036,11 +1704,7 @@ export default function CalendarPlanner() {
         </div>
       )}
 
-      {/* Item Editor Modal.
-          Focus returns to the trigger via onExitComplete — i.e. only after the
-          editor has fully animated out and unmounted. Doing it earlier (in the
-          editor's own effect cleanup) raced framer-motion's exit and left the
-          dialog stuck open when close was initiated from inside the panel. */}
+      {/* Item editor. Focus returns on onExitComplete, after the exit animation. */}
       <AnimatePresence
         onExitComplete={() => {
           triggerRef.current?.focus?.();

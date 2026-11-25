@@ -15,10 +15,8 @@ import { SyncStatusBadge } from '@/components/sync-status-badge'
 import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
 import { buildCsp, REFERRER_POLICY } from '@/lib/csp'
-// the app-wide chrome islands (Navbar, Footer, mobile tab bar,
-// quick-add FAB + host, expense-log host). Declared in a `'use client'` module
-// because Next 15 forbids `dynamic({ssr:false})` in this Server Component layout
-// (it exports metadata/viewport). Same island pattern; see chrome-islands.tsx.
+// Client islands live in chrome-islands.tsx: a Server Component layout can't use
+// dynamic({ ssr: false }).
 import {
   Navbar,
   Footer,
@@ -30,23 +28,11 @@ import {
   CommandPalette,
 } from './chrome-islands'
 
-// TWO faces — a text family and a machine family.
-// `--font-sans` = Geist (variable weight axis, OFL, one download) carries the whole
-// UI, including `font-mono`, which aliases it + `tnum` in tailwind.config (Geist has
-// real tabular figures, so numerals still align with NO monospace download).
+// Geist carries the UI; `font-mono` aliases it with `tnum` in tailwind.config, so no
+// monospace download is needed for aligned numerals.
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
-// THE MACHINE FACE — every printed label, key, condition and numeral in the instrument.
-// ONE weight, 600, and never request 400: none is loaded, so CSS font matching would
-// render the 600 file and the lighter intent would be invisible. Where lighter machine
-// text is wanted, use Geist with `tnum`, already loaded. `preload: false` is LOAD-BEARING
-// — it is what keeps the second face off the critical path.
-//
-// This replaces Instrument Serif, which rendered a browser-synthesised bold at 70 of its
-// 91 `font-display` sites at the time of the flip — history, not a live count; the sweeps
-// since have moved most headings onto the `text-display-*` / `text-editorial-*` scales, and
-// only 4 `font-display` class sites remain today. `--font-display` is re-pointed at Geist on
-// <body> below rather than dropped, so those sites keep a real family with a real weight
-// axis. Net +7,080 B.
+// Label face. Only weight 600 is loaded, so don't ask for 400 (it would render 600 anyway).
+// preload: false keeps it off the critical path.
 const plexMono = IBM_Plex_Mono({
   weight: '600',
   subsets: ['latin'],
@@ -62,15 +48,10 @@ export const metadata = {
   icons: {
     icon: withBasePath('/favicon.svg'),
     shortcut: withBasePath('/favicon.svg'),
-    // `apple` is basePath-critical, not decoration: with no <link rel="apple-touch-icon">
-    // in the HTML, iOS "Add to Home Screen" falls back to <origin>/apple-touch-icon.png —
-    // powan55.github.io/apple-touch-icon.png, outside /trip_planner — which 404s, so the
-    // home-screen icon becomes a screenshot. gen-icons.mjs emits the file and gen-sw.mjs
-    // already precaches it; nothing referenced it.
+    // Without this, iOS looks for /apple-touch-icon.png at the origin root, outside basePath.
     apple: withBasePath('/icons/apple-touch-icon.png'),
   },
-  // manifest is emitted at build time by scripts/gen-sw.mjs
-  // (single basePath prefix source), so withBasePath here matches its start_url.
+  // Emitted by scripts/gen-sw.mjs at build time.
   manifest: withBasePath('/manifest.webmanifest'),
   appleWebApp: {
     capable: true,
@@ -80,13 +61,8 @@ export const metadata = {
   openGraph: {
     title: 'Trip Journey',
     description: 'Offline-ready trip planner: day-by-day itinerary, map, bookings and a shared plan for your whole group.',
-    // NOTE: pass a bare root-relative path here — do NOT wrap in
-    // withBasePath(). Next resolves metadata image URLs against metadataBase,
-    // and metadataBase already carries the basePath segment via
-    // NEXT_PUBLIC_SITE_URL (the deployed origin including its basePath on CI).
-    // Wrapping with withBasePath() would prepend /trip_planner a SECOND time,
-    // producing /trip_planner/trip_planner/og-image.png. Local dev stays
-    // correct: metadataBase=http://localhost:3000 -> /og-image.png.
+    // Not withBasePath(): metadataBase (NEXT_PUBLIC_SITE_URL) already includes the base
+    // path, so wrapping would double it.
     images: ['/og-image.png'],
   },
   twitter: {
@@ -97,29 +73,16 @@ export const metadata = {
   },
 }
 
-// `viewportFit:'cover'` extends the layout viewport into the
-// device safe-areas so `env(safe-area-inset-bottom)` resolves — required by the
-// upcoming mobile bottom tab bar. width/initialScale restate Next's
-// defaults (declaring `viewport` replaces the default meta tag).
+// viewportFit 'cover' makes env(safe-area-inset-*) resolve for the bottom tab bar.
+// Declaring `viewport` replaces Next's default tag, so width/initialScale are restated.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  // Behavior 6 (keyboard-offset): native, zero-JS keyboard handling. The
-  // default ('resizes-visual') leaves the LAYOUT viewport (and any 100vh/100dvh
-  // fixed sheet/dialog sized against it — quick-add, expense dialog, concierge
-  // chat, the dark Sheet) full-height UNDER the keyboard, so a bottom-hugging
-  // input can end up covered. 'resizes-content' shrinks the layout viewport itself
-  // when the on-screen keyboard opens, so those same dvh-sized surfaces reflow
-  // to fit above it — no visualViewport listener/JS needed. Progressive: browsers
-  // that don't recognize the value ignore it and keep today's ('resizes-visual')
-  // behavior, so this can never break anything where it's unsupported.
+  // The on-screen keyboard shrinks the layout viewport, so dvh-sized sheets reflow above it
+  // instead of hiding inputs. Ignored where unsupported.
   interactiveWidget: 'resizes-content',
-  // surface — the visible app surface color (matches the PWA
-  // manifest's theme_color/background_color emitted by gen-sw.mjs). This is the
-  // browser/OS chrome colour and it MUST track --background: it is a hardcoded copy
-  // of that token with no compiler tie, so a canvas re-value that misses it leaves a
-  // strip of the retired palette framing the app. Now #0A0818, the re-cast page field.
+  // Hardcoded copy of --background; keep in step with it and gen-sw.mjs's manifest colours.
   themeColor: '#0A0818',
 }
 
@@ -128,42 +91,22 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // data-scroll-behavior: app/globals.css sets `scroll-behavior: smooth` on <html> for
-  // in-page anchors. Next 16 stopped neutralising that during route transitions unless this
-  // attribute is present, which would make every navigation smooth-scroll to top instead of
-  // jumping. Opting back in keeps 15's behaviour.
+  // data-scroll-behavior: without it Next 16 smooth-scrolls every route change, because
+  // globals.css sets scroll-behavior: smooth on <html> for in-page anchors.
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      // THE FONT VARIABLES SIT ON <html>, NOT <body>, AND THAT IS LOAD-BEARING.
-      // globals.css declares `--font-machine` on `:root` and substitutes the loader's
-      // variable into it. A custom property is substituted where it is DECLARED, and it
-      // inherits downward only — so with the loader class on <body> the `:root`
-      // declaration would resolve against an unset variable, go invalid at computed-value
-      // time, and take every `font-family: var(--font-machine)` in the file down with it.
+      // Font variables must be on <html>, not <body>: globals.css reads them in :root
+      // declarations, and custom properties only inherit downward.
       className={`dark ${geist.variable} ${plexMono.variable}`}
-      // `--font-display` is re-pointed at the sans stack rather than deleted: the Tailwind
-      // `display` key still resolves through it and 70+ `font-display` sites read it, so
-      // dropping it would land all of them on Georgia mid-flight. Geist is a real variable
-      // weight axis, which also retires the synthesised bold those sites were rendering.
+      // Kept and pointed at sans because the Tailwind `display` key still resolves through it.
       style={{ '--font-display': 'var(--font-sans)' } as React.CSSProperties}
       data-scroll-behavior="smooth"
     >
-      {/* Issue #180. An explicit <head>: the Metadata API cannot express an `http-equiv`
-          meta, and `output: 'export'` rules out real headers — see lib/csp.ts for why and
-          for what that costs (no `frame-ancestors`, no report-only).
-
-          KNOWN CEILING — this tag is NOT the first thing in the built <head>. React 19
-          hoists its own resources, so the export puts 35 tags ahead of it on the home route
-          (2 metas, 2 stylesheet links, 1 script preload and 30 `<script src>`; 33-37 across
-          the 21 pages), and a meta CSP governs only what is parsed after it. Measured on a
-          real build: EVERY one of them is same-origin `/_next/static/*` build output, which
-          this policy permits anyway, and every attacker-reachable node
-          (the whole <body>) is parsed after the tag. So the gap is currently inert. Making
-          it genuinely first needs a post-build rewrite of the exported HTML in out/ — the
-          shape scripts/gen-sw.mjs already uses — which is only worth adding if a real
-          header never becomes available. */}
+      {/* Meta CSP because a static export can't set headers; see lib/csp.ts.
+          KNOWN CEILING: React hoists its own same-origin tags above this one. They are all
+          /_next/static output the policy allows, and all of <body> comes after it. */}
       <head>
         <meta httpEquiv="Content-Security-Policy" content={buildCsp()} />
         <meta name="referrer" content={REFERRER_POLICY} />
@@ -175,29 +118,23 @@ export default function RootLayout({
           forcedTheme="dark"
           disableTransitionOnChange
         >
-          {/* app-shell month/season background tint (issue #83). Renders nothing; root-level
-              so it mounts once and is never torn down by route navigation. */}
+          {/* Root-level so it survives route changes. */}
           <SeasonAccentEngine />
           <ItineraryProvider>
-            {/* WCAG 2.4.1 (B-1). ONE link covers every route: all 19 pages
-                render inside the `#main` wrapper below, so no page-level skip link is needed.
-                Rendered inside the provider so it exists only when #main does (not on the signed-out wall). Invisible until focused, then a real chip above the navbar (z-50). */}
+            {/* Skip link. Inside the provider so it only exists when #main does. */}
             <a
               href="#main"
               className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-ui)] focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-ring"
             >
               Skip to content
             </a>
-            {/* App chrome: one persistent navbar/footer around the routed
-                page content. TokenGate + PresenceBar render inside the provider. */}
+            {/* Persistent chrome. */}
             <TravelerOnly>
               <Navbar />
             </TravelerOnly>
             <RouteFocus />
-            {/* routed content + footer must clear the fixed mobile
-                tab bar; 64px fallback = the bar's published height contract. */}
-            {/* `#main` is the skip link's target; tabIndex=-1 makes a non-interactive
-                wrapper programmatically focusable, `outline-none` keeps that focus silent. */}
+            {/* Bottom padding clears the fixed mobile tab bar. */}
+            {/* tabIndex -1 so the skip link can focus it. */}
             <div id="main" tabIndex={-1} className="outline-none pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] md:pb-0">
               {children}
               <Footer />
@@ -206,38 +143,28 @@ export default function RootLayout({
               <BottomTabBar />
               <QuickAddFab />
               <QuickAddHost />
-              {/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
+              {/* Expense-log dialog host. */}
               <ExpenseLogHost />
             </TravelerOnly>
           </ItineraryProvider>
-          {/* ⌘K / Ctrl+K command palette. Mounted once
-              at the app root so the shortcut works from anywhere. */}
+          {/* Cmd/Ctrl+K palette, mounted once at the root. */}
           <TravelerOnly>
             <CommandPalette />
           </TravelerOnly>
-          {/* `?trip=` shared-link join handshake. Renders null unless a
-              `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
+          {/* Handles ?trip= share links. */}
           <TripJoinHandshake />
-          {/* <RouteAccentEngine /> deleted. had already retired its chrome
-              sweep, leaving it stamping html[data-trip-phase] for exactly ONE consumer —
-              the aurora's lead stops. That aurora is gone, so the island was a corpse. */}
+          {/* Toasts and error recovery. */}
           <Toaster />
           <ChunkLoadErrorHandler />
-          {/* registers /sw.js in production only; drives the
-              toast-based update flow (no silent refresh). Renders null. */}
+          {/* Production only; updates go through a toast, never a silent reload. */}
           <ServiceWorkerRegistrar />
-          {/* storage-reliability island — requests persistent storage after the
-              first interaction, warns once per load when storage nears quota, and shows a
-              once-ever install-to-Home-Screen hint. Renders nothing. */}
+          {/* Persistent-storage request, quota warning, install hint. */}
           <StoragePersistence />
-          {/* app-wide navigator.onLine banner. Renders nothing while online
-              (incl. server/first paint — no SSR mismatch); appears on every route
-              the instant connectivity drops. */}
+          {/* Offline banner. */}
           <OfflineBanner />
-          {/* app-wide offline-push outbox status pill. Renders nothing on a dormant/guest
-              build or before anything has ever synced; top-right, below the navbar. */}
+          {/* Sync outbox status. */}
           <SyncStatusBadge />
-          {/* #790: persistent marker while the `?today=` demo clock is active. */}
+          {/* Shown while the ?today= demo clock is active. */}
           <ClockOverrideBanner />
         </ThemeProvider>
       </body>

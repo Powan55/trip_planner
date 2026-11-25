@@ -3,142 +3,42 @@ import type { TargetAndTransition } from 'framer-motion';
 import { entranceLedger } from '@/core/storage/gateway';
 
 /**
- * The motion system — the one place D-292's loudness gradient and D-293's motion budget are
- * ENFORCED rather than remembered.
- *
- * Everything below exists because a comment saying "at most three entrances per screen" is not
- * a rule, it is a hope. Three mechanisms, each of which something can fail against:
- *
- * 1. THE TIER GATE. `tierForPath()` maps a route to its D-292 tier and `isMotionAllowed()`
- *    answers, for a kind of motion and a tier, whether it is permitted at all. An unknown
- *    route is Tier 3 — the strictest — so a route added without being tiered gets NO
- *    allowance rather than the loudest one. `lib/__tests__/motion-budget.test.ts` fails when
- *    a `page.tsx` exists that no tier list names, so "we forgot to tier it" is a red run and
- *    not a thing anyone has to notice in review.
- *
- * 2. THE ENTRANCE LEDGER (D-293 rule 7). `entranceFor()` returns `'animate'` on the first
- *    view of a surface per browser session and `'present'` on every later one. The record is
- *    sessionStorage, via `entranceLedger` in core/storage/gateway.ts, where the exact reset
- *    semantics are written down beside the key.
- *
- * 3. `prefers-reduced-motion`, IN ONE PLACE. `prefersReducedMotion()` is the only read in this
- *    module, and `entranceFor()` consults it BEFORE anything else, so a caller cannot forget
- *    it — there is no code path through this module that animates under reduce. This also
- *    replaces the five hand-rolled `matchMedia('(prefers-reduced-motion: reduce)')` copies
- *    that had grown across lib/ and components/ — fly-chip, haptics, scroll-to-hash,
- *    command-palette and trip-map — each a chance to get the query string, the SSR guard,
- *    or the sense of the test subtly wrong exactly once. Framer's `useReducedMotion()` is
- *    NOT one of these and stays where it is: inside a React component that needs to
- *    re-render when the preference changes, the reactive hook is the right tool.
- *
- * What is deliberately NOT here: durations. D-293's numbers (200ms tick, 500ms pop, 900ms
- * ceiling, 6s loop floor, 30s ambient) already exist as the `--duration-*` custom properties
- * in app/globals.css, and a second copy in TypeScript would be a hand-synced mirror with
- * nothing tying it to the first.
- *
- * FADE_FLOOR — the entrance opacity every section reveal starts from.
- *
- * / originally PINNED these reveals at `opacity: 1` (a slide with no fade
- * at all). replaces the pin with a FLOOR so the reveals actually reveal.
- *
- * ⚠ THE VALUE IS 0.95, NOT 0.7 — MEASURED, NOT CHOSEN. Recorded as a
- * amendment. 0.7 was implemented first and produced FIVE failing axe specs
- * (`/`, `/plan/`, `/nepal/`, `/japan/`, nepal-filters-open), all `color-contrast
- * [serious]`. The mechanism, confirmed against axe's own numbers:
- *
- * 1. A wrapper `opacity` MULTIPLIES every descendant's alpha. As originally
- * measured, the AA-floor block (globals.css) raised `text-white/25..60` to
- * `rgba(255,255,255,0.62)`, calibrated to clear 4.5:1 AT OPACITY 1 with a thin
- * margin. A wrapper at 0.7 made it an effective 0.434 → composited `#757577` on
- * the page field, 4.25:1. Axe reported exactly `#757577`; compositing 0.62×0.7
- * white over `#0b0c0e` reproduces that byte-for-byte, so this is arithmetic,
- * not a flake.
- *
- * Issue #27 retired that floor block, and FADE_FLOOR did NOT go with it. The
- * multiplication is a property of `opacity`, not of how the colour underneath
- * was expressed: a solid `--text-lo` at 7.43:1 still composites down through a
- * wrapper the same way. The numbers above are the old ones because they are the
- * ones that were measured against real axe output; the mechanism they describe
- * is unchanged.
- * 2. It is NOT a transient. `whileInView` never fires for content below the fold, so
- * a floored masthead RESTS at the floor indefinitely — axe scans it there. The
- * floor therefore has to be AA-safe on its own, not merely "safe on average".
- *
- * The binding constraint is `text-muted-foreground` on `bg-card`, the app's worst
- * muted-on-light-surface pair. Sweeping the floor against the surfaces and tiers axe
- * actually flagged: 0.70 → 3.23:1, 0.85 → 4.14:1, 0.90 → 4.49:1 (still under), and
- * 0.95 → 4.85:1, the first value that passes. Hence 0.95.
- *
- * BE HONEST ABOUT WHAT THIS BUYS: at 0.95 the opacity change is close to
- * imperceptible. The reveal a user actually sees is the `y` slide. A wrapper-opacity
- * floor cannot deliver a VISIBLE fade in this app without re-breaking the AA floor —
- * if wants a real fade, it needs a different mechanism (e.g. fading a decorative
- * layer rather than the text container), not a different number here.
- *
- * WHY A TS CONSTANT AND NOT A CSS CUSTOM PROPERTY (recorded deviation from the
- * plan): all eight consumers are framer-motion JS values. A framer
- * `initial={{ opacity: … }}` takes a NUMBER — it cannot read `var(--fade-floor)`.
- * Declaring the floor in globals.css would therefore have produced a custom property
- * with zero CSS consumers plus a duplicated JS literal that can silently drift from
- * it — the dead-token defect this codebase already documents at `--radius-sm`. This
- * module is the one place the value exists.
- *
- * NOT applied to `.reveal-view-css` (globals.css `@supports (animation-timeline:
- * view())`), which stays transform-only. A view-timeline animation is a pure function
- * of scroll position and re-plays every time the element re-enters its range, so an
- * opacity fade there would flicker on every scroll-by rather than reveal once.
- *
- * REDUCED MOTION: the floor is for the ANIMATED path only. Every consumer forks on
- * `useReducedMotion()` and lands reduced-motion users at `opacity: 1`, so the floor
- * can never leave content resting at 70% for someone who asked for less motion.
+ * Motion rules in code rather than in comments (D-292 tiers, D-293 budget):
+ * - Tier gate: `tierForPath()` maps a route to a tier and `isMotionAllowed()` says what that
+ *   tier may do. Unknown routes are Tier 3, the strictest. motion-budget.test.ts fails when a
+ *   page.tsx isn't tiered.
+ * - Entrance ledger: `entranceFor()` animates a surface once per browser session.
+ * - Reduced motion: `prefersReducedMotion()` is checked first, so nothing here animates under
+ *   reduce. Components that must re-render on change use framer's `useReducedMotion()`.
+ * Durations live as `--duration-*` in globals.css, not here.
+ */
+
+/**
+ * Opacity every section reveal starts from. 0.95, not lower: a wrapper's opacity multiplies
+ * its text, and below-fold content rests at the floor because `whileInView` never fires, so
+ * axe scans it there. 0.7 failed five color-contrast specs; 0.95 is the first value that
+ * keeps muted text on cards above 4.5:1 (D-100, D-246). The visible reveal is the y slide.
+ * A TS constant because framer can't read a CSS variable. Reduced motion lands at opacity 1.
  */
 export const FADE_FLOOR = 0.95;
 
-// ── The tier gate (D-292) ───────────────────────────────────────────────────────────────────
+// The tier gate (D-292)
 
-/**
- * The three permission tiers of the loudness gradient. Tier 3 is the SAME system with its
- * permissions revoked, not a second design — same canvas, same type, same tap targets.
- */
+/** Tier 3 is the same design with its motion permissions revoked. */
 export type MotionTier = 1 | 2 | 3;
 
 /**
- * The kinds of motion the gate rules on, and there is nothing outside them.
- * - `entrance` — a scroll-reveal or hero entrance (D-293 rule 7).
- * - `loop` — AMBIENT decoration that repeats forever (rule 1). Says nothing; exists to be
- *   pretty.
- * - `state` — a loop that REPORTS a condition the app or a cell is in right now: the skeleton
- *   shimmer ("still loading"), the calendar today-cell ring ("this one is today"). D-322 rules
- *   it a different category from `loop`, permitted on every tier and exempt from rule 2's 6s
- *   floor, because slowing an indicator to ambience speed does not calm it, it breaks what it
- *   is for. The floor half is enforced in CSS, by `scripts/motion-loops.mjs`, against a
- *   two-entry allowlist — this table is only the tier half.
- * - `tick` / `pop` / `burst` — the three celebration weights (rule 6), in escalation order.
- * - `completion` — a ONE-SHOT burst on something the user finished (the last packing item, the
- *   last document). D-323 rules it legal on every tier: it is earned feedback for a transition
- *   the user caused, not decoration and not a greeting. Deliberately its own kind rather than
- *   widening `burst`, so `burst` stays Tier 1 and this cannot become permission for a pop on a
- *   working screen.
+ * - `state`: a loop that reports a condition (skeleton shimmer, today ring). Allowed on every
+ *   tier and exempt from the 6s loop floor (D-322); scripts/motion-loops.mjs enforces the CSS side.
+ * - `completion`: a one-shot burst on something the user finished. Allowed everywhere (D-323),
+ *   and kept separate from `burst` so it can't become a pop on a working screen.
  */
 export type MotionKind = 'entrance' | 'loop' | 'state' | 'tick' | 'pop' | 'burst' | 'completion';
 
-/**
- * Tier 1 · STAGE — the front door and the surfaces whose job is anticipation.
- *
- * `/passport` (issue #5) joins them by KIND: like `/recap` and `/trips` it is a keepsake
- * surface you open to look at what the trip amounts to, not a working screen used one-handed
- * outdoors. What it actually spends here is the ENTRANCE — the shared `<Reveal>`, which Tier 3
- * forbids outright — and nothing else. The page ships no ambient loop, so rule 1's single
- * Tier-1 allowance stays unspent.
- *
- * WHAT IT IS NOT TIERED FOR, so nobody re-derives the wrong reason: the stamp unlock does not
- * need this tier. It is D-323's `completion` — one-shot, earned, caused by the user's own
- * travel — which is legal on every tier. Re-tiering this route would make the page quieter,
- * never silent.
- */
+/** Tier 1: the front door and keepsake surfaces. */
 export const TIER_1_SURFACES: readonly string[] = ['/', '/recap', '/trips', '/passport'];
 
-/** Tier 2 · GALLERY — content routes. The photographic header band is the whole allowance. */
+/** Tier 2: content routes. */
 export const TIER_2_SURFACES: readonly string[] = [
   '/guides',
   '/nepal',
@@ -149,14 +49,8 @@ export const TIER_2_SURFACES: readonly string[] = [
 ];
 
 /**
- * Tier 3 · DESK — the working screens, used one-handed, outdoors, in the cold. Listed for
- * completeness and for the route-coverage test; it is NOT what `tierForPath` falls back to.
- * The fallback is the tier, not the list, so an unlisted route is still Tier 3.
- *
- * D-292 also places every dialog, sheet, popover and form in Tier 3 regardless of which route
- * opens it. That half is NOT in this list, because it is not a route: it is `OVERLAY_TIER` and
- * `overlayMotion()` below, which the overlay primitives in components/ui call. A route path
- * cannot tell you that a dialog is open, so the pin is on the primitive instead.
+ * Tier 3: working screens. Listed for the route-coverage test; unlisted routes are Tier 3
+ * anyway. Overlays are pinned to Tier 3 separately via `OVERLAY_TIER`.
  */
 export const TIER_3_SURFACES: readonly string[] = [
   '/plan',
@@ -170,30 +64,16 @@ export const TIER_3_SURFACES: readonly string[] = [
   '/privacy',
   '/terms',
   '/contact',
-  // `/profile` (issue #4). D-292's Tier 1 line names "passport/profile", and this is the
-  // narrower reading on purpose: that clause describes the STAGE surface — the passport, its
-  // stamps, the collection — while this route is a data-entry form and nothing else, which the
-  // same decision places in Tier 3 "regardless of which route opens it". Tiering it 1 would hand
-  // the loudest permissions in the product to a screen made of a select, a text field and a list.
-  // If the passport page (issue #5) lands as `/passport`, THAT is the Tier 1 candidate.
+  // A data-entry form, so Tier 3 even though D-292 mentions "passport/profile" for Tier 1.
   '/profile',
 ];
 
 /**
- * The surface a pathname belongs to — the unit D-293 rule 7 governs, which is the route and
- * NOT the component. `/nepal/`, `/nepal` and `/nepal/anything` are one surface.
- *
- * Returns `''` for a pathname that is absent or malformed. That is a real case, not a
- * defensive flourish: `usePathname()` returns `null` when no app router is mounted (a unit
- * test harness), and `''` is deliberately NOT `'/'` so an unrouted render cannot be mistaken
- * for the front door and handed Tier 1's permissions.
+ * First path segment: `/nepal/`, `/nepal` and `/nepal/x` are one surface. Returns `''` (not
+ * `'/'`) for a missing or malformed path, so an unrouted render never gets Tier 1.
  */
 export function surfaceKey(pathname: string | null | undefined): string {
-  // The leading slash is REQUIRED, and that is the whole guard. Without it, `'nepal'.split('/')`
-  // is `['nepal']`, index 1 is undefined, and the `first === ''` branch below returned `'/'` —
-  // handing a malformed pathname the front door's Tier 1, the loudest permissions in the product,
-  // which is the exact case this function's caller is defending against. A real `usePathname()`
-  // always starts with `/`, so anything that does not is unrouted, not a route.
+  // Without the leading-slash check, 'nepal' would fall through to '/'.
   if (typeof pathname !== 'string' || !pathname.startsWith('/')) return '';
   const first = pathname.split('/')[1] ?? '';
   return first === '' ? '/' : `/${first}`;
@@ -206,36 +86,19 @@ export function tierForSurface(surface: string): MotionTier {
   return 3;
 }
 
-/**
- * The tier of a route path. Unknown or unroutable ⇒ Tier 3.
- *
- * The default runs toward silence on purpose. A new route that nobody tiered gets no
- * allowance, which is a missing entrance somebody notices, rather than the loudest
- * permissions in the product on a screen that was never designed for them.
- */
+/** Unknown or unroutable paths are Tier 3. */
 export function tierForPath(pathname: string | null | undefined): MotionTier {
   return tierForSurface(surfaceKey(pathname));
 }
 
-/**
- * The permission table, straight from D-292 (the three tier sections) and D-293 rule 6 (the
- * escalation table), as amended by D-322 and D-323. This is the whole tier gate; everything
- * else is lookup.
- */
 const PERMITTED_TIERS: Readonly<Record<MotionKind, readonly MotionTier[]>> = {
-  // Tier 3 forbids scroll-reveal entrances outright — content is simply present.
   entrance: [1, 2],
-  // Rule 1: at most one ambient loop, and only on a Tier-1 surface.
   loop: [1],
-  // D-322: a state indicator is not ambience. Every tier — the working screens are exactly
-  // where "still loading" and "this is today" have to be sayable.
   state: [1, 2, 3],
-  // Rule 6: a tick is colour and a mark with no movement, so every tier keeps it.
+  // A tick is colour and a mark, no movement.
   tick: [1, 2, 3],
   pop: [1, 2],
   burst: [1],
-  // D-323: earned, one-shot, user-caused. Every tier. The two rows above are unchanged, and
-  // that is the point — this is not a Tier-3 pop allowance by another name.
   completion: [1, 2, 3],
 };
 
@@ -244,81 +107,36 @@ export function isMotionAllowed(kind: MotionKind, tier: MotionTier): boolean {
   return PERMITTED_TIERS[kind].includes(tier);
 }
 
-// ── The overlay pin (D-292's no-exceptions clause) ──────────────────────────────────────────
+// Overlays
 
-/**
- * **Every dialog, sheet, popover and form in the product is Tier 3, regardless of which route
- * opened it.** D-292 states it with no exceptions, and the design spec repeats it as the one
- * red line in the per-route table: a dialog opened from the loud front door is exactly as calm
- * as one opened from the packing list.
- *
- * It is a CONSTANT and not a lookup because there is nothing to look up — `tierForPath()` would
- * answer 1 on Home, which is the wrong answer for a dialog. The route is not the surface an
- * overlay lives on; the overlay is.
- */
+/** Dialogs, sheets, popovers and forms are Tier 3 whatever route opened them (D-292). */
 export const OVERLAY_TIER: MotionTier = 3;
 
 /**
- * The motion an overlay primitive is permitted to use — `loud` only if the gate permits `kind`
- * at `OVERLAY_TIER`, `calm` otherwise.
- *
- * Generic on purpose: `components/ui/dialog.tsx` and `sheet.tsx` pass Tailwind class strings,
- * `sheet-dark.tsx` passes framer variant objects, and both are the same decision. What this
- * buys over a hard-coded calm class list is that the pin lives in ONE table
- * (`PERMITTED_TIERS`) — re-tier overlays and every primitive follows, and nobody has to
- * remember which files hold a dialog's animation.
- *
- * `kind` is `'entrance'` at every current call site (an overlay opening is an entrance, and
- * Tier 3 forbids those outright), so `loud` is unreachable today. It is still spelled out at
- * each call site rather than deleted, because it is what the gate is refusing — a reviewer can
- * see the spring the primitive would use if D-292 ever let it.
- *
- * NOT a reduced-motion read: the app-wide `@media (prefers-reduced-motion: reduce)` block in
- * globals.css and framer's `<MotionConfig reducedMotion="user">` still sit underneath both
- * branches, and R8's fork-to-the-end-state is theirs to keep.
+ * Picks `loud` or `calm` for an overlay primitive. Generic so class strings (dialog, sheet)
+ * and framer variants (sheet-dark) go through the same table. Reduced motion is handled
+ * underneath by globals.css and framer's MotionConfig.
  */
 export function overlayMotion<T>(kind: MotionKind, loud: T, calm: T): T {
   return isMotionAllowed(kind, OVERLAY_TIER) ? loud : calm;
 }
 
 /**
- * The framer half of the same pin — the entrance every hand-rolled modal in the app shares.
- *
- * WHY THE VALUES ARE HERE and not in globals.css, which is where this module says durations
- * belong: these are framer JS values, and a framer `transition={{ duration: … }}` takes a
- * NUMBER — it cannot read a custom property. Exactly `FADE_FLOOR`'s case, decided the same way.
- *
- * WHY HERE AND NOT IN components/ui/sheet-dark.tsx, which owns the primitive: two hand-rolled
- * dialogs that predate that primitive (`expense-dialog.tsx`, `add-to-itinerary-dialog.tsx`)
- * need the same entrance, and importing the primitive for a variant object would drag a whole
- * modal implementation into two route chunks that are already watched for size.
- *
- * CALM is the design system's overlay budget: ≤200 ms opacity + an 8 px rise in, ≤160 ms
- * opacity out. The explicit `transition` on each is load-bearing — a framer variant without one
- * gets the default SPRING, which is the first thing that budget forbids.
- *
- * Reduced motion is NOT read here: framer's `<MotionConfig reducedMotion="user">` (app layout)
- * already collapses both branches to their end state, which is R8's fork.
+ * Framer variants shared by the hand-rolled modals. Lives here rather than in sheet-dark.tsx
+ * so two older dialogs don't pull the whole primitive into their chunks. Every variant sets
+ * an explicit transition; without one framer falls back to a spring.
  */
 type PanelMotion = Record<
   'center' | 'right',
   { initial: TargetAndTransition; animate: TargetAndTransition; exit: TargetAndTransition }
 >;
 
-/**
- * The ink curve and the two durations the printed direction moves on, as JS numbers.
- *
- * They are hand-mirrored from `--ease-ink` / `--duration-ink` / `--duration-exit` in
- * app/globals.css for the same reason `FADE_FLOOR` is a constant: framer takes a number and
- * an array, and cannot read a custom property. Move them together or they drift.
- */
+// Keep in step with --ease-ink / --duration-ink / --duration-exit in globals.css.
 const EASE_INK = [0.2, 0.7, 0.3, 1] as const; // --ease-ink
 const DUR_INK = 0.42; // --duration-ink  420ms
 const DUR_EXIT = 0.16; // --duration-exit 160ms
 
-// NO scale(), in either tier. A panel that scales in swells rather than arrives, and this
-// direction moves things instead: the loud tier is a longer rise on the ink curve, the calm
-// tier a shorter one. Both end at the same place, so nothing downstream has to branch.
+// Rise, never scale.
 const PANEL_MOTION_LOUD: PanelMotion = {
   center: {
     initial: { opacity: 0, y: 14 },
@@ -350,19 +168,11 @@ export function overlayPanelMotion(side: 'center' | 'right' = 'center') {
   return overlayMotion('entrance', PANEL_MOTION_LOUD, PANEL_MOTION_CALM)[side];
 }
 
-// ── prefers-reduced-motion, in one place ────────────────────────────────────────────────────
+// Reduced motion
 
 /**
- * The app's single non-React read of the reduced-motion preference. SSR-safe and total: with
- * no window, no `matchMedia`, or a `matchMedia` that throws, it reports `false` — because the
- * CSS `@media (prefers-reduced-motion: reduce)` block in app/globals.css and framer's
- * `<MotionConfig reducedMotion="user">` are still underneath, and this must never be the thing
- * that takes a render down.
- *
- * Read LIVE at each call rather than latched, unlike framer's `useReducedMotion()` (which
- * caches a module-level singleton on its first call). A caller that needs to react to the
- * preference changing mid-session should use the framer hook; this one answers "what is true
- * right now", which is what a one-shot decision such as an entrance wants.
+ * The app's one non-React read of the preference, read live on each call. Returns false when
+ * it can't tell; the CSS media block and MotionConfig still apply underneath.
  */
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -373,55 +183,23 @@ export function prefersReducedMotion(): boolean {
   }
 }
 
-// ── The entrance ledger (D-293 rule 7) ──────────────────────────────────────────────────────
+// Entrance ledger (D-293 rule 7)
 
-/**
- * `'animate'` — play the entrance. `'present'` — render at the END state with no transition.
- *
- * There is no third value, and in particular there is no "hidden". D-293 rule 8: every path
- * forks to its end state, never to nothing.
- */
+/** `'present'` renders the end state. There is no hidden state (D-293 rule 8). */
 export type EntranceDecision = 'animate' | 'present';
 
 /**
- * The decision for the surface currently being rendered.
- *
- * WHY THIS EXISTS AND NOT JUST THE sessionStorage READ: a surface has many entrance
- * components on it, and R7's unit is the SURFACE. Without this, the first component to ask
- * would claim the ledger entry and every other one on the same page would be told it had
- * already been greeted — the first visit would animate exactly one element. One slot is
- * enough because only one surface is ever mounted at a time; moving to another route replaces
- * it, and coming back re-reads the ledger and correctly finds the surface already greeted.
- *
- * It also makes the answer stable across a re-render or a development-mode double mount,
- * which is what stops the greeting being spent on a render nobody saw.
- *
- * KNOWN CEILING: one slot, replaced whenever the surface changes. Two surfaces rendered at
- * once — a route transition that cross-fades the outgoing page, say — would thrash it. Key it
- * by surface in a Map if that ever ships.
+ * Memo for the current surface. Without it the first component to ask would mark the surface
+ * greeted and every other reveal on the page would skip. Also keeps the answer stable across
+ * re-renders and dev double mounts.
+ * KNOWN CEILING: one slot. Two surfaces mounted at once would thrash it; key by surface then.
  */
 let currentSurfaceDecision: { surface: string; decision: EntranceDecision } | null = null;
 
 /**
- * Should this surface play its entrance?
- *
- * The whole decision, in the order it is made — and the order is the contract:
- *
- * 1. **Reduced motion wins first.** Returns `'present'` and does NOT consume the ledger, so a
- *    reduced-motion visit never spends a greeting the user was not shown. This is the check no
- *    caller has to remember, because there is no way into this function that skips it.
- * 2. **Then the tier gate.** A Tier-3 surface is `'present'`, and again does not consume the
- *    ledger — so if a route is ever re-tiered, its first visit in a later session is still a
- *    first visit.
- * 3. **Then the ledger.** Already greeted this session ⇒ `'present'`. Otherwise mark it and
- *    ⇒ `'animate'`.
- *
- * Total: unreadable or disabled storage makes step 3 report "not greeted" forever, so the
- * degraded behaviour is "always animate", never "always hidden".
- *
- * SSR: `prefersReducedMotion()` is `false` and the ledger reads empty, so a prerender of a
- * Tier-1/2 route always resolves `'animate'` — the exported HTML is identical for every
- * visitor, and the first client render is the only place a returning visitor differs.
+ * Order matters: reduced motion, then tier, then the ledger. The first two return 'present'
+ * without marking the ledger, so a greeting is never spent on a visit that didn't show it.
+ * Broken storage degrades to always animating, never to hidden.
  */
 export function entranceFor(pathname: string | null | undefined): EntranceDecision {
   const surface = surfaceKey(pathname);
@@ -434,16 +212,8 @@ export function entranceFor(pathname: string | null | undefined): EntranceDecisi
 }
 
 /**
- * The decision the STATIC EXPORT would contain — the tier gate alone.
- *
- * NO ENTRANCE COMPONENT IS CURRENTLY PRERENDERED: `app/layout.tsx` puts `{children}` inside
- * `<ItineraryProvider>`, which renders nothing until it has mounted and identified a traveler,
- * so no routed markup reaches `out/`. Nothing calls this in the app, and that is the point —
- * it exists only for the pin in `lib/__tests__/motion-budget.test.ts`, which asserts
- * `entranceFor === prerenderEntranceFor` under prerender conditions (no `matchMedia`, empty
- * ledger) for every tiered surface. That pin is the tripwire for the day a reveal really is in
- * the exported HTML: the two answers would then have to be reconciled before paint —
- * `useLayoutEffect`, never a state-deferred correction, which paints the wrong entrance first.
+ * What a static prerender would decide. Only used by motion-budget.test.ts, which checks it
+ * matches `entranceFor` under prerender conditions in case reveals ever land in exported HTML.
  */
 export function prerenderEntranceFor(pathname: string | null | undefined): EntranceDecision {
   return isMotionAllowed('entrance', tierForPath(pathname)) ? 'animate' : 'present';
@@ -457,13 +227,7 @@ function decideEntrance(surface: string): EntranceDecision {
   return 'animate';
 }
 
-/**
- * Drop the in-memory surface decision. FOR TESTS ONLY.
- *
- * It deliberately does NOT touch sessionStorage: the memo and the ledger are two different
- * things with two different lifetimes, and a single "reset everything" helper is how you end
- * up with a test that passes because it cleared the wrong one.
- */
+/** Tests only. Leaves sessionStorage alone; the ledger has its own lifetime. */
 export function resetEntranceMemoForTests(): void {
   currentSurfaceDecision = null;
 }
