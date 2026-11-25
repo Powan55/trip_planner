@@ -255,7 +255,7 @@ test.describe('S252 · default trip — nav unchanged', () => {
     for (const slug of ['today', 'plan', 'map', 'guides']) {
       await expect(page.getByTestId(`navbar-link-${slug}`)).toBeVisible();
     }
-    await expect(page.getByTestId('navbar-brand')).toHaveText('Nepal × Japan');
+    await expect(page.getByTestId('navbar-brand')).toHaveText('Trip Journey');
 
     // S258: concierge present on the default pack, but ONLY in a build where the
     // Worker URL was configured (NEXT_PUBLIC_CONCIERGE_URL at build time). The standing net

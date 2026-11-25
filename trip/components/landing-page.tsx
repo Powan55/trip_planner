@@ -101,9 +101,9 @@ import { entranceFor } from '@/lib/motion';
  * than the boast it was (D-079: the basemap is keyless by design and has never needed a key).
  */
 const FACTS = [
-  { label: 'Trips', value: '01+', foot: 'Add as many as you like' },
+  { label: 'Trips', value: '1+', foot: 'Add as many as you like' },
   { label: 'Countries', value: 'Any', foot: 'One or ten' },
-  { label: 'Invite links', value: '07', foot: 'Days each, one use' },
+  { label: 'Invite links', value: '7', foot: 'Days each, one use' },
   { label: 'Price', value: '0', foot: 'Free, no card needed' },
 ] as const;
 
@@ -124,10 +124,10 @@ const FACTS = [
  *   shorten this to "the map works offline" — that is the claim a user disproves at 35,000 feet.
  */
 const ONBOARD = [
-  { name: 'Itinerary', cond: 'Every day, in the order you will do it', n: '32', unit: 'days' },
+  { name: 'Itinerary', cond: 'Every day, in the order you will do it', n: null, unit: 'day by day' },
   { name: 'Map', cond: 'Your stops, pinned and joined in order', n: null, unit: 'street map' },
-  { name: 'Guides', cond: 'Where to go, eat, shoot and go out late', n: '4', unit: 'kinds' },
-  { name: 'Money', cond: 'Yen and rupees in, who-owes-who out', n: '3', unit: 'currencies' },
+  { name: 'Guides', cond: 'Sample trip: where to go, eat, shoot and go out late', n: '4', unit: 'kinds' },
+  { name: 'Money', cond: 'Local currencies in, who-owes-who out', n: null, unit: 'split bills' },
   { name: 'Checklists', cond: 'Packing and documents, before you fly', n: '2', unit: 'lists' },
   { name: 'Journal', cond: 'The day in your words, photographs attached', n: null, unit: 'on device' },
   { name: 'Recap', cond: 'The whole trip, read back to you', n: null, unit: 'at the end' },
@@ -185,7 +185,7 @@ const CHAPTERS = [
     eyebrow: 'Leg two',
     title: 'Japan',
     body: 'New Year in the cities, early trains, and a fortnight of cold, bright light.',
-    when: 'Dec 2026 — Jan 2027',
+    when: 'Dec 2026 – Jan 2027',
   },
 ] as const;
 
@@ -242,9 +242,8 @@ const TOKENS = [
  * is in frame now), and the Nepal row is back inside shot 2's crop, so "yen and rupees" is true of
  * the picture again — the exact reverse of the correction above.
  *
- * Shot 3 is NOT from that re-shoot and is deliberately older than the other two: it was taken on
- * the CARTO basemap, before CARTO started stamping "API KEY REQUIRED" on keyless tiles. The map is
- * on OpenFreeMap now (D-606), so a re-shoot would show that basemap and need a new credit.
+ * All three were re-shot together later; shot 3 now shows the OpenFreeMap basemap (D-606) and
+ * its credit in public/images/CREDITS.md moved with it.
  */
 const SHOTS = [
   {
@@ -395,7 +394,7 @@ export default function LandingPage({
         <div className="photo-header__body">
           <div className={`mx-auto flex w-full max-w-[1200px] flex-col items-start gap-4 px-gut ${reveal}`}>
             {notice}
-            <p className="pr pr--l text-primary">Dec 2026 &mdash; Jan 2027</p>
+            <p className="pr pr--l text-primary">Group trip planner</p>
             {/* Instrument Serif at the editorial display step. WEIGHT 400 IS NOT AN OMISSION:
                 the family ships 400 only, and pairing `font-display` with a bold utility gets a
                 browser-synthesised bold. The step pins the weight so nobody has to remember. */}
@@ -531,8 +530,8 @@ export default function LandingPage({
           showing through, so there is no edge that can drift from the surface it sits on. ── */}
       <section aria-labelledby="landing-legs-heading" className="-mx-6 mt-12 sm:-mx-8">
         <div className="sec mx-auto max-w-[1200px] px-gut">
-          <h2 id="landing-legs-heading">See it with a real trip</h2>
-          <span className="sub">Sample plan</span>
+          <h2 id="landing-legs-heading">The sample trip</h2>
+          <span className="sub">Nepal and Japan &middot; 32 days</span>
         </div>
         <div
           data-testid="landing-split-band"

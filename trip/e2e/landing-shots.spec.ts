@@ -270,6 +270,7 @@ async function gotoSettled(page: Page, route: string) {
       /* no SW / already stable — proceed */
     });
   await expect(page.locator('h1').first()).toBeVisible({ timeout: 15_000 });
+  await page.addStyleTag({ content: '[data-testid="clock-override-banner"]{display:none!important}' });
   await page
     .evaluate(() => (document as unknown as { fonts: FontFaceSet }).fonts.ready)
     .catch(() => {});
