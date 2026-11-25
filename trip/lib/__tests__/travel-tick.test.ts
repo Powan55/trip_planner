@@ -7,7 +7,7 @@ import {
 } from '@/lib/travel-tick';
 
 /**
- * S277 — the testable core of the shared `/travel` tick: ONE interval, slow (20s) when idle,
+ * The testable core of the shared `/travel` tick: ONE interval, slow (20s) when idle,
  * escalated to 1s ONLY while a fast subscriber is held, relaxed back on release. (The battery win
  * itself isn't unit-testable; the rate-selection logic is.)
  */

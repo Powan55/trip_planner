@@ -3,14 +3,14 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 
 /**
- * Live-vault fixture loader (slice S172, M19 Phase 0). Seeds a REAL captured
+ * Live-vault fixture loader. Seeds a REAL captured
  * localStorage/sessionStorage dump — or, until the real capture lands, the
  * clearly-marked synthetic placeholder — into a fresh Playwright browser
  * context BEFORE any app script runs, via `page.addInitScript` (the same
  * seeding idiom `e2e/fixtures.ts` already uses for the default-traveler /
  * first-run-tour seeds).
  *
- * Dump file format (must match S171's DevTools capture snippet output):
+ * Dump file format (must match the DevTools capture snippet output):
  *   {
  *     "localStorage": { "<key>": "<raw string value>", ... },
  *     "sessionStorage": { "<key>": "<raw string value>", ... }

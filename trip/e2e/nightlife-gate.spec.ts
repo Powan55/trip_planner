@@ -2,10 +2,10 @@
 import type { Page } from '@playwright/test';
 
 /**
- * Nightlife visibility-gate E2E pack (slice S113).
+ * Nightlife visibility-gate E2E pack.
  *
  * `components/nightlife-section.tsx` is gated on `useActiveTraveler().traveler`: with no guest
- * mode (D-241, S351), an unidentified visitor never visibly reaches `/nepal/` or `/japan/` at all
+ * mode (D-241), an unidentified visitor never visibly reaches `/nepal/` or `/japan/` at all
  * — TokenGate's wall covers every route — so the render-gate's own independent correctness is no
  * longer separately observable in a real browser (there's nothing else to see once the wall is
  * up); a signed-in traveler (a real Trip Token persisted at `tripPlannerToken`, matching
@@ -25,7 +25,7 @@ import type { Page } from '@playwright/test';
  * imported and mounted ONLY on `/nepal/page.tsx` and `/japan/page.tsx` — Home
  * (`app/page.tsx`) never renders it (its section list is HeroSection/HomeTripStrip/HomeStatRow/
  * HomeSectionNav/TodayPanel/TripRecap/HomeBento/TravelInspiration/CustomTripMyPlaces/
- * LegacyHashRedirect — FlightsSection moved off Home to its own `/flights/` route in S113D;
+ * LegacyHashRedirect — FlightsSection moved off Home to its own `/flights/` route;
  * TripDashboard was deleted in #106 and TripTimeline in #94; no NightlifeSection import at all).
  * The original "mounted on /, /nepal, /japan" premise
  * does not match the shipped code — a recorded finding. This spec's gate
@@ -41,8 +41,8 @@ const GATED_ROUTES = ['/nepal/', '/japan/'] as const;
 async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await expect(page.locator('h1').first()).toBeVisible();
@@ -106,13 +106,13 @@ test.describe('nightlife visibility gate — signed-in traveler (real Trip Token
 });
 
 /**
- * S138 (D-146) — nightlife "Added" feedback. Custom-added nightlife venues now carry
+ * D-146: nightlife "Added" feedback. Custom-added nightlife venues now carry
  * a namespaced sourceId (`nightlife-<id>`), so the venue card and the detail sheet's
  * add control can show real planned-state feedback (D-029 shape), where before they
  * never could (D-074's always-empty sourceId). Proven end-to-end on the DORMANT
  * `out/` build: add -> card badge appears -> reload -> still Added -> remove -> gone.
  */
-test.describe('S138 · nightlife "Added" feedback (D-146)', () => {
+test.describe('nightlife "Added" feedback (D-146)', () => {
   test('add a venue -> card badge appears -> reload -> still Added -> remove -> gone', async ({
     page,
   }) => {
@@ -120,7 +120,7 @@ test.describe('S138 · nightlife "Added" feedback (D-146)', () => {
     await mountNightlife(page);
     await expect(page.getByTestId('nightlife-section')).toBeVisible();
 
-    // S257: the seed itinerary back-links nl1 (Purple Haze, planned Dec 11), so its
+    // The seed itinerary back-links nl1 (Purple Haze, planned Dec 11), so its
     // badge is present on a FRESH vault — assert the seed-linked badge as the feature.
     await expect(page.getByTestId('nightlife-added-nl1')).toBeVisible();
     // Not yet added: no passive badge on an unseeded venue's card (nl3, LOD).
@@ -145,7 +145,7 @@ test.describe('S138 · nightlife "Added" feedback (D-146)', () => {
     // The sheet's own footer flips to the state-aware "Added" treatment immediately.
     await expect(footerBtn).toContainText('Added');
 
-    // Close the sheet; the card itself now shows the passive "Added" badge. S248: the
+    // Close the sheet; the card itself now shows the passive "Added" badge. The
     // badge now carries the D-029 date parity ("Added · On <date>"), so assert both the
     // "Added" word and the "On " date summary (covers the one-day and N-days shapes).
     await page.getByTestId('place-detail-close').click();

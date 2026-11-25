@@ -14,7 +14,7 @@
 // finishes, with no reconciler in the test at all, so it fails on the old behaviour.
 //
 // Asserts on the mock CALL COUNT as well as the outcome, for the reason spelled out in
-// s378-account-identity.test.ts: a bypassed `vi.mock` of `trips-remote` still produces a
+// account-identity.test.ts: a bypassed `vi.mock` of `trips-remote` still produces a
 // green-looking outcome because every function in it swallows failure.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

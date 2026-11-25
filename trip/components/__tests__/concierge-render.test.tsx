@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 //
-// S350 — the concierge's rewritten `renderAssistantContent`: a two-pass block grouper
+// The concierge's rewritten `renderAssistantContent`: a two-pass block grouper
 // (`fence`/`ul`/`ol`/`heading`/`para`) around the UNTOUCHED `renderInline`. Asserted on REAL DOM
 // (render the returned nodes through react-dom and read the tree back), not on a string.
-// Supersedes `lib/__tests__/concierge-render.test.ts` (S341), whose assertions pinned the OLD
+// Supersedes `lib/__tests__/concierge-render.test.ts`, whose assertions pinned the OLD
 // one-`<span>`-per-line-with-a-literal-"•"-glyph shape that this rewrite deliberately replaces —
 // kept here instead so a `.tsx` file can use real JSX (this project's `lib/__tests__` convention
 // is deliberately JSX-free; see that directory's other component test for why).
@@ -35,7 +35,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('S350 — renderAssistantContent: lists become real <ul>/<ol>, not typed glyphs', () => {
+describe('renderAssistantContent: lists become real <ul>/<ol>, not typed glyphs', () => {
   it('a 3-bullet reply renders EXACTLY ONE <ul> with three <li>, no literal bullet glyph', () => {
     const c = render('- Boudhanath Stupa\n- Pashupatinath Temple\n- Swayambhunath');
     const b = blocks(c);
@@ -88,7 +88,7 @@ describe('S350 — renderAssistantContent: lists become real <ul>/<ol>, not type
   });
 });
 
-describe('S350 — renderAssistantContent: fenced code becomes ONE <pre>, not one pill per line', () => {
+describe('renderAssistantContent: fenced code becomes ONE <pre>, not one pill per line', () => {
   it('a multi-line fenced block renders as a single <pre>, not one element per line', () => {
     const c = render('Try:\n```bash\nnpm install\nnpm test\n```\ndone');
     const b = blocks(c);
@@ -109,7 +109,7 @@ describe('S350 — renderAssistantContent: fenced code becomes ONE <pre>, not on
   });
 });
 
-describe('S350 — renderAssistantContent: heading vs. bold render distinctly', () => {
+describe('renderAssistantContent: heading vs. bold render distinctly', () => {
   it('a `#` heading renders as its own block-level element, not a <p><strong> pair', () => {
     const b = blocks(render('## Day 3 in Kathmandu'));
     expect(b).toHaveLength(1);
@@ -125,7 +125,7 @@ describe('S350 — renderAssistantContent: heading vs. bold render distinctly', 
   });
 });
 
-describe('S350 — renderAssistantContent: paragraphs / blank lines / empty input', () => {
+describe('renderAssistantContent: paragraphs / blank lines / empty input', () => {
   it('a blank line still starts a new paragraph block', () => {
     const b = blocks(render('First para.\n\nSecond para.'));
     expect(b).toHaveLength(2);
@@ -214,7 +214,7 @@ describe('renderAssistantContent: one-line runs, dashes, rules, pipe rows', () =
   });
 });
 
-describe('S350 — renderInline is UNTOUCHED: the injection-safety boundary still holds', () => {
+describe('renderInline is UNTOUCHED: the injection-safety boundary still holds', () => {
   it('renders [text](url) as a safe external anchor', () => {
     const c = render('See [the guide](https://example.com/kathmandu) for more');
     const a = c.querySelector('a')!;

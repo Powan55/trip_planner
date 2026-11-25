@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S215 — unit coverage for the card-tilt hook's guard logic (hooks/use-card-tilt.ts).
+// Unit coverage for the card-tilt hook's guard logic (hooks/use-card-tilt.ts).
 // Proves the hook's three guarantees, on a real run:
 //   1. angle clamp — `computeTilt` is pure and clamped to ±MAX_TILT_DEG, incl. pointers
 //      that leave the card and zero-size rects;

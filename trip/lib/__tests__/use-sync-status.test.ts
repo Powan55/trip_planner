@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 //
-// S229 — the sync-status hook (`hooks/use-sync-status.ts`), exercised by RENDERING the real hook
+// The sync-status hook (`hooks/use-sync-status.ts`), exercised by RENDERING the real hook
 // (a tiny renderHook shim over react-dom/client + act — no new dependency, mirrors
 // lib/__tests__/use-favorites.test.ts / lib/__tests__/use-online.test.ts). Proves: the SSR-safe
 // default matches first paint, live reactivity via the outbox's same-tab CustomEvent (real
 // enqueue/ack through `withOutbox`/`flushOutbox`, NOT a mocked event), cross-tab `storage`
 // reactivity, dormant/guest gating (mirrors `core-sync-outbox.test.ts`'s DORMANT/GUEST block),
-// and — per S229's binding "tolerate a future 4th domain" requirement — that the
+// and — per the binding "tolerate a future 4th domain" requirement — that the
 // pending count sums whatever domain keys are actually present in the dirty map rather than a
 // hardcoded per-domain sum.
 
@@ -97,7 +97,7 @@ function renderSyncStatus(): HookHandle {
   };
 }
 
-describe('useSyncStatus (S229)', () => {
+describe('useSyncStatus', () => {
   beforeEach(() => {
     localStorage.clear();
     gate.remoteOn = true;
@@ -234,7 +234,7 @@ describe('useSyncStatus (S229)', () => {
     h.unmount();
   });
 
-  // S229 binding requirement: "tolerate a future 4th domain" — the pending count must sum
+  // Binding requirement: "tolerate a future 4th domain" — the pending count must sum
   // whatever domain keys are PRESENT in the dirty map, never a hardcoded
   // dirty.itinerary.length + dirty.expenses.length + dirty.budget.length. A synthetic domain key
   // that does not exist in today's `SyncDomain` union proves the math has no such hardcoding

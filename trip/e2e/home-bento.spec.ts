@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S205 — the Home "at a glance" bento grid. Read-only composition of EXISTING data
+ * The Home "at a glance" bento grid. Read-only composition of EXISTING data
  * (D-018); this pack proves: (a) the honest empty states pre-data, (b) seeded data
  * renders in the tiles, (c) the map + Travel Mode tiles actually navigate. The section
  * is a below-fold `LazyVisible` island (D-116) — every test waits on `home-bento` with a
@@ -21,12 +21,12 @@ async function settleBento(page: Page) {
   await expect(page.getByTestId('home-bento')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('S205 — Home bento grid: honest empty states (fresh session, pre-trip)', () => {
+test.describe('Home bento grid: honest empty states (fresh session, pre-trip)', () => {
   test('next-up shows the first planned item, weather is absent, budget shows its actionable empty state; packing/docs show a template-derived %', async ({ page }) => {
     await gotoHome(page);
     await settleBento(page);
 
-    // S357A — the empty-state ban. Two tiles used to spend a whole card saying "come back
+    // The empty-state ban. Two tiles used to spend a whole card saying "come back
     // later"; both are gone. "Next up" pre-trip resolves to the FIRST item on the itinerary
     // (a fresh session is seeded with SAMPLE_ITINERARY per D-018, whose first day is
     // 2026-12-09 / "Depart Syracuse …"), and Weather is not rendered at all pre-trip because
@@ -43,14 +43,14 @@ test.describe('S205 — Home bento grid: honest empty states (fresh session, pre
     // which is the difference between an honest empty state and a placeholder.
     await expect(page.getByTestId('home-bento-budget')).toContainText('Set a budget in Settings');
 
-    // Packing/docs are NEVER empty (S206/S217: a fixed pre-populated template, no empty state) —
+    // Packing/docs are NEVER empty (a fixed pre-populated template, no empty state) —
     // both tiles show a concrete percentage.
     await expect(page.getByTestId('home-bento-packing')).toContainText('%');
     await expect(page.getByTestId('home-bento-docs')).toContainText('%');
   });
 });
 
-test.describe('S205 — Home bento grid: seeded data renders', () => {
+test.describe('Home bento grid: seeded data renders', () => {
   test('a set budget + logged spend renders the spent/total figure', async ({ page }) => {
     await page.addInitScript(
       ({ budgetKey, expensesKey }) => {
@@ -106,7 +106,7 @@ test.describe('S205 — Home bento grid: seeded data renders', () => {
   });
 });
 
-test.describe('S205 — Home bento grid: tile links navigate', () => {
+test.describe('Home bento grid: tile links navigate', () => {
   test('the map tile navigates to /map/', async ({ page }) => {
     await gotoHome(page);
     await settleBento(page);
@@ -122,7 +122,7 @@ test.describe('S205 — Home bento grid: tile links navigate', () => {
   });
 });
 
-test.describe('S205 — Home bento grid: no console errors, axe-clean', () => {
+test.describe('Home bento grid: no console errors, axe-clean', () => {
   test('renders with zero console errors', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg) => {

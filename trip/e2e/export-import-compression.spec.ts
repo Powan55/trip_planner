@@ -3,17 +3,17 @@ import type { Page } from '@playwright/test';
 import zlib from 'node:zlib';
 
 /**
- * S228 — gzip transport for the whole-trip export/import (D-098: transport only, schema
+ * Gzip transport for the whole-trip export/import (D-098: transport only, schema
  * untouched). Real-browser proof that `core/vault/compression.ts` is actually wired into
  * `components/backup-restore.tsx`:
  *   - EXPORT in a real Chromium (which supports CompressionStream) downloads a `.gz` file
  *     whose bytes carry the gzip magic header AND gunzip (via Node's zlib, independent of
  *     the app) back to the exact v-current Vault envelope.
  *   - IMPORT of that same compressed file round-trips through the UI into the live calendar.
- *   - BACKWARD COMPAT: an OLD plain-JSON file (pre-S228, no gzip magic, whatever its
+ *   - BACKWARD COMPAT: an OLD plain-JSON file (pre-gzip, no gzip magic, whatever its
  *     extension) still imports successfully — auto-detected by content, not filename.
  *
- * S322 (A4): Backup & Restore moved OFF `/plan` into the Settings "Data management" group
+ * Backup & Restore moved OFF `/plan` into the Settings "Data management" group
  * (`/settings`) — a native `<details>` we expand before interacting; the imported itinerary is
  * verified on `/plan`'s calendar after the restore's auto-reload.
  */
@@ -49,7 +49,7 @@ async function gotoPlanCalendar(page: Page) {
   await expect(page.getByTestId(`calendar-day-${SEED_DAY}`)).toBeVisible({ timeout: 15_000 });
 }
 
-/** S273: a successful restore auto-reloads (~600ms) to re-hydrate every store (D-172); wait it out. */
+/** A successful restore auto-reloads (~600ms) to re-hydrate every store (D-172); wait it out. */
 async function confirmAndAwaitReload(page: Page) {
   await page.evaluate(() => {
     (window as unknown as { __s273Reload?: boolean }).__s273Reload = true;
@@ -84,7 +84,7 @@ async function seedItinerary(
   await reloadSettingsSettled(page);
 }
 
-test.describe('S228 export is gzip-compressed in a real browser', () => {
+test.describe('export is gzip-compressed in a real browser', () => {
   test('Export downloads a .gz file whose bytes are real gzip and gunzip to the v-current envelope', async ({
     page,
   }) => {
@@ -111,7 +111,7 @@ test.describe('S228 export is gzip-compressed in a real browser', () => {
     expect(raw[1]).toBe(0x8b);
 
     // Gunzip with Node's OWN zlib (independent of the app's CompressionStream usage) proves
-    // the bytes are genuinely standard gzip, not a look-alike header. S273: the payload is the
+    // the bytes are genuinely standard gzip, not a look-alike header. The payload is the
     // whole-trip backup envelope with the itinerary nested at domains.itinerary.
     const gunzipped = zlib.gunzipSync(raw).toString('utf-8');
     const parsed = JSON.parse(gunzipped);
@@ -125,7 +125,7 @@ test.describe('S228 export is gzip-compressed in a real browser', () => {
   });
 });
 
-test.describe('S228 import round-trips a compressed file through the real UI', () => {
+test.describe('import round-trips a compressed file through the real UI', () => {
   test('importing a freshly-gzipped envelope (built with Node zlib) replaces the trip and survives reload', async ({
     page,
   }) => {
@@ -155,10 +155,10 @@ test.describe('S228 import round-trips a compressed file through the real UI', (
     });
 
     await expect(page.getByTestId('backup-confirm-dialog')).toBeVisible();
-    // The successful restore auto-reloads (S273) — this IS the persistence proof for the compressed path.
+    // The successful restore auto-reloads, and this IS the persistence proof for the compressed path.
     await confirmAndAwaitReload(page);
 
-    await gotoPlanCalendar(page); // S322: the calendar lives on /plan, backup is on /settings
+    await gotoPlanCalendar(page); // the calendar lives on /plan, backup is on /settings
     await page.getByTestId(`calendar-day-${IMPORT_DAY}`).click();
     await expect(
       page.locator('[data-testid^="calendar-item-"]').filter({ hasText: 'Imported via gzip' }),
@@ -166,7 +166,7 @@ test.describe('S228 import round-trips a compressed file through the real UI', (
   });
 });
 
-test.describe('S228 backward compat — an OLD plain-JSON export (pre-S228) still imports', () => {
+test.describe('backward compat — an OLD plain-JSON export (pre-gzip) still imports', () => {
   test('a plain (uncompressed) v3 envelope file, no gzip magic bytes, imports successfully', async ({
     page,
   }) => {
@@ -175,7 +175,7 @@ test.describe('S228 backward compat — an OLD plain-JSON export (pre-S228) stil
       { id: 's228-bc-orig', title: 'Pre-compat original stop', category: 'sightseeing' },
     ]);
 
-    // A REAL pre-S228 export: plain JSON bytes, no gzip magic — exactly what a user's
+    // A REAL pre-gzip export: plain JSON bytes, no gzip magic — exactly what a user's
     // already-downloaded trip file looks like today. Given a misleading `.gz` extension on
     // purpose to prove detection is by CONTENT, not filename.
     const oldPlainEnvelope = {
@@ -201,10 +201,10 @@ test.describe('S228 backward compat — an OLD plain-JSON export (pre-S228) stil
     });
 
     await expect(page.getByTestId('backup-confirm-dialog')).toBeVisible();
-    // The successful restore auto-reloads (S273); the reload IS the persistence proof.
+    // The successful restore auto-reloads; the reload IS the persistence proof.
     await confirmAndAwaitReload(page);
 
-    await gotoPlanCalendar(page); // S322: the calendar lives on /plan, backup is on /settings
+    await gotoPlanCalendar(page); // the calendar lives on /plan, backup is on /settings
     await page.getByTestId(`calendar-day-${IMPORT_DAY}`).click();
     await expect(
       page.locator('[data-testid^="calendar-item-"]').filter({ hasText: 'Old plain-JSON import' }),

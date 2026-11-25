@@ -3,19 +3,19 @@ import type { Page, ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S344 + S343 — the Travel Mode per-day map, and the Travel Mode concierge mount.
+ * The Travel Mode per-day map, and the Travel Mode concierge mount.
  *
- * S344's headline requirement: "a map with pinned places for that specific day only, nothing
+ * The headline requirement: "a map with pinned places for that specific day only, nothing
  * more, only that specific day's plans, and it should update as I change the days." So the load-
  * bearing assertions here are (a) the pins on screen are EXACTLY the selected day's marker-matched
- * stops — asserted by id, not just by count, via `data-stop-ids` on the S344 host — and (b) tapping
+ * stops — asserted by id, not just by count, via `data-stop-ids` on the map host — and (b) tapping
  * a different day chip changes those ids IN PLACE, with the map still mounted and no remount.
  *
  * Runs against the served static `out/` build (D-093) on the shared signed-in fixture identity, so
  * `/travel` is reachable with no gate; the clock is the D-075 `?today=` override (local noon), the
  * same idiom as travel-date/travel-agenda.
  *
- * S343 is asserted the way custom-trip-gating.spec.ts asserts the concierge: the default `out/`
+ * The concierge mount is asserted the way custom-trip-gating.spec.ts asserts the concierge: the default `out/`
  * build is DORMANT (`NEXT_PUBLIC_CONCIERGE_URL` unset → ConciergeChat renders null everywhere), so
  * a conditional check keyed off the SAME build's Home trigger — absent on both surfaces when
  * dormant, present on both when the Worker URL was inlined. The mount's own `isDefaultTrip()` gate
@@ -40,7 +40,7 @@ const SEED: SeedDay[] = [
       { id: 'dm-a1', title: 'Boudhanath Stupa', category: 'sightseeing' },
       { id: 'dm-a2', title: 'Pashupatinath Temple', category: 'cultural' },
       // No curated marker matches this one → it counts toward "of M" but plots no pin (the honest
-      // "N of M" contract S137 built into plan-day-map).
+      // "N of M" contract plan-day-map already has).
       { id: 'dm-a3', title: 'Nap at the guesthouse', category: 'free' },
     ],
   },
@@ -72,7 +72,7 @@ async function openMap(page: Page) {
   await expect(page.locator(CANVAS)).toBeVisible({ timeout: 20_000 });
 }
 
-test.describe('S344 · the map is scoped to the selected day only', () => {
+test.describe('the map is scoped to the selected day only', () => {
   test('collapsed by default and interaction-lazy: no maplibre canvas until it is opened', async ({
     page,
   }) => {
@@ -127,7 +127,7 @@ test.describe('S344 · the map is scoped to the selected day only', () => {
     await expect(row).toHaveAttribute('data-stop-count', '1');
     await expect(pane).toHaveAttribute('data-stop-count', '1');
     await expect(page.getByTestId('plan-day-map-count')).toHaveText('1 of 1 stop shown');
-    // Still the same document (in-place `history.replaceState`, S192) and the map stayed open.
+    // Still the same document (in-place `history.replaceState`) and the map stayed open.
     await expect(page.locator('body')).toHaveAttribute('data-marker', 'still-here');
     await expect(page.locator(CANVAS)).toBeVisible();
 
@@ -176,7 +176,7 @@ test.describe('S344 · the map is scoped to the selected day only', () => {
     await seed(page);
     await gotoTravel(page);
 
-    // S189 outdoor legibility mode (the widest-content state) must not break the map row.
+    // Outdoor legibility mode (the widest-content state) must not break the map row.
     await page.getByTestId('travel-legibility-toggle').click();
     await expect(page.getByTestId('travel-legibility-toggle')).toHaveAttribute('aria-pressed', 'true');
     await openMap(page);
@@ -223,7 +223,7 @@ test.describe('S344 · the map is scoped to the selected day only', () => {
   });
 });
 
-test.describe('S343 · the concierge is mounted in Travel Mode', () => {
+test.describe('the concierge is mounted in Travel Mode', () => {
   test('present on /travel exactly when this build has it enabled (dormant build: absent on both)', async ({
     page,
   }) => {
@@ -234,7 +234,7 @@ test.describe('S343 · the concierge is mounted in Travel Mode', () => {
 
     await gotoTravel(page);
     if (enabled) {
-      // S343: the same component now reaches the chrome-free surface too, inside the TM root
+      // The same component now reaches the chrome-free surface too, inside the TM root
       // (so the TM-9 no-chrome-leak focus walk still holds) and thumb-reachable.
       const trigger = page.getByTestId('concierge-trigger');
       await expect(trigger).toBeVisible();
@@ -247,7 +247,7 @@ test.describe('S343 · the concierge is mounted in Travel Mode', () => {
       expect(box.y + box.height).toBeGreaterThan(page.viewportSize()!.height - 80);
     } else {
       // Dormant build: nothing rendered, and the reserved thumb band stays collapsed (`:empty`)
-      // so the S317 layout is byte-identical to pre-S343.
+      // so the strip layout is byte-identical to before the concierge mount.
       await expect(page.getByTestId('concierge-trigger')).toHaveCount(0);
       const band = page.locator('.tm-thumb-zone');
       await expect(band).toHaveCount(1);

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S282 — coverage for hooks/use-presence.ts (D-057), exercised by RENDERING the real hook (the
+// Coverage for hooks/use-presence.ts (D-057), exercised by RENDERING the real hook (the
 // same renderHook shim over react-dom/client + act the sibling hook suites use — no new
 // dependency). `@/lib/presence` is the browser/firebase-only seam (it is reached ONLY via a
 // dynamic `import()` inside the effect, behind the SAME gate the itinerary provider's remote
@@ -93,7 +93,7 @@ async function flush(): Promise<void> {
   });
 }
 
-describe('usePresence (S54/D-057)', () => {
+describe('usePresence (D-057)', () => {
   beforeEach(() => {
     presenceCtl.calls = 0;
     presenceCtl.cb = null;

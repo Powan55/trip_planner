@@ -7,7 +7,7 @@ import {
 import { OUTBOUND_JOURNEY, RETURN_TO_JAPAN_JOURNEY, TOKYO_TO_OSAKA_JOURNEY, FLIGHT_HOME_JOURNEY } from '@/lib/booking-data';
 
 /**
- * S188 — flight/transit deep-link builders (D-074 URL-not-API pattern, D-169 LOCKED: no live
+ * Flight/transit deep-link builders (D-074 URL-not-API pattern, D-169 LOCKED: no live
  * flight-status API). Pure string builders — byte-exact href assertions, the `lib/maps-link.ts`
  * precedent (`lib/__tests__/maps-link.test.ts`-style).
  */

@@ -2,9 +2,9 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S325 — /flights honesty + on-page deep-links.
+ * /flights honesty + on-page deep-links.
  *
- * Asserts the defect fixes made without rebuilding the cards (S326 owns the anatomy):
+ * Asserts the defect fixes made without rebuilding the cards (the card anatomy is covered further down):
  *   - the dead "Japan — to be booked" panel is gone (its heading never renders) and the
  *     stale "not yet booked / still to come" copy is replaced with honest, fully-booked copy;
  *   - all four booked stays render (the former empty desktop half is now filled);
@@ -30,7 +30,7 @@ async function goto(page: Page, path: string) {
     });
 }
 
-test.describe('S325 · /flights honest + deep-linked', () => {
+test.describe('/flights honest + deep-linked', () => {
   test.beforeEach(async ({ page }) => {
     await goto(page, '/flights/');
     // Wait for the ssr:false section island to mount (first journey heading).
@@ -98,12 +98,12 @@ test.describe('S325 · /flights honest + deep-linked', () => {
 });
 
 /**
- * S326 — the Flighty-anatomy card rebuild (D-233). Phase strip + proximity countdown derive
+ * The Flighty-anatomy card rebuild (D-233). Phase strip + proximity countdown derive
  * from the trip-clock targeting the AUTHORED `Journey.departDate` (never a booking label);
  * labelled chips fill from optional leg fields with non-fabricated, non-reflowing empty slots;
  * layover rows carry the authored Relaxed/Normal/Tight verdict.
  */
-test.describe('S326 · /flights Flighty-anatomy card', () => {
+test.describe('/flights Flighty-anatomy card', () => {
   test('phase strip + live proximity countdown render from departDate (real clock → upcoming)', async ({ page }) => {
     await goto(page, '/flights/');
     await expect(page.getByTestId('flight-card-outbound')).toBeVisible({ timeout: 15_000 });

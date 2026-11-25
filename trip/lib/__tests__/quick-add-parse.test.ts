@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-// S357A — the composer's time EXTRACTOR. It does NOT parse time itself: it peels a
+// The composer's time EXTRACTOR. It does NOT parse time itself: it peels a
 // leading-or-trailing time token off the typed text and delegates that token to the ONE
 // pinned parser (`parseTimeString`, D-139 — not widened, not re-implemented here).
 import { extractQuickAddTime } from '@/lib/quick-add-parse';

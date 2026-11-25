@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-// S185 — the Travel Mode Now/Next hero PURE phase state machine. `deriveTravelHero(items, ctx)`
+// The Travel Mode Now/Next hero PURE phase state machine. `deriveTravelHero(items, ctx)`
 // is PURE (D-016): the caller injects the day, place offset, and "now" (a UTC epoch-ms instant),
 // so every case is deterministic here with no time mocking. Composes the frozen `nextUp` engine
 // for the "next" slot (that engine's own suite in whats-next.test.ts is byte-untouched).
@@ -20,7 +20,7 @@ function item(
     duration?: string;
     category?: ItineraryCategory;
     time?: string;
-    tzOffsetMin?: number; // S391: D-225 per-item zone override, for the mixed-zone cases
+    tzOffsetMin?: number; // D-225 per-item zone override, for the mixed-zone cases
   } = {},
 ): ItineraryItem {
   return {
@@ -160,7 +160,7 @@ describe('deriveTravelHero — overlap + purity', () => {
   });
 });
 
-// S186 — the per-row phase view of the SAME machine, for the TM agenda list.
+// The per-row phase view of the SAME machine, for the TM agenda list.
 describe('deriveRowPhases — per-row phase, order-aligned with items', () => {
   it('classifies done / now / upcoming / past / untimed against the injected "now"', () => {
     const items = [
@@ -179,7 +179,7 @@ describe('deriveRowPhases — per-row phase, order-aligned with items', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────
-// S391: one decision, ONE time frame.
+// One decision, ONE time frame.
 //
 // `currentActivity` qualified its window by INSTANTS but broke ties on WALL CLOCK
 // (`t.startMin > bestStart`), and `effectiveEndMin` took the gap-to-next as a wall-clock
@@ -187,7 +187,7 @@ describe('deriveRowPhases — per-row phase, order-aligned with items', () => {
 // scenarios asserted in the wall-clock frame pass on the broken code AND the fixed code,
 // which is the entire reason they are written this way.
 //
-// ⚖️ REACHABILITY, measured (S391 probe, both frames run side by side over every seed day at
+// ⚖️ REACHABILITY, measured (probe with both frames run side by side over every seed day at
 // every UTC minute, with a synthetic mixed-zone day as the positive control that DID flag):
 //   · 0 of 32 seed days produce a different current activity under the two frames today, and
 //     the multi-candidate tiebreak never fires at all — no seed day has two overlapping
@@ -197,7 +197,7 @@ describe('deriveRowPhases — per-row phase, order-aligned with items', () => {
 //     2026-12-09, 13/96 on 12-10, 24/96 on 12-19, 17/96 on 2027-01-09 — because the gap-to-next
 //     is then measured between a clock face in one zone and a clock face in another.
 // So: latent today, one quick-add away from live. That is why it is worth fixing now.
-describe('S391: the current-activity decision is made entirely on the instant', () => {
+describe('the current-activity decision is made entirely on the instant', () => {
   const JAN9 = '2027-01-09';
   const jan9At = (utcHour: number, utcMin = 0) => ({
     dayDate: JAN9,

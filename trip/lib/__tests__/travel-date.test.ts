@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveTravelDate } from '@/lib/travel-date';
 import { TRIP_DATES, TRIP_START } from '@/core/dates';
 
-// S187 (D-164 LOCKED): `resolveTravelDate` is the PURE bounds/composition brain behind the
+// D-164 LOCKED: `resolveTravelDate` is the PURE bounds/composition brain behind the
 // Travel Mode `?date=` picker. `TRIP_START` = local midnight Dec 9 (see core/dates/trip-dates.ts).
 const DEC9 = TRIP_DATES[0]; // '2026-12-09'
 const DEC18 = '2026-12-18'; // last Nepal day (leg boundary)

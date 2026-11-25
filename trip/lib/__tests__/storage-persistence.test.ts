@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S272 — component-level unit suite for `StoragePersistence` (`components/storage-persistence.tsx`),
+// Component-level unit suite for `StoragePersistence` (`components/storage-persistence.tsx`),
 // exercised by RENDERING the real exported component (same createRoot+act harness `story-photos.test.ts`
 // uses — no new dep, no JSX in this file since the standalone vitest.config.ts only globs `*.test.ts`).
 // `sonner` and `next/navigation` are module-mocked so the toast/router calls are observable; the
@@ -58,7 +58,7 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
-// S222 — a minimal stand-in for the real clock/leg resolver, so the leg-change tests below drive
+// A minimal stand-in for the real clock/leg resolver, so the leg-change tests below drive
 // `country` directly instead of faking trip dates end to end.
 vi.mock('@/lib/trip-now', () => ({
   getTodayInTrip: () =>
@@ -425,11 +425,11 @@ describe('StoragePersistence — install-to-Home hint', () => {
   });
 });
 
-// S279 — the REACTIVE write-failure toast, complementing the PROACTIVE near-quota toast above.
+// The REACTIVE write-failure toast, complementing the PROACTIVE near-quota toast above.
 // The module-level "once per page load" guard here is separate from `quotaWarnedThisLoad`
 // (different flag), so it needs the same `vi.resetModules()` + fresh dynamic import isolation
 // the near-quota suite uses.
-describe('StoragePersistence — reactive write-failure toast (S279)', () => {
+describe('StoragePersistence — reactive write-failure toast', () => {
   it('shows ONE toast, with a /settings/ action, when trip:quota-exceeded fires', async () => {
     vi.resetModules();
     const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');

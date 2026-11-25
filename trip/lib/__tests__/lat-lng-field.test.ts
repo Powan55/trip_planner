@@ -10,8 +10,8 @@ import { itineraryItemSchema, parseItineraryPayload } from '@/core/vault/schema'
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S137 — Manual pin-drop: `lat?`/`lng?` are additive OPTIONALs that round-trip through the
- * Vault with NO migration and NO version bump (mirrors the S98 `done`-field precedent).
+ * Manual pin-drop: `lat?`/`lng?` are additive OPTIONALs that round-trip through the
+ * Vault with NO migration and NO version bump (mirrors the `done`-field precedent).
  *
  * Proves:
  *  1. the lenient item schema accepts an item WITH lat/lng and one WITHOUT them;
@@ -33,7 +33,7 @@ const PLANS_WITH_PIN: DayPlan[] = [
     country: 'nepal',
     items: [
       { id: 'p-pinned', title: 'Secret rooftop cafe', category: 'food', lat: 27.7043, lng: 85.3072 },
-      // Legacy item — NO lat/lng at all (the live-users case pre-S137).
+      // Legacy item — NO lat/lng at all (the live-users case before pins).
       { id: 'p-absent', title: 'Momo lunch', category: 'food' },
     ],
   },
@@ -50,7 +50,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('S137 — `lat`/`lng` are lenient, additive OPTIONALs (schema)', () => {
+describe('`lat`/`lng` are lenient, additive OPTIONALs (schema)', () => {
   it('accepts an item WITH lat/lng', () => {
     const parsed = itineraryItemSchema.safeParse({ id: 'x', title: 'X', category: 'food', lat: 27.7, lng: 85.3 });
     expect(parsed.success).toBe(true);
@@ -128,7 +128,7 @@ describe('S137 — `lat`/`lng` are lenient, additive OPTIONALs (schema)', () => 
   });
 });
 
-describe('S137 — `lat`/`lng` round-trip through the Vault (save -> load) with NO version bump', () => {
+describe('`lat`/`lng` round-trip through the Vault (save -> load) with NO version bump', () => {
   it('save then load preserves lat/lng (and absent-stays-absent)', () => {
     saveItinerary(PLANS_WITH_PIN, cfg);
     const loaded = loadItinerary(cfg);
@@ -147,7 +147,7 @@ describe('S137 — `lat`/`lng` round-trip through the Vault (save -> load) with 
     expect(onDisk.schemaVersion).toBe(CURRENT_ITINERARY_VERSION);
   });
 
-  it('a legacy bare-array (pre-S137) itinerary with no lat/lng loads fine — stays un-pinned post-load', () => {
+  it('a legacy bare-array (pre-pin) itinerary with no lat/lng loads fine — stays un-pinned post-load', () => {
     const legacy: DayPlan[] = [
       { date: '2026-12-19', city: 'Tokyo', country: 'japan', items: [{ id: 'leg', title: 'Ramen', category: 'food' }] },
     ];

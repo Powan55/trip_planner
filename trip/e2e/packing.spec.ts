@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S206 — the packing checklist (`/packing`, `components/packing-checklist.tsx`) E2E pack.
+ * The packing checklist (`/packing`, `components/packing-checklist.tsx`) E2E pack.
  *
  * Signs in with a real Trip Token EXPLICITLY (mirrors `e2e/journal-browse.spec.ts`) rather than
  * riding any pack default — every route, `/packing` included, sits behind the single front-door
@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test';
  *   1. The built-in template renders (no empty state) — Nepal / Japan / Universal groups, 30
  *      items, progress starts at 0/30.
  *   2. Checking an item updates the progress indicator live.
- *   3. Check -> reload -> persists: the S206 hard guarantee (same bar as itinerary CRUD).
+ *   3. Check -> reload -> persists: the hard guarantee (same bar as itinerary CRUD).
  *   4. Unchecking an item persists too (the full toggle round trip).
  */
 
@@ -20,8 +20,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -35,7 +35,7 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
     });
 }
 
-test.describe('S206 packing checklist — the built-in template renders, no empty state', () => {
+test.describe('packing checklist — the built-in template renders, no empty state', () => {
   test('Nepal / Japan / Universal groups render with 30 items total, progress starts 0/30', async ({ page }) => {
     await gotoAsTraveler(page, '/packing/');
     await expect(page.getByTestId('packing-checklist')).toBeVisible();
@@ -54,7 +54,7 @@ test.describe('S206 packing checklist — the built-in template renders, no empt
   });
 });
 
-test.describe('S206 packing checklist — check/uncheck updates progress live', () => {
+test.describe('packing checklist — check/uncheck updates progress live', () => {
   test('checking an item flips it and increments the progress count', async ({ page }) => {
     await gotoAsTraveler(page, '/packing/');
     await expect(page.getByTestId('packing-checklist')).toBeVisible();
@@ -71,7 +71,7 @@ test.describe('S206 packing checklist — check/uncheck updates progress live', 
   });
 });
 
-test.describe('S206 packing checklist — check -> reload -> persists (the hard guarantee)', () => {
+test.describe('packing checklist — check -> reload -> persists (the hard guarantee)', () => {
   test('a checked item survives a full page reload', async ({ page }) => {
     await gotoAsTraveler(page, '/packing/');
     await expect(page.getByTestId('packing-checklist')).toBeVisible();
@@ -124,7 +124,7 @@ async function seedTwoItems(page: Page) {
   }, PACKING_KEY);
 }
 
-test.describe('S206 packing checklist — an emptied list stays empty across a reload (#328)', () => {
+test.describe('packing checklist — an emptied list stays empty across a reload (#328)', () => {
   test('removing every row persists [] — the template is never written back', async ({ page }) => {
     await seedTwoItems(page);
     await gotoAsTraveler(page, '/packing/');

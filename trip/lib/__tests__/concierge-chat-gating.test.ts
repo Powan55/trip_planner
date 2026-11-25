@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S237 — the full ConciergeChat gating matrix, with `@/lib/concierge-config` mocked so both the
+// The full ConciergeChat gating matrix, with `@/lib/concierge-config` mocked so both the
 // "configured" and "unconfigured" branches can be driven explicitly in one file (the real-env
 // "unconfigured by default" case has its OWN unmocked proof in
 // `concierge-chat-dormant.test.ts`). Proves: no resolved traveler -> null even when configured;
@@ -46,7 +46,7 @@ beforeEach(() => {
   state.configured = false;
 });
 
-describe('ConciergeChat gating (S237)', () => {
+describe('ConciergeChat gating', () => {
   it('renders nothing with no resolved traveler, even when configured', () => {
     state.configured = true;
     state.traveler = null;

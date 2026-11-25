@@ -3,8 +3,8 @@ import type { Page, TestInfo } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S208 — the `/journal` BROWSE view (`components/journal-browse.tsx`) gains the same read-only
- * per-day photo ride-along `trip-story-recap.tsx` got in S161 (D-159/D-018).
+ * The `/journal` BROWSE view (`components/journal-browse.tsx`) gains the same read-only
+ * per-day photo ride-along `trip-story-recap.tsx` got (D-159/D-018).
  *
  * Photo BLOB bytes live only in IndexedDB (`BlobStorePort`) — a photo can't be seeded via a raw
  * `localStorage.setItem`. This pack captures a real photo through the exact same `PhotoAttach`
@@ -36,8 +36,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -92,7 +92,7 @@ async function expectNoSeriousCritical(page: Page, label: string, testInfo: Test
   ).toEqual([]);
 }
 
-test.describe('S208 /journal browse — photo ride-along', () => {
+test.describe('/journal browse — photo ride-along', () => {
   test('capture a journal photo via the row editor, reload, and the browse row shows it read-only; an uncaptured day stays clean', async ({
     page,
   }, testInfo) => {

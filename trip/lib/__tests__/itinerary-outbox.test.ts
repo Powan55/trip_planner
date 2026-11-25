@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 //
-// S141 — itinerary ADOPTION of the offline outbox (D-150, FU-19), against a FAKE Firestore + the
+// Itinerary ADOPTION of the offline outbox (D-150), against a FAKE Firestore + the
 // real merge core. Proves the itinerary-specific pieces the generic outbox unit test (mocked
 // pushChunk) cannot:
 //   1. pushDayChunk pushes ONE present day through the merge-aware transactional write, and
 //      REJECTS when the remote is unreachable (so the decorator keeps the chunk dirty).
 //   2. pushDayChunk SKIPS a locally-absent day (resolve, NO write, never a deleteDoc).
 //   3. The decorated itinerarySyncPort.push enqueues on an OFFLINE edit and drains on reconnect
-//      via flushOutbox — the end-to-end FU-19 reload fix with the REAL pushDayChunk.
+//      via flushOutbox — the end-to-end reload fix with the REAL pushDayChunk.
 //   4. The DIRTY-CHUNK MERGE EXCEPTION on the first snapshot: a dirty date is MERGED (the offline
 //      edit survives) while a non-dirty date is authoritative — and with an EMPTY outbox the first
 //      snapshot is authoritative VERBATIM (the D-091/D-018 zero-commit path, byte-identical).
@@ -188,7 +188,7 @@ describe('pushDayChunk — the itinerary ChunkSync write (present pushes, absent
   });
 });
 
-describe('end-to-end FU-19: offline edit → dirty slot → reconnect flush pushes once', () => {
+describe('end-to-end: offline edit → dirty slot → reconnect flush pushes once', () => {
   it('itinerarySyncPort.push enqueues while offline; flushOutbox drains on reconnect', async () => {
     savePlans([day('2026-12-09', [item('A', { hlc: hlc(1000, 'me'), rev: 1 })])]);
 
@@ -210,7 +210,7 @@ describe('end-to-end FU-19: offline edit → dirty slot → reconnect flush push
 
     expect(writeLog).toContain(`tx-set:trips/${TRIP_ID}/days/2026-12-09`); // pushed once
     expect(outboxDirty('itinerary')).toEqual([]); // acked → dirty cleared
-    // S229: the ack stamps a lastAckAt on the slot, so the key persists (holding {dirty:{},
+    // The ack stamps a lastAckAt on the slot, so the key persists (holding {dirty:{},
     // lastAckAt}) instead of being removed outright — see core-sync-outbox.test.ts for the
     // dedicated lastAckAt/outboxSnapshot() coverage.
     const slot = JSON.parse(localStorage.getItem(STORAGE_KEYS.syncOutbox)!);

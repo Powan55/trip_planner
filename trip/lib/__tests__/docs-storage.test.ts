@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * V6-6 (A-15/#102) — docs-checklist persistence round-trip through the typed storage gateway
+ * #102: docs-checklist persistence round-trip through the typed storage gateway
  * (key 25) + the `core/docs/storage.ts` load/save adapter, plus the trip-aware fallback split
  * (D-355): the default trip still seeds the 18-item Nepal/Japan `DEFAULT_TEMPLATE`, a custom trip
  * seeds the 16-item country-neutral `UNIVERSAL_TEMPLATE` instead — so an absent/corrupt slot on a

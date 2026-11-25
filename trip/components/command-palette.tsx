@@ -133,7 +133,7 @@ type Section = {
 // rename of that slot).
 const SECTIONS: Section[] = [
   { route: '/', hash: '#dashboard', label: 'Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
-  // (#94) "Trip Timeline" (`/#timeline`) was removed: the section left Home for /plan in S321
+  // (#94) "Trip Timeline" (`/#timeline`) was removed: the section left Home for /plan
   // — so this entry had been landing on Home with no `#timeline` to scroll to — and #94 deleted
   // the section outright as a duplicate of the planner. "Itinerary Planner" below is the target
   // it should have pointed at, and it already carries the `days` keyword.

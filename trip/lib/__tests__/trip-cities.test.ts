@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 
-// S122 (D-136 AMENDS D-109) — the per-day trip-city suite. As of S122 `TRIP_CITIES` is
+// D-136 (AMENDS D-109): the per-day trip-city suite. `TRIP_CITIES` is
 // DERIVED from the content root `core/content/itinerary.ts` (via `deriveTripCities`), not a
-// hand-authored literal. So the old S100 "anti-drift map ≡ sample" test is now a
+// hand-authored literal. So the old "anti-drift map ≡ sample" test is now a
 // DERIVATION-IDENTITY test: its headline guards against a future slice re-hand-authoring the
-// map or decoupling the `SAMPLE_ITINERARY` delegate. The S82-frozen boundary dates, 32-date
+// map or decoupling the `SAMPLE_ITINERARY` delegate. The frozen countdown boundary dates, 32-date
 // coverage, day-trip/transfer cities, totality, and weather-coverage assertions are RETAINED
 // verbatim — their duty shifts from policing map↔sample drift (now impossible) to policing
 // the CONTENT itself: an edit to a frozen boundary city goes loudly red and requires the
-// deliberate S112/D-124-style lockstep with the frozen E2E specs (a known, deliberate coupling).
+// deliberate D-124-style lockstep with the frozen E2E specs (a known, deliberate coupling).
 
 import {
   getCityForDate,
@@ -20,7 +20,7 @@ import {
 import { SAMPLE_ITINERARY } from '@/lib/sample-itinerary';
 import { isKnownWeatherCity } from '@/lib/weather';
 
-describe('S122 TRIP_CITIES — derivation identity (the map IS deriveTripCities(SAMPLE_ITINERARY))', () => {
+describe('TRIP_CITIES — derivation identity (the map IS deriveTripCities(SAMPLE_ITINERARY))', () => {
   it('equals deriveTripCities(SAMPLE_ITINERARY) — no re-hand-authoring, no delegate decoupling', () => {
     // The new load-bearing invariant. With today's wiring this is true BY CONSTRUCTION
     // (TRIP_CITIES = deriveTripCities(TRIP_ITINERARY), and SAMPLE_ITINERARY IS TRIP_ITINERARY).
@@ -53,23 +53,23 @@ describe('S122 TRIP_CITIES — derivation identity (the map IS deriveTripCities(
   });
 });
 
-describe('S100 getCityForDate — the 5 S82-frozen boundary dates keep their base city', () => {
-  // These are the exact dates the frozen S82 e2e/countdown.spec.ts asserts. The
-  // generalization must NOT change them, or the S82 net breaks. (They are also the sample
+describe('getCityForDate — the 5 frozen boundary dates keep their base city', () => {
+  // These are the exact dates the frozen e2e/countdown.spec.ts asserts. The
+  // generalization must NOT change them, or the countdown net breaks. (They are also the sample
   // cities on those dates, so this agrees with the derivation-identity test above.)
   it('Dec-9 -> New York (departure day), Dec-12 / Dec-18 -> Kathmandu (Nepal base)', () => {
     // D-315 (owner-ruled 2026-08-14, amending D-285): Dec 9 is spent in Syracuse, JFK and the air
     // and is NAMED New York — the traveller does not land in Kathmandu until Dec 10. The
     // day's `country` is still 'nepal' (leg id, drives currency + day offset), which is why this
-    // date stays in the Nepal-base group. Changed in the deliberate S112/D-124-style lockstep
+    // date stays in the Nepal-base group. Changed in the deliberate D-124-style lockstep
     // with the frozen E2E boundary specs.
     expect(getCityForDate('2026-12-09')).toBe('New York');
     expect(getCityForDate('2026-12-12')).toBe('Kathmandu');
     expect(getCityForDate('2026-12-18')).toBe('Kathmandu');
   });
 
-  it('Dec-19 (Japan start / B-01 guard) -> Osaka (S112 reroute), Jan-9 (trip end) -> Tokyo', () => {
-    // S112 (D-124): the Japan leg is now Osaka -> Kyoto -> Tokyo, so Dec-19 (the Japan-start /
+  it('Dec-19 (Japan start / B-01 guard) -> Osaka (D-124 reroute), Jan-9 (trip end) -> Tokyo', () => {
+    // D-124: the Japan leg is now Osaka -> Kyoto -> Tokyo, so Dec-19 (the Japan-start /
     // B-01 boundary date) is Osaka, not Tokyo. The invariant the guard actually protects
     // ("Japan window, NOT Kathmandu") is unchanged; only the specific base-city string is.
     expect(getCityForDate('2026-12-19')).toBe('Osaka');
@@ -77,13 +77,13 @@ describe('S100 getCityForDate — the 5 S82-frozen boundary dates keep their bas
   });
 });
 
-describe('S100/S112 getCityForDate — transfer & day-trip dates are NOT collapsed to a single base city', () => {
+describe('getCityForDate — transfer & day-trip dates are NOT collapsed to a single base city', () => {
   it('surfaces the REAL day-trip / transfer-day city (the whole point of the slice)', () => {
-    // Nepal day trips (unchanged by S112 — Nepal is untouched).
+    // Nepal day trips (unchanged by D-124; Nepal is untouched).
     expect(getCityForDate('2026-12-13')).toBe('Lalitpur');
     expect(getCityForDate('2026-12-14')).toBe('Nagarkot'); // NOT Kathmandu
     expect(getCityForDate('2026-12-16')).toBe('Bhaktapur');
-    // Japan transfer days (S112: Osaka -> Kyoto -> Tokyo boys-trip route). Per D-030 a
+    // Japan transfer days (D-124: Osaka -> Kyoto -> Tokyo boys-trip route). Per D-030 a
     // transfer day's city is the ARRIVAL city, not the origin.
     expect(getCityForDate('2026-12-24')).toBe('Kyoto'); // Osaka -> Kyoto transfer day
     expect(getCityForDate('2026-12-27')).toBe('Tokyo'); // Kyoto -> Tokyo transfer day
@@ -94,8 +94,8 @@ describe('S100/S112 getCityForDate — transfer & day-trip dates are NOT collaps
   });
 });
 
-describe('S100 getCityForDate — total over unmapped dates (defensive country default)', () => {
-  it('falls back to the pre-S100 country default for a date OFF the map', () => {
+describe('getCityForDate — total over unmapped dates (defensive country default)', () => {
+  it('falls back to the country default for a date OFF the map', () => {
     // Not an in-trip date; should never hit this in practice, but the fn must stay total and
     // preserve the old behavior: nepal window -> Kathmandu, else Tokyo.
     const nepalDate = '2026-12-05'; // before the trip, lexicographically <= Nepal end
@@ -107,10 +107,10 @@ describe('S100 getCityForDate — total over unmapped dates (defensive country d
   });
 });
 
-describe('S100/S112 weather-coords coverage — every trip city is weather-queryable', () => {
+describe('weather-coords coverage — every trip city is weather-queryable', () => {
   it('isKnownWeatherCity is true for all 8 canonical trip cities (no day loses weather)', () => {
     const uniqueCities = [...new Set(SAMPLE_ITINERARY.map((d) => d.city))].sort();
-    // S112: the Japan leg is now a straight 3-city route (Osaka -> Kyoto -> Tokyo, no more
+    // D-124: the Japan leg is now a straight 3-city route (Osaka -> Kyoto -> Tokyo, no more
     // Hakone/Kawaguchiko/Yuzawa/Nikko/Yokohama day trips).
     // D-315: + New York, the Dec-9 departure day's city — so the trip names exactly these 8 cities
     // across the 32 days. Set EQUALITY, not `toContain`: an accidental 9th city goes red here.

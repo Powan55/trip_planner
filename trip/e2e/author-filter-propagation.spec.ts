@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S383 (INTAKE-07) — "filter by name" must empty the whole calendar surface, not just the list.
+ * "Filter by name" must empty the whole calendar surface, not just the list.
  *
  * Reported: *"when i click on the filter by name all everything thats not related to that person should
  * dessipear from the calander etc."* Before this slice exactly ONE consumer filtered (the day's
@@ -14,7 +14,7 @@ import type { Page } from '@playwright/test';
  *
  *  1. PROPAGATION — with a name selected, every number narrows together.
  *  2. 🔴 NON-REGRESSION — with NO filter selected, every one of those numbers is byte-identical to
- *     the pre-S383 build. `NO_FILTER_BASELINE` below is not a guess or a self-capture: it was
+ *     the pre-fix build. `NO_FILTER_BASELINE` below is not a guess or a self-capture: it was
  *     recorded by running this exact spec against the UNMODIFIED `calendar-planner.tsx` (and the
  *     then-extant `trip-timeline.tsx`, since deleted by #94) and pasting the printed snapshot in.
  *     So it is a genuine before/after comparison, and a future change that quietly filters the
@@ -118,7 +118,7 @@ async function seedTwoAuthorDays(page: Page) {
  * Every calendar-chrome number on one screen, read in ONE `page.evaluate` so the whole surface is
  * sampled from a single committed render (a per-locator read could straddle two).
  *
- * These are exactly the seven rows of the reviewer's INTAKE-07 inventory plus the item list.
+ * These are exactly the seven rows of the reviewer's bug inventory plus the item list.
  */
 type ChromeSnapshot = Awaited<ReturnType<typeof chromeSnapshot>>;
 
@@ -175,7 +175,7 @@ async function selectDay(page: Page, date: string) {
 /**
  * The PLANNER's filter control, scoped.
  *
- * Scoped deliberately, and the reason matters: before S383 this control was mounted TWICE on
+ * Scoped deliberately, and the reason matters: before the fix this control was mounted TWICE on
  * `/plan` (planner toolbar + timeline), so an unscoped `getByTestId` is a strict-mode violation on
  * the old build. An unscoped locator would therefore fail every test in this file for the WRONG
  * reason ("resolved to 2 elements"), masking the propagation defect the pack exists to measure.
@@ -206,7 +206,7 @@ async function pickMine(page: Page) {
 // 1. PROPAGATION — a selected name empties the chrome, not just the list
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
-test.describe('S383 — a selected author narrows the WHOLE calendar surface', () => {
+test.describe('a selected author narrows the WHOLE calendar surface', () => {
   test('every chrome number agrees with the filtered set (pill, From, clashes, dots, a11y label, strip, map, bands)', async ({
     page,
   }) => {
@@ -336,7 +336,7 @@ test.describe('S383 — a selected author narrows the WHOLE calendar surface', (
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Recorded by running this spec against the PRE-S383 build (`calendar-planner.tsx` and the
+ * Recorded by running this spec against the PRE-FIX build (`calendar-planner.tsx` and the
  * then-extant `trip-timeline.tsx` at HEAD, with only the inert testid additions applied so the
  * spec could run at all). Do not "update" these to make a run go green — if they move, the
  * no-filter path changed, and that is the thing this slice promised not to do. Every field below
@@ -348,7 +348,7 @@ const NO_FILTER_BASELINE = {
   firstStart: 'From 8:00 AM',
   clashIds: ['af-p2', 'af-s1'],
   // Note the day-strip's label format is SHORTER than the month cell's (no year) — recorded,
-  // not guessed. Writing what looked right here produced a real failure on the pre-S383 run.
+  // not guessed. Writing what looked right here produced a real failure on the pre-fix run.
   // Re-recorded when the chip label was reordered to lead with its visible text (WCAG 2.5.3).
   stripLabel: 'Tue 15, 5 activities, December, Kathmandu',
   monthDots: 3,
@@ -359,8 +359,8 @@ const NO_FILTER_BASELINE = {
   emptyStateCopy: null,
 } satisfies ChromeSnapshot;
 
-test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed', () => {
-  test('the whole chrome snapshot equals the pre-S383 recording, byte for byte', async ({
+test.describe('NON-REGRESSION: no filter selected means nothing changed', () => {
+  test('the whole chrome snapshot equals the pre-fix recording, byte for byte', async ({
     page,
   }) => {
     await gotoSettled(page, '/plan/');
@@ -385,7 +385,7 @@ test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed
   test('the SHIPPED itinerary renders /plan unchanged — and shows no filter control at all', async ({
     page,
   }) => {
-    // No seeding: the real content pack. It carries ZERO attribution (measured in S383: 0
+    // No seeding: the real content pack. It carries ZERO attribution (measured: 0
     // createdBy / 0 updatedBy / 0 doneBy across 158 items), so `distinctAuthors` is empty and
     // the control renders nothing. That makes a fresh install the strongest possible
     // non-regression case: the filter cannot even be selected, so every number on this page
@@ -396,7 +396,7 @@ test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed
 
     const snap = await chromeSnapshot(page, '2026-12-09');
     console.log('S383 SHIPPED-SEED SNAPSHOT:', JSON.stringify(snap));
-    // Recorded from the pre-S383 build by running this very test against it, same as
+    // Recorded from the pre-fix build by running this very test against it, same as
     // NO_FILTER_BASELINE above. The map fields are null because this test does not open the
     // map pane; the seeded case above covers those.
     expect(snap).toEqual({

@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S99 — Weather + golden-hour E2E pack.
+ * Weather + golden-hour E2E pack.
  *
  * The weather card (`components/weather-card.tsx`) mounts inside the in-trip Today panel
  * (`components/today-panel.tsx`) and fetches Open-Meteo CLIENT-SIDE for the current trip city
@@ -52,7 +52,7 @@ const OPEN_METEO_FIXTURE = {
   },
 };
 
-// S150: a 7-day variant of the same fixture (full `daily` arrays) so the outlook has a real
+// A 7-day variant of the same fixture (full `daily` arrays) so the outlook has a real
 // week to render.
 const OPEN_METEO_WEEK_FIXTURE = {
   ...OPEN_METEO_FIXTURE,
@@ -136,12 +136,12 @@ async function stubOpenMeteo(page: Page, fixture: unknown = OPEN_METEO_FIXTURE) 
   await page.route('**/api.open-meteo.com/**', (route) => route.fulfill({ json: fixture }));
 }
 
-/** Block until the 7-day outlook disclosure is in the DOM (S150). */
+/** Block until the 7-day outlook disclosure is in the DOM. */
 async function settleForecast(page: Page) {
   await expect(page.getByTestId('weather-forecast')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('S99 — weather + golden hour (stubbed Open-Meteo)', () => {
+test.describe('weather + golden hour (stubbed Open-Meteo)', () => {
   test('stubbed API: the weather card renders temp, condition, and golden-hour on the in-trip Today panel', async ({
     page,
   }) => {
@@ -241,7 +241,7 @@ test.describe('S99 — weather + golden hour (stubbed Open-Meteo)', () => {
   });
 });
 
-test.describe('S150 — 7-day outlook (stubbed Open-Meteo, same response, zero extra fetch)', () => {
+test.describe('7-day outlook (stubbed Open-Meteo, same response, zero extra fetch)', () => {
   test('stubbed 7-day API: the outlook disclosure renders 7 rows, collapsed by default and keyboard-expandable', async ({
     page,
   }) => {
@@ -342,7 +342,7 @@ test.describe('S150 — 7-day outlook (stubbed Open-Meteo, same response, zero e
   });
 
   /**
-   * S150 DoD #5 — axe-clean on the card's surface. NOTE: neither `e2e/a11y.spec.ts` (S85) nor
+   * Axe-clean on the card's surface. NOTE: neither `e2e/a11y.spec.ts` nor
    * `e2e/a11y-intrip.spec.ts` (F19b) stub Open-Meteo, so the weather card only ever reaches
    * `unavailable` in those packs — the LIVE/populated card (incl. the new outlook, expanded)
    * has never actually been axe-scanned until this test. Run twice to confirm determinism.
@@ -361,11 +361,11 @@ test.describe('S150 — 7-day outlook (stubbed Open-Meteo, same response, zero e
       await page.getByTestId('weather-forecast').locator('summary').click();
       await expect(page.getByTestId('weather-forecast-day')).toHaveCount(7);
 
-      // S336: under reduced motion the today-panel's whileInView reveal wrapper starts at
+      // Under reduced motion the today-panel's whileInView reveal wrapper starts at
       // opacity:0 and only commits to 1 once it has actually intersected the viewport (the
       // summary.click above scrolls it in). Wait for that settle before axe samples colors —
       // otherwise every text node reads deflated by the sub-1 ancestor opacity, a false AA fail
-      // (the s157-a11y-close-targets settle-guard pattern; at opacity 1 the card is ≥AA).
+      // (the a11y-close-targets settle-guard pattern; at opacity 1 the card is ≥AA).
       await expect(page.locator('[data-testid="today-panel"] > div').first()).toHaveCSS('opacity', '1');
 
       const results = await new AxeBuilder({ page })

@@ -3,7 +3,7 @@ import type { Page, ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S190 (D-164 / D-194) — Travel Mode enter/exit affordances E2E pack.
+ * D-164 / D-194: Travel Mode enter/exit affordances E2E pack.
  *
  * Rides the shared `./fixtures` default identity (a SIGNED-IN traveler) so `/travel` is reachable
  * — with no guest mode (D-241) that is the only identity that ever gets past the front door. Runs
@@ -49,7 +49,7 @@ async function expectTapTarget(page: Page, testid: string) {
   expect(box!.width, `${testid} width ≥ 44`).toBeGreaterThanOrEqual(44);
 }
 
-test.describe('S190 · entry surfaces', () => {
+test.describe('entry surfaces', () => {
   test('nav-chrome button enters /travel (reachable at mobile width, no hamburger)', async ({ page }) => {
     await goto(page, '/');
     // The button is visible in the top bar without opening the hamburger menu.
@@ -64,7 +64,7 @@ test.describe('S190 · entry surfaces', () => {
     await expectTapTarget(page, 'travel-exit');
   });
 
-  // S321: the always-present hero Travel Mode CTA (`hero-travel-entry`) was removed when the
+  // The always-present hero Travel Mode CTA (`hero-travel-entry`) was removed when the
   // hero collapsed to ONE state-aware action (pre-trip → Open Planner; in-trip → the on-trip
   // card's Travel Mode button, covered by the next test). Travel Mode entry pre-trip is still
   // covered by the nav-chrome button test above.
@@ -87,7 +87,7 @@ test.describe('S190 · entry surfaces', () => {
   });
 });
 
-test.describe('S190 · exit restores the prior route with no history trap', () => {
+test.describe('exit restores the prior route with no history trap', () => {
   test('exit returns to the EXACT prior in-app route', async ({ page }) => {
     await goto(page, '/nepal/');
     await navBtn(page).click();
@@ -124,7 +124,7 @@ test.describe('S190 · exit restores the prior route with no history trap', () =
   });
 });
 
-test.describe('S190 · PWA relaunch re-enter', () => {
+test.describe('PWA relaunch re-enter', () => {
   // Legacy bare `active` (pre-scoping installs) and the trip-scoped value both re-enter.
   for (const seed of ['active', 'active:nepal-japan-2026']) {
   test(`a ${seed} flag re-enters /travel on boot; exit clears it and lands Home`, async ({ page }) => {
@@ -153,19 +153,19 @@ test.describe('S190 · PWA relaunch re-enter', () => {
   }
 });
 
-test.describe('S351B · redirect-loop regression (signed-out visitor, stale active flag)', () => {
+test.describe('redirect-loop regression (signed-out visitor, stale active flag)', () => {
   test('does not brick the app in a reload loop; settles on /travel behind the front door', async ({
     page,
   }) => {
     test.setTimeout(45_000);
 
-    // The specific gap S351 opened: `travelMode` stays 'active' from a PRIOR session (only the
+    // The specific gap removing guest mode opened: `travelMode` stays 'active' from a PRIOR session (only the
     // exit X clears it — travel-exit-button.tsx's one caller; sign-out never touches the flag),
     // but the visitor is no longer signed in. Registered AFTER the fixtures' own addInitScript
     // (which seeds a signed-in identity), so this one runs second and wins on every navigation:
     // net effect is the flag active with NO identity — the exact combination nothing else in
     // this pack seeds (the only spec that ever drove /travel without a token, this file's own
-    // former `guestTest`, was deleted by S351 with nothing replacing it).
+    // former `guestTest`, was deleted with guest mode, with nothing replacing it).
     await page.addInitScript((k: string) => {
       window.localStorage.removeItem('tripPlannerToken');
       window.localStorage.removeItem('tripPlannerUserName');
@@ -192,7 +192,7 @@ test.describe('S351B · redirect-loop regression (signed-out visitor, stale acti
     // Boot bounce (relaunch, a client-side `router.replace` — same mechanism the signed-in
     // PWA-relaunch test above exercises): lands on /travel without a full page load.
 
-    // Historical bug (S351B): TravelDatePicker's own `!traveler` guard fired a FULL reload
+    // Historical bug: TravelDatePicker's own `!traveler` guard fired a FULL reload
     // (`window.location.replace`) straight back to `/`, where the un-guarded relaunch bounced it
     // right back — forever, with no history entry on either hop, so Back could not escape either.
     // A `load` event here (post-settle) is unambiguous evidence that the loop fired.
@@ -228,7 +228,7 @@ test.describe('S351B · redirect-loop regression (signed-out visitor, stale acti
   });
 });
 
-test.describe('S190 · arrival auto-suggest toast', () => {
+test.describe('arrival auto-suggest toast', () => {
   test('appears on-trip when never seen, and both actions are ≥44px', async ({ page }) => {
     await goto(page, `/?today=${ON_TRIP}`);
     await expect(toast(page)).toBeVisible();
@@ -267,12 +267,12 @@ test.describe('S190 · arrival auto-suggest toast', () => {
   });
 });
 
-test.describe('S190 · a11y + console', () => {
+test.describe('a11y + console', () => {
   test('axe: zero serious/critical with the arrival toast open', async ({ page }, testInfo) => {
     await goto(page, `/?today=${ON_TRIP}`);
     await expect(toast(page)).toBeVisible();
 
-    // S336 settle-guard (ported S351B — this test IS the toast-open case the guard exists for,
+    // Settle-guard (this test IS the toast-open case the guard exists for,
     // yet never had it): `toBeVisible()` above does not wait for the opacity 0->1 entrance fade to
     // finish, so axe can sample it mid-fade and misread its text-ink-mid subtitle as a false
     // contrast failure (rests at ~7:1 on the glass surface). Settle before scanning.

@@ -165,7 +165,7 @@ function RecommendationCard({
             className="vt-shared text-t-body font-semibold text-ink-hi leading-tight"
             style={{ ['--vt-name']: `place-title-${item.id}` } as CSSProperties}
           >
-            {/* V6-10: the details control is the TITLE, not the whole card body. A
+            {/* The details control is the TITLE, not the whole card body. A
                 button may only contain phrasing content, and its children-presentational
                 ARIA role collapsed this <h3> into the button's name — so every card title
                 on the page was missing from the heading outline. The `::after` stretches

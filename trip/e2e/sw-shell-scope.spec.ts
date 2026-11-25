@@ -4,20 +4,20 @@ import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * S359B / S394 — the EXERCISED proof for how `scripts/gen-sw.mjs` scopes the precache.
+ * The EXERCISED proof for how `scripts/gen-sw.mjs` scopes the precache.
  *
  * `buildPrecacheList` used to precache ALL of `_next/static/**`. It now precaches only
  * the app shell's share of it. Route HTML is UNCHANGED and still fully precached — that
- * is the D-073 contract and the S271 torn-update invariant.
+ * is the D-073 contract and the torn-update invariant.
  *
  * 🔴 THE FIRST TEST HERE HAS NOW BEEN INVERTED TWICE. Read this before "restoring" either
  * older shape, because both existed and both were deliberate.
  *   · D-271 ① kept maplibre's engine OUT of the precache; this file proved the runtime
  *     BACKFILL rescued it (asset in the cache, NOT in the install list).
- *   · S394 reversed that on the owner's ruling (1.01 MiB, under the 2 MB bar) and the test
+ *   · A later build reversed that on the owner's ruling (1.01 MiB, under the 2 MB bar) and the test
  *     was flipped to require the engine IN the install list, with a cold-offline /map/
  *     rendering a real GL canvas.
- *   · V6-14 reverses it again on a MEASUREMENT S394 did not have: the engine plus the glyph
+ *   · The current build reverses it again on a MEASUREMENT that one did not have: the engine plus the glyph
  *     PBFs are ~363 KB GZIPPED, 21% of the gzipped install, spent on /map — the one route
  *     D-274 already declines to promise offline. So the engine is withheld again and
  *     runtime-cached on the first ONLINE /map visit instead, and a cold-offline /map/
@@ -88,7 +88,7 @@ function builtStaticFiles(): string[] {
   return out;
 }
 
-test.describe('S359B/S394 · what the scoped precache ships, and what it backfills', () => {
+test.describe('what the scoped precache ships, and what it backfills', () => {
   test("maplibre's engine is NOT in the install list, so a cold-offline /map/ degrades to the island pane", async ({
     page,
     context,
@@ -99,7 +99,7 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     await expect.poll(async () => (await precachedStatic(page)).length).toBeGreaterThan(20);
 
     const installedStatic = await installedStaticUrls(page);
-    // ANTI-VACUITY FLOOR. The assertion below FLIPPED at V6-14: `toContain` used to fail on
+    // ANTI-VACUITY FLOOR. The assertion below FLIPPED when the engine was withheld: `toContain` used to fail on
     // an empty list, `not.toContain` passes on one. `installedStaticUrls` filters on
     // `/_next/static/`, so a basePath build (`/trip_planner/_next/…`) yields [] and every
     // negative below would then pass by inspecting nothing — and step 3's set-equality
@@ -109,7 +109,7 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
       'the shipped worker installs no _next/static asset at all — the negative below would pass by inspecting nothing',
     ).toBeGreaterThan(20);
 
-    // 2) THE INVERTED ASSERTION (V6-14). The subject is read off DISK, not off the cache:
+    // 2) THE INVERTED ASSERTION. The subject is read off DISK, not off the cache:
     //    the cache is not supposed to hold it, so sampling the cache would find nothing and
     //    assert nothing. Identified the way `gen-sw.mjs`'s isMaplibreChunk() and
     //    `e2e/pwa.spec.ts`'s eviction both identify it — by CONTENT, because the filenames
@@ -171,7 +171,7 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     //    named pane (components/map-island-boundary.tsx), not a GL canvas: the island's
     //    chunk group carries a withheld maplibre chunk, so React.lazy throws at the
     //    `app/map/sections.tsx -> @/components/map-section` call site. That degradation is
-    //    what D-274 already promises and what V6-14 spends 363 KB gzip to buy back.
+    //    what D-274 already promises and what withholding the engine spends 363 KB gzip to buy back.
     //
     //    Both halves are asserted, and each is vacuous alone: the pane's PRESENCE (the
     //    boundary really caught it and named it) plus the canvas's ABSENCE (no engine ran,
@@ -194,7 +194,7 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     page,
     context,
   }) => {
-    // The safety argument for everything the scoping still drops — and under V6-14 that
+    // The safety argument for everything the scoping still drops, which now
     // includes the maplibre engine again, whose runtime backfill is exactly this mechanism.
     // The subject stays DERIVED rather than named: diff what the build emitted against what
     // the shipped worker installs, and take a chunk from the difference. That keeps the test

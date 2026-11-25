@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page, Request } from '@playwright/test';
 
 /**
- * S160 — photo capture E2E + the (b) EGRESS network-intercept proof (D-159 zero-egress).
+ * Photo capture E2E + the (b) EGRESS network-intercept proof (D-159 zero-egress).
  *
  * The PhotoAttach surface mounts inside the in-trip Today journal card (`components/journal-card.tsx`
  * → owner `{kind:'journal',date}`), reached via the `?today=` override (D-075). This pack proves, on a
@@ -42,7 +42,7 @@ async function seedEmptyItinerary(page: Page) {
   await page.evaluate((key) => window.localStorage.setItem(key, '[]'), ITINERARY_KEY);
 }
 
-test.describe('S160 photo capture — render, persist, and zero egress', () => {
+test.describe('photo capture — render, persist, and zero egress', () => {
   test('capture a day photo: it renders, persists across reload, and never leaves the device', async ({
     page,
   }) => {

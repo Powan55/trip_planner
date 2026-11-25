@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S355 — the marketing landing + the username/password door (D-660), on the served static `out/` build.
+ * The marketing landing + the username/password door (D-660), on the served static `out/` build.
  *
  * D-244 (LOCKED): the landing renders inside `TokenGate`'s logged-out branch at `/` — no new route,
  * no root-layout split. So everything here is scoped to the wall's `[role="dialog"]` panel, which
@@ -21,7 +21,7 @@ import AxeBuilder from '@axe-core/playwright';
  *   3. Sign-up works end to end on the dormant build, and the form's errors and password toggle
  *      are accessible.
  *   4. axe: zero serious/critical at 390px and 1440px, and no horizontal overflow at 390.
- *   5. The three S356 screenshot slots exist, named and sized.
+ *   5. The three screenshot slots exist, named and sized.
  */
 
 const TOUR_SEEN = 'nepal_japan_first_run_tour_seen';
@@ -32,7 +32,7 @@ async function gotoLoggedOut(page: Page, path = '/') {
   await page.addInitScript(
     ({ tour, hint }: { tour: string; hint: string }) => {
       window.localStorage.setItem(tour, '1');
-      // S272: the app-wide install toast is `duration: Infinity` and poisons every axe scan.
+      // The app-wide install toast is `duration: Infinity` and poisons every axe scan.
       window.localStorage.setItem(hint, '1');
     },
     { tour: TOUR_SEEN, hint: INSTALL_HINT },
@@ -50,7 +50,7 @@ async function gotoLoggedOut(page: Page, path = '/') {
   await expect(page.getByTestId('landing-page')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('S355 — the logged-out landing', () => {
+test.describe('the logged-out landing', () => {
   test('opens on the landing with the H1 and the three CTAs, not the auth form', async ({
     page,
   }) => {
@@ -68,7 +68,7 @@ test.describe('S355 — the logged-out landing', () => {
     // The auth card is a SECOND view, reached from a CTA — it is not on screen yet.
     await expect(page.getByTestId('token-gate-submit')).toHaveCount(0);
     await expect(page.getByTestId('token-gate-username')).toHaveCount(0);
-    // The split band and the S356 slots are part of the shipped page, not a later add.
+    // The split band and the screenshot slots are part of the shipped page, not a later add.
     await expect(page.getByTestId('landing-split-band')).toBeVisible();
   });
 
@@ -104,7 +104,7 @@ test.describe('S355 — the logged-out landing', () => {
   });
 
   /**
-   * S382 (INTAKE-03) — THE MEASURED DEFECT, IN A REAL BROWSER.
+   * THE MEASURED DEFECT, IN A REAL BROWSER.
    *
    * The deployed site was measured with `localStorage` at 0 keys and found
    * `document.activeElement` = "Create an account". That is the assertion here, inverted.
@@ -118,7 +118,7 @@ test.describe('S355 — the logged-out landing', () => {
    * the front door. The condition that matters — no User Token, no identity — is asserted below
    * rather than assumed, so this cannot silently become a test of a returning device.
    */
-  test('S382: a fresh visitor with no User Token gets FOCUS on the log-in CTA', async ({ page }) => {
+  test('a fresh visitor with no User Token gets FOCUS on the log-in CTA', async ({ page }) => {
     await gotoLoggedOut(page);
 
     const slots = await page.evaluate(() => ({
@@ -145,7 +145,7 @@ test.describe('S355 — the logged-out landing', () => {
     await expect(page.getByTestId('token-gate-username')).toBeVisible();
   });
 
-  test('S382: signup is still one click away and does not trap a genuinely new user', async ({
+  test('signup is still one click away and does not trap a genuinely new user', async ({
     page,
   }) => {
     await gotoLoggedOut(page);
@@ -159,7 +159,7 @@ test.describe('S355 — the logged-out landing', () => {
   });
 
   /**
-   * #70 — the shared-trip CTA, in a real browser. It replaces the S382 case that asserted this
+   * #70 — the shared-trip CTA, in a real browser. It replaces the earlier case that asserted this
    * CTA opened LOG IN, which is the defect: the CTA names visitors holding a TRIP TOKEN, who have
    * no account yet, so the door asked for a credential that audience cannot have.
    */
@@ -210,7 +210,7 @@ test.describe('S355 — the logged-out landing', () => {
     }
   });
 
-  test('the three S356 screenshot slots are present, named and sized', async ({ page }) => {
+  test('the three screenshot slots are present, named and sized', async ({ page }) => {
     await gotoLoggedOut(page);
     for (const id of ['landing-shot-1', 'landing-shot-2', 'landing-shot-3']) {
       const figure = page.getByTestId(id);
@@ -220,13 +220,13 @@ test.describe('S355 — the logged-out landing', () => {
       expect(box, `${id} has no slot box`).not.toBeNull();
       expect(box!.width).toBeGreaterThan(0);
       expect(box!.height).toBeGreaterThan(box!.width);
-      // The caption S356 moves into the image's `alt` is already written and visible.
+      // The caption that moved into the image's `alt` is already written and visible.
       await expect(figure.locator('figcaption')).not.toBeEmpty();
     }
   });
 
   /**
-   * S356 — ADDED, not edited. The three assertions above measure the SLOT BOX and were left
+   * ADDED, not edited. The three assertions above measure the SLOT BOX and were left
    * untouched (rewriting a check to fit new markup is how a check stops meaning anything); this
    * is a separate test for the thing that only became checkable once real rasters landed.
    *
@@ -243,7 +243,7 @@ test.describe('S355 — the logged-out landing', () => {
    * The images are safe only because `e2e/landing-shots.spec.ts` seeds a fictional trip, and
    * only a human looking at the pixels can confirm that stayed true.
    */
-  test('the three S356 screenshots decode, with alt text that is not the caption', async ({
+  test('the three screenshots decode, with alt text that is not the caption', async ({
     page,
   }) => {
     await gotoLoggedOut(page);
@@ -325,7 +325,7 @@ test.describe('D-660 — the username + password form', () => {
   });
 });
 
-test.describe('S355 — landing a11y + responsive', () => {
+test.describe('landing a11y + responsive', () => {
   for (const width of [390, 1440]) {
     test(`axe: the landing has zero serious/critical/moderate violations at ${width}px`, async ({
       page,
@@ -337,7 +337,7 @@ test.describe('S355 — landing a11y + responsive', () => {
 
       const results = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
       // The minimum floor is serious/critical; this pack gates on MODERATE too, matching the house
-      // contract in `e2e/a11y.spec.ts` (S157 widened every route to moderate: "fix it or revert —
+      // contract in `e2e/a11y.spec.ts` (that pack widened every route to moderate: "fix it or revert —
       // do NOT lower this threshold to go green"). The landing meets the stricter bar, so it is
       // pinned at the stricter bar.
       const blocking = results.violations.filter(
@@ -367,7 +367,7 @@ test.describe('S355 — landing a11y + responsive', () => {
 });
 
 /**
- * #10 — the S355 FINDING, closed and turned into a real assertion.
+ * #10 — the landing FINDING, closed and turned into a real assertion.
  *
  * The log-only test that lived here recorded: the wall was a full-viewport OVERLAY with
  * `{children}` still mounted underneath, so the home dashboard — including an `<h1>` carrying the

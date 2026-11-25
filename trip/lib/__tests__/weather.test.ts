@@ -36,7 +36,7 @@ vi.mock('@/lib/trip-now', () => ({
 import WeatherCard from '@/components/weather-card';
 
 /**
- * S99 — weather + golden-hour client. DETERMINISTIC: `fetch` is mocked (vitest), the pure
+ * Weather + golden-hour client. DETERMINISTIC: `fetch` is mocked (vitest), the pure
  * helpers take fixed inputs, and the gateway cache round-trips through jsdom localStorage. NO
  * live network is ever touched (the sandbox can't reliably reach api.open-meteo.com; the live
  * call is spot-checkable by the operator in a real browser).
@@ -71,7 +71,7 @@ const KATHMANDU_FIXTURE = {
   },
 };
 
-// A 7-day variant of the fixture (S150) — same shape, `daily` arrays extended to a full week so
+// A 7-day variant of the fixture, same shape, `daily` arrays extended to a full week so
 // `parseForecast`/`fetchWeather` can be exercised against a realistic body.
 const KATHMANDU_WEEK_FIXTURE = {
   ...KATHMANDU_FIXTURE,
@@ -152,7 +152,7 @@ describe('usAqiLabel (pure, #251)', () => {
   });
 });
 
-describe('formatWeatherAsOf (pure, S276/P6 — stale weather age label)', () => {
+describe('formatWeatherAsOf (pure — stale weather age label)', () => {
   it('renders a short human date+time for a valid ISO timestamp', () => {
     const out = formatWeatherAsOf('2026-07-20T14:05:00.000Z');
     expect(out).not.toBe('');
@@ -266,7 +266,7 @@ describe('parseOpenMeteo (pure)', () => {
   });
 });
 
-describe('parseForecast (pure, S150)', () => {
+describe('parseForecast (pure)', () => {
   it('malformed body (no daily) → null', () => {
     expect(parseForecast({})).toBeNull();
   });
@@ -522,7 +522,7 @@ describe('fetchWeather (total; write-through + offline fallback)', () => {
   });
 });
 
-describe('fetchWeather forecast attachment (S150 — zero extra fetch)', () => {
+describe('fetchWeather forecast attachment (zero extra fetch)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -703,7 +703,7 @@ describe('metadata', () => {
   });
 });
 
-describe('weatherTagForDay (pure, S216)', () => {
+describe('weatherTagForDay (pure)', () => {
   const day = (overrides: Partial<ForecastDay> = {}): ForecastDay => ({
     date: '2026-12-12',
     highC: 19,
@@ -738,7 +738,7 @@ describe('weatherTagForDay (pure, S216)', () => {
   });
 });
 
-describe('getCachedForecastForDate (gateway read-only, S216)', () => {
+describe('getCachedForecastForDate (gateway read-only)', () => {
   beforeEach(() => {
     localStorage.clear();
   });

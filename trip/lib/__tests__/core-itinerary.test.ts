@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// Pure-function unit tests for the S94 `core/itinerary` CRUD extraction. These exercise
+// Pure-function unit tests for the `core/itinerary` CRUD extraction. These exercise
 // the framework-free `DayPlan[]` transforms directly (no React, no window, no firebase) —
 // the mechanical extraction of the logic that formerly lived inline in
 // `hooks/use-itinerary.ts`. Three things are proven here:
@@ -33,7 +33,7 @@ import type { StoragePort } from '@/core/ports';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 const NEPAL_DATE = '2026-12-10'; // inside the Nepal leg
-const JAPAN_DATE = '2026-12-25'; // inside the Japan leg (S112: Kyoto leg, Dec 24-28)
+const JAPAN_DATE = '2026-12-25'; // inside the Japan leg (Kyoto leg, Dec 24-28)
 
 function item(id: string, extra: Partial<ItineraryItem> = {}): ItineraryItem {
   return { id, title: `Item ${id}`, category: 'sightseeing', ...extra };
@@ -254,13 +254,13 @@ describe('core/itinerary — selectors', () => {
   });
 });
 
-// ── S130 bulk ops (deleteItems / moveItems / copyDay) ─────────────────────────
+// ── Bulk ops (deleteItems / moveItems / copyDay) ─────────────────────────
 // Each bulk op is a FOLD of its single-item sibling over the selection. Copy mints fresh ids
 // via an injected stripper (production = freshCopyOf); the tests use a deterministic stripper
 // that mirrors its CONTRACT (strip the source id, mint a new one, keep content) without pulling
 // the hook's generateItemId. These prove the fold, the fresh-id + dedupe guarantee (D-032), and
 // the live-only copy.
-describe('core/itinerary — bulk ops (S130)', () => {
+describe('core/itinerary — bulk ops', () => {
   // Fresh-id stripper for copyDay tests (deterministic; contract-equivalent to freshCopyOf).
   function makeCopyOf() {
     let n = 0;
@@ -369,7 +369,7 @@ describe('core/itinerary — D-031 chained composition (moveItem + reorderItems 
     ]);
   });
 
-  // S130: a BULK op chained with another op in ONE handler must compose on the prior's output.
+  // A BULK op chained with another op in ONE handler must compose on the prior's output.
   // deleteItems then copyDay: the copy must see the POST-delete day, so the just-deleted item is
   // NOT copied. Non-vacuous — if copyDay re-read a stale pre-delete base (the bug D-031 prevents),
   // 'a' would still be copied to Japan and this would fail.

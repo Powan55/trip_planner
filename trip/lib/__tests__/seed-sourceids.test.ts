@@ -1,4 +1,4 @@
-// Guard test for S257 — every `sourceId` annotated onto a seed itinerary item in
+// Guard test: every `sourceId` annotated onto a seed itinerary item in
 // `core/content/itinerary.ts` (D-135 authoring source) must resolve to a REAL place id
 // in one of the five sourceId vocabularies (D-027a): recommendation ids verbatim
 // (NEPAL/JAPAN attractions + food), photo ids verbatim, map ids verbatim, `featured-*`
@@ -17,7 +17,7 @@ import { NIGHTLIFE_VENUES } from '@/lib/nightlife-data';
 import { FEATURED_DESTINATIONS } from '@/lib/travel-tips-data';
 import { featuredSourceId, nightlifeSourceId } from '@/lib/itinerary-adapter';
 
-describe('seed itinerary sourceIds resolve to real places (S257)', () => {
+describe('seed itinerary sourceIds resolve to real places', () => {
   const recIds = new Set([...NEPAL_ATTRACTIONS, ...NEPAL_FOOD, ...JAPAN_ATTRACTIONS, ...JAPAN_FOOD].map((r) => r.id));
   const photoIds = new Set(PHOTO_SPOTS.map((p) => p.id));
   const mapIds = new Set(MAP_MARKERS.map((m) => m.id));

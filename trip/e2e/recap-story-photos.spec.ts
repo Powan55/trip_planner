@@ -3,16 +3,16 @@ import type { Page, TestInfo } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S161 — the POST-TRIP STORY (`/recap`, S156) gains per-day journal photos (D-159/D-018).
+ * The POST-TRIP STORY (`/recap`) gains per-day journal photos (D-159/D-018).
  *
  * Photo BLOB bytes live only in IndexedDB (`BlobStorePort`) — unlike the itinerary/journal/expense
  * seeds elsewhere in this pack, a photo can't be seeded via a raw `localStorage.setItem`. This pack
- * REUSES the S160 photo-seeding approach (`e2e/photos.spec.ts`): capture a real photo through the
+ * REUSES the photo-seeding approach (`e2e/photos.spec.ts`): capture a real photo through the
  * journal card's `PhotoAttach` UI on an IN-TRIP day, then navigate to `/recap` with a POST-TRIP
  * `?today=` clock (same browser context ⇒ the same IndexedDB + localStorage key 16) and assert the
  * captured day's story block renders the thumbnail strip — read-only, correct `alt`, and that it
  * survives a reload. A second, uncaptured day proves the "renders cleanly WITHOUT photos" half of
- * the S161 DoD (no empty strip, no console error).
+ * the acceptance bar (no empty strip, no console error).
  *
  * Settle discipline mirrors `recap-story.spec.ts` / `photos.spec.ts`: `domcontentloaded` nav
  * (D-093), `emulateMedia({reducedMotion:'reduce'})`, a firm island-ready wait before assertions.
@@ -59,7 +59,7 @@ async function expectNoSeriousCritical(page: Page, label: string, testInfo: Test
   ).toEqual([]);
 }
 
-test.describe('S161 story-mode photos — a captured day shows them, an uncaptured day stays clean', () => {
+test.describe('story-mode photos — a captured day shows them, an uncaptured day stays clean', () => {
   test('capture a journal photo in-trip, then /recap post-trip renders it read-only and survives a reload', async ({
     page,
   }, testInfo) => {
@@ -69,7 +69,7 @@ test.describe('S161 story-mode photos — a captured day shows them, an uncaptur
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
-    // ── Capture a photo on CAPTURE_DAY via the real S160 UI flow ──────────────────────────────────
+    // ── Capture a photo on CAPTURE_DAY via the real UI flow ──────────────────────────────────
     await gotoHomeWithClock(page, CAPTURE_DAY);
     await settleJournal(page);
 

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S101 — pure money math (D-016/D-099). `core/budget/model.ts` is framework-free; these tests
+ * Pure money math (D-016/D-099). `core/budget/model.ts` is framework-free; these tests
  * pin the leg→currency map, local↔home conversion, the per-leg + per-category rollup, the grand
  * total in the home currency, and TOTALITY (bad / NaN / negative / corrupt input → safe number,
- * never a throw). The rollup's S102 seam (an optional `spent` input in the SAME shape) is also
+ * never a throw). The rollup's expense seam (an optional `spent` input in the SAME shape) is also
  * proven so expense logging can subtract without a reshape.
  */
 
@@ -169,7 +169,7 @@ describe('rollUp — per-leg + per-category + grand total in home currency', () 
     expect(japan.categories).toEqual([]);
   });
 
-  it('S102 SEAM — an optional `spent` input (same shape) yields remaining = budget − spent', () => {
+  it('SPENT SEAM — an optional `spent` input (same shape) yields remaining = budget − spent', () => {
     const m = model({ legBudgets: { nepal: 13800, japan: 31000 } });
     const roll = rollUp(m, { byLeg: { nepal: 6900 } }); // spent 50 USD on Nepal
     const nepal = roll.legs.find((l) => l.leg === 'nepal')!;
@@ -182,7 +182,7 @@ describe('rollUp — per-leg + per-category + grand total in home currency', () 
     expect(roll.totalRemainingHome).toBeCloseTo(250, 6); // 300 − 50
   });
 
-  it('with no spend (S101 state) remaining === budget', () => {
+  it('with no spend (budget-only state) remaining === budget', () => {
     const m = model({ legBudgets: { nepal: 13800, japan: 31000 } });
     const roll = rollUp(m);
     expect(roll.totalSpentHome).toBe(0);
@@ -267,7 +267,7 @@ describe('formatMoney / currencySymbol — grouped, no NaN ever', () => {
 });
 
 describe('constants — the canonical shape stays in sync', () => {
-  // D-266/S363C: this block used to carry a `toEqual` here comparing `BUDGET_CATEGORIES` against a
+  // D-266: this block used to carry a `toEqual` here comparing `BUDGET_CATEGORIES` against a
   // hardcoded literal copy of itself, named "...is exactly the 10 ItineraryCategory values (D-012)".
   // It had NO tie to `ItineraryCategory` at all — types are erased at runtime, so no Vitest
   // assertion ever could check that — and it was observed GREEN while the union carried an 11th

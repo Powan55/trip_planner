@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S252 — conditional nav + N×J route gating for custom trips (Plan D10, D-071 LOCKED).
+ * Conditional nav + N×J route gating for custom trips (D-071 LOCKED).
  *
  * On a CUSTOM (non-default-pack) trip, the N×J-specific surfaces (Nepal/Japan/Flights)
  * disappear from every nav surface (navbar desktop row, bottom tab bar, command
- * palette; the mobile hamburger was removed in S319). S320 (D-231): the tab bar is the
+ * palette; the mobile hamburger was removed). D-231: the tab bar is the
  * 5-tab custom set Today·Plan·Map·Journal·More (Guides is defaultTripOnly → dropped, its
  * seat refilled by the promoted Journal; Packing/Trips fell to the `/more/` page), and a
  * direct visit to a gated route shows an honest empty-state card (no redirect — static
@@ -58,7 +58,7 @@ async function openPalette(page: Page) {
   }).toPass({ timeout: 15_000 });
 }
 
-test.describe('S252 · custom trip — nav gating', () => {
+test.describe('custom trip — nav gating', () => {
   test('navbar desktop row shows the custom four, brand is the trip name, N×J links are gone', async ({
     page,
   }) => {
@@ -68,7 +68,7 @@ test.describe('S252 · custom trip — nav gating', () => {
 
     await expect(page.getByTestId('navbar-brand')).toHaveText('Bali Getaway');
 
-    // S320 (D-231): custom-trip primaries = Today · Plan · Map · Journal (Guides is
+    // D-231: custom-trip primaries = Today · Plan · Map · Journal (Guides is
     // defaultTripOnly → dropped; the vacated seat is refilled by the promoted Journal).
     for (const slug of ['today', 'plan', 'map', 'journal']) {
       await expect(page.getByTestId(`navbar-link-${slug}`)).toBeVisible();
@@ -84,7 +84,7 @@ test.describe('S252 · custom trip — nav gating', () => {
 
   /**
    * ⛔ THIS ASSERTION WAS INVERTED. It read `toHaveCount(0)` under this comment:
-   *   "S258: the concierge speaks a hardcoded N×J persona, so it is client-side gated to
+   *   "the concierge speaks a hardcoded N×J persona, so it is client-side gated to
    *    the default pack — absent on a custom trip."
    *
    * ✅ THAT GATE WAS LIFTED ON 2026-08-09 and the rationale no longer holds. The owner deployed
@@ -103,7 +103,7 @@ test.describe('S252 · custom trip — nav gating', () => {
    * could not tell the difference.
    *
    * So this test PROBES which build it met first — the same enabled-probe pattern as
-   * "S252 · default trip — nav unchanged" below and `travel-day-map.spec.ts`'s S343 test — reading
+   * "default trip — nav unchanged" below and `travel-day-map.spec.ts`'s probe test — reading
    * the reference mount on the DEFAULT trip, where presence depends only on the build. Then:
    *   wired build   → assert the trigger is PRESENT on the custom trip (the real proof), and
    *   unwired build → SKIP WITH A REASON, never a silent pass.
@@ -147,9 +147,9 @@ test.describe('S252 · custom trip — nav gating', () => {
     await expect(page.getByTestId('concierge-trigger')).toBeVisible();
   });
 
-  // S319: the "mobile hamburger panel drops N×J" test was removed with the hamburger.
+  // The "mobile hamburger panel drops N×J" test was removed with the hamburger.
   // Custom-trip mobile gating is now proven on the bottom tab bar (next test); the
-  // companion routes' mobile home is re-established by S320.
+  // companion routes' mobile home is the tab bar's More page.
 
   test('the bottom tab bar is the 5-tab custom set: Today/Plan/Map/Journal/More (D-231)', async ({
     page,
@@ -171,7 +171,7 @@ test.describe('S252 · custom trip — nav gating', () => {
       await expect(page.getByTestId(`tab-bar-${slug}`)).toHaveCount(0);
     }
 
-    // Axe pass on the gated tab bar (S252 evidence requirement).
+    // Axe pass on the gated tab bar (an acceptance requirement).
     const results = await new AxeBuilder({ page })
       .include('[data-testid="tab-bar"]')
       .withTags(['wcag2a', 'wcag2aa'])
@@ -206,7 +206,7 @@ test.describe('S252 · custom trip — nav gating', () => {
     await expect(card).toBeVisible();
     await expect(card).toContainText('This page belongs to the Nepal × Japan trip');
 
-    // S346: the primary action switches back to the default trip and reloads into the guide.
+    // The primary action switches back to the default trip and reloads into the guide.
     await expect(page.getByTestId('default-trip-only-switch')).toBeVisible();
 
     await page.getByTestId('default-trip-only-trips-link').click();
@@ -230,7 +230,7 @@ test.describe('custom trip: expense split roster is derived, not the hardcoded N
 
     // Open the fast-log dialog and expand the split panel.
     await expect(page.getByTestId('budget-panel')).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId('budget-view-tab-expenses').click(); // S322: log trigger is on the Expenses view
+    await page.getByTestId('budget-view-tab-expenses').click(); // log trigger is on the Expenses view
     await page.getByTestId('expense-log-open').click();
     await expect(page.getByTestId('expense-dialog')).toBeVisible();
     await page.getByTestId('expense-split-toggle').click();
@@ -246,8 +246,8 @@ test.describe('custom trip: expense split roster is derived, not the hardcoded N
   });
 });
 
-test.describe('S252 · default trip — nav unchanged', () => {
-  test('navbar top row + tab bar show the 4 shared primaries (S320: consolidated IA)', async ({
+test.describe('default trip — nav unchanged', () => {
+  test('navbar top row + tab bar show the 4 shared primaries (consolidated IA)', async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
@@ -257,7 +257,7 @@ test.describe('S252 · default trip — nav unchanged', () => {
     }
     await expect(page.getByTestId('navbar-brand')).toHaveText('Nepal × Japan');
 
-    // S258: concierge present on the default pack, but ONLY in a build where the
+    // Concierge present on the default pack, but ONLY in a build where the
     // Worker URL was configured (NEXT_PUBLIC_CONCIERGE_URL at build time). The standing net
     // serves the deploy-faithful out/ with it UNSET, so the trigger is legitimately absent
     // there; asserting visibility unconditionally made the net env-dependent (failed at the
@@ -280,7 +280,7 @@ test.describe('S252 · default trip — nav unchanged', () => {
       await expect(page.getByTestId(`tab-bar-${slug}`)).toBeVisible();
     }
 
-    // S319: the mobile hamburger is gone — no toggle, no mobile panel links.
+    // The mobile hamburger is gone — no toggle, no mobile panel links.
     await expect(page.getByTestId('navbar-menu-toggle')).toHaveCount(0);
   });
 });

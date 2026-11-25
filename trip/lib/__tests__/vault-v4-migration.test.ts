@@ -15,7 +15,7 @@ import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import type { DayPlan } from '@/lib/trip-data';
 
 /**
- * Sync v2 — Vault v3→v4 migration unit suite (S96; D-104 LOCKED).
+ * Sync v2 — Vault v3→v4 migration unit suite (D-104 LOCKED).
  *
  * Proves the appended v3→v4 backfill is a LOSSLESS additive migration: every legacy item
  * gains defaulted `rev`/`hlc`/`deleted` while every original field is preserved verbatim, and
@@ -71,7 +71,7 @@ afterEach(() => {
 
 describe('v3→v4 migration step', () => {
   it('is APPEND-ONLY: the shipped chain is [v2→v3, v3→v4, v4→v5] and CURRENT is 5 (D-095 append rule)', () => {
-    // S124 appended v4→v5 (D-139) and bumped CURRENT 4→5 — this change-detector tracks it in
+    // A later change appended v4→v5 (D-139) and bumped CURRENT 4→5 — this change-detector tracks it in
     // lockstep. The v3→v4 behavioral assertions in this file are byte-unchanged.
     expect(CURRENT_ITINERARY_VERSION).toBe(5);
     expect(itineraryMigrations.map((m) => [m.from, m.to])).toEqual([[2, 3], [3, 4], [4, 5]]);
@@ -177,7 +177,7 @@ describe('v3-blob → v3→v4 → LOSSLESS round-trip through saveItinerary/load
     expect(loaded[0].items[0].hlc).toBe(seedHlcFromLegacy('2026-07-01T10:00:00.000Z'));
 
     // 3. Persist the migrated value; the write path emits the CURRENT envelope (now v5 since
-    //    S124 — the save-version literal tracks CURRENT in lockstep; the round-trip losslessness
+    //    The save-version literal tracks CURRENT in lockstep; the round-trip losslessness
     //    proven below is byte-unchanged).
     saveItinerary(loaded, cfg);
     const onDisk = JSON.parse(localStorage.getItem(STORAGE_KEY)!);

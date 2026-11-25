@@ -2,10 +2,10 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S318 — "Log something different" inline quick-add (Lane T, T3).
+ * "Log something different" inline quick-add.
  *
- * Proves the S318 slot under the /travel checklist: reveal → type a title → an item lands on the
- * VIEWED day ALREADY checked `done` with the S316 "✓ Completed · <name>" footer, and SURVIVES a
+ * Proves the slot under the /travel checklist: reveal → type a title → an item lands on the
+ * VIEWED day ALREADY checked `done` with the "✓ Completed · <name>" footer, and SURVIVES a
  * reload (the client-side localStorage hard guarantee). Also pins the ≤2-field category path and
  * the no-display-name path (done but nameless, D-038).
  *
@@ -55,7 +55,7 @@ async function readItemByTitle(page: Page, title: string) {
   );
 }
 
-test.describe('S318 · "Log something different" quick-add', () => {
+test.describe('"Log something different" quick-add', () => {
   test('reveal → add a title → item lands pre-checked done + footer → survives reload', async ({ page }) => {
     await seedGuardedDay(page, { date: NEPAL_DAY, city: 'Kathmandu', country: 'nepal', items: [] });
     await gotoTravel(page, `?today=${NEPAL_DAY}`);
@@ -74,7 +74,7 @@ test.describe('S318 · "Log something different" quick-add', () => {
     await input.press('Enter');
 
     // The item shows in the checklist ALREADY done: the row's toggle exposes the "Mark not done"
-    // name (aria-pressed=true) and the S316 completion footer names the acting traveler (Alina).
+    // name (aria-pressed=true) and the completion footer names the acting traveler (Alina).
     const agenda = page.getByTestId('travel-agenda');
     await expect(agenda).toContainText('Found a street market');
     await expect(agenda.getByRole('button', { name: /^Mark not done: .*Found a street market/ })).toBeVisible();

@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S217 — pure docs-checklist core (D-016/D-099). `core/docs/model.ts` is framework-free; these
+ * Pure docs-checklist core (D-016/D-099). `core/docs/model.ts` is framework-free; these
  * tests pin the type guard, the built-in `DEFAULT_TEMPLATE` shape, the sanitizer (total, id/label/
  * section-required, dedupe by id, seed-template-when-empty, sync-field passthrough), the pure
  * transforms (`toggleItem`/`setNote` incl. the optional injected stamper), and the `docsCompletion`
- * selector S219 consumes. Every function must be TOTAL — a bad input degrades, never throws.
+ * selector the Trip Wrapped recap consumes. Every function must be TOTAL — a bad input degrades, never throws.
  */
 
 import {

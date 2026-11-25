@@ -2,13 +2,13 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S253 — universal vibe hero for custom (non-default-pack) trips.
+ * Universal vibe hero for custom (non-default-pack) trips.
  *
  * Proves, on the served static `out/` build:
  *   1. A traveler on a custom trip sees their OWN trip name + date range (+ destinations/vibe
  *      tagline) in the Home hero, never the "Nepal × Japan" branding or copy.
  *   2. At a 360×740 mobile viewport the countdown grid + primary CTA land above the fold and
- *      the page never overflows horizontally (S253 mobile-polish acceptance, both trip types).
+ *      the page never overflows horizontally (mobile-polish acceptance, both trip types).
  */
 
 const TOKEN = '11111111-2222-4333-8444-555566667777';
@@ -45,7 +45,7 @@ async function seedCustomTrip(page: Page) {
   );
 }
 
-test.describe('S253 — custom trip hero', () => {
+test.describe('custom trip hero', () => {
   test('shows the trip name + date range + destinations, no Nepal×Japan branding', async ({ page }) => {
     await seedCustomTrip(page);
     await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -64,14 +64,14 @@ test.describe('S253 — custom trip hero', () => {
     await expect(hero).toContainText('Testville × Sampleburg');
     await expect(hero).toContainText('Salt air, slow days, endless horizon.');
 
-    // S321 — the hero collapsed to ONE primary CTA. Pre-trip (this custom trip starts
+    // The hero collapsed to ONE primary CTA. Pre-trip (this custom trip starts
     // 2027-05-10) it is "Open Planner" → the universal /plan/ (works for any trip; there is
     // no longer a destinations CTA that would dangle to a nonexistent custom guide).
     await expect(page.getByRole('link', { name: 'Open Planner' })).toHaveAttribute('href', '/plan/');
   });
 
-  // S407 — the custom trip's PLANNER day header, on the served build. Two outputs are wrong here
-  // and this asserts against both: "Testville, Japan" (the pre-S407 nepal/japan ternary, which
+  // The custom trip's PLANNER day header, on the served build. Two outputs are wrong here
+  // and this asserts against both: "Testville, Japan" (the old nepal/japan ternary, which
   // named a country the traveller is nowhere near) and "Testville, Testville × Sampleburg" (the
   // naive fix — a custom leg's `countryLabel` IS `destinations.join(' × ')`, core/trips/custom.ts).
   // A single-leg trip's country label is constant across the trip, so it is simply omitted.
@@ -93,7 +93,7 @@ test.describe('S253 — custom trip hero', () => {
   }) => {
     // reducedMotion: the hero's entrance reveals move the countdown cells, which jitters
     // boundingBox() row-y comparisons on a live run; 'reduce' collapses them (D-179 guarantees
-    // the reduced layout is identical). (S354 deleted the cells' `.animate-pulse-glow` loop,
+    // the reduced layout is identical). (the cells' `.animate-pulse-glow` loop was deleted,
     // which this note used to cite — the entrance motion is the remaining reason to pin it.)
     // serviceWorkers blocked per the standing SW-stub memory rule.
     const context = await browser.newContext({
@@ -113,7 +113,7 @@ test.describe('S253 — custom trip hero', () => {
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(360);
 
-    // `grid-cols-3 sm:flex` (S253 mobile polish): the countdown cells lay out 3 to a row at
+    // `grid-cols-3 sm:flex` (mobile polish): the countdown cells lay out 3 to a row at
     // this width. The first 3 share one row, the 4th starts the next.
     //
     // Read by POSITION: zero calendar units are not rendered (issue #11); the frozen date

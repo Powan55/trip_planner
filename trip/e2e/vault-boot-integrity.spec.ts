@@ -6,7 +6,7 @@ import { seedLiveVault, PLACEHOLDER_DUMP_PATH } from './fixtures/live-v5-vault/l
 /**
  * Issue #231 — vault boot integrity, CI-runnable half.
  *
- * `live-vault-acceptance.spec.ts` (S193) proves byte-identity across a boot +
+ * `live-vault-acceptance.spec.ts` proves byte-identity across a boot +
  * two reloads, but only against the REAL captured dump — it `test.skip`s its
  * entire suite in CI (the dump is gitignored, local-only). `live-v5-vault-loader.spec.ts`
  * runs in CI on the committed PLACEHOLDER dump, but only proves the loader
@@ -15,7 +15,7 @@ import { seedLiveVault, PLACEHOLDER_DUMP_PATH } from './fixtures/live-v5-vault/l
  * Neither one, in CI, proves a read-only boot leaves KEYS THE USER DID NOT
  * TOUCH byte-identical across multiple reloads, with zero console errors and
  * no falsely-triggered quarantine. This spec is that structural half — same
- * assertions as S193's byte-identity/quarantine/console-error checks, on the
+ * assertions as its byte-identity/quarantine/console-error checks, on the
  * committed PLACEHOLDER dump instead of the real one, so it actually runs on
  * every PR.
  *
@@ -34,7 +34,7 @@ const CORRUPT_KEY = 'nepal_japan_itinerary_corrupt';
 const dump: { localStorage: Record<string, string>; sessionStorage: Record<string, string> } =
   JSON.parse(fs.readFileSync(PLACEHOLDER_DUMP_PATH, 'utf-8'));
 
-/** Wait for the lazy CalendarPlanner island (persistence.spec.ts FU-15 idiom). */
+/** Wait for the lazy CalendarPlanner island (persistence.spec.ts idiom). */
 async function waitForPlannerReady(page: Page) {
   await page.locator('[data-testid^="calendar-day-"]').first().waitFor({ state: 'visible' });
 }

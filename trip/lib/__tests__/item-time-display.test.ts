@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
-// S125 — the ONE display rule (D-137/D-138) exercised in isolation
-// from any component. Reuses S124's core helpers only; adds no new parsing/math.
+// The ONE display rule (D-137/D-138) exercised in isolation
+// from any component. Reuses the core time helpers only; adds no new parsing/math.
 
 import { describeItemTime } from '@/lib/item-time-display';
 import { TRIP_ITINERARY } from '@/core/content/itinerary';
@@ -14,7 +14,7 @@ function mk(fields: Partial<ItineraryItem>): ItineraryItem {
 }
 
 /**
- * S390-A — pull a REAL seeded item out of the shipped content pack by id.
+ * Pull a REAL seeded item out of the shipped content pack by id.
  *
  * 🔴 Deliberately NOT `mk({ tzOffsetMin: -300 })`. A hand-built item tests the FUNCTION and
  * never touches the seed, so it stays green even if `j22-5` never carried `tzOffsetMin` at
@@ -74,9 +74,9 @@ describe('describeItemTime — display rule', () => {
 });
 
 /**
- * S390-A → S393 — the badge must name the zone the item is ACTUALLY in.
+ * The badge must name the zone the item is ACTUALLY in.
  *
- * S390-A stopped the lie by suppressing the badge on an override item; S393 (D-137 AMENDED,
+ * A first fix stopped the lie by suppressing the badge on an override item; D-137 (AMENDED,
  * owner-signed) finishes the job by naming the real zone. The assertions below moved from
  * `badge: null` to the real abbreviation ON PURPOSE — `null` is no longer the right answer for
  * a KNOWN offset, only for an unknown one.
@@ -85,7 +85,7 @@ describe('describeItemTime — display rule', () => {
  *   · `j22-5` is the Detroit layover (`tzOffsetMin: -300`) logged on a `country: 'japan'` day.
  *     Badging it JST claimed a time 14 hours away from the one the item actually means; badging
  *     it nothing left it reading as JST by context. It must say EST. FAILS on BOTH earlier
- *     versions of the code (pre-S390-A said 'JST', S390-A said null).
+ *     versions of the code (the original said 'JST', the first fix said null).
  *   · `j22-4` is its SAME-DAY sibling with no override. It is the control: it fails on the
  *     over-broad "fix" (re-derive the badge for every item, or drop the day-country path), which
  *     would otherwise read as a pass. It must still say JST.
@@ -95,7 +95,7 @@ describe('describeItemTime — display rule', () => {
  * 🔴 The time itself is NEVER converted (D-137's surviving core rule): `j22-5` still reads
  * "3:35 PM", the wall-clock in Detroit — only the label attached to it changed.
  */
-describe('describeItemTime — S393: an item in another zone is badged with its REAL zone', () => {
+describe('describeItemTime — an item in another zone is badged with its REAL zone', () => {
   const LAST_DAY = '2027-01-09';
 
   it('a seeded item with its own tzOffsetMin renders its OWN zone, not the day’s', () => {
@@ -229,7 +229,7 @@ describe('#243 describeItemTime — a custom trip never borrows the device zone'
 
   it('a per-item tzOffsetMin is a real declaration and still badges on a custom trip', async () => {
     // The control against over-suppressing (blanket "no badge on a custom trip"). -300 here is the
-    // ITEM's own asserted offset, not the device's, so S393 still applies and it must say EST.
+    // ITEM's own asserted offset, not the device's, so the real-zone rule still applies and it must say EST.
     const describe243 = await loadUnderCustomTrip();
     expect(describe243(mk({ startMinutes: 935, tzOffsetMin: -300 }), PARIS_DAY)).toEqual({
       label: '3:35 PM',

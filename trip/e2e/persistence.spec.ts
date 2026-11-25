@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * Persistence hard-guarantee E2E pack (slice S81, D-018) — E2E wave 1.
+ * Persistence hard-guarantee E2E pack (D-018).
  *
  * Covers the acceptance centerpiece:
  *   - itinerary CRUD (create/edit/delete) on the `/plan` calendar survives `page.reload()`
@@ -53,7 +53,7 @@ import type { Page } from '@playwright/test';
  * here) — worked around at the spec level by: (a) navigating with a bounded
  * `waitUntil: 'domcontentloaded'` and then blocking on a REAL readiness signal
  * (`waitForPlannerReady` — the lazy island's `calendar-day-*` grid is present, not
- * the skeleton), see FU-15 below; (b) typing into the editor's title field with
+ * the skeleton), see the de-flake note below; (b) typing into the editor's title field with
  * `pressSequentially` (real per-keystroke input) rather than `.fill()` (a
  * synchronous value-set) — `.fill()` was reproducibly implicated in the same
  * dialog-closes-early symptom in isolation; and (c) scrolling the footer out of the
@@ -64,12 +64,12 @@ import type { Page } from '@playwright/test';
  * it while open, covering the in-editor instance of (c). See `typeEditorTitle`
  * below, which no longer needs the wheel workaround for that reason.
  *
- * ── FU-15 (S114): the D-093 CRUD-then-reload flake, de-flaked at the source ────
+ * ── The D-093 CRUD-then-reload flake, de-flaked at the source ────
  * D-093 originally showed as `calendar-item-* resolved to 0 elements` right after a
  * reload — the freshly-hydrated card detaching in a remount window driven by the
  * service worker's first-install `clients.claim()` reload PLUS the `ssr:false`
- * lazy-mount. S113E (`4026d29`) removed the SW first-install reload (guarded by
- * `hadController`), shrinking that remount window. On the post-S113E tree the flake
+ * lazy-mount. `4026d29` removed the SW first-install reload (guarded by
+ * `hadController`), shrinking that remount window. Since then the flake
  * no longer reproduces as a detach; it re-surfaced under load as a `page.goto ...
  * waiting until "networkidle"` TIMEOUT, because the production SW precaches ~80
  * entries on install + runs update checks, so `networkidle` is not a deterministic
@@ -95,7 +95,7 @@ const FIXTURE_DAY = '2026-12-20';
  * `next/dynamic({ssr:false})` island has hydrated and REPLACED the
  * `SectionSkeleton` fallback (the skeleton is `aria-hidden` and carries a
  * `data-loading` attr, never a `calendar-day-*`). This is the deterministic
- * readiness signal that replaces `waitUntil:'networkidle'` — see the FU-15 note
+ * readiness signal that replaces `waitUntil:'networkidle'` — see the de-flake note
  * in the harness block above.
  */
 async function waitForPlannerReady(page: Page) {
@@ -104,7 +104,7 @@ async function waitForPlannerReady(page: Page) {
 
 /**
  * Navigate to a route and wait for the planner island to be mounted.
- * FU-15 (S114): navigation waits only for `domcontentloaded` (a bounded,
+ * Navigation waits only for `domcontentloaded` (a bounded,
  * deterministic milestone) and then blocks on the real readiness signal
  * (`waitForPlannerReady`). It deliberately does NOT wait on `networkidle`: the
  * production service worker precaches ~80 entries on install and runs periodic
@@ -258,7 +258,7 @@ test.describe('D-018 persistence hard guarantee — itinerary CRUD x reload', ()
     ).toHaveCount(0);
   });
 
-  // S127: delete → sonner Undo toast → click Undo → item reappears → reload → it persists.
+  // Delete → sonner Undo toast → click Undo → item reappears → reload → it persists.
   // Dormant `out/` build: restore is a same-id re-add (D-038), so the SAME card comes back and
   // survives reload exactly like any created item.
   test('delete an item, click Undo, it reappears and survives reload', async ({ page }) => {
@@ -357,16 +357,16 @@ test.describe('D-018 delete-all-stays-empty (THE centerpiece)', () => {
     const raw = await page.evaluate((key) => window.localStorage.getItem(key), ITINERARY_KEY);
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw as string);
-    // S90 (D-095): the UI deletes committed through savePlans(), which
+    // D-095: the UI deletes committed through savePlans(), which
     // now persists the Vault envelope, so the raw on-disk value is the envelope, not a
     // bare array. Assert the envelope shape and read the day plan from `.payload`. The
     // behavioral guarantee (fixture day has 0 items after delete-all + reload) is unchanged.
-    // S96/D-104 → S124/D-139: CURRENT_ITINERARY_VERSION bumped 4→5 (structured-time migration),
+    // D-104 → D-139: CURRENT_ITINERARY_VERSION bumped 4→5 (structured-time migration),
     // so the on-disk envelope is now v5. Version-literal change-detector only — the behavioral
     // guarantee (fixture day has 0 live items after delete-all + reload) is byte-unchanged.
     expect(parsed.schemaVersion).toBe(5);
     const fixtureDayPlan = parsed.payload.find((p: { date: string }) => p.date === FIXTURE_DAY);
-    // S97/D-106: in the SYNC-configured build a deleted item is retained as a TOMBSTONE
+    // D-106: in the SYNC-configured build a deleted item is retained as a TOMBSTONE
     // (deleted:true) in the raw payload so the delete can propagate to friends; the UI filters
     // tombstones (0 VISIBLE items already asserted at :271-:281 + across reload). The DORMANT
     // build physically removes (0 items at all). Assert zero LIVE (non-tombstone) items so the
@@ -379,11 +379,11 @@ test.describe('D-018 delete-all-stays-empty (THE centerpiece)', () => {
   });
 });
 
-// S129 clear-whole-day: a confirm-gated "Clear day" that removes every item on the selected
+// Clear-whole-day: a confirm-gated "Clear day" that removes every item on the selected
 // day in one action, shows the empty-state, and never re-seeds across reload (D-018). The undo
 // toast restores the full list. Dormant `out/` build: clear physically empties, restore is a
 // same-id re-add — the SAME cards come back and survive reload.
-test.describe('S129 clear-whole-day (confirm + undo, D-018 no-reseed)', () => {
+test.describe('clear-whole-day (confirm + undo, D-018 no-reseed)', () => {
   test('clear a whole day via confirm → empty state → reload → still empty (no re-seed)', async ({
     page,
   }) => {

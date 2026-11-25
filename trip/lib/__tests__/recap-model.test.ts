@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S105 — pure recap core (D-016/D-099). `core/recap/model.ts` is framework-free; these tests pin
+ * Pure recap core (D-016/D-099). `core/recap/model.ts` is framework-free; these tests pin
  * the two total functions:
- *   - `summarizePlan(items)` → { planned, done }: counts activities + the done subset (S98's
+ *   - `summarizePlan(items)` → { planned, done }: counts activities + the done subset (the Today panel's
  *     `item.done === true`), total over null/non-array/corrupt-entry inputs (never throws).
  *   - `elapsedTripDates(nowDateStr)`: the trip days that have already happened as of the clock —
  *     `TRIP_DATES` filtered to `<= nowDateStr` (lexicographic == chronological for YYYY-MM-DD).
@@ -148,7 +148,7 @@ describe('elapsedTripDates', () => {
   });
 });
 
-describe('sumExpensesForDate (S153 — the recap↔budget spend line)', () => {
+describe('sumExpensesForDate (the recap↔budget spend line)', () => {
   function expense(over: Partial<Expense> = {}): Expense {
     return {
       id: over.id ?? 'e1',
@@ -234,7 +234,7 @@ describe('sumExpensesForDate (S153 — the recap↔budget spend line)', () => {
   });
 });
 
-describe('isPostTrip (S156 — the post-trip mode derivation)', () => {
+describe('isPostTrip (the post-trip mode derivation)', () => {
   it('pre-trip: a clock before the trip starts is NOT post-trip', () => {
     expect(isPostTrip('2026-12-01')).toBe(false);
     expect(isPostTrip('2026-11-15')).toBe(false);

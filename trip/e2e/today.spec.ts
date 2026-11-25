@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S98 — the Today screen E2E pack.
+ * The Today screen E2E pack.
  *
  * The Today panel (`components/today-panel.tsx`) is a HOME-page island that renders
  * ONLY when the app clock is inside the trip window (via `getTodayInTrip()`, incl. the
@@ -91,7 +91,7 @@ async function seedTodayFixture(page: Page) {
   );
 }
 
-test.describe('S98 — the Today panel (in-trip gating + done-tracking)', () => {
+test.describe('the Today panel (in-trip gating + done-tracking)', () => {
   test('in-trip: the Today panel renders today\'s agenda (Day N — city header + items)', async ({
     page,
   }) => {
@@ -137,7 +137,7 @@ test.describe('S98 — the Today panel (in-trip gating + done-tracking)', () => 
       const raw = window.localStorage.getItem(key);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      // Post-S90 the on-disk value is the Vault envelope; payload holds the DayPlan[].
+      // The on-disk value is the Vault envelope; payload holds the DayPlan[].
       const days = Array.isArray(parsed) ? parsed : parsed.payload;
       const item = days.flatMap((d: { items: { id: string; done?: boolean }[] }) => d.items).find(
         (i: { id: string }) => i.id === 't98-1',

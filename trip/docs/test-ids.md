@@ -1,6 +1,6 @@
-# `data-testid` registry (S79)
+# `data-testid` registry
 
-Stable, documented selector contract for the Playwright E2E waves (S80–S84). This
+Stable, documented selector contract for the Playwright E2E specs. This
 is a purely additive, non-visual pass: every id below is an attribute added to
 an existing DOM node, and nothing else about the markup, styling, or behavior
 changed.
@@ -53,22 +53,22 @@ above the grid reads "Countdown to day one".
 | testid | element | notes |
 |---|---|---|
 | `navbar` | the `<nav>` root | |
-| `navbar-link-today` / `navbar-link-plan` / `navbar-link-map` / `navbar-link-guides` | desktop nav `<Link>`s | Derived from `item.label.toLowerCase()` via `primaryItemsForActiveTrip()` (`lib/nav-items.ts`); only visible `md:` and up. The top row is **four** primaries on the default trip (Today · Plan · Map · Guides). On a **custom** trip the `defaultTripOnly` `Guides` seat is dropped and refilled by the one `customPrimary` companion, so the fourth id becomes `navbar-link-journal`. Every other destination (Flights, Journal, Safety, Recap, Packing, Documents, Shared Links, Trips, Settings) lives behind the desktop "More" disclosure, see `navbar-more-toggle` below. Historical: this row read `navbar-link-home / -plan / -flights / -nepal / -japan / -map` until S320 renamed Home→Today, fronted Nepal/Japan behind `/guides/`, and dropped Flights to a companion. |
+| `navbar-link-today` / `navbar-link-plan` / `navbar-link-map` / `navbar-link-guides` | desktop nav `<Link>`s | Derived from `item.label.toLowerCase()` via `primaryItemsForActiveTrip()` (`lib/nav-items.ts`); only visible `md:` and up. The top row is **four** primaries on the default trip (Today · Plan · Map · Guides). On a **custom** trip the `defaultTripOnly` `Guides` seat is dropped and refilled by the one `customPrimary` companion, so the fourth id becomes `navbar-link-journal`. Every other destination (Flights, Journal, Safety, Recap, Packing, Documents, Shared Links, Trips, Settings) lives behind the desktop "More" disclosure, see `navbar-more-toggle` below. Historical: this row read `navbar-link-home / -plan / -flights / -nepal / -japan / -map` until D-231 renamed Home→Today, fronted Nepal/Japan behind `/guides/`, and dropped Flights to a companion. |
 
-> S319: the mobile full-screen hamburger (`navbar-menu-toggle` + the `#mobile-nav-menu` panel with its `navbar-link-mobile-*` links) was deleted, so the bottom tab bar (section 4) is the sole mobile nav. On `<md` the navbar renders only the brand, the desktop-hidden clusters, and the Travel Mode entry. Companion routes' mobile home is re-established by S320.
+> The mobile full-screen hamburger (`navbar-menu-toggle` + the `#mobile-nav-menu` panel with its `navbar-link-mobile-*` links) was deleted, so the bottom tab bar (section 4) is the sole mobile nav. On `<md` the navbar renders only the brand, the desktop-hidden clusters, and the Travel Mode entry. Companion routes' mobile home is the `/more/` page (D-231).
 
 ## 4. Bottom tab bar: `components/bottom-tab-bar.tsx` (all routes, `<md` only)
 
 | testid | element | notes |
 |---|---|---|
 | `tab-bar` | the `<nav>` root | `md:hidden`. |
-| `tab-bar-today` / `tab-bar-plan` / `tab-bar-map` / `tab-bar-guides` / `tab-bar-more` | each tab `<Link>` | Derived the same way as the navbar (`item.label.toLowerCase()`), from `primaryItemsForActiveTrip()` plus a synthetic `MORE_TAB` (`components/bottom-tab-bar.tsx`, `{ label: 'More', href: '/more/' }`) appended last. **Five** tabs, which is what holds the D-071 ≥44px-at-360px floor. On a custom trip the fourth id is `tab-bar-journal` (the `Guides` seat is `defaultTripOnly`). Every other destination lives on the `/more/` page, which renders `navItemsForActiveTrip()` minus the primaries, and in the command palette. Build-output note: this id is a template literal (`` `tab-bar-${item.label.toLowerCase()}` ``) evaluated at render time, so a static grep of the emitted JS bundle finds the template expression, not the pre-concatenated string `"tab-bar-plan"`. The literal id is what actually lands in the DOM at runtime. Historical: this row read `tab-bar-home / -plan / -flights / -nepal / -japan / -map` (6 tabs) until S320. |
+| `tab-bar-today` / `tab-bar-plan` / `tab-bar-map` / `tab-bar-guides` / `tab-bar-more` | each tab `<Link>` | Derived the same way as the navbar (`item.label.toLowerCase()`), from `primaryItemsForActiveTrip()` plus a synthetic `MORE_TAB` (`components/bottom-tab-bar.tsx`, `{ label: 'More', href: '/more/' }`) appended last. **Five** tabs, which is what holds the D-071 ≥44px-at-360px floor. On a custom trip the fourth id is `tab-bar-journal` (the `Guides` seat is `defaultTripOnly`). Every other destination lives on the `/more/` page, which renders `navItemsForActiveTrip()` minus the primaries, and in the command palette. Build-output note: this id is a template literal (`` `tab-bar-${item.label.toLowerCase()}` ``) evaluated at render time, so a static grep of the emitted JS bundle finds the template expression, not the pre-concatenated string `"tab-bar-plan"`. The literal id is what actually lands in the DOM at runtime. Historical: this row read `tab-bar-home / -plan / -flights / -nepal / -japan / -map` (6 tabs) until D-231. |
 
 ## 5. Quick-add FAB: `components/quick-add-fab.tsx` (most routes, `<md` only)
 
 | testid | element | notes |
 |---|---|---|
-| `quick-add-fab` | the floating action `<button>` | `md:hidden`. Hides itself while `document.body.dataset.dialogOpen === '1'` (i.e. while any dialog/sheet is open); that is existing behavior, unchanged. It is route-suppressed (absent from the DOM, not merely hidden) under `/travel` (D-164) and, since S357C, under `/plan`, which has its own S357A sticky composer. So a spec that needs the FAB must host itself on a route where it renders (`/` is the canonical choice); `/plan/` is no longer such a route. |
+| `quick-add-fab` | the floating action `<button>` | `md:hidden`. Hides itself while `document.body.dataset.dialogOpen === '1'` (i.e. while any dialog/sheet is open); that is existing behavior, unchanged. It is route-suppressed (absent from the DOM, not merely hidden) under `/travel` (D-164) and under `/plan`, which has its own sticky composer. So a spec that needs the FAB must host itself on a route where it renders (`/` is the canonical choice); `/plan/` is no longer such a route. |
 
 ## 6. Add-to-itinerary dialog: `components/add-to-itinerary-dialog.tsx` (portal, any route with a place card or the FAB)
 
@@ -80,8 +80,8 @@ above the grid reads "Countdown to day one".
 | `add-item-location-input` | Location `<input>` | Custom mode only, same as above. |
 | `add-item-maps-link` | the "Search on Google Maps" `<a>` (or disabled `<span>` fallback, same id either state) | Custom mode only. The `<a>` variant appears once Title is non-empty and the disabled `<span>` appears when Title is empty; same testid either way, with `href` presence / `aria-disabled` distinguishing state. |
 | `add-item-day-select` | the Date `<select>` | Present in both source and custom mode. |
-| `add-item-time-input` | S125: the `TimePicker` trigger `<button>` (was a free-text `<input>` pre-S125) | Present in both modes. Opens the picker overlay (section 22). |
-| `add-item-duration-input` | S125: the `DurationField` minutes `<input type="number">` (was free text pre-S125) | Present in both modes. |
+| `add-item-time-input` | the `TimePicker` trigger `<button>` (was a free-text `<input>` before D-141) | Present in both modes. Opens the picker overlay (section 22). |
+| `add-item-duration-input` | the `DurationField` minutes `<input type="number">` (was free text before D-141) | Present in both modes. |
 | `add-item-confirm` | the "Add to plan" / "Update plan" submit `<button>` | Present in both modes; `disabled` in custom mode until Title is non-empty (D-074). |
 
 ## 7. Place detail sheet: `components/place-detail-sheet.tsx` (portal, opened from a guide/nightlife/map card)
@@ -94,7 +94,7 @@ above the grid reads "Countdown to day one".
 
 ## 8. Guide filters: `components/recommendation-section.tsx` (routes: `/nepal`, `/japan`, and any embedding page)
 
-S322G collapsed the facets into one sheet. The sort `<select>`, city chips,
+The facets are collapsed into one sheet. The sort `<select>`, city chips,
 Saved/Planned chips and category chips are no longer permanently stacked above the grid:
 they live inside a "Filters · n" sheet (a D-021 modal with portal, focus trap, Escape and
 focus return, the same primitive as `PlaceDetailSheet`). Every chip testid below is
@@ -105,21 +105,21 @@ The search input stays pinned above the grid (a query, not a facet) and is alway
 | testid | element | notes |
 |---|---|---|
 | `guide-search-input` | the search `<input type="search">` | Pinned above the grid (not in the filters sheet) and always present. |
-| `guide-filters-trigger` | the single "Filters · n" `<button>` that opens the sheet (S322G) | Pinned next to the search input. `aria-haspopup="dialog"`, `aria-expanded` tracks the sheet, and `aria-label` reflects the active-facet count (`"Filters"` at 0, else `"Filters, N active"`). A count badge renders when N>0. N = active sheet facets (category≠All + city≠All + savedOnly + plannedOnly + sort≠default); search is not counted. |
-| `guide-filters-sheet` | the filters sheet panel `<div role="dialog">` (S322G) | Portaled to `document.body`; only in the DOM while open (`AnimatePresence`). Traps Tab, closes on Escape, returns focus to `guide-filters-trigger`. |
-| `guide-filters-close` | the sheet's X close `<button>` (S322G) | `aria-label="Close filters"`. |
-| `guide-filters-clear` | the sheet's "Clear all" `<button>` (S322G) | Resets every facet and the sort; disabled when N=0. Distinct from the empty-state "Clear filters" button (which stays in the grid, uses `resetFilters`, and does not reset sort). |
-| `guide-filters-apply` | the sheet's "Show N results" `<button>` (S322G) | Applies (closes) the sheet; label shows the live `filtered.length`. |
+| `guide-filters-trigger` | the single "Filters · n" `<button>` that opens the sheet | Pinned next to the search input. `aria-haspopup="dialog"`, `aria-expanded` tracks the sheet, and `aria-label` reflects the active-facet count (`"Filters"` at 0, else `"Filters, N active"`). A count badge renders when N>0. N = active sheet facets (category≠All + city≠All + savedOnly + plannedOnly + sort≠default); search is not counted. |
+| `guide-filters-sheet` | the filters sheet panel `<div role="dialog">` | Portaled to `document.body`; only in the DOM while open (`AnimatePresence`). Traps Tab, closes on Escape, returns focus to `guide-filters-trigger`. |
+| `guide-filters-close` | the sheet's X close `<button>` | `aria-label="Close filters"`. |
+| `guide-filters-clear` | the sheet's "Clear all" `<button>` | Resets every facet and the sort; disabled when N=0. Distinct from the empty-state "Clear filters" button (which stays in the grid, uses `resetFilters`, and does not reset sort). |
+| `guide-filters-apply` | the sheet's "Show N results" `<button>` | Applies (closes) the sheet; label shows the live `filtered.length`. |
 | `guide-sort-select` | the sort `<select>` | Now inside `guide-filters-sheet`. |
 | `guide-filter-city-<value>` | each city filter chip `<button>` | Inside `guide-filters-sheet`. Only rendered when the data set has more than one city (`cities.length > 2`, i.e. more than "All" + 1). `<value>` is `city.toLowerCase()`, e.g. `guide-filter-city-all`, `guide-filter-city-kathmandu`. |
 | `guide-filter-category-<value>` | each category filter chip `<button>` | Inside `guide-filters-sheet`. Always rendered (one per `categories` prop entry incl. "All"). `<value>` is `cat.toLowerCase()`, e.g. `guide-filter-category-all`, `guide-filter-category-food`. |
-| `guide-filter-saved` | the "Saved" filter chip `<button>` (S149) | Inside `guide-filters-sheet`. Only rendered once favorites (`hooks/use-favorites.ts`) have hydrated and this section has >= 1 favorited item; `aria-pressed` reflects the `savedOnly` toggle. Cuts across categories (a separate boolean, not folded into `guide-filter-category-*`). |
+| `guide-filter-saved` | the "Saved" filter chip `<button>` | Inside `guide-filters-sheet`. Only rendered once favorites (`hooks/use-favorites.ts`) have hydrated and this section has >= 1 favorited item; `aria-pressed` reflects the `savedOnly` toggle. Cuts across categories (a separate boolean, not folded into `guide-filter-category-*`). |
 | `guide-results` | the results grid `<div>` | Only rendered when `filtered.length > 0`. |
 | `guide-empty-state` | the empty-state `<div>` | Only rendered when `filtered.length === 0` (i.e. the active search/city/category combination matches nothing); includes the "Clear filters" reset button. |
 | `guide-card-<id>` | each result card's clickable button (opens the detail sheet) | `<id>` is the recommendation's own `item.id` (stable, from the underlying data set), chosen over a positional index so filtering/sorting never invalidates a selector. |
-| `guide-favorite-<id>` | each card's favorite/bookmark toggle `<button>` (S149) | Sibling of the card's `AddToPlanButton`, not nested in the `guide-card-<id>` button. `<id>` is `item.id`. `aria-pressed` reflects favorited state; only rendered once `hooks/use-favorites.ts` has hydrated (`favoritesReady`), so server/first-client-paint always match (no hydration mismatch). |
-| `guide-tilt-<id>` | each card's outer `m.div`, the 3D-tilt target (S215) | `<id>` is `item.id`. Carries `data-tilt-enabled` (`"true"` normally, `"false"` under `prefers-reduced-motion`, the D-007/D-056b hard guard). Pointer move over it (desktop) / device orientation (mobile) springs `rotateX`/`rotateY`; at rest it is rotate-0 (visually identity). |
-| `guide-tilt-optin` | the section's iOS motion-tilt opt-in `<button>` (S215) | Rendered once per section, and only on browsers that gate the sensor behind `DeviceOrientationEvent.requestPermission` (iOS 13+), not yet granted, motion allowed. Absent on desktop/Android and under reduced motion. Tapping it requests the sensor permission from a user gesture. |
+| `guide-favorite-<id>` | each card's favorite/bookmark toggle `<button>` | Sibling of the card's `AddToPlanButton`, not nested in the `guide-card-<id>` button. `<id>` is `item.id`. `aria-pressed` reflects favorited state; only rendered once `hooks/use-favorites.ts` has hydrated (`favoritesReady`), so server/first-client-paint always match (no hydration mismatch). |
+| `guide-tilt-<id>` | each card's outer `m.div`, the 3D-tilt target | `<id>` is `item.id`. Carries `data-tilt-enabled` (`"true"` normally, `"false"` under `prefers-reduced-motion`, the D-007/D-056b hard guard). Pointer move over it (desktop) / device orientation (mobile) springs `rotateX`/`rotateY`; at rest it is rotate-0 (visually identity). |
+| `guide-tilt-optin` | the section's iOS motion-tilt opt-in `<button>` | Rendered once per section, and only on browsers that gate the sensor behind `DeviceOrientationEvent.requestPermission` (iOS 13+), not yet granted, motion allowed. Absent on desktop/Android and under reduced motion. Tapping it requests the sensor permission from a user gesture. |
 
 No dedicated `guide-result-count` element exists (there is no single "N results"
 line). An E2E author wanting a count can read the live per-chip counts (already
@@ -133,19 +133,19 @@ under `guide-results`.
 | `map-shell` | the persistent map-host `<div>` (contains the MapLibre canvas) | Always in the DOM; toggles between an inline-slot layout and a fullscreen (fixed inset-0) layout via `isFullscreen`, same node either way (D-069 relocation pattern). Worth flagging for anyone still holding the "map is a mock" project note: this component now renders a real MapLibre GL map with real geodata. Issue #1 adds the seam for what the overlay is actually DRAWING, since the route lives in WebGL and is invisible to the DOM: `data-route-day` = the trip date whose stops are drawn (empty = the whole trip, or the overlay is off) and `data-route-stop-ids` = those stops' marker ids, comma-joined, in drawn order (the `travel-day-map` `data-stop-ids` idiom — ids, not a count, so "the pins changed" is distinguishable from "the pins happen to number the same"). A day set with no ids is an EMPTY day; no day and no ids is the overlay switched off. |
 | `map-fullscreen-toggle` | the expand/collapse `<button>` (top-left, over the map) | |
 | `map-filter-<value>` | each category filter chip `<button>` | `<value>` is `value.toLowerCase().replace(/\s+/g,'-')`, e.g. `map-filter-all`, `map-filter-attraction`, `map-filter-photo-spot` (for the "Photo Spot" category), `map-filter-day-trip`. |
-| `map-itinerary-toggle` | the "My itinerary" overlay `<button>` | `aria-pressed` reflects on/off. S381 (D-279): `data-stop-count` now counts exactly-placed plans, not "stops shown". Under D-278's ladder every plan is shown, so the old shown-vs-total ratio was always N === M, a number that could no longer fail. `data-total-count` is unchanged (all plans). The visible text (`map-itinerary-count`) reads "· N of M plans exactly placed". |
+| `map-itinerary-toggle` | the "My itinerary" overlay `<button>` | `aria-pressed` reflects on/off. D-279: `data-stop-count` now counts exactly-placed plans, not "stops shown". Under D-278's ladder every plan is shown, so the old shown-vs-total ratio was always N === M, a number that could no longer fail. `data-total-count` is unchanged (all plans). The visible text (`map-itinerary-count`) reads "· N of M plans exactly placed". |
 | `map-itinerary-count` | the count `<span>` inside the toggle (`aria-hidden`, rendered only while the overlay is on) | "· N of M plans exactly placed", where N = pins/sourceIds/name matches and M = every plan. |
-| `map-stop-popup` | the popup body for a drawn itinerary stop (S381), portaled into the MapLibre popup | `data-approximate` (`"true"`/`"false"`), `data-derived-from` = the verbatim text an approximate coordinate came from. Lists every plan sharing that point (D-278 per-coordinate dedupe). Only on `/map` (`enableStopPopup`); a stop that is one of the 27 curated markers keeps the curated popup. Issue #1: the heading reads "Day N · Stop M" — M is the number drawn on the pin (its position within that day), so the canvas number is checkable against the popup. |
+| `map-stop-popup` | the popup body for a drawn itinerary stop, portaled into the MapLibre popup | `data-approximate` (`"true"`/`"false"`), `data-derived-from` = the verbatim text an approximate coordinate came from. Lists every plan sharing that point (D-278 per-coordinate dedupe). Only on `/map` (`enableStopPopup`); a stop that is one of the 27 curated markers keeps the curated popup. Issue #1: the heading reads "Day N · Stop M" — M is the number drawn on the pin (its position within that day), so the canvas number is checkable against the popup. |
 | `map-stop-approx-note` | the "Approximate — placed from …" `<p>` inside that popup | Present only when `data-approximate="true"`; quotes `derivedFrom` verbatim (D-279). |
-| `map-stop-set-pin` | the "Set an exact pin in the planner" link in that popup | The affordance to fix an approximate position (D-279). Goes to `/plan/`, where the S357B pin picker lives. No second picker was built. |
+| `map-stop-set-pin` | the "Set an exact pin in the planner" link in that popup | The affordance to fix an approximate position (D-279). Goes to `/plan/`, where the pin picker lives. No second picker was built. |
 
 Marker popups (MapLibre `Popup` DOM, portaled per-click) and the fullscreen portal
 slot were left untagged: they are ephemeral, imperatively-created nodes outside this
-pass's target list. Say so if a later E2E wave needs a popup-content hook.
+pass's target list. Say so if a later E2E spec needs a popup-content hook.
 
 ## 10. Nightlife (bonus): `components/nightlife-section.tsx` (routes: `/nepal`, `/japan`; not mounted on `/`)
 
-S113 made this traveler-gated. The whole section (root included) renders `null` unless
+The section is traveler-gated. The whole section (root included) renders `null` unless
 `useActiveTraveler().traveler` is non-null, i.e. a signed-in traveler (a nickname identity). With
 no guest mode (D-241), `traveler === null` only ever means "not mounted yet" in practice:
 TokenGate's wall blocks every other case, so an unidentified visitor never reaches this route at
@@ -154,13 +154,13 @@ either way.
 
 | testid | element | notes |
 |---|---|---|
-| `nightlife-section` | the `<section>` root | absent entirely until a traveler is signed in (S113) |
+| `nightlife-section` | the `<section>` root | absent entirely until a traveler is signed in |
 | `nightlife-add-<id>` | each venue card's clickable button (opens the detail sheet, which is where the actual "add to plan" custom-dialog trigger lives, tagged `place-detail-add-to-plan`) | `<id>` is `venue.id`. Named `nightlife-add-*` for consistency, though the card itself opens the detail sheet rather than adding directly: the add action is one tap further, inside the sheet. Say so if you want this renamed to `nightlife-card-<id>` for accuracy; happy to align once a spec is using it. |
-| `nightlife-added-<id>` | passive "Added" badge `<span>` inside the venue card (S138, D-146) | `<id>` is `venue.id`. Renders only when `findPlacements(nightlifeSourceId(venue.id)).length > 0`. Decorative only (not a nested interactive control); add/modify/remove still lives one tap further, inside the detail sheet (`place-detail-add-to-plan`). |
+| `nightlife-added-<id>` | passive "Added" badge `<span>` inside the venue card (D-146) | `<id>` is `venue.id`. Renders only when `findPlacements(nightlifeSourceId(venue.id)).length > 0`. Decorative only (not a nested interactive control); add/modify/remove still lives one tap further, inside the detail sheet (`place-detail-add-to-plan`). |
 
 ## 11. Calendar / Plan: `components/calendar-planner.tsx` (route: `/plan`)
 
-Distinct `calendar-*` surface prefix from the FU-5/S79 `add-item-*` dialog
+Distinct `calendar-*` surface prefix from the `add-item-*` dialog
 (`components/add-to-itinerary-dialog.tsx`). The calendar has its own separate
 add/edit modal (`ItemEditor`), so the two never collide even though both can be
 reasoned about as "the add-to-itinerary form."
@@ -173,44 +173,44 @@ reasoned about as "the add-to-itinerary form."
 | `calendar-add-item` | "Add Activity" `<button>` | Always present, below the day's item list. |
 | `calendar-empty-state` | the empty-state `<div className="text-center py-12">` | Only rendered when the selected day's *visible* item count is 0: either the day has no stored items, or it has items but none match the active (read-only) author filter. The two cases share this one id and are distinguished by the rendered copy, not a separate testid. Verified end-to-end (CDP) by deleting every item on a day and confirming this resolves to exactly 1 while `calendar-item-*` drops to 0. |
 | `calendar-item-<id>` | item card root `<div>` (`SortableItem`) | One per stored item on the selected day (post author-filter). `<id>` = `item.id`. |
-| `calendar-item-time-<id>` | S125: the card's time/duration/location meta `<div>` | Wraps the display-rule output (`describeItemTime`, see section 5 of `docs/time-model-blueprint.md`): AM/PM + badge, or a verbatim legacy string, or nothing. |
-| `calendar-item-time-badge-<id>` | S125: the NPT/JST badge `<span>` inside the meta div | Only rendered when `effectiveStartMinutes` is defined (never for a legacy-only unparseable `time`, which shows unbadged). |
-| `calendar-item-clash-<id>` | S126: the warn-only overlap badge `<span>` inside the meta div | See section 23 below. Never blocks save/drag. S383 amended the source set: it is now `clashingItemIds(visibleItems)`, the author-filtered day rather than the full stored day. Order-independent either way; with no filter selected the two sets are identical. |
-| `author-filter` | S383 (D-092): the "Filter by" chip row root `<div>` (`author-filter.tsx`) | Renders nothing at all when no item carries attribution (dormant/portfolio build). Exactly ONE mount in the whole tree — `calendar-planner.tsx`, in the day-detail toolbar on `/plan`. A count > 1 anywhere is a regression. History: S383 deleted a second mount in `trip-timeline.tsx`, since both it and the planner rendered one and both were on `/plan` since S321; issue #94 then deleted that timeline outright, which is why the planner is now the only mount site rather than one of two. |
-| `author-filter-all` | S383: the "All" chip `<button>` | Always present when the row renders; the inert default. `aria-pressed` carries the selection. |
-| `author-filter-mine` | S383: the "My edits" chip `<button>` | Only rendered when a display name is set and that name actually appears as an author in the data. |
-| `author-filter-author-<name>` | S383: one chip `<button>` per distinct author | `<name>` is the raw display name, not slugified, so a name containing a space produces e.g. `author-filter-author-Jane Doe` and has to be quoted in a selector. The current user's own chip is omitted when `author-filter-mine` is shown (they would filter identically). |
+| `calendar-item-time-<id>` | the card's time/duration/location meta `<div>` | Wraps the display-rule output (`describeItemTime`, see section 5 of `docs/time-model-blueprint.md`): AM/PM + badge, or a verbatim legacy string, or nothing. |
+| `calendar-item-time-badge-<id>` | the NPT/JST badge `<span>` inside the meta div | Only rendered when `effectiveStartMinutes` is defined (never for a legacy-only unparseable `time`, which shows unbadged). |
+| `calendar-item-clash-<id>` | the warn-only overlap badge `<span>` inside the meta div | See section 23 below. Never blocks save/drag. The source set was later amended: it is now `clashingItemIds(visibleItems)`, the author-filtered day rather than the full stored day. Order-independent either way; with no filter selected the two sets are identical. |
+| `author-filter` | D-092: the "Filter by" chip row root `<div>` (`author-filter.tsx`) | Renders nothing at all when no item carries attribution (dormant/portfolio build). Exactly ONE mount in the whole tree — `calendar-planner.tsx`, in the day-detail toolbar on `/plan`. A count > 1 anywhere is a regression. History: a second mount in `trip-timeline.tsx` was deleted, since both it and the planner rendered one and both were on `/plan`; issue #94 then deleted that timeline outright, which is why the planner is now the only mount site rather than one of two. |
+| `author-filter-all` | the "All" chip `<button>` | Always present when the row renders; the inert default. `aria-pressed` carries the selection. |
+| `author-filter-mine` | the "My edits" chip `<button>` | Only rendered when a display name is set and that name actually appears as an author in the data. |
+| `author-filter-author-<name>` | one chip `<button>` per distinct author | `<name>` is the raw display name, not slugified, so a name containing a space produces e.g. `author-filter-author-Jane Doe` and has to be quoted in a selector. The current user's own chip is omitted when `author-filter-mine` is shown (they would filter identically). |
 | `calendar-item-edit-<id>` | the card's edit `<button>` | Same `<id>` qualifier as its parent card. |
 | `calendar-item-delete-<id>` | the card's delete `<button>` | Same `<id>` qualifier as its parent card. |
 | `calendar-editor` | the `ItemEditor` modal `<div role="dialog">` | Only mounted while `showEditor` is true (opened via `calendar-add-item` or a `calendar-item-edit-<id>`). Distinct node/id from `add-item-dialog`. |
 | `calendar-editor-cancel` | the header "X" close `<button aria-label="Close editor">` | Same reveal condition as `calendar-editor`. |
 | `calendar-editor-title-input` | Title `<input>` | " |
 | `calendar-editor-category-<cat>` | each category picker `<button>` | One per `ItineraryCategory` (10 total: `sightseeing`, `food`, `photography`, `shopping`, `nature`, `cultural`, `transportation`, `hotel`, `free`, `nightlife`). `<cat>` is the lowercase category value; these buttons already carried `aria-label={`Category: ${cat}`}`. |
-| `calendar-editor-time-input` | S125: the `TimePicker` trigger `<button>` (was a free-text `<input>` pre-S125) | Same id preserved across the swap; now shows `formatTimeAmPm(startMinutes)` or "Add time". Opens the picker overlay (see section 13 below). |
-| `calendar-editor-duration-input` | S125: the `DurationField` minutes `<input type="number">` (was free text pre-S125) | Same id preserved; now a plain minutes value (dual-writes `durationMinutes` + canonical `duration` text, D-138). |
+| `calendar-editor-time-input` | the `TimePicker` trigger `<button>` (was a free-text `<input>` before D-141) | Same id preserved across the swap; now shows `formatTimeAmPm(startMinutes)` or "Add time". Opens the picker overlay (see section 13 below). |
+| `calendar-editor-duration-input` | the `DurationField` minutes `<input type="number">` (was free text before D-141) | Same id preserved; now a plain minutes value (dual-writes `durationMinutes` + canonical `duration` text, D-138). |
 | `calendar-editor-location-input` | Location `<input>` | " |
 | `calendar-editor-maps-link` | the "Search on Google Maps" `<a>` (or disabled `<span>` fallback, same id either state) | Same pattern as `add-item-maps-link`: the `<a>` (with `href`) appears once Title is non-empty; the disabled `<span>` (`aria-disabled="true"`, no `href`) appears when Title is empty. Same testid either branch; the state is distinguished by tag/attribute, not id. |
 | `calendar-editor-notes-input` | Notes `<textarea>` | " |
 | `calendar-editor-save` | the "Add Item"/"Update Item" submit `<button>` | `disabled` until Title is non-empty (mirrors D-074's `add-item-confirm` gating). |
-| `calendar-day-<date>-spend` | the S103 month-grid "has spend" marker `<span aria-hidden>` (a small gold dot, top-right of the day cell) | S103, additive and read-only (D-018). Rendered on a `calendar-day-<date>` cell only when that day has logged spend (`expensesByDate(useExpenses())[date] > 0`). It is a dot, not a figure (the cramped cell can't fit a currency string); the amount goes to the single-day readout and to the cell's aria-label, which is extended (", Rs 5,000 spent" appended, the activity-count text preserved) rather than replaced. The cell's existing testid/handler/aria-pressed are untouched. |
-| `calendar-day-spend-total` | the S103 single-day spend readout `<p>` in the day-detail header | S103, additive and read-only. Rendered under the "Day N • city • country" line only when the selected day has spend; shows that day's total in the day's leg-local currency (`formatMoney`, a day is one leg). Disappears when a no-spend day is selected. Derives from `useExpenses()`, a separate reactive read from the itinerary store, so CRUD/DnD/select are unaffected. |
-| `calendar-day-weather-tag` | the S216 quiet contextual weather tag `<p>` in the day-detail header | S216, additive and read-only: a pure derivation over the existing Open-Meteo cache (`weatherCache`, D-078/D-097), with zero new fetch. Rendered under the spend readout only when `lib/weather.ts`'s `getCachedForecastForDate(currentPlan.city, selectedDate)` finds a cached forecast row for that exact city/date (i.e. the Today/Essentials panel already fetched a window covering it). Shows an icon + short condition label (e.g. "☀️ Clear sky"). No cache hit means nothing is rendered and no layout shift. |
+| `calendar-day-<date>-spend` | the month-grid "has spend" marker `<span aria-hidden>` (a small gold dot, top-right of the day cell) | Additive and read-only (D-018). Rendered on a `calendar-day-<date>` cell only when that day has logged spend (`expensesByDate(useExpenses())[date] > 0`). It is a dot, not a figure (the cramped cell can't fit a currency string); the amount goes to the single-day readout and to the cell's aria-label, which is extended (", Rs 5,000 spent" appended, the activity-count text preserved) rather than replaced. The cell's existing testid/handler/aria-pressed are untouched. |
+| `calendar-day-spend-total` | the single-day spend readout `<p>` in the day-detail header | Additive and read-only. Rendered under the "Day N • city • country" line only when the selected day has spend; shows that day's total in the day's leg-local currency (`formatMoney`, a day is one leg). Disappears when a no-spend day is selected. Derives from `useExpenses()`, a separate reactive read from the itinerary store, so CRUD/DnD/select are unaffected. |
+| `calendar-day-weather-tag` | the quiet contextual weather tag `<p>` in the day-detail header | Additive and read-only: a pure derivation over the existing Open-Meteo cache (`weatherCache`, D-078/D-097), with zero new fetch. Rendered under the spend readout only when `lib/weather.ts`'s `getCachedForecastForDate(currentPlan.city, selectedDate)` finds a cached forecast row for that exact city/date (i.e. the Today/Essentials panel already fetched a window covering it). Shows an icon + short condition label (e.g. "☀️ Clear sky"). No cache hit means nothing is rendered and no layout shift. |
 
-The three rows above (two S103 + one S216) are the only additions to this section; every pre-existing
+The three rows above (two spend + one weather) are the only additions to this section; every pre-existing
 calendar testid, aria-label, handler, and CRUD/DnD/select behavior is unchanged
 (the overlay is a pure display addition on top of the existing cells, D-018). The
 month-grid `date` was already the per-cell scope variable; the single-day readout
 reads the already-in-scope `selectedDate`. No new prop was threaded to the
 itinerary store; the expense read is `useExpenses()`, added alongside it.
 
-No new prop was threaded to produce the S79/FU-8 ids above: `item.id` was already in
+No new prop was threaded to produce the ids above: `item.id` was already in
 `SortableItem`'s scope, `date` was already in `renderCalendar`'s per-cell scope,
 and `cat` was already the `ALL_CATEGORIES.map` loop variable inside `ItemEditor`.
 
-Out of scope here (say so if a future E2E wave needs them): the mobile `DayStrip`
+Out of scope here (say so if a future E2E spec needs them): the mobile `DayStrip`
 chips (`components/day-strip.tsx`, a separate component outside this fence;
 `calendar-day-<date>` already covers desktop day-selection, which is what the
-default E2E waves use), and the desktop Calendar/Agenda view toggle plus the
+default E2E specs use), and the desktop Calendar/Agenda view toggle plus the
 mobile "Month view" expand/collapse toggle (view chrome, not CRUD).
 
 ## 12. Mobile day-strip: `components/day-strip.tsx` (route: `/plan`, `<lg` only)
@@ -230,7 +230,7 @@ number, country dot, item-count badge) are `aria-hidden` and were not tagged.
 
 ## 13. Backup & Restore: `components/backup-restore.tsx` (route: `/settings`)
 
-Whole-trip export/import panel (S92, D-098). S322 (A4) moved it off `/plan` into the Settings
+Whole-trip export/import panel (D-098). It moved off `/plan` into the Settings
 "Data management" group (`components/settings-panel.tsx`, section 31), a native `<details>` group
 that must be expanded (`settings-group-data-toggle`) before these controls are reachable. Distinct
 `backup-*` surface prefix. The panel drives `lib/trip-backup.ts`
@@ -249,11 +249,11 @@ Vault schema and migration runner (D-095/D-096).
 | `backup-status` | the success `<p aria-live="polite">` | Rendered only in the success state (export done, or import applied). Mutually exclusive with `backup-error`. |
 | `backup-error` | the error `<p role="alert">` | Rendered only in the error state (a rejected import, or an export/read failure). The message is safe and user-facing, and the current trip is never destroyed. |
 
-## Deferred (FU-5 fence, resolved in FU-8)
+## Deferred (since resolved)
 
-Under the S79 fence, `components/calendar-planner.tsx` and `lib/maps-link.ts` were
-not opened or modified in S79. The following surfaces had no testids as of S79 and
-were explicitly deferred to a fast-follow once the FU-5 lane merged:
+Under the original fence, `components/calendar-planner.tsx` and `lib/maps-link.ts` were
+not opened or modified at first. The following surfaces had no testids then and
+were explicitly deferred to a fast-follow once the calendar work merged:
 
 - Calendar day cells / month-view cells (the `/plan` page's calendar grid).
 - Itinerary item cards inside a calendar day (the CRUD read surface).
@@ -262,14 +262,14 @@ were explicitly deferred to a fast-follow once the FU-5 lane merged:
   save/cancel/delete buttons.
 - Calendar empty-state (unplanned day) presentation.
 
-Status: done as of FU-8. FU-5 landed (`e4ddb8c`), unblocking the calendar file,
+Status: done. The calendar work landed (`e4ddb8c`), unblocking the calendar file,
 and all of the above are now tagged. See section 11 above for the full id list,
 elements, and reveal conditions. Nothing in this registry is still "deferred /
 no testids yet."
 
 ## 14. Today panel: `components/today-panel.tsx` (route: `/`)
 
-The in-trip "Today" agenda island (S98). Mounted on Home via
+The in-trip "Today" agenda island. Mounted on Home via
 `dynamic({ ssr:false })` right after `<HeroSection />` and before `<HomeBento />` (it sat
 before `<TripDashboard />` until issue #106 deleted that section).
 Outside the trip window it renders `null` and taps nothing (`getTodayInTrip()` is
@@ -281,7 +281,7 @@ Distinct `today-*` surface prefix from `calendar-*` and `hero-*`.
 | testid | element | notes |
 |---|---|---|
 | `today-panel` | the `<section>` root | Present only when the app clock is inside the trip window (and the store has hydrated). Its visibility is the E2E "we're in-trip" signal; absent (`toHaveCount(0)`) outside the window. |
-| `today-next-up` | the "Up next" rail `<div aria-live="polite">` | S100. Rendered only when today has items (above the agenda, below the weather card). Names the next upcoming, not-done, timed item by the resolved clock (`nextUp(items, getNow()-time)`; under a `?today=DATE` clock "now" is local noon "12:00"). When nothing is upcoming (all done/past, or no timed items) it shows an "all caught up" line instead, and the rail node is still present. Advances live as the day progresses and when the current item is toggled done. Absent on a zero-item day (the empty state renders instead). |
+| `today-next-up` | the "Up next" rail `<div aria-live="polite">` | Rendered only when today has items (above the agenda, below the weather card). Names the next upcoming, not-done, timed item by the resolved clock (`nextUp(items, getNow()-time)`; under a `?today=DATE` clock "now" is local noon "12:00"). When nothing is upcoming (all done/past, or no timed items) it shows an "all caught up" line instead, and the rail node is still present. Advances live as the day progresses and when the current item is toggled done. Absent on a zero-item day (the empty state renders instead). |
 | `today-empty-state` | the empty-state `<div>` | Rendered only when today's `getDayPlan(date).items` is empty (a free/unplanned in-trip day). Mutually exclusive with the agenda `<ul>`; carries an "Open the planner" link. |
 | `today-agenda-item` | the item title `<span>` inside each agenda row | One per today's item. A read/count hook; the interactive control is the parent toggle below. Count these to assert agenda length. |
 | `today-done-toggle-<itemId>` | the whole agenda-row `<button>` (the done toggle) | One per item; `<itemId>` = the item's own stable `id`. `aria-pressed` reflects done state (`"true"`/`"false"`), ≥44px min-height, keyboard-operable. Clicking calls the existing `updateItem(date, id, { done })` so a toggle persists across reload (D-018-class) and, sync-on, rides rev/hlc to friends (D-106). |
@@ -292,7 +292,7 @@ counter are `aria-hidden`/`sr-only`-labelled decorative sub-elements and were no
 
 ## 15. Weather + golden hour: `components/weather-card.tsx` (route: `/`)
 
-The weather + golden-hour card (S99), mounted inside the in-trip Today panel
+The weather + golden-hour card, mounted inside the in-trip Today panel
 (`components/today-panel.tsx`) above the agenda. Fetches Open-Meteo client-side (D-004
 keyless, no backend) for the current trip city and caches the last-good response through the
 typed storage gateway (`weatherCache`, key 9) for an offline fallback. Same in-trip reveal
@@ -310,19 +310,19 @@ run. Distinct `weather-*` surface prefix.
 | `weather-golden-evening` | the evening golden-hour row `<div>` | `[sunset-50m, sunset]`, same format/labelling. |
 | `weather-cached-indicator` | the offline "last updated …" `<p aria-live="polite">` | Rendered only in the `cached` (offline/stale) state, the quiet fallback signal. Absent when data is fresh. |
 | `weather-attribution` | the Open-Meteo attribution `<a>` | Required by D-088 (CC-BY 4.0). Text "Weather data by Open-Meteo.com", `href="https://open-meteo.com/"`. Present in live/cached states. |
-| `weather-forecast` | the 7-day outlook `<details>` disclosure | S150. Native `<details>`/`<summary>`, collapsed by default and keyboard-toggleable with no JS state. Rendered only when `data.forecast` is non-null and non-empty (parsed from the same Open-Meteo response as the current-day fields, zero extra fetch); otherwise it is absent, which is not an error. Present in both live and cached (stale) states; the outlook rides the same `data.stale` flag as the rest of the card. |
+| `weather-forecast` | the 7-day outlook `<details>` disclosure | Native `<details>`/`<summary>`, collapsed by default and keyboard-toggleable with no JS state. Rendered only when `data.forecast` is non-null and non-empty (parsed from the same Open-Meteo response as the current-day fields, zero extra fetch); otherwise it is absent, which is not an error. Present in both live and cached (stale) states; the outlook rides the same `data.stale` flag as the rest of the card. |
 | `weather-forecast-day` | each outlook row `<li>` | One per forecast day (≤7, index 0 = today); shows the day label ("Today"/"Tomorrow"/short weekday), condition, hi/lo (`aria-label`led), and that day's golden-hour times. |
 
 The temperature/condition icons, the golden-hour icons, the outlook's chevron + per-row
 golden-hour icons, and the loading skeleton bars are `aria-hidden` decorative sub-elements and
 were not tagged. The card is static markup (no motion-only affordance), so it is
 reduced-motion-safe by construction: the parent Today panel owns the reveal animation, already
-reduced-motion gated (S98), and the outlook's own chevron-rotate/hover transitions fall under the
+reduced-motion gated, and the outlook's own chevron-rotate/hover transitions fall under the
 app-wide `prefers-reduced-motion` CSS collapse (`app/globals.css`), same as everywhere else.
 
 ## 16. Trip Budget: `components/budget-panel.tsx` (route: `/plan`)
 
-The trip-budget panel (S101, D-110), mounted on `/plan` between the calendar planner and
+The trip-budget panel (D-110), mounted on `/plan` between the calendar planner and
 Backup & Restore via `dynamic({ ssr:false })`. Lets the user set per-leg + per-category
 budgets (Nepal in NPR, Japan in JPY), choose the home/display currency, and override the
 two exchange rates; per-leg + grand totals roll up into the home currency. All edits persist
@@ -330,7 +330,7 @@ through the typed storage gateway (key 10, `budgetStore`) so they survive a relo
 Distinct `budget-*` surface prefix, so it never collides with the `calendar-*` / `backup-*`
 surfaces that also live on `/plan`.
 
-S322 (A4): the four money sub-views (budget · expenses · burn · settle) now sit behind a
+The four money sub-views (budget · expenses · burn · settle) now sit behind a
 segmented control (a real WAI-ARIA `role="tablist"` with roving tabindex + arrow/Home/End keys).
 One view shows at a time, default Budget, so `/plan` stays calendar-first. The inactive views stay
 mounted but `hidden` (`display:none`): visibility and `.click()` assertions must select the view's
@@ -340,9 +340,9 @@ Restore is no longer on `/plan`; it moved into the Settings Data group (sections
 | testid | element | notes |
 |---|---|---|
 | `budget-panel` | the `<section>` root | Always present once the island mounts (its visibility is the E2E "panel is up" signal). |
-| `budget-view-tab-budget` / `-expenses` / `-burn` / `-settle` | the four `role="tab"` `<button>`s in the tablist | S322: select a money view (one at a time). `aria-selected` reflects the active view; roving tabindex (active tab is the only tab stop); ≥44px. Default active = `budget`. |
+| `budget-view-tab-budget` / `-expenses` / `-burn` / `-settle` | the four `role="tab"` `<button>`s in the tablist | Select a money view (one at a time). `aria-selected` reflects the active view; roving tabindex (active tab is the only tab stop); ≥44px. Default active = `budget`. |
 | `budget-view-panel-budget` / `-expenses` / `-burn` / `-settle` | each `role="tabpanel"` `<div>` | Holds one money view; `hidden` unless its tab is active. |
-| ~~`budget-currency-*` / `budget-rate-*`~~ | n/a | S146 relocated these to `/settings` (see section 31). The home-currency toggle and rate overrides moved off this panel into `settings-panel.tsx` with the same testids; the write path (`use-budget`) is unchanged. |
+| ~~`budget-currency-*` / `budget-rate-*`~~ | n/a | Relocated to `/settings` (see section 31). The home-currency toggle and rate overrides moved off this panel into `settings-panel.tsx` with the same testids; the write path (`use-budget`) is unchanged. |
 | `budget-leg-nepal` / `budget-leg-japan` | each leg's card `<div>` | Container for the leg's total input, home-currency echo, and the category breakdown. |
 | `budget-leg-nepal-input` / `budget-leg-japan-input` | the leg total-budget `<input type="number">` | In the leg's local currency (Nepal NPR, Japan JPY); the currency symbol is a decorative prefix. Empty ⇒ 0. |
 | `budget-leg-nepal-home` / `budget-leg-japan-home` | the per-leg home-currency echo `<p>` | Shows the leg total converted to the home currency (or "Shown in {cur}" when the leg currency is the home currency). |
@@ -358,11 +358,11 @@ motion-only affordance.
 
 ## 17. Expense logging: `components/budget-panel.tsx` + `components/expense-dialog.tsx` (route: `/plan`)
 
-The fast expense-log flow (S102, D-111). The log trigger and list live inside the S101 budget
+The fast expense-log flow (D-111). The log trigger and list live inside the budget
 panel (`budget-panel.tsx`); the dialog is a global portal (`expense-dialog.tsx`) opened via the
 `expense:open` event + `ExpenseLogHost` (mounted in `app/layout.tsx` beside `QuickAddHost`). That
-is a parallel trigger to the itinerary quick-add FAB, which stays single-purpose (S63/D-071).
-Logged expenses feed the S101 `rollUp` `spent` seam, so the panel's spent/remaining update live.
+is a parallel trigger to the itinerary quick-add FAB, which stays single-purpose (D-071).
+Logged expenses feed the budget `rollUp` `spent` seam, so the panel's spent/remaining update live.
 Distinct `expense-*` surface prefix, so it never collides with `budget-*` / `calendar-*` /
 `backup-*` on `/plan`.
 
@@ -385,7 +385,7 @@ Distinct `expense-*` surface prefix, so it never collides with `budget-*` / `cal
 | `expense-note-input` | the optional Note `<input>` | |
 | `expense-save` | the "Save expense" / "Update expense" `<button>` | `disabled` until a positive amount. In edit mode the label reads "Update expense". |
 
-The budget panel additionally gained spent/remaining testids that layer onto S101's existing ids
+The budget panel additionally gained spent/remaining testids that layer onto the budget panel's existing ids
 (all still present + unchanged): `budget-leg-<leg>-spent-remaining` (+ `-spent` / `-remaining`
 value spans), `budget-cat-<leg>-<category>-spent-remaining` (only shown once that category has a
 budget set), and `budget-grand-total-spent` / `budget-grand-total-remaining` (only shown once
@@ -394,7 +394,7 @@ safe (CSS only). The receipt / edit / delete / plus icons are `aria-hidden` deco
 
 ## 18. Burn-rate vs plan: `components/burn-rate-view.tsx` (route: `/plan`)
 
-The spending-pace view (S103, D-112), rendered inside the S101 budget panel
+The spending-pace view (D-112), rendered inside the budget panel
 (`components/budget-panel.tsx`) between the grand total and the expense log. It is fed the panel's
 already-live home-currency totals (`rollUp(model, expensesToSpent(expenses)).total*Home`), the
 resolved trip clock (`getNow()`, incl. the D-075 `?today=` override) and the home currency, with no
@@ -424,7 +424,7 @@ Every number routes through `formatMoney`, so nothing renders `NaN` (the core is
 
 ## 19. In-trip journal: `components/journal-card.tsx` (route: `/`)
 
-The in-trip per-day text journal (S104, D-113), mounted inside the in-trip Today panel
+The in-trip per-day text journal (D-113), mounted inside the in-trip Today panel
 (`components/today-panel.tsx`) below the agenda. Reads and writes today's entry through
 `useJournal()` → the framework-free journal core (`core/journal/model.ts`) + the typed storage
 gateway (`journalStore`, key 12). Client-side localStorage only (D-002/D-004); photos and IndexedDB
@@ -450,18 +450,18 @@ surface prefix.
 
 The book/pencil/sparkles icons and the mood glyphs are `aria-hidden` decorative sub-elements. The card
 is static markup with CSS-only transitions (no motion-only affordance), so it is reduced-motion-safe by
-construction: the parent Today panel owns the reveal animation, already reduced-motion gated (S98).
+construction: the parent Today panel owns the reveal animation, already reduced-motion gated.
 All copy meets AA at rest (D-100).
 
 ## 20. Day recap (plan-vs-actual): `components/trip-recap.tsx` (route: `/`)
 
-The read-only plan-vs-actual day recap island (S105, D-114), mounted on Home via
+The read-only plan-vs-actual day recap island (D-114), mounted on Home via
 `dynamic({ ssr:false })` right after `<TodayPanel />` and before `<HomeBento />` (it sat before
 `<TripDashboard />` until issue #106 deleted that section). For each trip
 day that has already happened (via `elapsedTripDates(getNow())`, incl. the D-075 `?today=` override),
 it pairs the plan (that day's `getDayPlan(date).items`, read-only), the actual (each item's `done`
-tick + a "{done} of {planned} done" line, S98), and the reflection (that day's `getEntry(date)`
-rendered read-only, S104). Pre-trip it renders `null` and taps nothing (Home is byte-unchanged before
+tick + a "{done} of {planned} done" line), and the reflection (that day's `getEntry(date)`
+rendered read-only). Pre-trip it renders `null` and taps nothing (Home is byte-unchanged before
 Dec 9), as it does before either store hydrates; it renders in-trip and post-trip. It mutates nothing
 (D-002 / D-018: no store writes, no re-seed). To reveal it in a dev/E2E run drive the clock with
 `?today=`: `?today=2026-12-20` (in-trip, 12 elapsed days) or `?today=2027-01-10` (post-trip, all 32).
@@ -472,7 +472,7 @@ Distinct `recap-*` surface prefix, so it never collides with `today-*` / `journa
 | `trip-recap` | the `<section>` root | Present only when ≥1 trip day has elapsed and both the itinerary and journal stores have hydrated; absent (`toHaveCount(0)`) pre-trip. Its visibility is the E2E "recap is up" signal. |
 | `recap-summary` | the top run-rate `<p aria-live="polite">` | Rendered only when the elapsed days have ≥1 planned activity; "{done} of {planned} activities done across N days". |
 | `recap-card-<date>` | each per-day recap `<article>` (`<date>` = the day's ISO string) | One per elapsed trip day, rendered most-recent-first (Day N at top). `aria-labelledby` its own `h3`. |
-| `recap-done-count-<date>` | the per-day "{done} of {planned} done" `<p>` | Present only when that day has ≥1 planned item. Reflects S98 `done` state, read-only. |
+| `recap-done-count-<date>` | the per-day "{done} of {planned} done" `<p>` | Present only when that day has ≥1 planned item. Reflects the `done` state, read-only. |
 | `recap-plan-<date>` | the day's plan `<ul>` | Rendered only when the day has ≥1 item. Mutually exclusive with `recap-no-plan-<date>`. |
 | `recap-plan-item` | each read-only plan row `<li>` | One per item on the day; `data-done` (`"true"`/`"false"`) reflects the persisted `done` state. Not a control (no toggle), display only; a `sr-only` "— done"/"— not done" carries the status without relying on the color-only tick. |
 | `recap-no-plan-<date>` | the "No plans this day" `<p>` | Rendered only on a zero-item elapsed day. |
@@ -490,13 +490,13 @@ it (the no-write proof). All copy meets AA at rest (D-100).
 
 ## 21. Lazy-island placeholder: `components/lazy-visible.tsx` (route: `/`)
 
-The S107 (D-116) below-the-fold lazy-island wrapper. On Home it now defers `HomeStatRow`,
+The D-116 below-the-fold lazy-island wrapper. On Home it now defers `HomeStatRow`,
 `HomeSectionNav`, `HomeBento`, `GatedTravelInspiration` and `CustomTripMyPlaces`, plus
 `HomeTripStrip` inside the hero column (`app/page.tsx`; `TodayPanel` and `TripRecap` are
 deliberately plain `dynamic({ ssr:false })`, NOT wrapped — they render null pre-trip, so they
-are near-free where they sit). The S107 set was `TripDashboard`, `TripTimeline` and
+are near-free where they sit). The original set was `TripDashboard`, `TripTimeline` and
 `TravelEssentials`, with `FlightsSection` already moved off Home to its own `/flights/` route
-in S113D; issues #106 and #94 deleted the first two sections outright and the
+earlier; issues #106 and #94 deleted the first two sections outright and the
 travel-essentials card now mounts on `/travel` (`travel-date-picker.tsx`), so none of that
 original three is on Home any more. On first paint it renders a sized
 `SectionSkeleton` placeholder in
@@ -507,12 +507,12 @@ post-hydration idle beat fires, which drops those chunks out of Home's First Loa
 |---|---|---|
 | `data-lazy-visible="pending"` | the placeholder wrapper `<div>` | Not a `data-testid` but a state attribute. Present only while a deferred section is still a placeholder (pre-trigger); it is removed once the real section mounts (visibility or the idle fallback), so a below-fold section is reliably present for no-scroll assertions shortly after hydration. Its absence is the "section has mounted" signal. No `data-testid` is emitted by default (the `testId` prop is optional and unused on Home). |
 
-The inner `SectionSkeleton` is `aria-hidden` (a decorative loading placeholder, S67) and
+The inner `SectionSkeleton` is `aria-hidden` (a decorative loading placeholder) and
 reduced-motion-neutralised in globals.css, so it carries no semantic testid of its own.
 
 ## 22. AM/PM time picker: `components/time-picker.tsx` (portal, opened from `calendar-editor-time-input` / `add-item-time-input`)
 
-S125 (D-141). Hand-rolled three-column picker (Hour 1-12 / Minute 00-59 full list / AM-PM),
+D-141. Hand-rolled three-column picker (Hour 1-12 / Minute 00-59 full list / AM-PM),
 portaled to `document.body` like the two existing editor dialogs, with its own D-021 focus
 contract (focus into the panel on open, back to the trigger on close). Esc is handled on the
 panel's own `onKeyDown` rather than a second `document` listener, so it closes only the picker,
@@ -535,7 +535,7 @@ columns' single reachable stops, then Clear/Done/Close).
 
 ## 23. Chronological sort + warn-only clash badges: `lib/sort-items-by-time.ts`, `components/calendar-planner.tsx` (D-142)
 
-S126. Two passive, non-destructive views on top of the structured time model (S124/S125):
+Two passive, non-destructive views on top of the structured time model:
 a pure view-level chronological sort (`sortItemsByTime`, stable, untimed items sink to the end
 preserving relative order) and warn-only clash badges (`clashingItemIds`, half-open overlap on
 `effectiveStartMinutes`/`durationMinutes`). Zero store writes.
@@ -552,7 +552,7 @@ Both functions are live; neither renders a `timeline-*` id any more. The badge's
 calendar day-detail list, registered as `calendar-item-clash-<id>` in section 11 above. The net
 for the sort itself is a unit one —
 `lib/__tests__/sort-items-by-time.test.ts` :91 and :106 run the projection over the REAL seed
-content for the S377 Jan-9 date-line day (the DTW layover has to sort after the HND→DTW flight
+content for the Jan-9 date-line day (the DTW layover has to sort after the HND→DTW flight
 that produces it, and the rendered wall-clock stays deliberately non-monotonic), which is where a
 date-line regression is caught. `e2e/sort-clash.spec.ts` says the same in its header and now
 proves only the calendar surface.
@@ -560,7 +560,7 @@ proves only the calendar surface.
 > **The two `timeline-item-*` ids are gone.** `timeline-item-<id>` (each day-detail item `<li>`,
 > rendered in the `sortItemsByTime` projection order rather than the stored order) and
 > `timeline-item-clash-<id>` (its warn-only overlap badge) belonged to the 32-day timeline
-> island, `components/trip-timeline.tsx` — on Home at S126, on `/plan` from S321. Issue #94
+> island, `components/trip-timeline.tsx` — first on Home, then on `/plan`. Issue #94
 > deleted that island: it held its own `selectedDate` and `LazyVisible` mounts islands prop-less,
 > so `/plan` shipped two 32-day day selectors that never synced. **Nothing replaced either id**,
 > and the behaviour they carried is asserted at the two consumers named above instead.
@@ -587,19 +587,19 @@ sequence (the reported defect), the trailing Anytime run, and the grip split abo
 
 The calendar's `calendar-item-clash-<id>` (added to section 11's table above) is the same badge
 pattern, computed at the day-render level (`clashingItemIds`, over the author-filtered
-`visibleItems` since S383 — see that row) and threaded into `SortableItem` as a plain boolean.
+`visibleItems`; see that row) and threaded into `SortableItem` as a plain boolean.
 `handleDragEnd`/`arrayMove`/
 `SortableContext` are byte-unchanged; only the passive badge was added. It is static
 Tailwind (`text-amber-300 bg-amber-500/15 border-amber-500/30`, D-020), contrast-checked ≥4.5,
 and carries no motion (reduced-motion-safe by construction, D-007).
 ## 24. Journal browse: `components/journal-browse.tsx` (route: `/journal`) + `components/journal-card.tsx` (route: `/`)
 
-S153. A new dedicated route listing every persisted journal entry (S104's localStorage-only
+A dedicated route listing every persisted journal entry (the journal's localStorage-only
 per-day text journal, `useJournal().entries`), newest-first, readable and editable. Mounted on
 `app/journal/page.tsx` via `dynamic({ ssr:false })` (localStorage-only, no meaningful server
 render, mirroring `BudgetPanel`/`BackupRestore` on `/plan`). Reached via a direct URL, the
 "View all entries" link on `journal-card.tsx`, the `/more/` page (mobile) or the desktop "More" dropdown, or the command
-palette (nav/tab/palette wiring landed in FU-33). Editing reuses the real `JournalCard` primitive: exactly
+palette (nav/tab/palette wiring landed later). Editing reuses the real `JournalCard` primitive: exactly
 one instance is ever mounted at a time (its internal ids are not date-keyed, so more than one
 mounted at once would duplicate ids, an axe violation), so every other row renders as a
 read-only summary.
@@ -615,10 +615,10 @@ read-only summary.
 | `journal-browse-mood-<date>` | the row's mood pill `<span>` | Present only when the entry has a mood. |
 | `journal-browse-highlight-<date>` | the row's highlight `<span>` | Present only when the entry has a highlight. |
 | `journal-browse-body-<date>` | the row's body `<p>` | Present only when the entry has non-empty text. |
-| `journal-browse-photos-<date>` | the row's read-only journal-photo thumbnail strip `<div>` | S208. Present only when that day has ≥1 journal photo (`usePhotos().photosFor({kind:'journal',date})`, a pure filter, D-159). Same treatment as `story-photos-<date>` (section 25 below), ported to this route. No strip at all on a photo-less day (no empty box). |
-| `journal-browse-photo-<id>` | each thumbnail `<li>` | `<id>` = the photo's own `PhotoMeta.id`. `alt` on the `<img>` is always `PhotoMeta.altText`; `data-missing="true"` on an evicted/absent blob renders the S160 placeholder tile instead of a broken `<img>`. Read-only: no delete/edit control (that's `photo-attach.tsx`'s job, reached via the row's Edit control into `JournalCard`, not from inside the strip). |
+| `journal-browse-photos-<date>` | the row's read-only journal-photo thumbnail strip `<div>` | Present only when that day has ≥1 journal photo (`usePhotos().photosFor({kind:'journal',date})`, a pure filter, D-159). Same treatment as `story-photos-<date>` (section 25 below), ported to this route. No strip at all on a photo-less day (no empty box). |
+| `journal-browse-photo-<id>` | each thumbnail `<li>` | `<id>` = the photo's own `PhotoMeta.id`. `alt` on the `<img>` is always `PhotoMeta.altText`; `data-missing="true"` on an evicted/absent blob renders the photo placeholder tile instead of a broken `<img>`. Read-only: no delete/edit control (that's `photo-attach.tsx`'s job, reached via the row's Edit control into `JournalCard`, not from inside the strip). |
 
-Known limitation, flagged but not fixed (it sits outside the S153 fence, which scoped
+Known limitation, flagged but not fixed (it sits outside the original scope, which limited
 `journal-card.tsx` changes to the entry link only): while editing a past day from this list, the
 mounted `JournalCard` still shows its hardcoded "Today's journal" heading, unconditioned on the
 actual date. Every testid, behavior and persistence path is correct; only that one heading string
@@ -627,11 +627,11 @@ cleanly, and it is deferred to a follow-up rather than widening the fence here.
 
 ## 25. Recap spend line: `components/trip-recap.tsx` (route: `/`)
 
-S153, additive and read-only (D-018). Each `recap-card-<date>` (section 20) gained a per-day spend
+Additive and read-only (D-018). Each `recap-card-<date>` (section 20) gained a per-day spend
 line: the sum of that day's logged expenses (`core/recap/model.ts`'s `sumExpensesForDate`, a pure
 `Expense[]` → number reducer), formatted with the same `formatMoney`/`legCurrency` the budget
 panel uses, in that day's leg-local currency. It reads `useExpenses()`, a new hydration gate on the
-recap island alongside the existing itinerary/journal gates, but calls no mutator; the S102
+recap island alongside the existing itinerary/journal gates, but calls no mutator; the expense
 expense store is otherwise untouched.
 
 | testid | element | notes |
@@ -643,12 +643,12 @@ changed; this is a pure addition inside the existing card.
 
 ## 24. Travel Safety Kit: `components/travel-safety-kit.tsx` (route: `/safety`)
 
-S152. A new, self-owned route: an offline travel-safety reference covering emergency and
+A self-owned route: an offline travel-safety reference covering emergency and
 embassy contacts, a Nepali/Japanese phrasebook, and a document checklist. It is all
 static content (`core/content/safety.ts`, D-088; zero fetch, zero persistence). Mounted on
 `app/safety/page.tsx` via `dynamic({ ssr:false })` (mirrors `app/journal/sections.tsx`'s
 island shape). Reached via a direct URL, the `/more/` page (mobile) or the desktop "More" dropdown, or the command palette
-(nav/tab/palette wiring landed in FU-33, same as `/journal`), and deliberately not on the
+(nav/tab/palette wiring landed later, same as `/journal`), and deliberately not on the
 bottom tab bar or the desktop top row (D-071 slot ceilings).
 
 | testid | element | notes |
@@ -664,7 +664,7 @@ AA-at-rest floor; `tel:` links are ≥44px tall.
 
 ## 26. Offline banner: `components/offline-banner.tsx` (all routes, mounted in `app/layout.tsx`)
 
-S154. An app-wide `navigator.onLine` indicator (`hooks/use-online.ts`). The always-mounted live region
+An app-wide `navigator.onLine` indicator (`hooks/use-online.ts`). The always-mounted live region
 lives in `OfflineBanner`; the visible chip (`OfflineChip`) sits in the navbar row beside
 the brand (#1066), so it never floats over page content. Both render nothing visible
 while online (including on the server and first client paint, no SSR mismatch); the
@@ -677,22 +677,22 @@ returns. No dismiss control. Calm, not red/alert.
 | `offline-banner` | the navbar chip (`aria-hidden`) | Present only while `useOnline()` reports offline; absent (`toHaveCount(0)`) online. Visible "Offline". |
 | `online-restored` | the same chip slot | "Online" for a few seconds after a real offline spell. |
 
-Deliberately not built in S154: a per-guide or per-map stale-cache badge. Guides are
+Deliberately not built: a per-guide or per-map stale-cache badge. Guides are
 static SW-precached content with nothing that can go stale; the map's stale-tile
-indicator is deferred to the S135 map-extraction lane; weather already has its own
+indicator is deferred to the map-extraction work; weather already has its own
 per-surface `weather-cached-indicator` (section 15) and was left untouched. This
 banner is the one app-wide signal.
 
 ## 27. Post-trip story recap: `components/trip-story-recap.tsx` (route: `/recap`)
 
-S156. A new, self-owned route: a read-only, scroll-storytelling text recap of the whole
+A self-owned route: a read-only, scroll-storytelling text recap of the whole
 trip, gated on `isPostTrip()` (`core/recap/model.ts`). It is a separate presentation from the
 compact home `TripRecap` card island (`components/trip-recap.tsx`, section 20, untouched), and
 reuses the same pure data layer (`summarizePlan` / `elapsedTripDates` / `sumExpensesForDate`)
 and read hooks (itinerary/journal/expenses), read-only (D-018). Mounted on `app/recap/page.tsx`
 via `dynamic({ ssr:false })` (mirrors `app/journal/sections.tsx`'s island shape). Reached via a
 direct URL, the `/more/` page (mobile) or the desktop "More" dropdown, or the command palette (nav/tab/palette wiring landed
-in FU-33, same as `/journal` and `/safety`), and deliberately not on the bottom tab bar or the
+later, same as `/journal` and `/safety`), and deliberately not on the bottom tab bar or the
 desktop top row (D-071 slot ceilings).
 
 | testid | element | notes |
@@ -707,23 +707,23 @@ desktop top row (D-071 slot ceilings).
 | `story-journal-<date>` | the day's reflection block `<div>` | Present only when that day has a journal entry. |
 | `story-journal-mood-<date>` / `story-journal-highlight-<date>` / `story-journal-body-<date>` | mood pill / highlight / body text | Same shape as `recap-journal-*` (section 20), present only when that field exists on the entry. |
 | `story-spend-<date>` | the day's spend `<p>` | Present only when that day has >0 logged spend, formatted leg-local (mirrors `recap-spend-<date>`, section 25). |
-| `story-photos-<date>` | the day's read-only journal-photo thumbnail strip `<div>` | S161. Present only when that day has ≥1 journal photo (`usePhotos().photosFor({kind:'journal',date})`, a pure filter, D-159). Rendered after the journal reflection block, before the spend line. No strip at all on a photo-less day (no empty box), mirroring `story-journal-<date>`/`story-spend-<date>`'s presence gating. |
-| `story-photo-<id>` | each thumbnail `<li>` | `<id>` = the photo's own `PhotoMeta.id`. `alt` on the `<img>` is always `PhotoMeta.altText` (never empty by construction, since it is required at capture); the caption, if present, shows as an overlay label. `data-missing="true"` when the blob was evicted or absent (`BlobStorePort.get`→null), which renders the S160 placeholder tile (alt/caption preserved via `title`) instead of a broken `<img>`; `"false"` otherwise. Read-only: no delete/edit control (D-018, that's the journal's job via `photo-attach.tsx`, near section 19). |
+| `story-photos-<date>` | the day's read-only journal-photo thumbnail strip `<div>` | Present only when that day has ≥1 journal photo (`usePhotos().photosFor({kind:'journal',date})`, a pure filter, D-159). Rendered after the journal reflection block, before the spend line. No strip at all on a photo-less day (no empty box), mirroring `story-journal-<date>`/`story-spend-<date>`'s presence gating. |
+| `story-photo-<id>` | each thumbnail `<li>` | `<id>` = the photo's own `PhotoMeta.id`. `alt` on the `<img>` is always `PhotoMeta.altText` (never empty by construction, since it is required at capture); the caption, if present, shows as an overlay label. `data-missing="true"` when the blob was evicted or absent (`BlobStorePort.get`→null), which renders the photo placeholder tile (alt/caption preserved via `title`) instead of a broken `<img>`; `"false"` otherwise. Read-only: no delete/edit control (D-018, that's the journal's job via `photo-attach.tsx`, near section 19). |
 
 Reduced motion: the app-wide `<MotionConfig reducedMotion="user">` auto-neutralizes the
 per-day `m.article` scroll-reveal, so no manual guard is needed. Heading hierarchy nests under the page's
 own `<h1>` ("Trip Story"): the trip summary is an `h2`, each day is an `h3`. The photo strip's
 own object-URL resolution (`usePhotoObjectUrl`, `hooks/use-photo-object-url.ts`) is the same
-blob→objectURL→revoke idiom `photo-attach.tsx`'s `PhotoThumb` uses (S160), extracted to a shared
-hook in S161 so neither surface duplicates the lifecycle.
+blob→objectURL→revoke idiom `photo-attach.tsx`'s `PhotoThumb` uses, extracted to a shared
+hook so neither surface duplicates the lifecycle.
 
-## 28. Map trip-mode + favorites: `components/map-section.tsx` + `components/trip-map.tsx` (route: `/map`), S151 (D-158) + FU-34 (D-157)
+## 28. Map trip-mode + favorites: `components/map-section.tsx` + `components/trip-map.tsx` (route: `/map`), D-158 + D-157
 
 | testid / attr | element | notes |
 |---|---|---|
-| `map-search-toggle` | the search icon button | Opens the search-within-map panel (S151). |
+| `map-search-toggle` | the search icon button | Opens the search-within-map panel. |
 | `map-search-panel` | the search panel container | Present only when the search toggle is open. Holds a `<form>`: the input filters the trip live, the submit button is the only thing that queries the world. |
-| `map-search-input` | the search `<input>` | Live, in-bundle filter over the trip: curated markers, trip cities, and the user's own planned stops (S406). **Typing never issues a network request** — issue #22, and Nominatim's usage policy forbids as-you-type querying, so that is a contract, not an optimisation. Pinned by `map-trip-mode.spec.ts`. |
+| `map-search-input` | the search `<input>` | Live, in-bundle filter over the trip: curated markers, trip cities, and the user's own planned stops. **Typing never issues a network request** — issue #22, and Nominatim's usage policy forbids as-you-type querying, so that is a contract, not an optimisation. Pinned by `map-trip-mode.spec.ts`. |
 | `map-search-world-submit` | the "Search the world" submit button | Issue #22. The ONE caller of `lib/world-search.ts`. Disabled on an empty query; never disabled while in flight (that would blur the focused button), so the in-flight guard lives in the handler and `aria-busy` reports it. |
 | `map-search-status` | the results-summary `<p>` | Issue #22. `role="status"` + `tabIndex={-1}`: it announces the counts as the trip list filters, and focus is moved here when a world search settles, so the outcome is heard either way. On a failure it carries the plain-words sentence from `WORLD_SEARCH_MESSAGES` — never a raw error string. |
 | `map-search-results` | the trip results `<ul>` | Keyboard-navigable list, labelled "On your trip". Always first in the DOM: trip places win. |
@@ -733,12 +733,12 @@ hook in S161 so neither surface duplicates the lifecycle.
 | `map-note` | the passive note under the map controls | `role="status"`. Two writers: TripMap's geolocate control (`onGeoNote`), and issue #22's world search, which names the off-trip place the camera was centred on and says there is no pin for it. |
 | `map-popup-directions` | the Directions link in a marker popup | `href` = `buildMapsDirectionsUrl(lat,lng)`, destination-only (D-074/D-158); `target`/`rel` set. |
 | `map-route-caveat` | the "schematic line, not a route" caption | Present only when the day overlay is on. Issue #1: while a day is selected it also opens with "Showing Day N only — tap that day again for the whole trip", because scoping the route hides the other days and a map that quietly shows less than the user expects is D-271's defect class in reverse. |
-| `map-popup-favorite-<id>` | the favorite heart in a marker popup | FU-34; prop-gated `enablePopupFavorite` → `/map` only, never `/plan` day-map. `aria-pressed`. |
+| `map-popup-favorite-<id>` | the favorite heart in a marker popup | Prop-gated `enablePopupFavorite` → `/map` only, never `/plan` day-map. `aria-pressed`. |
 | `map-filter-saved` | the "Saved" filter chip | Absent@0 favorites, appears@≥1; ANDs the category filter (D-157). |
 | `map-offline-hint` | the offline stale-tile hint | Present only when `useOnline()` is false. |
 | `data-visible-count` | attr on `map-shell` | Reflects the count of markers after search + category + Saved filters. |
 
-## 29. Search-within-plan: `components/plan-search.tsx` + `components/command-palette.tsx` (route: `/plan`), S147 (D-161)
+## 29. Search-within-plan: `components/plan-search.tsx` + `components/command-palette.tsx` (route: `/plan`), D-161
 
 | testid | element | notes |
 |---|---|---|
@@ -749,7 +749,7 @@ hook in S161 so neither surface duplicates the lifecycle.
 | `plan-search-result-<id>` | each result option | Select → jumps to the item's day + highlights it. |
 | `palette-plan-result-<id>` | palette "In your plan" result | Hands off via `?focus=<id>` (D-161). |
 
-## 30. Multi-day item spans: `components/calendar-planner.tsx` (route: `/plan`), S148 (D-162)
+## 30. Multi-day item spans: `components/calendar-planner.tsx` (route: `/plan`), D-162
 
 | testid | element | notes |
 |---|---|---|
@@ -757,12 +757,12 @@ hook in S161 so neither surface duplicates the lifecycle.
 | `calendar-editor-span-select` | end-date `<select>` | Sets the additive `endDate?` (absolute ISO). |
 | `calendar-span-bands` | the span-band overlay container | Pure render derivation across covered days. |
 
-## 31. Settings: `components/settings-panel.tsx` (route: `/settings`), S146
+## 31. Settings: `components/settings-panel.tsx` (route: `/settings`)
 
 The `/settings` island (ssr:false, D-131): three collapsible `<details>` groups. Identity (name +
 sign-out), Currency & rates (the `budget-currency-*` / `budget-rate-*` toggle + rate overrides
 relocated from `budget-panel.tsx`, with the same testids and an unchanged `use-budget` write path so
-S143 sync is unaffected), and Data management (the reused `backup-restore` panel + per-domain clears
+budget sync is unaffected), and Data management (the reused `backup-restore` panel + per-domain clears
 behind Radix `AlertDialog` confirms). There is no notifications group (D-130 declined).
 
 | testid | element | notes |
@@ -770,7 +770,7 @@ behind Radix `AlertDialog` confirms). There is no notifications group (D-130 dec
 | `settings-panel` | the `<section>` root | Visibility is the E2E "panel is up" signal. |
 | `settings-group-identity` / `settings-group-currency` / `settings-group-data` | each `<details>` group | `-toggle` suffix = its `<summary>` disclosure button (≥44px, keyboard-toggled). Identity is open by default. |
 | `settings-identity-name` | the signed-in name `<p aria-live>` | The active traveler's name, or "Not signed in" as a defensive fallback; with no guest mode (D-241) this page is unreachable without a traveler in practice (`settings-panel.tsx`). |
-| `settings-sign-out` | the Sign out `<button>` (trigger) | S352 (D-249): sign-out is now a full local teardown (`wipeAllTripData()`) covering every trip-scoped domain in both namespaces plus `activeTrip`/`knownTrips`/`removedTrips`/`syncCode`/`travelMode`, including the User Token (key 28; this supersedes the old "stays on disk, lockout-safe" D-239 claim). Confirm-gated via the shared `<SignOutConfirm>` (`components/sign-out-confirm.tsx`), reused verbatim at the navbar desktop chip (`navbar-sign-out`) and the mobile `/more/` row (`more-sign-out`). |
+| `settings-sign-out` | the Sign out `<button>` (trigger) | D-249: sign-out is now a full local teardown (`wipeAllTripData()`) covering every trip-scoped domain in both namespaces plus `activeTrip`/`knownTrips`/`removedTrips`/`syncCode`/`travelMode`, including the User Token (key 28; this supersedes the old "stays on disk, lockout-safe" D-239 claim). Confirm-gated via the shared `<SignOutConfirm>` (`components/sign-out-confirm.tsx`), reused verbatim at the navbar desktop chip (`navbar-sign-out`) and the mobile `/more/` row (`more-sign-out`). |
 | `settings-sign-out-dialog` / `-cancel` / `-confirm` / `-backup` | the shared sign-out confirm dialog | `-confirm` runs `signOut()` then reloads (Ruling 3); `-backup` calls the extracted `downloadTripBackup()` and stays open (Ruling 2: an offer, not a forced step). Same 4 suffixes at `navbar-sign-out-*` and `more-sign-out-*`. |
 | `settings-forget-device` / `-dialog` / `-cancel` / `-confirm` / `-backup` | the "Forget this device" `<button>` + its confirm dialog | Settings-only, strictly more destructive than plain sign-out: does everything sign-out does and clears every locally-stored photo blob (`defaultBlobStore.clear()`, IndexedDB). |
 | `budget-currency-toggle` / `budget-currency-{usd,npr,jpy}` / `budget-rate-{npr,jpy}` / `budget-rate-reset` | the relocated currency toggle + rate inputs | Identical semantics to the former section 16 rows; now under `/settings` Currency & rates. |
@@ -778,15 +778,15 @@ behind Radix `AlertDialog` confirms). There is no notifications group (D-130 dec
 | `settings-clear-<domain>-dialog` / `-confirm` / `-cancel` | the confirm dialog + its two actions | `-confirm` runs the domain's clear (itinerary `clearAll`, expenses `clearAll`, budget `reset`, journal `clearAll`, all local only per D-152); `-cancel` leaves data intact. Under sync each clear propagates (tombstone/LWW); dormant is a plain local wipe (D-038). |
 | `calendar-span-band-<id>` | each covered-day band for the spanning item | Item stays homed on its start day only (never multi-homed). |
 
-## S158: expense CSV export + Home section nav
+## Expense CSV export + Home section nav
 
 | Testid | Element | Notes |
 |---|---|---|
 | `settings-export-expenses-csv` | the "Export expenses (CSV)" `<button>` in the settings Data-management group | Blob/`URL.createObjectURL` download (`nepal-japan-expenses.csv`); disabled + empty-safe when no expenses. Read-only over `useExpenses` (`lib/expense-csv.ts`). |
 | `home-section-nav` | the Home in-page sticky section `<nav>` | `position:sticky` under the navbar; real `<a href="#id">` anchors, keyboard-focusable, smooth-scroll via the global `html{scroll-behavior}` (reduced-motion-neutralized, D-007). |
-| `home-section-nav-{hero,dashboard,inspiration}` | each section jump link | One per entry in `SECTIONS` (`home-section-nav.tsx`) — three, not four. `aria-current="true"` tracks the section in the reading band via a small `IntersectionObserver` (D-088, no scroll-spy dependency). S158 shipped a fourth, `home-section-nav-timeline`; it was dropped when the 32-day timeline moved off Home to `/plan` (and issue #94 has since deleted that section entirely), so `#timeline` is not an in-page anchor anywhere. `home-section-nav-dashboard` outlived its own section: `#dashboard` moved onto `home-bento` (see section 2) and still resolves. |
+| `home-section-nav-{hero,dashboard,inspiration}` | each section jump link | One per entry in `SECTIONS` (`home-section-nav.tsx`) — three, not four. `aria-current="true"` tracks the section in the reading band via a small `IntersectionObserver` (D-088, no scroll-spy dependency). A fourth shipped, `home-section-nav-timeline`; it was dropped when the 32-day timeline moved off Home to `/plan` (and issue #94 has since deleted that section entirely), so `#timeline` is not an in-page anchor anywhere. `home-section-nav-dashboard` outlived its own section: `#dashboard` moved onto `home-bento` (see section 2) and still resolves. |
 
-## S155: first-run guided tour, `components/first-run-tour.tsx` (all routes, mounted at app root)
+## First-run guided tour, `components/first-run-tour.tsx` (all routes, mounted at app root)
 
 A one-time, ≤5-step centered coach-mark stepper (Today · Plan · Budget · Journal · Map) shown
 exactly once past the TokenGate (gateway key 17, `tourStore`). Mounted as a sibling of
@@ -808,7 +808,7 @@ The stop title (`<h2>`, `aria-labelledby` target) renders the destination label 
 `getByRole('heading', { name: ... })` in `e2e/first-run-tour.spec.ts`. The progress dots are
 decorative (`aria-hidden`), not tagged.
 
-## 32. Travel Mode: `app/travel/page.tsx` (route: `/travel`), S184 (D-164)
+## 32. Travel Mode: `app/travel/page.tsx` (route: `/travel`), D-164
 
 The chrome-free Travel Mode route shell (Phase-2 opener). The six chrome-islands
 (navbar / footer / bottom-tab-bar / quick-add-fab / quick-add-host / expense-log-host) each
@@ -816,17 +816,17 @@ render `null` under `/travel` via `lib/travel-route.ts` `isTravelRoute(pathname)
 surface has no app chrome; assert their absence (`toHaveCount(0)`) as the "chrome-free"
 signal. `CommandPalette` / `OfflineBanner` / `ServiceWorkerRegistrar` stay mounted (not chrome
 per the six-island definition). This slice is the shell only: the hero card, agenda, `?date=`
-picking, essentials, legibility toggle, and enter/exit affordances are S185–S190.
+picking, essentials, legibility toggle, and enter/exit affordances are sections 33 to 38.
 
 | testid | element | notes |
 |---|---|---|
 | `travel-mode-root` | the TM root `<main>` container | Always present on `/travel`; its visibility is the E2E "TM shell is up" signal. Carries the `.travel-mode-root` safe-area and hardening CSS (globals.css). The page `<h1>` "Travel Mode" nests under it (asserted via `getByRole('heading', { level: 1, name: 'Travel Mode' })`). |
 
-The `.tm-thumb-zone` bottom band is a documented CSS contract (no interactive children in S184,
-so `:empty` collapses it to `display:none`, giving zero visual box). It gets a testid once S190
+The `.tm-thumb-zone` bottom band is a documented CSS contract (no interactive children at first,
+so `:empty` collapses it to `display:none`, giving zero visual box). It gets a testid once section 38
 places the first primary action in it.
 
-## 33. Travel Mode, Now/Next hero card: `components/travel-hero-card.tsx` (route: `/travel`), S185 (D-016 / D-131 / D-007)
+## 33. Travel Mode, Now/Next hero card: `components/travel-hero-card.tsx` (route: `/travel`), D-016 / D-131 / D-007
 
 The top-of-`/travel` Now/Next card. A client island (mounted `ssr:false` via `app/travel/sections.tsx`,
 D-131) whose phase is derived by the pure `deriveTravelHero` (`lib/travel-hero.ts`, D-016) from the
@@ -853,9 +853,9 @@ override). `data-phase` on the root carries the machine's phase: `now` | `upcomi
 | `travel-hero-done` | the day-complete state `<div>` | Phase `done`: every timed item is done/past. |
 | `travel-hero-offtrip` | the off-trip copy `<p>` | Phase `off-trip`: the clock is outside Dec 9 – Jan 9 (portfolio / pre-/post-trip). |
 
-## 34. Travel Mode, agenda: `components/travel-agenda-card.tsx` + `components/trip-agenda.tsx` (route: `/travel`), S186
+## 34. Travel Mode, agenda: `components/travel-agenda-card.tsx` + `components/trip-agenda.tsx` (route: `/travel`)
 
-The full day list under the S185 hero. A client island (`ssr:false` via `app/travel/sections.tsx`)
+The full day list under the hero. A client island (`ssr:false` via `app/travel/sections.tsx`)
 that injects the clock and delegates to the shared `TripAgenda` (`variant="travel"`), the same
 list component the Today panel renders (`variant="today"`, its markup byte-unchanged). Per-row phase
 is derived by `deriveRowPhases` (`lib/travel-hero.ts`, the same machine the hero uses). The done
@@ -870,10 +870,10 @@ panel, so a TM toggle reflects on `/` and survives reload (D-018). Rows are ≥4
 | `travel-agenda-item` | the item title `<span>` inside each row | One per item, a read/count hook; the interactive control is the parent toggle. |
 | `travel-done-toggle-<itemId>` | the whole agenda-row `<button>` (the done toggle) | One per item; `<itemId>` = the item's stable `id`. `aria-pressed` reflects done state; `min-height:48px`; keyboard-operable. `data-row-phase` = `now` \| `upcoming` \| `past` \| `done` \| `untimed` (from `deriveRowPhases`). Clicking calls `updateItem(date, id, {done})`, the same mutation the Today panel's `today-done-toggle-<id>` uses (they reflect on each other, D-018). |
 
-## 35. Travel Mode, `?date=` day picking: `components/travel-date-picker.tsx` + `components/travel-day-strip.tsx` (route: `/travel`), S187 (D-164)
+## 35. Travel Mode, `?date=` day picking: `components/travel-date-picker.tsx` + `components/travel-day-strip.tsx` (route: `/travel`), D-164
 
-The selection layer above the S185 hero + S186 agenda. Owns `?date=YYYY-MM-DD` (bounded Dec 9 –
-Jan 9, via `useSearchParams`, the S147/D-161 in-place-reactive pattern) and reuses the existing
+The selection layer above the hero + agenda. Owns `?date=YYYY-MM-DD` (bounded Dec 9 –
+Jan 9, via `useSearchParams`, the D-161 in-place-reactive pattern) and reuses the existing
 mobile `day-strip.tsx` (via the thin `TravelDayStrip` wrapper) to pick a day. Bounds and default
 resolution are the pure `resolveTravelDate` (`lib/travel-date.ts`). Composes with `?today=` per
 D-164: `?date=` picks the day, `?today=` still drives the clock/phases; with no `?date=`, the
@@ -889,9 +889,9 @@ default follows the `?today=`-simulated day when on-trip, else Day 1 pre-trip.
 | `travel-date-empty` | the "not a trip day" `<section>` | Rendered when `?date=` is present but malformed or outside Dec 9 – Jan 9. Never a crash or a silent clamp. |
 | `travel-date-empty-return` | the one-tap return `<button>` inside the empty state | Same clear-`?date=` action as `travel-preview-back`. |
 
-## 36. Travel Mode, Essentials block: `components/travel-essentials-card.tsx` (route: `/travel`), S188
+## 36. Travel Mode, Essentials block: `components/travel-essentials-card.tsx` (route: `/travel`)
 
-Mounts below the S186 agenda as its own lazy island (`next/dynamic(ssr:false)` inside
+Mounts below the agenda as its own lazy island (`next/dynamic(ssr:false)` inside
 `components/travel-date-picker.tsx`), following the same resolved `?date=` the hero and agenda use.
 Four panels: leg-correct weather (`fetchWeather`, reuses `weatherCache`, no new fetch path),
 a live USD→leg-currency rate (`lib/currency-rate.ts`, new), a compact safety/emergency-numbers
@@ -909,14 +909,14 @@ Lock (`lib/use-wake-lock.ts`) while mounted.
 | `travel-essentials-currency` | the currency panel `<div>` | Shows "1 USD = `<rate>` `<currency>`" (NPR for the Nepal leg, JPY for Japan). |
 | `travel-essentials-currency-loading` / `-asof` / `-unavailable` | state markers inside the currency panel | `-asof` holds the Frankfurter `date` + a "(cached)" suffix when stale. `-unavailable` covers both a failed fetch with no cache and currencies Frankfurter is confirmed not to carry (NPR; see `lib/currency-rate.ts`, where the fetch for those is skipped entirely, never issued). |
 | `travel-essentials-safety` | the safety panel `<div>` | Header reads "Emergency — `<Nepal\|Japan>`" for the resolved leg. |
-| `travel-essentials-safety-<contactId>` | one `tel:` link per shown contact (≤3) | Same `tel:`/`aria-label` pattern as `/safety`'s `safety-contact-<id>` (S152), namespaced to avoid a duplicate-id collision on the same page. |
+| `travel-essentials-safety-<contactId>` | one `tel:` link per shown contact (≤3) | Same `tel:`/`aria-label` pattern as `/safety`'s `safety-contact-<id>`, namespaced to avoid a duplicate-id collision on the same page. |
 | `travel-essentials-safety-link` | the "Full safety kit & phrasebook" `<Link>` | Routes to `/safety/` for the rest. |
 | `travel-essentials-flights` | the flight-card list wrapper `<div>` | Present only on the 4 travel days (Dec 9 / Dec 18 / Dec 19 / Jan 9); absent every other day. |
 | `travel-essentials-flight-<journeyId>` | one card per confirmed `Journey` (`lib/booking-data.ts`) that day | Dec 19 renders two (`return-to-japan` + `tokyo-to-osaka`: the arrival and the same-day domestic hop). |
 | `travel-essentials-tracker-<legId>` | the FlightRadar24 "Track flight" `<a>` per flight leg | `target="_blank" rel="noopener noreferrer"`; absent when the airline isn't in the bounded IATA map (never a guessed link). |
 | `travel-essentials-rome2rio-<journeyId>` / `travel-essentials-gflights-<journeyId>` | the two route-level deep-links per journey card | Byte-exact hrefs built by `lib/flight-deep-links.ts` from the journey's `fromSummary`/`toSummary`; `target="_blank" rel="noopener noreferrer"`. |
 
-## 37. Travel Mode, outdoor high-legibility toggle: `components/travel-legibility-toggle.tsx` (route: `/travel`), S189
+## 37. Travel Mode, outdoor high-legibility toggle: `components/travel-legibility-toggle.tsx` (route: `/travel`)
 
 D-165's TM-local substitute for a site-wide light mode. Mounted directly in `app/travel/page.tsx`'s
 header row (next to the "Travel Mode" `<h1>`), a plain (non-lazy) client component with no
@@ -930,7 +930,7 @@ unconditionally on unmount (route leave), so it can never leak onto another rout
 |---|---|---|
 | `travel-legibility-toggle` | the toggle `<button>` | `aria-pressed` reflects the persisted/current state; ≥44×44px hit target; label "High legibility" (icon-only below `sm:`). |
 
-## 38. Travel Mode, enter/exit affordances: `components/navbar.tsx` · `components/hero-section.tsx` · `components/travel-exit-button.tsx` · `components/travel-arrival-toast.tsx` (route: `/travel` + app-wide), S190 (D-164 / D-194)
+## 38. Travel Mode, enter/exit affordances: `components/navbar.tsx` · `components/hero-section.tsx` · `components/travel-exit-button.tsx` · `components/travel-arrival-toast.tsx` (route: `/travel` + app-wide), D-164 / D-194
 
 The four entry surfaces plus the exit. Entry (nav button / hero CTA / in-trip card / toast
 "Open") records the origin route (`travelReturn`, session key 20) and arms the `travelMode` gateway
@@ -943,11 +943,11 @@ toast shows exactly once per device, on-trip only, until entered or dismissed.
 
 | testid | element | notes |
 |---|---|---|
-| `navbar-travel-mode` | the persistent Travel Mode entry `<button>` in the nav chrome | On every page and trip phase, at both widths (not behind the hamburger); ≥44px; `aria-label="Enter Travel Mode"`, label "Travel Mode" collapses to icon-only below `sm:`. Sits inside the navbar bar (z-50), always above the S229 sync pill (fixed `top-20`, z-40). Absent on `/travel` (navbar renders null there). |
-| `hero-travel-entry` | removed in S321 | The Home hero collapsed to one state-aware CTA (pre/post-trip → "Open Planner" link → `/plan/`; in-trip → the in-trip card's Travel Mode button below). The always-present hero Travel Mode button is gone; Travel Mode entry pre-trip is the persistent `navbar-travel-mode` button. |
-| `home-intrip-travel-card` | the on-trip hero panel action row `<div>` | Only rendered inside the trip window (`todayInTrip` non-null); this is the in-trip "card", hidden off-trip. S321 reduced it to a single button (it was two, and "Open today's plan" was dropped). |
-| `home-intrip-travel` | the "Open Travel Mode" `<button>` inside the in-trip card | On-trip only. S321: now the in-trip card's sole action. |
-| `travel-exit` | the exit X `<button>` inside `/travel` | ≥44×44px; `aria-label="Exit Travel Mode"`; mirrors the shared dialog-close idiom (S157). Restores the prior route with no history trap. Lazy `ssr:false` island (sections.tsx), same as the legibility toggle. |
+| `navbar-travel-mode` | the persistent Travel Mode entry `<button>` in the nav chrome | On every page and trip phase, at both widths (not behind the hamburger); ≥44px; `aria-label="Enter Travel Mode"`, label "Travel Mode" collapses to icon-only below `sm:`. Sits inside the navbar bar (z-50), always above the sync pill (fixed `top-20`, z-40). Absent on `/travel` (navbar renders null there). |
+| `hero-travel-entry` | removed | The Home hero collapsed to one state-aware CTA (pre/post-trip → "Open Planner" link → `/plan/`; in-trip → the in-trip card's Travel Mode button below). The always-present hero Travel Mode button is gone; Travel Mode entry pre-trip is the persistent `navbar-travel-mode` button. |
+| `home-intrip-travel-card` | the on-trip hero panel action row `<div>` | Only rendered inside the trip window (`todayInTrip` non-null); this is the in-trip "card", hidden off-trip. It was reduced to a single button (it was two, and "Open today's plan" was dropped). |
+| `home-intrip-travel` | the "Open Travel Mode" `<button>` inside the in-trip card | On-trip only. Now the in-trip card's sole action. |
+| `travel-exit` | the exit X `<button>` inside `/travel` | ≥44×44px; `aria-label="Exit Travel Mode"`; mirrors the shared dialog-close idiom. Restores the prior route with no history trap. Lazy `ssr:false` island (sections.tsx), same as the legibility toggle. |
 | `travel-arrival-toast` | the arrival auto-suggest toast `<div role="region">` | App-wide, on-trip only, exactly-once. Bottom-center above the mobile tab bar; `m.*` reveal auto-neutralized under reduced motion. |
 | `travel-arrival-enter` | the toast "Open" `<button>` | ≥44px; enters Travel Mode (also marks the toast seen). |
 | `travel-arrival-dismiss` | the toast dismiss X `<button>` | ≥44×44px; `aria-label="Dismiss Travel Mode suggestion"`; persists `'seen'` → never shown again. |
@@ -957,14 +957,14 @@ toast shows exactly once per device, on-trip only, until entered or dismissed.
 - `scroll-progress` in `components/scroll-progress.tsx`, the fixed top scroll
   progress bar. Present on every route. Not touched by this pass.
 
-## S214: `data-scroll-driven` marker, `components/reveal.tsx` (`<Reveal>`, all content routes)
+## `data-scroll-driven` marker, `components/reveal.tsx` (`<Reveal>`, all content routes)
 
 Not a `data-testid` but a state/marker attribute, the same idiom `scroll-progress.tsx`'s
-`data-scroll-driven` already uses (see the "Existing testid" entry above). S214 extends
-S180's dual-path scroll-driven-CSS pattern from the page-progress bar to `<Reveal>`, the
+`data-scroll-driven` already uses (see the "Existing testid" entry above). It extends
+the scroll-progress dual-path scroll-driven-CSS pattern from the page-progress bar to `<Reveal>`, the
 section-entrance slide-in used by `SectionHeading` and ~12 content-route consumers
 (Nepal/Japan guides, photography guide, nightlife, country-essentials, budget panel,
-flights, trip-timeline, trip-dashboard, trip-recap, trip-story-recap). That is the S214-era
+flights, trip-timeline, trip-dashboard, trip-recap, trip-story-recap). That is the original
 list and is kept as the record of the change's reach; `trip-timeline` and `trip-dashboard` have
 since been deleted (issues #94 and #106), and `<Reveal>` is today imported by
 `components/section-heading.tsx`, `components/wrapped-story.tsx` and `app/passport/page.tsx`
@@ -974,7 +974,7 @@ only: `<Reveal>`'s external API (`children`, `className`) and visual output are 
 | attribute | element | notes |
 |---|---|---|
 | `data-scroll-driven="css"` | the `<Reveal>` wrapper `<div class="reveal-view-css">` | Chromium (or any engine matching `@supports (animation-timeline: view())`) and not under `prefers-reduced-motion`. Driven by the `reveal-view-in` keyframe on an element view timeline (`animation-timeline: view()` + `animation-range: entry 0% cover 30%`, `app/globals.css`), so zero JS runs per scroll frame. |
-| `data-scroll-driven="js"` | the `<Reveal>` wrapper `<m.div>` | Firefox/Safari (no `animation-timeline: view()` support), or always under `prefers-reduced-motion` (the CSS element is never rendered there, per D-007/D-056, mirroring `scroll-progress.tsx`). The original framer `whileInView`/`viewport:{once:true}` entrance, byte-identical to pre-S214. |
+| `data-scroll-driven="js"` | the `<Reveal>` wrapper `<m.div>` | Firefox/Safari (no `animation-timeline: view()` support), or always under `prefers-reduced-motion` (the CSS element is never rendered there, per D-007/D-056, mirroring `scroll-progress.tsx`). The original framer `whileInView`/`viewport:{once:true}` entrance, byte-identical to the pre-CSS version. |
 
 Covered by `e2e/reveal.spec.ts` (content renders/reveals correctly on `/nepal/` + `/japan/`
 incl. the embedded photography guide section, the CSS path is proven live via this
@@ -982,7 +982,7 @@ attribute + `animationName`, and reduced motion proves the CSS path never render
 component-level suite `lib/__tests__/reveal-css-path.test.ts` /
 `lib/__tests__/reveal-reduced-motion.test.ts`.
 
-## S200: Google sign-in group, `components/settings-panel.tsx` (route: `/settings`)
+## Google sign-in group, `components/settings-panel.tsx` (route: `/settings`)
 
 A fourth `/settings` group (D-168 is locked: sign-in only, no sign-out flow, no accounts system).
 Gives each traveler a stable Firestore auth uid that survives storage clears and device swaps.
@@ -997,9 +997,9 @@ The group is entirely absent (not just empty) when dormant
 | `settings-google-error` | the inline `<p role="alert">` sign-in failure message | Only rendered after a failed popup attempt (blocked/closed/offline, an expected path rather than an exceptional one). |
 | `settings-google-signed-in` | the "Signed in as `<name or email>`" `<p>` | Shown once the Firebase identity is a Google account. No sign-out control (D-168 puts it out of scope). |
 
-## S229: Sync-status badge, `components/sync-status-badge.tsx` (app-wide, all routes, mounted in `app/layout.tsx`)
+## Sync-status badge, `components/sync-status-badge.tsx` (app-wide, all routes, mounted in `app/layout.tsx`)
 
-A passive, live pill over the offline-push outbox (`core/sync/outbox.ts`, S141/D-150) reporting a
+A passive, live pill over the offline-push outbox (`core/sync/outbox.ts`, D-150) reporting a
 pending-chunk count or a calm "synced Xm ago" resting state (`hooks/use-sync-status.ts`). Fixed
 top-right, below the navbar (`PresenceBar` bottom-left, the
 mobile FAB/Sonner toasts bottom-right). Entirely absent, not just empty, when dormant
@@ -1013,7 +1013,7 @@ lastAckAt===null`).
 | `sync-status-badge` | the pill's root `<div role="status" aria-live="polite">` | Absent (not just empty) when dormant/guest, or when `pending===0 && lastAckAt===null`. `data-state` is `"pending"` \| `"synced"`. |
 | `sync-status-text` | the visible label `<span>` inside the pill | `"N pending"` while `pending>0`; `"Synced {relative}"` (via `lib/relative-time.ts`'s `formatRelativeTime`) once `pending===0 && lastAckAt!==null`. |
 
-## S224: Map-linked itinerary editing, `components/trip-map.tsx` + `components/map-section.tsx` (route: `/map`)
+## Map-linked itinerary editing, `components/trip-map.tsx` + `components/map-section.tsx` (route: `/map`)
 
 Assign a map pin to a trip day so that day's stops re-order by client-side haversine
 distance from the pin (the anchor). No routing API (D-003/D-079 free-tools-only). The
@@ -1038,11 +1038,11 @@ Day-target strip + ordered-stop panel (`map-section.tsx`):
 | Testid | Element | Notes |
 |---|---|---|
 | `map-day-strip` | the day-strip `<div>` (label "Pick a day, or plan one around a pin") | One chip per trip day: a day selector AND a pin drop target. |
-| `map-day-target-{dateISO}` | a day chip `<button>` (day selector + drop target) | `data-anchored` (`"true"`/`"false"`), `data-stop-count` = the day's total planned items (S380; it used to be mapped-stops-only, so a day holding 3 plans the join could not place read `0`), `data-mapped-count` = how many of them are exactly placed (S381/D-279, since "mapped" is now every item and that count could no longer fail), `aria-pressed` (this day is selected). Issue #1: activating it now SCOPES THE MAP to that day — it opens the day panel, turns the itinerary overlay on (the pins are drawn by the overlay, so without that the gesture answers with an empty canvas from a cold load) and sets `map-shell`'s `data-route-day`. Activating the selected chip again deselects it and the whole trip comes back; the overlay is left on. |
-| `map-day-order` | the day panel `<div>` for the selected day | `data-anchored` reflects whether that day has an anchor. S381/D-281: rows are always in time order. The anchor is the day's base point, supplying the per-row distance label, and no longer re-orders anything. |
-| `map-day-order-empty` | the panel's empty-state `<p>` | Only one honest empty case is left (S381): "Nothing planned for this day yet — drop a pin here to start." Under D-278 every plan has a position, so the old "none of this day's N items have a map location yet" branch was deleted as false. |
-| `map-day-order-stop-{itemId}` | one plan row inside its `<li>`, in time order | S381 keys this by the item id, not the marker id, because two plans can share a marker, which duplicated both the React key and this testid. It is a `<button>` when the plan has a position: Click/Enter/Space flies the map to that plan's pin (resets the filter to All, turns the overlay on), and several plans at one coordinate share one pin. Carries `data-placement` (`exact`/`approximate`/`none`), `data-via` (`pin`/`source`/`name`/`area`/`city`), `data-marker-id`, `data-derived-from`. An approximate row is marked by shape (hollow ring) plus text ("≈ <derivedFrom>"), never colour alone (D-279). |
-| `map-day-order-locate-{itemId}` | the "No location yet — set one" link on a `kind:'none'` row (S381) | Custom trips only (a `city` outside the one city table). Goes to `/plan/` and its S357B pin picker; that row is a `<div>`, not a fly-to button, because there is nowhere to fly. |
+| `map-day-target-{dateISO}` | a day chip `<button>` (day selector + drop target) | `data-anchored` (`"true"`/`"false"`), `data-stop-count` = the day's total planned items (it used to be mapped-stops-only, so a day holding 3 plans the join could not place read `0`), `data-mapped-count` = how many of them are exactly placed (D-279, since "mapped" is now every item and that count could no longer fail), `aria-pressed` (this day is selected). Issue #1: activating it now SCOPES THE MAP to that day — it opens the day panel, turns the itinerary overlay on (the pins are drawn by the overlay, so without that the gesture answers with an empty canvas from a cold load) and sets `map-shell`'s `data-route-day`. Activating the selected chip again deselects it and the whole trip comes back; the overlay is left on. |
+| `map-day-order` | the day panel `<div>` for the selected day | `data-anchored` reflects whether that day has an anchor. D-281: rows are always in time order. The anchor is the day's base point, supplying the per-row distance label, and no longer re-orders anything. |
+| `map-day-order-empty` | the panel's empty-state `<p>` | Only one honest empty case is left: "Nothing planned for this day yet — drop a pin here to start." Under D-278 every plan has a position, so the old "none of this day's N items have a map location yet" branch was deleted as false. |
+| `map-day-order-stop-{itemId}` | one plan row inside its `<li>`, in time order | Keyed by the item id, not the marker id, because two plans can share a marker, which duplicated both the React key and this testid. It is a `<button>` when the plan has a position: Click/Enter/Space flies the map to that plan's pin (resets the filter to All, turns the overlay on), and several plans at one coordinate share one pin. Carries `data-placement` (`exact`/`approximate`/`none`), `data-via` (`pin`/`source`/`name`/`area`/`city`), `data-marker-id`, `data-derived-from`. An approximate row is marked by shape (hollow ring) plus text ("≈ <derivedFrom>"), never colour alone (D-279). |
+| `map-day-order-locate-{itemId}` | the "No location yet — set one" link on a `kind:'none'` row | Custom trips only (a `city` outside the one city table). Goes to `/plan/` and its pin picker; that row is a `<div>`, not a fly-to button, because there is nowhere to fly. |
 
 Issue #31 added the **visited footprint** — the "filled-in countries" wash. It is drawn in the
 WebGL canvas (`visited-fill` / `visited-edge`, added first in `trip-map.tsx`'s `load` handler so
@@ -1056,7 +1056,7 @@ footprint and never a border.
 | `data-visited-countries` on `map-shell` | the persistent map host `<div>` | Comma-joined country labels in first-visit order (`''` when the record is empty). Same idiom as `data-route-stop-ids`, and for the same reason — the shapes are inside the canvas. Seed `tripPlannerLifetimeVisits` before load to drive it. |
 | `map-visited-note` | the `<p>` under the map controls | Present only when at least one country is filled. Names the countries and states plainly that the wash is covered ground, not a national border — the screen-reader equivalent of the canvas shapes, so do not delete it as decorative. |
 
-S218 added polish-bundle micro-celebration bursts (`components/celebration-burst.tsx`), `aria-hidden`
+The polish bundle added micro-celebration bursts (`components/celebration-burst.tsx`), `aria-hidden`
 and decorative only (no a11y role), absent entirely under `prefers-reduced-motion`:
 
 | Testid | Element | Notes |
@@ -1064,7 +1064,7 @@ and decorative only (no a11y role), absent entirely under `prefers-reduced-motio
 | `hero-arrival-celebration` | the burst inside the hero's "You're on the trip" panel | Fires once on the countdown-reaches-zero / arrival edge (`components/hero-section.tsx`). |
 | `packing-celebration` | the burst inside the packing checklist section | Fires once when the last packing item is checked off (`components/packing-checklist.tsx`). |
 
-S220 added the share-target inbox (`/share`, `components/share-inbox.tsx`): the OS `share_target`
+A later change added the share-target inbox (`/share`, `components/share-inbox.tsx`): the OS `share_target`
 receiver and triage inbox. `{id}` is the generated item id (`share-<uuid>`).
 
 | Testid | Element | Notes |
@@ -1076,7 +1076,7 @@ receiver and triage inbox. `{id}` is the generated item id (`share-<uuid>`).
 | `share-item-day-{id}` | the trip-day `<select>` | Options: "Unassigned" + one per `TRIP_DATES` ("Day N · Wed, Dec 10"). Value is the `YYYY-MM-DD` day or `''`. |
 | `share-item-delete-{id}` | the delete `<button>` | Removes the row; the last delete reveals `share-empty`. |
 
-S256 added the desktop "More" disclosure (`components/navbar.tsx`): a hand-rolled dropdown after
+A later change added the desktop "More" disclosure (`components/navbar.tsx`): a hand-rolled dropdown after
 the 6 primary desktop links (`hidden md:flex` cluster only, never below `md`; D-071 mobile chrome
 untouched). Lists the active trip's companion routes (`navItemsForActiveTrip()` minus the
 primary seats) plus a Search row that dispatches the `palette:open` window CustomEvent
@@ -1089,11 +1089,11 @@ primary seats) plus a Search row that dispatches the `palette:open` window Custo
 | `navbar-more-link-{label}` | each companion `<Link role="menuitem">` | `{label}` = `item.label.toLowerCase()` (default trip: `journal`/`safety`/`recap`/`packing`/`trips`/`settings`). Active route gets `aria-current="page"`. |
 | `navbar-more-search` | the "Search ⌘K / Ctrl+K" row `<button role="menuitem">` | Closes the menu (focus → toggle) then dispatches `palette:open`; the palette opens as a second, clean action. |
 
-## 39. Flights, Flighty-anatomy journey card + "Check live status" rail: `components/flight-journey-card.tsx` (route: `/flights`), S325 / S326
+## 39. Flights, Flighty-anatomy journey card + "Check live status" rail: `components/flight-journey-card.tsx` (route: `/flights`)
 
 The `/flights` journey list renders one standalone `FlightJourneyCard` per `JOURNEYS` member
-(S326, D-233): phase strip → big route → verbatim times → proximity countdown → labelled chips
-→ layover verdict rows → the S325 deep-link rail. Phase and countdown derive from the trip clock
+(D-233): phase strip → big route → verbatim times → proximity countdown → labelled chips
+→ layover verdict rows → the deep-link rail. Phase and countdown derive from the trip clock
 (`getFlightTiming`, `lib/flight-phase.ts` → `getNow` + `computeCountdown` targeting the authored
 `Journey.departDate`), never from a booking label (D-034). The card is self-contained so a later
 slice can embed it in Travel Mode or the day timeline (deferred FU). The rail is built by
@@ -1110,20 +1110,20 @@ All external deep-links go out only (D-169); every time/date/duration label is v
 | `flights-tracker-<legId>` | the FlightRadar24 tracker `<a>` per flight leg | `target="_blank" rel="noopener noreferrer"`; `aria-label="Track <flightNumber> on FlightRadar24"`; absent when the airline isn't in the bounded IATA map (never a guessed link). |
 | `flights-rome2rio-<journeyId>` / `flights-gflights-<journeyId>` | the two route-level deep-links per journey card | Byte-exact hrefs built by `lib/flight-deep-links.ts` from the journey's verbatim `fromSummary`/`toSummary`; `target="_blank" rel="noopener noreferrer"` + descriptive `aria-label`. |
 
-## 40. Travel Mode, per-day map + concierge mount: `components/travel-day-map.tsx` · `components/travel-concierge.tsx` (route: `/travel`), S344 / S343
+## 40. Travel Mode, per-day map + concierge mount: `components/travel-day-map.tsx` · `components/travel-concierge.tsx` (route: `/travel`)
 
-S344, the day's map. A collapsed-by-default `<details>` row (the section 36 Essentials idiom) sitting
-directly under the S317 checklist, hosting the existing `<PlanDayMap>` (the `/plan` S136/S137 pane),
+The day's map. A collapsed-by-default `<details>` row (the section 36 Essentials idiom) sitting
+directly under the checklist, hosting the existing `<PlanDayMap>` (the `/plan` pane),
 with no new map component. It is fed one day plan (`buildItineraryStops([getDayPlan(selectedDate)])`,
 `lib/itinerary-map.ts`), so only the selected day's marker-matched stops can ever plot; the day
-changes via the same `?date=` seam as the hero/agenda (S187), which re-renders this island in place
+changes via the same `?date=` seam as the hero/agenda, which re-renders this island in place
 with the new stop set. The `<PlanDayMap>` pane is rendered only while the row is open, so the
 ~200 kB maplibre chunk stays interaction-lazy (D-047) exactly as on `/plan`; the row's open state is
 component state, so it survives day changes (open once, then flip days and watch the pins change).
 Zero-stop days render an honest empty line instead of a bare world map. Covered by
 `e2e/travel-day-map.spec.ts`.
 
-S343, the concierge on `/travel`. The same `<ConciergeChat />` the navbar mounts, placed in the
+The concierge on `/travel`. The same `<ConciergeChat />` the navbar mounts, placed in the
 reserved `.tm-thumb-zone` band (section 32) via `components/travel-concierge.tsx`, whose only rule is
 the navbar's `isDefaultTrip()` persona gate. Every other gate stays inside ConciergeChat
 (`isConciergeConfigured()` + non-guest traveler), so a dormant build (`NEXT_PUBLIC_CONCIERGE_URL`
@@ -1137,9 +1137,9 @@ conditionally in `e2e/travel-day-map.spec.ts` (the `custom-trip-gating.spec.ts` 
 | `travel-day-map-summary` | the `<summary>` toggle | ≥48px, keyboard-operable (native `<details>`), visible focus ring. |
 | `travel-day-map-count` | the count hint inside the summary | `"2 of 3 stops pinned"`, or `"nothing planned"` on an empty day, visible while collapsed. |
 | `travel-day-map-empty` | the zero-pin empty line | Two honest wordings: nothing planned at all vs. planned items that have no map location yet. |
-| `plan-day-map` / `plan-day-map-count` | the reused `/plan` pane + its "N of M stops shown" overlay | Unchanged components (S136/S137); present only while the row is open. |
+| `plan-day-map` / `plan-day-map-count` | the reused `/plan` pane + its "N of M stops shown" overlay | Unchanged components; present only while the row is open. |
 | `concierge-trigger` / `concierge-panel` | the concierge, now reachable on `/travel` | Same ids as the navbar mount; there is only ever one mount at a time (the navbar returns null under `/travel`). Absent in a dormant build on both surfaces. |
-| `concierge-error` / `concierge-retry` | the `role="alert"` error row and its single "Try again" control (S389-C) | Present only while `error` is set. `concierge-error` became a `<div>` (it now wraps a button); the copy for a lost connection names being offline and no request is made at all. `concierge-retry` re-sends the last attempted turn: one control, no auto-retry or backoff. Both DOM-proven in `lib/__tests__/concierge-op-feedback.test.ts`. |
+| `concierge-error` / `concierge-retry` | the `role="alert"` error row and its single "Try again" control | Present only while `error` is set. `concierge-error` became a `<div>` (it now wraps a button); the copy for a lost connection names being offline and no request is made at all. `concierge-retry` re-sends the last attempted turn: one control, no auto-retry or backoff. Both DOM-proven in `lib/__tests__/concierge-op-feedback.test.ts`. |
 
 ## 41. Front door (username + password) + `/trips` account affordances: `components/token-gate.tsx` · `components/trips-hub.tsx` (D-660, superseding D-239's User Token door)
 

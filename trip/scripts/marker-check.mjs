@@ -55,7 +55,7 @@ const PATTERNS = [
   // Files that live only in the private working copy. A reference to one of
   // these is a dead link for anyone reading this repo.
   //
-  // Case-insensitive since S417: these are filenames, and the filesystems this
+  // Case-insensitive: these are filenames, and the filesystems this
   // repo is written on are case-insensitive, so `claude.md` and `state.md` name
   // exactly the same private files. The last publish leaked a lowercase one
   // straight past the uppercase-only spelling.
@@ -69,7 +69,7 @@ const PATTERNS = [
   // \b-anchored spelling would miss `.claude/` in every place it actually gets
   // written (`` `.claude/` ``, "(.claude/)", start of line).
   //
-  // Settled once, so nobody re-opens it: S417 words this rule as "references
+  // Settled once, so nobody re-opens it: the rule is worded as "references
   // to lib/__tests__/ and e2e/ paths". Do not implement that literally. Those
   // were two thirds of the old mirror script's EXCLUDE_DIRS, the directories it
   // withheld when it copied a private tree into a public one, so in the mirror
@@ -79,7 +79,7 @@ const PATTERNS = [
   // four that do not are the gitignored live-vault fixture, named as absent on
   // purpose in three places, and one comment recording a test it supersedes.
   // A literal rule would fire on 332 lines across 136 files, every one of them
-  // pointing at something a reader can open. The class S417 meant (a path this
+  // pointing at something a reader can open. The class the rule means (a path this
   // repo excludes) is now exactly the internal-planning block of the root
   // .gitignore, which is what this pattern tracks. Keep the two in step.
   ['excluded-path', /(?<![\w-])(\.claude|briefs|docs\/plans|docs\/reports)\//gi],
@@ -110,8 +110,8 @@ const ALLOWED_LINES = [
   // address, even though it contains the account handle.
   ['owner-pii', /trip-planner-concierge\.official-shadowverse\.workers\.dev/],
   // LICENSE and the README credit name the author on purpose.
-  ['owner-pii', /^Copyright \(c\) \d{4} [A-Z][a-z]+ [A-Z][a-z]+$/],
-  ['owner-pii', /^Built by [A-Z][a-z]+ [A-Z][a-z]+ \(\[\w+\]\(https:\/\/github\.com\/\w+\)\)\.$/],
+  ['owner-pii', /^Copyright \(c\) \d{4} [A-Z][a-z]+ [A-Z][a-z]+\r?$/],
+  ['owner-pii', /^Built by [A-Z][a-z]+ [A-Z][a-z]+ \(\[\w+\]\(https:\/\/github\.com\/\w+\)\)\.\r?$/],
   // SVG keyword and the npm package name, neither related to work-slicing.
   ['process-prose', /xMidYMax slice|prototype\.slice/],
   // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md) are

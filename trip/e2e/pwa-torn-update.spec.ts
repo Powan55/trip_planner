@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S271 (R4/R5.2) — torn-update / atomic-install invariant for the hand-rolled SW
+ * Torn-update / atomic-install invariant for the hand-rolled SW
  * (out/sw.js, scripts/gen-sw.mjs, D-073 LOCKED). Runs against the served static
  * `out/` build (D-093).
  *
@@ -65,7 +65,7 @@ async function precacheCount(page: Page): Promise<number> {
   });
 }
 
-test.describe('S271 · Part A — offline, the surviving worker serves real per-route shells (not Home)', () => {
+test.describe('Part A — offline, the surviving worker serves real per-route shells (not Home)', () => {
   test('/travel/ and /plan/ resolve to their OWN shells offline; an uncached route falls back to Home', async ({
     page,
     context,
@@ -162,7 +162,7 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
   });
 });
 
-test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects on any non-OK precache fetch)', () => {
+test.describe('the shipped install handler is ATOMIC (rejects on any non-OK precache fetch)', () => {
   test('one non-OK precache fetch rejects the whole install; an all-OK install resolves and commits the full shell', async ({
     page,
   }) => {
@@ -281,8 +281,8 @@ test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects
     // proving the reject above is caused by the failed fetch, not a handler that
     // always throws.
     expect(result.healthy.settled).toBe('resolved');
-    // RE-BASED BY S359B. The old floor was 150 against a 177-entry list that
-    // precached ALL of _next/static/**. S359B scoped that arm to the assets the
+    // RE-BASED. The old floor was 150 against a 177-entry list that
+    // precached ALL of _next/static/**. A later change scoped that arm to the assets the
     // precached routes actually reference, so a healthy install now commits 80:
     // 18 route HTML + 56 static (47 JS + 2 CSS + 7 woff2) + 4 icons + favicon +
     // manifest.
@@ -308,7 +308,7 @@ test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects
   });
 });
 
-test.describe('S271 · Part C — nav backfill caches a missed route on a successful online navigation', () => {
+test.describe('Part C — nav backfill caches a missed route on a successful online navigation', () => {
   // Every valid route in THIS build is already precached, so there is no
   // valid-but-unprecached navigation to exercise backfill in the real browser.
   // Prove it against the REAL shipped nav (fetch) handler instead: a same-origin

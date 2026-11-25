@@ -90,7 +90,7 @@ async function setEditorTime(page: Page, hour: number, minute: number, period: '
   await page.getByTestId('time-picker-done').click();
   await expect(page.getByTestId('time-picker-panel')).toHaveCount(0);
 
-  // S357A: Duration lives behind the editor's "More details" disclosure.
+  // Duration lives behind the editor's "More details" disclosure.
   await page.getByTestId('calendar-editor-more-toggle').click();
   await page.getByTestId('calendar-editor-duration-input').fill(String(durationMin));
 }

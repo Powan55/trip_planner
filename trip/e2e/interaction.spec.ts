@@ -2,7 +2,7 @@ import { test, expect, openPalette } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * Interaction-matrix E2E pack (slice S83, D-092) — E2E wave 3.
+ * Interaction-matrix E2E pack (D-092).
  *
  * Encodes the v2 interaction surface as permanent Playwright specs against the
  * served static `out/` build (D-093): the destination-guide filters / search /
@@ -15,7 +15,7 @@ import type { Page } from '@playwright/test';
  *
  * 1. Signed-in bypass + no networkidle. `test`/`expect` come from `./fixtures`
  *    (seeds `tripPlannerToken` via addInitScript so the Trip Token wall
- *    never opens — mirror of the S80-S82 specs). The app ships a live countdown
+ *    never opens — mirror of the other specs). The app ships a live countdown
  *    tick + a service worker, so the network never idles: every navigation uses
  *    `waitUntil: 'load'` (the default), NEVER `networkidle` (D-093 — it times
  *    out here).
@@ -45,7 +45,7 @@ import type { Page } from '@playwright/test';
  *    viewport (the FAB is `md:hidden`; md = 768px, so 390px reveals it). The
  *    dialog is portaled to document.body (docs/test-ids.md), so the
  *    `add-item-*` ids resolve regardless of the trigger's DOM position.
- *    S357C: these specs host on `FAB_ROUTE` (Home), not `/plan/` — the FAB is
+ *    These specs host on `FAB_ROUTE` (Home), not `/plan/` — the FAB is
  *    route-suppressed on the planner now. See the `FAB_ROUTE` docblock below.
  */
 
@@ -58,10 +58,10 @@ const BHOJAN_ID = 'nf1'; // "Bhojan Griha", category Food
 const PHONE = { width: 390, height: 844 } as const;
 
 /**
- * The route these FAB specs host themselves on (S357C).
+ * The route these FAB specs host themselves on.
  *
  * The quick-add FAB is route-SUPPRESSED (returns null → absent from the DOM) under `/travel`
- * (D-164) and, since S357C, under `/plan` — which now has its own always-visible sticky
+ * (D-164) and under `/plan` — which now has its own always-visible sticky
  * composer, so a FAB there would be a duplicate add affordance. These specs used `/plan/`
  * purely as a convenient host for an app-wide component; Home is the equivalent host where
  * the FAB legitimately renders. `e2e/travel-route.spec.ts` ("Home … shows navbar, footer, tab
@@ -125,7 +125,7 @@ async function waitForGuide(page: Page) {
 }
 
 /**
- * S322G — the guide facets (sort + city + Saved/Planned + category chips) moved from a
+ * The guide facets (sort + city + Saved/Planned + category chips) moved from a
  * permanent stack above the grid into ONE "Filters · n" sheet. Every chip testid is
  * unchanged; it just now lives inside the sheet, so specs open the sheet first before
  * asserting on / clicking a chip. Search stays pinned above the grid (not in the sheet).
@@ -141,13 +141,13 @@ async function closeFilters(page: Page) {
   await expect(page.getByTestId('guide-filters-sheet')).toHaveCount(0);
 }
 
-test.describe('S83 · guide filters + search + sort (RecommendationSection, /nepal/)', () => {
+test.describe('guide filters + search + sort (RecommendationSection, /nepal/)', () => {
   test('category chip filters the results grid to only that category', async ({ page }) => {
     await goto(page, '/nepal/');
     await waitForGuide(page);
 
     // "All" is active initially: both a Temple card and a Nature card are present
-    // (grid is content-first; the facets live behind the "Filters" sheet — S322G).
+    // (grid is content-first; the facets live behind the "Filters" sheet).
     await expect(page.getByTestId(`guide-card-${BOUDHA_ID}`)).toBeVisible();
     await expect(page.getByTestId(`guide-card-${SHIVAPURI_ID}`)).toBeVisible();
 
@@ -172,7 +172,7 @@ test.describe('S83 · guide filters + search + sort (RecommendationSection, /nep
     await waitForGuide(page);
 
     // The Nepal set spans more than one city, so the city-chip row renders inside
-    // the filters sheet (S322G).
+    // the filters sheet.
     await openFilters(page);
     await expect(page.getByTestId('guide-filter-city-all')).toBeVisible();
     await expect(page.getByTestId('guide-filter-city-kathmandu')).toBeVisible();
@@ -217,7 +217,7 @@ test.describe('S83 · guide filters + search + sort (RecommendationSection, /nep
 
     // Constrain to a single, small category (Food) so the ordering is easy to
     // assert deterministically by the cards' rendered <h3> names. Category + sort
-    // both live in the filters sheet now (S322G); apply them, then close it.
+    // both live in the filters sheet now; apply them, then close it.
     await openFilters(page);
     await page.getByTestId('guide-filter-category-food').click();
     await page.getByTestId('guide-sort-select').selectOption('name');
@@ -225,9 +225,9 @@ test.describe('S83 · guide filters + search + sort (RecommendationSection, /nep
 
     // Read the visible card titles in DOM order and confirm they are sorted
     // ascending (localeCompare) — the exact contract of the 'name' sort branch.
-    // (S110-FIX F5: the card title is now an <h3>, was <h4> — heading-order fix. The
+    // (The card title is now an <h3>, was <h4> — heading-order fix. The
     // assertion below is unchanged; only this locator tracks the intentional level change.)
-    // (V6-10: the nesting INVERTED — `guide-card-*` is now the button INSIDE the <h3>,
+    // (The nesting INVERTED — `guide-card-*` is now the button INSIDE the <h3>,
     // not a wrapper around it, so the trailing ` h3` matched nothing. The button's text
     // content is exactly `item.name`, so it is now the title locator itself.)
     const titles = await page
@@ -239,7 +239,7 @@ test.describe('S83 · guide filters + search + sort (RecommendationSection, /nep
   });
 });
 
-test.describe('S83 · place detail sheet (PlaceDetailSheet, opened from a guide card)', () => {
+test.describe('place detail sheet (PlaceDetailSheet, opened from a guide card)', () => {
   test('a guide card opens the detail sheet with the place name + close control', async ({
     page,
   }) => {
@@ -273,7 +273,7 @@ test.describe('S83 · place detail sheet (PlaceDetailSheet, opened from a guide 
   });
 });
 
-test.describe('S83 · custom-add flow — D-074 Maps href byte-check + confirm gate', () => {
+test.describe('custom-add flow — D-074 Maps href byte-check + confirm gate', () => {
   test('FAB → host opens the custom dialog; Maps link + confirm gate honor Title exactly', async ({
     page,
   }) => {
@@ -352,7 +352,7 @@ test.describe('S83 · custom-add flow — D-074 Maps href byte-check + confirm g
   });
 });
 
-test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => {
+test.describe('quick-add FAB seam (components/quick-add-fab.tsx)', () => {
   test('the FAB is phone-only (md:hidden) and hides while a dialog is open', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await goto(page, FAB_ROUTE);
@@ -376,12 +376,12 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
   });
 
   /**
-   * 🔴 S357C — this is the `md:hidden` BREAKPOINT check, and it is deliberately NOT a bare
+   * 🔴 This is the `md:hidden` BREAKPOINT check, and it is deliberately NOT a bare
    * `toBeHidden()`. Do not "simplify" it back.
    *
    * It previously ran on `/plan/` and asserted only `toBeHidden()`. Playwright's
    * `toBeHidden()` ALSO PASSES FOR AN ELEMENT THAT IS NOT IN THE DOM AT ALL — so the moment
-   * S357C route-suppressed the FAB on `/plan/`, that assertion would have been satisfied by
+   * the FAB was route-suppressed on `/plan/`, that assertion would have been satisfied by
    * the SUPPRESSION, and the breakpoint this test exists to guard would have stopped being
    * exercised on any route: green, and measuring nothing (the D-261 corollary — never let an
    * assertion decay into a tautology).
@@ -392,7 +392,7 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
    *   2. assert presence and invisibility SEPARATELY, so neither can be satisfied by absence.
    * `toBeAttached()` fails if the route suppressed it. `toHaveCSS('display','none')` fails if
    * the element is missing (it must resolve one to read computed style) AND fails if
-   * `md:hidden` stopped applying. Verified by mutation in both directions (S357C).
+   * `md:hidden` stopped applying. Verified by mutation in both directions.
    */
   test('the FAB is in the DOM but CSS-hidden at desktop width (md:hidden breakpoint)', async ({
     page,
@@ -408,7 +408,7 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
   });
 
   /**
-   * S357C — the new behaviour: `/plan/` route-suppresses the FAB, because the S357A sticky
+   * The new behaviour: `/plan/` route-suppresses the FAB, because the planner's sticky
    * composer is the add affordance there and a FAB would be a duplicate.
    *
    * Written as a DIFFERENTIAL in one test, at the PHONE viewport, on purpose. A bare
@@ -419,7 +419,7 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
    * breakpoint and never a broken harness. (Same shape `e2e/travel-route.spec.ts` uses to
    * prove /travel suppression both ways.)
    */
-  test('the FAB is route-suppressed on /plan/ (the S357A composer owns adding there)', async ({
+  test('the FAB is route-suppressed on /plan/ (the planner composer owns adding there)', async ({
     page,
   }) => {
     await page.setViewportSize(PHONE);
@@ -451,7 +451,7 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
   });
 });
 
-test.describe('S83 · navigation — bottom tab bar (phone) + navbar (desktop)', () => {
+test.describe('navigation — bottom tab bar (phone) + navbar (desktop)', () => {
   test('tab-bar tabs navigate between routes and reflect aria-current', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await goto(page, '/');
@@ -459,7 +459,7 @@ test.describe('S83 · navigation — bottom tab bar (phone) + navbar (desktop)',
     const tabBar = page.getByTestId('tab-bar');
     await expect(tabBar).toBeVisible();
 
-    // S320 (D-231): the 5-tab IA — Today · Plan · Map · Guides · More. Today tab is current on '/'.
+    // D-231: the 5-tab IA — Today · Plan · Map · Guides · More. Today tab is current on '/'.
     await expect(page.getByTestId('tab-bar-today')).toHaveAttribute('aria-current', 'page');
 
     // Tap Guides → route changes to /guides/ and that tab becomes current.
@@ -486,7 +486,7 @@ test.describe('S83 · navigation — bottom tab bar (phone) + navbar (desktop)',
     await goto(page, '/');
 
     await expect(page.getByTestId('navbar')).toBeVisible();
-    // S320 (D-231): desktop top row consolidated to Today · Plan · Map · Guides.
+    // D-231: desktop top row consolidated to Today · Plan · Map · Guides.
     await expect(page.getByTestId('navbar-link-today')).toHaveAttribute('aria-current', 'page');
 
     await page.getByTestId('navbar-link-guides').click();
@@ -498,16 +498,16 @@ test.describe('S83 · navigation — bottom tab bar (phone) + navbar (desktop)',
     await expect(page.getByTestId('navbar-link-map')).toHaveAttribute('aria-current', 'page');
   });
 
-  // S319: the mobile hamburger was deleted — the bottom tab bar is the sole mobile
+  // The mobile hamburger was deleted — the bottom tab bar is the sole mobile
   // nav. Retargeted from the old "hamburger opens the panel and its links navigate".
   test('mobile nav is the bottom tab bar (no hamburger); a tab navigates', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await goto(page, '/');
 
-    // The S47 hamburger toggle is gone (deleted, not hidden).
+    // The hamburger toggle is gone (deleted, not hidden).
     await expect(page.getByTestId('navbar-menu-toggle')).toHaveCount(0);
 
-    // The bottom tab bar is the mobile nav, and its tabs navigate. S320 (D-231): Nepal is
+    // The bottom tab bar is the mobile nav, and its tabs navigate. D-231: Nepal is
     // no longer a tab (consolidated behind Guides) — exercise the Guides tab instead.
     await expect(page.getByTestId('tab-bar')).toBeVisible();
     const guidesTab = page.getByTestId('tab-bar-guides');
@@ -517,7 +517,7 @@ test.describe('S83 · navigation — bottom tab bar (phone) + navbar (desktop)',
   });
 });
 
-test.describe('S83 · command palette (⌘K / Ctrl+K, components/command-palette.tsx)', () => {
+test.describe('command palette (⌘K / Ctrl+K, components/command-palette.tsx)', () => {
   test('Ctrl+K opens the palette; a selection navigates to the target route', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await goto(page, '/');
@@ -555,7 +555,7 @@ test.describe('S83 · command palette (⌘K / Ctrl+K, components/command-palette
   });
 });
 
-test.describe('S248 · glance-able "added" state on the guides (/nepal/)', () => {
+test.describe('glance-able "added" state on the guides (/nepal/)', () => {
   const PHOTO_ID = 'ps1'; // "Nagarkot Himalayan Panorama", Nepal photo spot
   const PHOTO_NAME = 'Nagarkot Himalayan Panorama';
 
@@ -565,13 +565,13 @@ test.describe('S248 · glance-able "added" state on the guides (/nepal/)', () =>
     await goto(page, '/nepal/');
     await waitForGuide(page);
 
-    // Baseline (post-S257): the SEED itinerary carries sourceId back-links, so
+    // Baseline: the SEED itinerary carries sourceId back-links, so
     // seeded places (Boudhanath na1) show their corner chip and the "Planned"
-    // filter chip on a fresh vault — that IS the S257 feature. An unseeded place
+    // filter chip on a fresh vault — that IS the seed back-link feature. An unseeded place
     // (Shivapuri na9) shows no chip until the user adds it.
     await expect(page.getByTestId(`guide-added-${BOUDHA_ID}`)).toBeVisible();
     await expect(page.getByTestId(`guide-added-${SHIVAPURI_ID}`)).toHaveCount(0);
-    // The "Planned" chip lives in the filters sheet now (S322G) — open it to confirm
+    // The "Planned" chip lives in the filters sheet now, so open it to confirm
     // it renders, then close so the card AddToPlanButton underneath is clickable.
     const plannedChip = page.getByTestId('guide-filter-planned');
     await openFilters(page);
@@ -638,7 +638,7 @@ test.describe('S248 · glance-able "added" state on the guides (/nepal/)', () =>
   });
 });
 
-test.describe('S83 · legacy v1 hash redirects (components/legacy-hash-redirect.tsx, Home)', () => {
+test.describe('legacy v1 hash redirects (components/legacy-hash-redirect.tsx, Home)', () => {
   const CASES = [
     { hash: '#nepal', url: /\/nepal\/?$/ },
     { hash: '#japan', url: /\/japan\/?$/ },

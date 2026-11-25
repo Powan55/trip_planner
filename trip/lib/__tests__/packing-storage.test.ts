@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * S206 — packing checklist persistence round-trip through the typed storage gateway (key 21,
+ * Packing checklist persistence round-trip through the typed storage gateway (key 21,
  * D-097) + the `core/packing/storage.ts` load/save adapter. Proves: the built-in template on
  * first load (no empty state), set→get, corrupt slot → template (never throws), sanitize-on-write
  * dedupes/drops malformed items, the on-disk key string is pinned + additive, and SSR/quota

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S237 — proves the concierge chat is FULLY INVISIBLE in the real default build state: no
+// Proves the concierge chat is FULLY INVISIBLE in the real default build state: no
 // `NEXT_PUBLIC_CONCIERGE_URL` set. This deliberately does NOT mock `@/lib/concierge-config` —
 // it exercises the real module reading the real (unset, in this test run) env var, which is the
 // exact state of every build today (`worker/README.md`: the Worker isn't deployed yet). Only

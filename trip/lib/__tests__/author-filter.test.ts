@@ -10,7 +10,7 @@ import { getPriorUserNames, getUserName } from '@/lib/identity';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S390-B / S390-C — two ways the traveller filter told a traveller they had done nothing.
+ * Two ways the traveller filter told a traveller they had done nothing.
  *
  * `lib/author-filter.ts` shipped with NO unit test at all, which is why both defects were
  * invisible: the only coverage was an e2e that asserts the control is DORMANT on the seed
@@ -28,7 +28,7 @@ const day = (items: ItineraryItem[]): DayPlan[] => [
   { date: '2026-12-11', city: 'Kathmandu', country: 'nepal', items },
 ];
 
-describe('S390-B — itemMatchesAuthor / distinctAuthors read `doneBy`', () => {
+describe('itemMatchesAuthor / distinctAuthors read `doneBy`', () => {
   // 🔴 ONLY `doneBy`. An item that ALSO carried `createdBy` would pass on the broken code and
   // prove nothing — this is the traveller who ticked six things off and authored none.
   const tickedOnly = mk({ id: 'ticked', doneBy: 'Mika' });
@@ -64,7 +64,7 @@ describe('S390-B — itemMatchesAuthor / distinctAuthors read `doneBy`', () => {
   });
 });
 
-describe('S390-C — a rename does not split one person into two', () => {
+describe('a rename does not split one person into two', () => {
   beforeEach(() => {
     window.localStorage.clear();
   });

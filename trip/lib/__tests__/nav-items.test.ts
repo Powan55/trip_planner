@@ -8,7 +8,7 @@ import {
 } from '../nav-items';
 
 // isRouteActive drives the active state of every primary-nav item (navbar + mobile
-// tab bar since FU-4). `normalizePath` is exported for the command palette, which
+// tab bar). `normalizePath` is exported for the command palette, which
 // compares the same way; it is still exercised here through isRouteActive.
 
 describe('isRouteActive', () => {
@@ -47,8 +47,8 @@ describe('isRouteActive', () => {
   });
 });
 
-describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
-  it('has exactly 15 items in S320 order + the issue #4 Profile and issue #5 Passport companions', () => {
+describe('NAV_ITEMS (D-231 — 5-tab IA delta)', () => {
+  it('has exactly 15 items in D-231 order + the issue #4 Profile and issue #5 Passport companions', () => {
     expect(NAV_ITEMS.length).toBe(15);
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       'Today',
@@ -93,7 +93,7 @@ describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
   });
 });
 
-describe('PRIMARY_NAV_ITEMS (S320, D-231 — the 4 shared primaries)', () => {
+describe('PRIMARY_NAV_ITEMS (D-231 — the 4 shared primaries)', () => {
   it('has exactly Today/Plan/Map/Guides, excluding the companions', () => {
     expect(PRIMARY_NAV_ITEMS.length).toBe(4);
     expect(PRIMARY_NAV_ITEMS.map((item) => item.label)).toEqual([
@@ -115,13 +115,13 @@ describe('PRIMARY_NAV_ITEMS (S320, D-231 — the 4 shared primaries)', () => {
   });
 });
 
-// S252 (Plan D10/D-071) — the active-trip-aware filters. `isDefaultTrip` is mocked per-test
+// D-071: the active-trip-aware filters. `isDefaultTrip` is mocked per-test
 // (via vi.mock + a mutable flag) rather than driving it through real localStorage, since the
 // pure filters only care about its boolean return.
 vi.mock('@/core/trips', () => ({ isDefaultTrip: () => mockIsDefault }));
 let mockIsDefault = true;
 
-describe('navItemsForActiveTrip / primaryItemsForActiveTrip (S252)', () => {
+describe('navItemsForActiveTrip / primaryItemsForActiveTrip', () => {
   beforeEach(() => {
     mockIsDefault = true;
   });

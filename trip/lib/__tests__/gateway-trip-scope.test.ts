@@ -13,22 +13,22 @@ import {
 } from '@/core/storage/gateway';
 
 /**
- * S183 — trip-pack key namespacing (D-172 LOCKED). These are ADDITIVE tests; the
- * pre-S183 gateway suite (gateway.test.ts) is untouched and stands as the "default pack is
+ * Trip-pack key namespacing (D-172 LOCKED). These are ADDITIVE tests; the
+ * original gateway suite (gateway.test.ts) is untouched and stands as the "default pack is
  * byte-identical" proof. Here we pin the NEW surface:
  *   - the pack-independent `activeTrip` pointer (unset ⇒ default; SSR/never-throw)
  *   - keyFor grandfather is ID-EQUALITY, not key-absence: default id ⇒ legacy literal VERBATIM
  *   - non-default id ⇒ `trip:{id}:{slot}` (slot = registry NAME)
  *   - keyFor changes the STRING only, never the Store (app-scoped slots structurally excluded)
  *
- * S352: the hand-maintained 9-slot `TRIP_SCOPED` array formerly declared here is DELETED — it had
+ * The hand-maintained 9-slot `TRIP_SCOPED` array formerly declared here is DELETED — it had
  * already drifted from the type (missing `docsChecklist`/`packing`/`dayAnchors`/`shareInbox`/
  * `myPlaces`). Every loop below now drives off the canonical `TRIP_SCOPED_SLOTS` export instead, so
  * the coverage widens automatically as slots are added (15-slot union as of `expensesCorrupt`,
  * #100/A-10) with no behavior change.
  */
 
-describe('gateway trip-scope (S183 / D-172)', () => {
+describe('gateway trip-scope (D-172)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -92,7 +92,7 @@ describe('gateway trip-scope (S183 / D-172)', () => {
     });
 
     it('grandfather is ID-EQUALITY, not key-absence: explicitly writing the default id still yields legacy literals', () => {
-      setActiveTripId(DEFAULT_TRIP_ID); // the S194 switcher writing the default id
+      setActiveTripId(DEFAULT_TRIP_ID); // the trip switcher writing the default id
       expect(window.localStorage.getItem('tripPlannerActiveTrip')).toBe(DEFAULT_TRIP_ID);
       for (const slot of TRIP_SCOPED_SLOTS) {
         expect(keyFor(slot)).toBe(STORAGE_KEYS[slot]);
@@ -107,7 +107,7 @@ describe('gateway trip-scope (S183 / D-172)', () => {
       expect(keyFor('photos')).toBe('nepal_japan_photos');
       expect(keyFor('syncOutbox')).toBe('nepal_japan_sync_outbox');
       expect(keyFor('weatherCache')).toBe('nepal_japan_weather_cache');
-      // S232 / D-210 — the itinerary slots grandfather to the EXACT legacy literals the live
+      // D-210: the itinerary slots grandfather to the EXACT legacy literals the live
       // Vault already uses, so the deployed trip's itinerary bytes are untouched.
       expect(keyFor('itinerary')).toBe('nepal_japan_itinerary');
       expect(keyFor('itineraryCorrupt')).toBe('nepal_japan_itinerary_corrupt');
@@ -117,8 +117,8 @@ describe('gateway trip-scope (S183 / D-172)', () => {
     });
   });
 
-  // ── S232 / D-210 — the itinerary Vault trip-scoping fix, grandfather BOTH directions ───────
-  describe('itinerary Vault slots — the local-data-bleed fix (S232 / D-210)', () => {
+  // ── D-210: the itinerary Vault trip-scoping fix, grandfather BOTH directions ───────
+  describe('itinerary Vault slots — the local-data-bleed fix (D-210)', () => {
     it('default pack ⇒ the exact legacy Vault literals VERBATIM (grandfather, both directions)', () => {
       // Pointer unset (implicit default) and pointer explicitly set to the default id both yield
       // the byte-identical legacy strings — the live trip's itinerary + quarantine keys never move.
@@ -141,8 +141,8 @@ describe('gateway trip-scope (S183 / D-172)', () => {
     });
   });
 
-  // ── S232 / D-210 — the device-id slot (app-scoped, presence heartbeat doc id after auth strip) ──
-  describe('deviceStore — a persisted, reload-stable device id (S232 / D-210)', () => {
+  // ── D-210: the device-id slot (app-scoped, presence heartbeat doc id after auth strip) ──
+  describe('deviceStore — a persisted, reload-stable device id (D-210)', () => {
     it('mints a uuid on first call, persists it under the exact key, and returns it verbatim thereafter', () => {
       expect(STORAGE_KEYS.deviceId).toBe('nepal_japan_device_id');
       const first = deviceStore.getId();
@@ -214,7 +214,7 @@ describe('gateway trip-scope (S183 / D-172)', () => {
   });
 });
 
-// ── wipeAllTripData (S352, D-249 amended — Ruling 1 / Ruling 1b / Ruling 4) ─────────────────────
+// ── wipeAllTripData (D-249 amended — Ruling 1 / Ruling 1b / Ruling 4) ─────────────────────
 describe('wipeAllTripData — the sign-out teardown clears BOTH trip-scoped namespaces', () => {
   beforeEach(() => {
     localStorage.clear();

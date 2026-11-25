@@ -14,7 +14,7 @@ import { itineraryEnvelopeV5, parseItineraryPayload } from '@/core/vault/schema'
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * Vault v4→v5 migration unit suite (S124; D-139 LOCKED). THE risky slice —
+ * Vault v4→v5 migration unit suite (D-139 LOCKED). THE risky slice —
  * a migration over real, live, sync-enabled trip data. Proves the appended v4→v5 step is:
  * LOSSLESS (only ADDS `startMinutes` where parseable), NEVER-CLOBBER, IDEMPOTENT, PURE / NO
  * CLOCK, and total on well-formed input. Mirrors the v3→v4 suite's structure.

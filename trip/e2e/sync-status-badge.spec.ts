@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S229 — app-wide sync-status badge (`components/sync-status-badge.tsx`) E2E pack.
+ * App-wide sync-status badge (`components/sync-status-badge.tsx`) E2E pack.
  *
  * ── WHAT THIS SANDBOX CAN PROVE FOR REAL ────────────────────────────────────────────────
  * The badge is gated by `hooks/use-sync-status.ts` → `core/sync/outbox.ts`'s `outboxSnapshot()`,
@@ -19,12 +19,12 @@ import type { Page } from '@playwright/test';
  * `isRemoteConfigured()` to read `true` in the SERVED build — impossible to fake from inside a
  * test (it's inlined at `next build` time, not a runtime toggle). These mechanics ARE already
  * proven for real, off-Firebase, at the unit level:
- *   - `lib/__tests__/core-sync-outbox.test.ts` (S229 block): `outboxSnapshot()` gating, the
+ *   - `lib/__tests__/core-sync-outbox.test.ts` (sync-status block): `outboxSnapshot()` gating, the
  *     `lastAckAt` stamp on ack, the same-tab `SYNC_OUTBOX_CHANGED_EVENT` dispatch.
  *   - `lib/__tests__/use-sync-status.test.ts`: the hook goes pending>0 → 0 LIVE off a REAL
  *     `withOutbox`/`flushOutbox` enqueue→ack cycle (no mocked event), a real cross-tab `storage`
  *     event, dormant gating even with real bytes on disk, and the 4th-domain pending-sum
- *     tolerance S229 calls out by name.
+ *     tolerance that test calls out by name.
  * The browser-only residue (axe + reduced-motion + live count on a REAL rendered pill) is a
  * MANUAL procedure, not a test. It used to sit here as a `test.describe.skip` with
  * `expect(true).toBe(true)` bodies, which inflated the spec count while asserting nothing;
@@ -44,7 +44,7 @@ async function goto(page: Page, path: string) {
     });
 }
 
-test.describe('S229 · sync-status badge — dormant build (this sandbox, signed-in identity)', () => {
+test.describe('sync-status badge — dormant build (this sandbox, signed-in identity)', () => {
   test('absent on Home (dormant: no firebase env → isRemoteConfigured() is false)', async ({ page }) => {
     await goto(page, '/');
     await expect(page.getByTestId('sync-status-badge')).toHaveCount(0);

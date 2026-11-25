@@ -4,7 +4,7 @@ import { crossedIntoComplete, celebrationVisible, claimCelebration } from '@/lib
 import { STORAGE_KEYS, celebrationLedger } from '@/core/storage/gateway';
 
 /**
- * S218 micro-celebration — the two pure decisions behind `components/celebration-burst.tsx`:
+ * Micro-celebration: the two pure decisions behind `components/celebration-burst.tsx`:
  * fire-once-per-transition (never re-fire on a re-render while the state stays true) and the
  * D-056(b) reduced-motion hard guard (nothing renders/fires, no static substitute).
  *
@@ -15,7 +15,7 @@ import { STORAGE_KEYS, celebrationLedger } from '@/core/storage/gateway';
  * under node.
  */
 
-describe('crossedIntoComplete (S218 — fire once per OBSERVED transition)', () => {
+describe('crossedIntoComplete (fire once per OBSERVED transition)', () => {
   it('fires only on the observed false→true edge', () => {
     expect(crossedIntoComplete(false, true)).toBe(true);
   });
@@ -41,7 +41,7 @@ describe('crossedIntoComplete (S218 — fire once per OBSERVED transition)', () 
   });
 });
 
-describe('celebrationVisible (S218, D-056b reduced-motion guard)', () => {
+describe('celebrationVisible (D-056b reduced-motion guard)', () => {
   it('is suppressed under reduced motion even when active', () => {
     expect(celebrationVisible(true, true)).toBe(false);
   });

@@ -14,7 +14,7 @@
 //      rebinds the cached handle to the account's uid, and `users/{uid}` reads/writes behave as the
 //      create-only claim flow needs.
 //
-// ⚠ THE ASSERTIONS COUNT MOCK CALLS, not only outcomes (the S378 rigour): every function under
+// ⚠ THE ASSERTIONS COUNT MOCK CALLS, not only outcomes (the account-identity suite's rigour): every function under
 // test swallows failure to a `null`/warn, so "returned null" alone cannot distinguish "the gate
 // held" from "the mock was bypassed and the real module quietly failed". A call count can.
 

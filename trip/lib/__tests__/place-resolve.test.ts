@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 //
-// S284 — the client place-link resolver (`lib/place-resolve.ts`). The centerpiece guarantee: it
+// The client place-link resolver (`lib/place-resolve.ts`). The centerpiece guarantee: it
 // NEVER throws and degrades to `null` on every failure mode (unconfigured Worker, non-200, thrown
 // fetch, bad JSON, `ok:false`), so the import sheet always falls back to manual entry — which is why
-// slice S-b ships before the Worker's /resolve route (S-a). Also proves the happy path returns hints.
+// this client can ship before the Worker's /resolve route. Also proves the happy path returns hints.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { resolvePlaceLink } from '@/lib/place-resolve';
@@ -18,7 +18,7 @@ function jsonRes(body: unknown, ok = true, status = 200): Response {
   return { ok, status, json: async () => body } as unknown as Response;
 }
 
-describe('resolvePlaceLink (S284) — never throws, degrades to null', () => {
+describe('resolvePlaceLink — never throws, degrades to null', () => {
   beforeEach(() => localStorage.clear());
 
   it('returns null (no fetch) when the Worker origin is unconfigured', async () => {

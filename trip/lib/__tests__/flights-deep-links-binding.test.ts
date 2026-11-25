@@ -8,7 +8,7 @@ import { JOURNEYS } from '@/lib/booking-data';
 import { TRAVEL_DAY_JOURNEYS } from '@/components/travel-essentials-card';
 
 /**
- * S325 — the "one tested source" guarantee for flight deep-links.
+ * The "one tested source" guarantee for flight deep-links.
  *
  * TWO surfaces render FlightRadar24 / Rome2Rio / Google-Flights deep-links:
  *   1. `/flights` (components/flights-section.tsx — the "Check live status" rail), and

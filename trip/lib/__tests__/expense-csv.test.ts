@@ -3,7 +3,7 @@ import { expensesToCsv, expensesToCsvBlob } from '@/lib/expense-csv';
 import type { Expense } from '@/core/budget/expenses';
 
 /**
- * S158 — `expensesToCsv` (pure, framework-free CSV serializer). RFC-4180 byte-checked:
+ * `expensesToCsv` (pure, framework-free CSV serializer). RFC-4180 byte-checked:
  * header + rows, CRLF row separators, quoting/escaping for comma/quote/newline, currency
  * derived from leg, split/paidBy flattening, and the empty-list header-only case.
  */
@@ -71,7 +71,7 @@ describe('expensesToCsv', () => {
     expect(rows[2]).toContain(',JPY,200,');
   });
 
-  it('flattens paidBy/split (S144) — semicolon-joined members; both absent on the fast path', () => {
+  it('flattens paidBy/split — semicolon-joined members; both absent on the fast path', () => {
     const csv = expensesToCsv([
       exp({ note: 'Dinner', paidBy: 'Powan', split: ['Powan', 'Alex', 'Sam'] }),
     ]);

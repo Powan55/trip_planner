@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S160 — EGRESS PROOFS (D-159, the zero-egress invariant). Two of the four proofs are Vitest-level and
+// EGRESS PROOFS (D-159, the zero-egress invariant). Two of the four proofs are Vitest-level and
 // live here; the other two are (b) a Playwright network intercept (e2e/photos.spec.ts) and (d) a grep
 // gate (`indexedDB` only under core/photos/**). These assert, on a real run, that photo bytes AND refs
 // never enter a synced or exported shape — BY CONSTRUCTION (the Expense/DayPlan carry no photo field;

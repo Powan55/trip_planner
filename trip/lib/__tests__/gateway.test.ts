@@ -30,7 +30,7 @@ import {
 } from '@/core/storage/gateway';
 
 /**
- * Typed storage gateway (S91 / D-097 LOCKED) — the ONE module fronting the non-itinerary
+ * Typed storage gateway (D-097 LOCKED) — the ONE module fronting the non-itinerary
  * persisted keys. These tests pin the properties the design note demands and the three
  * back-compat risks it calls out:
  *   - SSR no-op (no window → read fallback / write no-op, never throws)
@@ -61,8 +61,8 @@ describe('storage gateway (D-097)', () => {
       expect(STORAGE_KEYS.todayOverride).toBe('tripPlannerTodayOverride');
     });
 
-    it('now OWNS the itinerary keys too (S232/D-210 — moved into the registry from the Vault)', () => {
-      // Historically the itinerary Vault kept its two literals OUT of the registry (S90). S232
+    it('now OWNS the itinerary keys too (D-210 — moved into the registry from the Vault)', () => {
+      // Historically the itinerary Vault kept its two literals OUT of the registry. D-210
       // moves them in (byte-identical strings) so keyFor() can trip-scope a non-default pack's
       // itinerary — the local-data-bleed fix. The default pack still grandfathers these bytes.
       expect(STORAGE_KEYS.itinerary).toBe('nepal_japan_itinerary');
@@ -380,8 +380,8 @@ describe('storage gateway (D-097)', () => {
     });
   });
 
-  // ── S279 — reactive `trip:quota-exceeded` event on a detected quota failure ───
-  describe('S279 — isQuotaError()', () => {
+  // ── Reactive `trip:quota-exceeded` event on a detected quota failure ───
+  describe('isQuotaError()', () => {
     it('true for a QuotaExceededError-named DOMException (code 22)', () => {
       expect(isQuotaError(new DOMException('nope', 'QuotaExceededError'))).toBe(true);
     });
@@ -401,7 +401,7 @@ describe('storage gateway (D-097)', () => {
     });
   });
 
-  describe('S279 — writeString/writeJson fire trip:quota-exceeded ONLY on a detected quota error', () => {
+  describe('writeString/writeJson fire trip:quota-exceeded ONLY on a detected quota error', () => {
     it('writeString fires the event (with the key in detail) on a QuotaExceededError-shaped setItem throw', () => {
       vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
         throw new DOMException('quota', 'QuotaExceededError');
@@ -567,8 +567,8 @@ describe('storage gateway (D-097)', () => {
     });
   });
 
-  // ── favoritesStore (key 14, S149) — mirrors journalStore/expensesStore exactly ─
-  describe('favoritesStore (key 14, S149)', () => {
+  // ── favoritesStore (key 14) — mirrors journalStore/expensesStore exactly ─
+  describe('favoritesStore (key 14)', () => {
     it('the on-disk key string is exactly nepal_japan_favorites (additive, no migration)', () => {
       expect(STORAGE_KEYS.favorites).toBe('nepal_japan_favorites');
       expect(STORAGE_KEYS.favorites).not.toBe(STORAGE_KEYS.itinerary);
@@ -606,8 +606,8 @@ describe('storage gateway (D-097)', () => {
     });
   });
 
-  // ── tourStore (key 17, S155) — first-run tour, exactly-once presence flag ─
-  describe('tourStore (key 17, S155)', () => {
+  // ── tourStore (key 17) — first-run tour, exactly-once presence flag ─
+  describe('tourStore (key 17)', () => {
     it('the on-disk key string is exactly nepal_japan_first_run_tour_seen (additive, no migration)', () => {
       expect(STORAGE_KEYS.firstRunTour).toBe('nepal_japan_first_run_tour_seen');
       expect(STORAGE_KEYS.firstRunTour).not.toBe(STORAGE_KEYS.itinerary);
@@ -660,9 +660,9 @@ describe('storage gateway (D-097)', () => {
     });
   });
 
-  // ── legibilityPrefs (key 18, S189) — Travel Mode outdoor high-legibility toggle,
+  // ── legibilityPrefs (key 18) — Travel Mode outdoor high-legibility toggle,
   //    mirrors uiPrefs (RISK 3 shape) exactly: String(boolean), NOT JSON ──────────
-  describe('legibilityPrefs (key 18, S189) — TM outdoor toggle, mirrors uiPrefs exactly', () => {
+  describe('legibilityPrefs (key 18) — TM outdoor toggle, mirrors uiPrefs exactly', () => {
     it('the on-disk key string is exactly nepal_japan_travel_legibility (additive, no migration)', () => {
       expect(STORAGE_KEYS.travelLegibility).toBe('nepal_japan_travel_legibility');
       expect(STORAGE_KEYS.travelLegibility).not.toBe(STORAGE_KEYS.itinerary);
@@ -751,9 +751,9 @@ describe('storage gateway (D-097)', () => {
     });
   });
 
-  // ── installHintStore (key 30, S272) — install-to-Home hint, exactly-once presence flag,
+  // ── installHintStore (key 30) — install-to-Home hint, exactly-once presence flag,
   //    mirrors tourStore (key 17) exactly ─────────────────────────────────────
-  describe('installHintStore (key 30, S272)', () => {
+  describe('installHintStore (key 30)', () => {
     it('the on-disk key string is exactly nepal_japan_install_hint_dismissed (additive, no migration)', () => {
       expect(STORAGE_KEYS.installHintDismissed).toBe('nepal_japan_install_hint_dismissed');
       expect(STORAGE_KEYS.installHintDismissed).not.toBe(STORAGE_KEYS.firstRunTour);

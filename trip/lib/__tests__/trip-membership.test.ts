@@ -15,7 +15,7 @@
 //
 // ⚠ Assertions count writes and reads, not only outcomes: every function here swallows failure to
 // a console.warn, so "nothing bad happened" is indistinguishable from "the mock was bypassed"
-// without a count (the S378 rigour).
+// without a count (the account-identity suite's rigour).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 

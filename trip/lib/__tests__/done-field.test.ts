@@ -10,7 +10,7 @@ import { itineraryItemSchema, parseItineraryPayload } from '@/core/vault/schema'
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S98 — Done-tracking: the `done?: boolean` field is an additive OPTIONAL that
+ * Done-tracking: the `done?: boolean` field is an additive OPTIONAL that
  * round-trips through the Vault with NO migration and NO version bump.
  *
  * Proves:
@@ -35,7 +35,7 @@ const PLANS_WITH_DONE: DayPlan[] = [
     items: [
       { id: 'd-true', title: 'Boudhanath at dawn', category: 'photography', time: '06:00', done: true },
       { id: 'd-false', title: 'Thamel wander', category: 'sightseeing', done: false },
-      // Legacy item — NO `done` key at all (the live-users case pre-S98).
+      // Legacy item — NO `done` key at all (the live-users case before done-tracking).
       { id: 'd-absent', title: 'Momo lunch', category: 'food' },
     ],
   },
@@ -52,7 +52,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('S98 — `done` field is a lenient, additive OPTIONAL (schema)', () => {
+describe('`done` field is a lenient, additive OPTIONAL (schema)', () => {
   it('accepts an item WITH done:true', () => {
     const parsed = itineraryItemSchema.safeParse({ id: 'x', title: 'X', category: 'food', done: true });
     expect(parsed.success).toBe(true);
@@ -86,7 +86,7 @@ describe('S98 — `done` field is a lenient, additive OPTIONAL (schema)', () => 
   });
 });
 
-describe('S98 — `done` round-trips through the Vault (save → load) with NO version bump', () => {
+describe('`done` round-trips through the Vault (save → load) with NO version bump', () => {
   it('save then load preserves done (true, false, and absent-stays-absent)', () => {
     saveItinerary(PLANS_WITH_DONE, cfg);
     const loaded = loadItinerary(cfg);
@@ -99,7 +99,7 @@ describe('S98 — `done` round-trips through the Vault (save → load) with NO v
 
   it('`done` needs no dedicated migration/version bump — it rides the CURRENT envelope', () => {
     // `done` still adds no migration + no version of its own (it's tolerated by the lenient
-    // passthrough read). The write path emits the CURRENT version (now 5 since S124's time-model
+    // passthrough read). The write path emits the CURRENT version (now 5 since the time-model
     // migration) — asserted via the constant so this pins "writes the current version", not a
     // frozen literal. The `done`-tracking behavior above is byte-unchanged.
     saveItinerary(PLANS_WITH_DONE, cfg);
@@ -108,7 +108,7 @@ describe('S98 — `done` round-trips through the Vault (save → load) with NO v
   });
 
   it('a legacy bare-array (v2) itinerary with no `done` loads fine — done is undefined post-migration', () => {
-    // The pre-S98 on-disk shape: a bare DayPlan[] with items that have no `done`.
+    // The older on-disk shape: a bare DayPlan[] with items that have no `done`.
     const legacy: DayPlan[] = [
       { date: '2026-12-19', city: 'Tokyo', country: 'japan', items: [{ id: 'leg', title: 'Ramen', category: 'food' }] },
     ];

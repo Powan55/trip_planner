@@ -9,14 +9,14 @@ import { CURRENT_ITINERARY_VERSION } from '@/core/vault/migrations';
 import { itineraryItemSchema, parseItineraryPayload } from '@/core/vault/schema';
 import { addItem, updateItem } from '@/core/itinerary/crud';
 import { clashingItemIds } from '@/lib/sort-items-by-time';
-// S391: clash overlap is judged on the absolute instant, so every call carries the
+// Clash overlap is judged on the absolute instant, so every call carries the
 // day + the day's offset. These span cases are all single-zone, so the offset is a constant.
 import { NPT_OFFSET_MIN } from '@/core/dates';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S148 — Multi-day items: `endDate?` is an additive OPTIONAL that round-trips through the
- * Vault with NO migration and NO version bump (the S137 `lat`/`lng` precedent, one field over).
+ * Multi-day items: `endDate?` is an additive OPTIONAL that round-trips through the
+ * Vault with NO migration and NO version bump (the `lat`/`lng` precedent, one field over).
  *
  * The load-bearing guarantee is THE MERGE INVARIANT (D-018): a spanning item is stored in
  * EXACTLY ONE `DayPlan.items[]` — its start day — and is NEVER copied onto the days it covers.
@@ -51,7 +51,7 @@ beforeEach(() => {
   cfg = { storageKey: STORAGE_KEY, quarantineKey: QUARANTINE_KEY, fallback: FALLBACK };
 });
 
-describe('S148 — `endDate` is a lenient, additive OPTIONAL (schema)', () => {
+describe('`endDate` is a lenient, additive OPTIONAL (schema)', () => {
   it('accepts an item WITH endDate', () => {
     const parsed = itineraryItemSchema.safeParse({ id: 'x', title: 'Trek', category: 'nature', endDate: DAY_C });
     expect(parsed.success).toBe(true);
@@ -87,7 +87,7 @@ describe('S148 — `endDate` is a lenient, additive OPTIONAL (schema)', () => {
   });
 });
 
-describe('S148 — `endDate` round-trips through the Vault (save -> load) with NO version bump', () => {
+describe('`endDate` round-trips through the Vault (save -> load) with NO version bump', () => {
   it('save then load preserves endDate (and single-day-stays-single)', () => {
     const plans: DayPlan[] = [
       {
@@ -124,7 +124,7 @@ describe('S148 — `endDate` round-trips through the Vault (save -> load) with N
   });
 });
 
-describe('S148 — THE MERGE INVARIANT: a spanning item lives in EXACTLY ONE DayPlan.items[]', () => {
+describe('THE MERGE INVARIANT: a spanning item lives in EXACTLY ONE DayPlan.items[]', () => {
   it('creating a spanning item (via the real crud add path) homes it on ONLY its start day', () => {
     // Drive the SAME pure mutator the store uses (core/itinerary/crud.addItem — verbatim from
     // use-itinerary). The item spans DAY_A..DAY_C but is added to DAY_A only.
@@ -160,7 +160,7 @@ describe('S148 — THE MERGE INVARIANT: a spanning item lives in EXACTLY ONE Day
   });
 });
 
-describe('S148 — spanning items are EXCLUDED from clash warnings (clash v1)', () => {
+describe('spanning items are EXCLUDED from clash warnings (clash v1)', () => {
   function mk(id: string, fields: Partial<ItineraryItem> = {}): ItineraryItem {
     return { id, title: id, category: 'sightseeing', ...fields };
   }

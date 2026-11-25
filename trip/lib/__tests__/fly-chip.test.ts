@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * S134 flying chip — the reduced-motion gate + self-cleaning guarantee.
+ * Flying chip: the reduced-motion gate + self-cleaning guarantee.
  * The animation itself needs WAAPI (absent in jsdom), so we assert the two branches
  * that MUST hold regardless of a real browser:
  *   1. Reduced motion → no-op: nothing is ever appended to the DOM.
@@ -28,7 +28,7 @@ function stubReducedMotion(matches: boolean) {
   })) as unknown as typeof window.matchMedia;
 }
 
-describe('flyChip (S134)', () => {
+describe('flyChip', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
   });

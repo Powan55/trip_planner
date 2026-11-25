@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
-// S375 — regression suite for the "joiner sees no day cells" defect. Same createRoot+act harness
-// as s346-audit.test.ts (no new dep; the standalone vitest.config.ts globs `*.test.ts` under
+// Regression suite for the "joiner sees no day cells" defect. Same createRoot+act harness
+// as default-trip-and-name-hint.test.ts (no new dep; the standalone vitest.config.ts globs `*.test.ts` under
 // lib/__tests__, so createElement instead of JSX).
 //
 // THE DEFECT (measured live: the remote meta doc was absent after 20,230 ms on 5 of 6 creates; the
@@ -194,7 +194,7 @@ async function submitCreate(
   return view;
 }
 
-describe('S375 half 1 — create must not navigate out from under its own meta push', () => {
+describe('half 1 — create must not navigate out from under its own meta push', () => {
   it('holds the navigation until the meta push settles, then navigates', async () => {
     const loc = stubLocation();
 
@@ -259,7 +259,7 @@ describe('S375 half 1 — create must not navigate out from under its own meta p
   });
 });
 
-describe('S375 control — the NON-navigating push path stays fire-and-forget', () => {
+describe('control — the NON-navigating push path stays fire-and-forget', () => {
   it('rename pushes meta without awaiting it and without navigating', async () => {
     const loc = stubLocation();
     joinTrip('trip-to-rename-0123456789', 'Old name');
@@ -302,7 +302,7 @@ describe('S375 control — the NON-navigating push path stays fire-and-forget', 
   });
 });
 
-describe('S375 half 2 — the self-heal guard marks only a FOUND doc', () => {
+describe('half 2 — the self-heal guard marks only a FOUND doc', () => {
   const TRIP = 'joined-trip-xyz-0123456789';
 
   beforeEach(() => {

@@ -1,5 +1,5 @@
 /**
- * firestore.rules validation harness (S358 / D-251; membership + auth floor, issue #10).
+ * firestore.rules validation harness (D-251; membership + auth floor, issue #10).
  *
  * Validates the repo's firestore.rules against the REAL Cloud Firestore rules engine using
  * the local emulator. No credentials, no deploy, no network beyond localhost.

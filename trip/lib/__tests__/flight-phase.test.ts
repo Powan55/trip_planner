@@ -6,7 +6,7 @@ import { TRIP_DATES } from '@/core/dates';
 import { getFlightTiming } from '@/lib/flight-phase';
 
 /**
- * S326 / D-233 — the flight-card timing seam.
+ * D-233: the flight-card timing seam.
  *
  * `Journey.departDate` is the AUTHORED, date-only anchor the phase strip + proximity countdown
  * target (via the trip-clock, NEVER a booking label). These assertions pin:

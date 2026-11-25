@@ -2,24 +2,24 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S234 — multi-trip isolation net (D-205 / D-209 / D-210 / D-212 / D-172).
+ * Multi-trip isolation net (D-205 / D-209 / D-210 / D-212 / D-172).
  *
- * The verification layer over S232 (dynamic getTripId, trip-scoped itinerary Vault) + S233 (Create/
- * Join Trip UI, `?trip=` handshake). Proves, on the served static `out/` build, driving the REAL
- * S233 Settings UI:
+ * The verification layer over dynamic getTripId with a trip-scoped itinerary Vault, plus the Create/
+ * Join Trip UI and its `?trip=` handshake. Proves, on the served static `out/` build, driving the REAL
+ * Settings UI:
  *
  *   1. ITINERARY isolation end-to-end — an edit made on a newly-created pack lands in that pack's
  *      `trip:{token}:itinerary` slot and NEVER touches the default pack's grandfathered
  *      `nepal_japan_itinerary` key; switching back to the default pack finds its itinerary
  *      byte-identical (full localStorage dump comparison, not a UI spot-check). This is the
- *      hard local-isolation guarantee for the one domain S231 actually scoped.
+ *      hard local-isolation guarantee for the one domain that was scoped first.
  *   2. FULL localStorage key enumeration + classification — after living on a second pack, every
  *      key present classifies as trip-prefixed (`trip:*`), app-scoped-shared, or a legacy
  *      default-pack literal; an unclassified key FAILS the test (a tripwire for a new un-scoped key).
  *   3. A signed-in traveler on a fresh (non-default) pack still passes the front-door wall on a
  *      non-Home route — a fresh pack does not weaken the wall.
  *
- * ── S234-F1 FIXED IN S235 (D-218) ───────────────────────────────────────────────────────────────
+ * ── FIXED (D-218) ───────────────────────────────────────────────────────────────
  * EVERY trip-scoped domain (expenses/budget/journal/favorites/photos/packing/docs/dayAnchors/
  * shareInbox/weatherCache/syncOutbox) now routes its gateway accessor through `keyFor(slot)`, so a
  * non-default pack namespaces every domain to `trip:{token}:{slot}` and never touches the default
@@ -28,11 +28,11 @@ import type { Page } from '@playwright/test';
  * pack after the excursion. The unit regression is table-driven over the whole slot union in
  * `lib/__tests__/multi-trip-sync-path.test.ts` Part B.
  *
- * ── SWITCH-BACK-TO-DEFAULT (S234-F2 FIXED IN S235) ──────────────────────────────────────────────
+ * ── SWITCH-BACK-TO-DEFAULT (FIXED) ──────────────────────────────────────────────
  * The Settings Trip group now shows a "Switch to my main trip" button whenever the active pack is
  * non-default (`settings-trip-switch-main`); it writes `setActiveTripId(DEFAULT_TRIP_ID)` + reloads,
  * landing back on the grandfathered pack regardless of what the displayed (possibly-secret) Trip Key
- * is. The packing round-trip below returns via that button (not the Join-paste workaround the S234
+ * is. The packing round-trip below returns via that button (not the Join-paste workaround the original
  * net had to use). The itinerary round-trip keeps the Join-paste path for continuity of coverage.
  */
 
@@ -111,7 +111,7 @@ async function openTripGroup(page: Page) {
 /**
  * Switch this browser onto a fresh, never-seen UUID pack from the ALREADY-OPEN Settings Trip group.
  *
- * S390-F deleted Settings' own "Create new trip" card (two create paths with different guarantees —
+ * A later change deleted Settings' own "Create new trip" card (two create paths with different guarantees —
  * `/trips/` is the one that names the trip and pushes its meta). Add-by-Trip-Token is the
  * behaviour-preserving substitute for THIS net, and deliberately so: it calls the same `joinTrip(id)`
  * primitive with no trip config. Since SB-6 (A-2 fix), joining a never-before-seen id no longer falls
@@ -141,7 +141,7 @@ async function checkPassportItem(page: Page, targetKey: string) {
   await expect.poll(() => readKey(page, targetKey)).not.toBeNull();
 }
 
-test.describe('S234 — itinerary isolation across a real Create/Join round-trip', () => {
+test.describe('itinerary isolation across a real Create/Join round-trip', () => {
   test('an edit on a new pack never touches the default pack; default itinerary is byte-identical after switching back', async ({
     page,
   }) => {
@@ -202,7 +202,7 @@ test.describe('S234 — itinerary isolation across a real Create/Join round-trip
   });
 });
 
-test.describe('S235 — packing (2nd domain) isolation + switch-back-via-button round-trip', () => {
+test.describe('packing (2nd domain) isolation + switch-back-via-button round-trip', () => {
   test('a packing edit on a new pack never touches the default pack; the switch-back button restores byte-identical packing', async ({
     page,
   }) => {
@@ -255,7 +255,7 @@ test.describe('S235 — packing (2nd domain) isolation + switch-back-via-button 
   });
 });
 
-test.describe('S234 — full localStorage key classification on a non-default pack', () => {
+test.describe('full localStorage key classification on a non-default pack', () => {
   // App-scoped keys shared across every pack by design (identity, prefs, device, pointer, tour, TM).
   const APP_SCOPED = new Set([
     'tripPlannerUserName',
@@ -265,14 +265,14 @@ test.describe('S234 — full localStorage key classification on a non-default pa
     'chunk_reload_once',
     'nepal_japan_first_run_tour_seen',
     'tripPlannerActiveTrip',
-    'tripPlannerKnownTrips', // S238 key 26 — the list the pointer selects from (app-scoped like the pointer)
-    'tripPlannerSyncCode', // S255 key 28 — personal Sync Code (app-scoped, mirrors the trip list cross-device)
-    'tripPlannerRemovedTrips', // S269 key 29 — trip-forget tombstones (app-scoped, like knownTrips)
+    'tripPlannerKnownTrips', // key 26 — the list the pointer selects from (app-scoped like the pointer)
+    'tripPlannerSyncCode', // key 28 — personal Sync Code (app-scoped, mirrors the trip list cross-device)
+    'tripPlannerRemovedTrips', // key 29 — trip-forget tombstones (app-scoped, like knownTrips)
     'nepal_japan_travel_legibility',
     'nepal_japan_travel_mode',
     'tripPlannerTravelReturn',
     'nepal_japan_device_id',
-    'tripPlannerPriorNames', // S390-C key 30 — prior display names (app-scoped, like the identity it belongs to)
+    'tripPlannerPriorNames', // key 30 — prior display names (app-scoped, like the identity it belongs to)
     // Keys 32 and 34 are LIFETIME-scoped (D-314, D-320): deliberately outside the trip namespace
     // AND outside wipeAllTripData(), which is what this bucket means — they are not trip data and
     // never carry a `trip:` prefix. `core/storage/gateway.ts:334-346` and `:370-393`. Neither is
@@ -334,7 +334,7 @@ test.describe('S234 — full localStorage key classification on a non-default pa
   });
 });
 
-test.describe('S234 — a fresh (non-default) pack does not weaken the front-door wall', () => {
+test.describe('a fresh (non-default) pack does not weaken the front-door wall', () => {
   test('a signed-in traveler on a fresh (non-default) pack passes the wall on a non-Home route', async ({ page }) => {
     await page.addInitScript(
       ({ tour, token }: { tour: string; token: string }) => {

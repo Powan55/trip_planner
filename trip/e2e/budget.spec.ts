@@ -2,7 +2,7 @@ import { test, expect, seedPinnedRates } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S101 — Trip Budget (the core) E2E pack.
+ * Trip Budget (the core) E2E pack.
  *
  * The budget panel (`components/budget-panel.tsx`) is a `/plan` island
  * (`next/dynamic(ssr:false)`, behind a SectionSkeleton) that sets per-leg + per-category budgets
@@ -15,7 +15,7 @@ import type { Page } from '@playwright/test';
  *      $0 grand total).
  *   3. PER-CATEGORY: a category budget persists and survives reload.
  *
- * ── S146 RELOCATION ─────────────────────────────────────────────────────────────────────────
+ * ── RELOCATION ─────────────────────────────────────────────────────────────────────────
  * The home-currency toggle + exchange-rate override moved OFF this panel to the Settings page
  * (`/settings`, `components/settings-panel.tsx`). Their behavior — and the cross-page effect on
  * this panel's grand total — is covered in `settings.spec.ts`. This pack now proves only what
@@ -68,7 +68,7 @@ async function readStored(page: Page): Promise<Record<string, unknown> | null> {
   }, BUDGET_KEY);
 }
 
-test.describe('S101 Trip Budget — set budgets + see totals (persistence)', () => {
+test.describe('Trip Budget — set budgets + see totals (persistence)', () => {
   test('fresh visitor: the panel shows the seeded defaults (empty budgets, $0 grand total)', async ({
     page,
   }) => {

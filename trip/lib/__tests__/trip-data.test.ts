@@ -8,7 +8,7 @@ import {
 } from '../trip-data';
 import { formatWeekdayShort, formatRelativeDayLabel } from '@/core/dates';
 
-// getCountryForDate is PURE and TZ-independent (B-01 fix, S60): it never parses the
+// getCountryForDate is PURE and TZ-independent (B-01 fix): it never parses the
 // input with `new Date()` — it lexicographically compares the 'YYYY-MM-DD' string
 // against the '2026-12-18' boundary derived from NEPAL_END's local parts. These
 // tests freeze that CURRENT, correct behavior forever so a future refactor can't

@@ -170,7 +170,7 @@ async function eagerStaticAssets(htmlFiles, baseDir = OUT_DIR) {
 //
 // 🔴 maplibre — WITHHELD. This flipped twice; read it, do not trust an older comment.
 // ① kept the engine out, ② unioned it in ("prefetch it, it is under 2 MB"), and
-// V6-14 takes it back out on a MEASUREMENT ② did not have: the engine plus the glyph
+// the current build takes it back out on a MEASUREMENT ② did not have: the engine plus the glyph
 // PBFs are ~363 KB GZIPPED — 21% of the gzipped install — spent on `/map`, the one
 // route the app already declines to promise offline (D-274). Two mechanisms keep it
 // out, and both are load-bearing because they cover different files:
@@ -366,7 +366,7 @@ async function islandAssets() {
       sites.push(`${source} -> ${specifier}`);
       let mapChunks = 0;
       for (const file of chunkFiles) {
-        // WITHHELD again (V6-14 / C-5) — see the maplibre note in this function's
+        // WITHHELD again. See the maplibre note in this function's
         // docblock. The count is kept because it identifies the call sites that
         // render a MAP island, i.e. exactly the ones that need the error boundary.
         if (await isMaplibreChunk(file)) {
@@ -380,7 +380,7 @@ async function islandAssets() {
     }
   }
 
-  // — the maplibre ENGINE. NOT unioned in (V6-14 / C-5): it is scanned for, MEASURED
+  // The maplibre ENGINE is NOT unioned in: it is scanned for, MEASURED
   // and REPORTED, and then deliberately left out of `files`. The walk above cannot
   // reach it anyway — it hangs off `components/trip-map.tsx -> maplibre-gl`, a BARE
   // specifier, so `resolveLocal` returns null and the render-path `continue` fires
@@ -476,7 +476,7 @@ async function islandAssets() {
 // build if it is not.
 //
 // 🔴: the input list is "call sites that render a maplibre island", NOT "call sites
-// we withheld a chunk from" — and it stays that way even though V6-14 made the two
+// we withheld a chunk from" — and it stays that way even though withholding the engine made the two
 // coincide again. They came apart once already (② precached the engine and the withheld
 // list went empty); keying the gate on the withheld list would have quietly emptied it
 // too and left a gate that passes by inspecting nothing. The floor in islandAssets()
@@ -620,7 +620,7 @@ async function assertMapIslandsWrapped(mapSites) {
 // - manifest.webmanifest
 // - icons/** and favicon.svg
 // - EXCLUDE font/** — the self-hosted MapLibre glyph PBFs (154 KiB, issue #8) are
-//   runtime-cached, not precached (V6-14; see the font/ note in the loop below)
+//   runtime-cached, not precached (see the font/ note in the loop below)
 // - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead,
 //   WITH ONE NAMED EXCEPTION: images/hero/*.avif (D-335; see HERO_PRECACHE below).
 //
@@ -665,7 +665,7 @@ async function assertMapIslandsWrapped(mapSites) {
 //
 // WHY .avif ONLY, AND THE HOLE THAT LEAVES — NAMED. OptimizedImage renders <picture>
 // with an AVIF <source> and the .jpg as the universal <img> fallback — there is no
-// WebP tier (V6-13 deleted it: zero delivered bytes changed under the declared
+// WebP tier (it was deleted: zero delivered bytes changed under the declared
 // browserslist). A <source> whose `type` the browser supports WINS, so an AVIF-capable
 // engine never requests the .jpg. The engines that are SW-capable but have NO AVIF
 // decoder are Edge < 121, iOS Safari 16.0–16.3, Firefox < 93 and Chrome < 85; those
@@ -765,7 +765,7 @@ async function buildPrecacheList(allFiles) {
     else if (rel.startsWith('icons/')) set.add(rel);
     // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs
     // (public/font/<fontstack>/0-255.pbf, 154 KiB / ~87 KB gzip — issue #8) — is
-    // deliberately NOT precached (V6-14). It only ever serves /map, and 154 KiB on
+    // deliberately NOT precached. It only ever serves /map, and 154 KiB on
     // EVERY install for a route most sessions never open is the wrong trade; the
     // maplibre engine that consumes them is withheld for the same reason (see
     // islandAssets). What issue #8 actually fixed was the CROSS-ORIGIN problem —

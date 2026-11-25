@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S408 — "claim my old name", extended from the itinerary (S396/Q3) to the two other stores that
+// "Claim my old name", extended from the itinerary to the two other stores that
 // carry a display name: EXPENSES (`createdBy`/`updatedBy`) and DOCUMENTS (`updatedBy`). Exercised
 // by RENDERING the real hooks (the same renderHook shim the sibling use-expenses-*/use-docs suites
 // use — no new dependency) and reading back through the StoragePort, i.e. what a reload would show.
@@ -291,7 +291,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('S408 expenses — the money guard: a claim rewrites attribution and NOTHING that settles', () => {
+describe('expenses — the money guard: a claim rewrites attribution and NOTHING that settles', () => {
   it('leaves paidBy and split BYTE-IDENTICAL while createdBy/updatedBy are actually rewritten', async () => {
     const before = moneyBytes(seedExpenses());
     const h = renderStore(useExpenses);
@@ -457,7 +457,7 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
   });
 });
 
-describe('S408 documents — updatedBy is the only identity field, and the only one that moves', () => {
+describe('documents — updatedBy is the only identity field, and the only one that moves', () => {
   it('rewrites updatedBy per row, preserves updatedAt/note/checked, spares other travellers', async () => {
     const seed = seedDocs();
     const h = renderStore(useDocs);
@@ -506,7 +506,7 @@ describe('S408 documents — updatedBy is the only identity field, and the only 
   });
 });
 
-describe('S408 — the claim SURVIVES a remote merge (run, not asserted)', () => {
+describe('the claim SURVIVES a remote merge (run, not asserted)', () => {
   /** The peer still holds the pre-claim row: same id, same seed stamp, still the old name. */
   const stalePeerExpense = () => seedExpenses().find((e) => e.id === 'exp-shared') as Expense;
   const stalePeerDoc = () => seedDocs().find((i) => i.id === 'passport-validity') as DocItem;

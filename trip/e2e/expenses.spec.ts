@@ -2,11 +2,11 @@ import { test, expect, seedPinnedRates } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S102 — Expense logging E2E pack.
+ * Expense logging E2E pack.
  *
- * The fast expense-log flow: a "Log expense" button in the S101 budget panel opens a global portal
+ * The fast expense-log flow: a "Log expense" button in the budget panel opens a global portal
  * dialog (`expense:open` → `ExpenseLogHost` → `expense-dialog`), the logged expense appears in the
- * panel's list AND feeds the S101 `rollUp` `spent` seam so spent/remaining + the grand total update
+ * panel's list AND feeds the budget `rollUp` `spent` seam so spent/remaining + the grand total update
  * live, everything persists through the typed storage gateway (key 11, `expensesStore`) — client-
  * side localStorage, no backend (D-004). These specs prove the centrepiece guarantees on a real run:
  *
@@ -49,10 +49,10 @@ async function reloadSettled(page: Page) {
 
 /** Block until the budget island has mounted + hydrated (the USD toggle has a concrete state). */
 async function settleBudget(page: Page) {
-  // S167/FU-26: give the readiness wait a real timeout (was the implicit 5s, which `networkidle`
+  // Give the readiness wait a real timeout (was the implicit 5s, which `networkidle`
   // used to cushion). The panel genuinely mounts under load; a real regression still fails, at 15s.
   await expect(page.getByTestId('budget-panel')).toBeVisible({ timeout: 15_000 });
-  // S146: the home-currency toggle relocated to /settings, so the readiness signal is now the
+  // The home-currency toggle relocated to /settings, so the readiness signal is now the
   // grand-total value (always rendered on /plan once the panel has mounted + hydrated).
   await expect(page.getByTestId('budget-grand-total-value')).toBeVisible({ timeout: 15_000 });
 }
@@ -66,7 +66,7 @@ async function readStored(page: Page): Promise<Array<Record<string, unknown>> | 
 }
 
 /**
- * S322: the money panel's four views (budget · expenses · burn · settle) now sit behind a segmented
+ * The money panel's four views (budget · expenses · burn · settle) now sit behind a segmented
  * control (one at a time). Select a view's tab before *clicking* its controls or asserting they're
  * *visible*; text/count/value assertions (toHaveText/toHaveCount/toHaveValue) read hidden panels
  * fine, so only visibility/action steps need a select. Budget is the default view.
@@ -77,7 +77,7 @@ async function showView(page: Page, view: 'budget' | 'expenses' | 'burn' | 'sett
 
 /** Open the log dialog, fill amount + category (Nepal leg preset), and Save. */
 async function logExpense(page: Page, amount: string, category: string) {
-  await showView(page, 'expenses'); // S322: the log trigger lives on the Expenses view
+  await showView(page, 'expenses'); // the log trigger lives on the Expenses view
   await page.getByTestId('expense-log-open').click();
   await expect(page.getByTestId('expense-dialog')).toBeVisible();
   // Amount is autofocused; fill + tap the category chip.
@@ -89,7 +89,7 @@ async function logExpense(page: Page, amount: string, category: string) {
   await expect(page.getByTestId('expense-dialog')).toHaveCount(0);
 }
 
-test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining, persists', () => {
+test.describe('Expense logging — log/edit/delete feeds spent + remaining, persists', () => {
   test('log an expense: it appears, spent/remaining + grand total update, and it survives reload', async ({
     page,
   }) => {
@@ -200,7 +200,7 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await expect(page.getByTestId('settle-up')).toHaveCount(0);
 
     // Log a 300 NPR expense split among all three (default). Alina (the signed-in traveler) pays.
-    await showView(page, 'expenses'); // S322: the log trigger lives on the Expenses view
+    await showView(page, 'expenses'); // the log trigger lives on the Expenses view
     await page.getByTestId('expense-log-open').click();
     await expect(page.getByTestId('expense-dialog')).toBeVisible();
     await page.getByTestId('expense-amount-input').fill('300');
@@ -216,7 +216,7 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     // The row shows a split chip, and the Settle up summary appears with the minimal transfers:
     // 300 split 3 ways = 100 each; Rhea and Milo each pay Alina Rs 100.
     await expect(page.locator('[data-testid$="-split"]').first()).toBeVisible();
-    await showView(page, 'settle'); // S322: the who-owes-whom summary is behind the Settle tab
+    await showView(page, 'settle'); // the who-owes-whom summary is behind the Settle tab
     await expect(page.getByTestId('settle-up')).toBeVisible();
     await expect(page.getByTestId('settle-up-transfer-nepal-Rhea-Alina')).toContainText('Rhea');
     await expect(page.getByTestId('settle-up-transfer-nepal-Rhea-Alina')).toContainText('Rs 100');
@@ -295,14 +295,14 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
 });
 
 /**
- * S356 — the expense row's text is CLAMPED above 640px and WRAPS below it.
+ * The expense row's text is CLAMPED above 640px and WRAPS below it.
  *
  * Why this exists: `expense-log.tsx` used to apply `truncate` unconditionally. At 390px the row
  * spends ~150 of its ~241px inner width on the shrink-0 category chip, the two 44px (a11y-floor)
  * icon buttons and three gaps, so the text column is ~89px and EVERY line ellipsised — including
  * the `split N` chip, which vanished entirely. The pack above never saw it: `toHaveText` /
  * `innerText` return the full string regardless of a CSS ellipsis, so those specs were green on a
- * row a phone user could not read. S356 gated the clamp at `sm:`.
+ * row a phone user could not read. The clamp is now gated at `sm:`.
  *
  * The pair is the guard, and each half is load-bearing:
  *   - drop the `sm:` gate (clamp at every width) → the 390px assertion goes RED;
@@ -312,7 +312,7 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
  * testing the effect of, so asserting it would just compare the code to itself, and `innerText`
  * is the exact instrument that was blind here.
  */
-test.describe('S356 — expense row clamp behaviour', () => {
+test.describe('expense row clamp behaviour', () => {
   // Long overall, but every WORD is short. Measured: with a 10+ letter word the wrapped line still
   // overhangs the `min-w-0` column by ~6px at 390 (the word alone is wider than the column, and no
   // `overflow-hidden` applies once the clamp is off, so it spills rather than clips). That is a

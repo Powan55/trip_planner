@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S160 — WIRED-behavior unit suite for hooks/use-photos.ts, exercised by RENDERING the real hook (the
+// WIRED-behavior unit suite for hooks/use-photos.ts, exercised by RENDERING the real hook (the
 // same renderHook shim over react-dom/client + act the expense-sync suite uses — no new dep). The
 // blob-store + downscale are the two browser-only seams (jsdom has no IndexedDB / Canvas), so they are
 // module-mocked: `defaultBlobStore` → an in-memory fake we control, `preparePhoto` → a canned blob.

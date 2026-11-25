@@ -1,4 +1,4 @@
-// S122 — deliberately-BROKEN content fixtures. These are NOT valid content;
+// Deliberately-BROKEN content fixtures. These are NOT valid content;
 // they exist so `content-validation.test.ts` can prove the strict schemas + cross-content
 // invariants actually REJECT each canonical breakage — the "red-proof inside a green suite"
 // (the suite asserts each is rejected, so it stays green while demonstrating the teeth).

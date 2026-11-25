@@ -1,12 +1,12 @@
 import { test, expect } from './fixtures';
 
 /**
- * S225 — responsive image pipeline (multi-width srcset/sizes).
+ * Responsive image pipeline (multi-width srcset/sizes).
  *
  * gen-images.mjs now emits 640w/1024w sub-native derivatives alongside the native
  * resolution (recorded as `variants` in lib/image-manifest.json); OptimizedImage builds
  * a multi-entry `srcset` from them whenever a caller already passes `sizes` (several
- * call sites already did, pre-S225 — no call-site changes were needed).
+ * call sites already did, so no call-site changes were needed).
  *
  * This proves it on the REAL served static `out/` build (not just a component-level
  * check): /nepal renders `recommendation-section.tsx` cards, which already pass
@@ -14,7 +14,7 @@ import { test, expect } from './fixtures';
  * hydrated DOM must contain a real multi-entry `srcset` on the AVIF <source>, no
  * broken images, and no console errors.
  *
- * V6-13 — the WebP tier is gone (AVIF + the original raster only), so the same spec
+ * The WebP tier is gone (AVIF + the original raster only), so the same spec
  * also asserts NO <source type="image/webp"> is rendered. That inversion is what stops
  * a WebP tier from being reintroduced, or the delete from being reverted, silently.
  */
@@ -94,7 +94,7 @@ test('japan — hero image (priority, single-URL fallback path) still renders wi
   await page.goto('/japan/');
   await expect(page.locator('h1').first()).toBeVisible();
 
-  // Same V6-13 inversion on the single-URL (no-`variants`) path. The AVIF assertion is the
+  // Same WebP inversion on the single-URL (no-`variants`) path. The AVIF assertion is the
   // anti-vacuity half: a bare `toHaveCount(0)` on the webp source also passes on a route that
   // rendered no `<picture>` at all, which is the failure this negative is least able to see.
   await expect(page.locator('picture source[type="image/avif"]').first()).toBeAttached();

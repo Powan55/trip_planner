@@ -2,7 +2,7 @@
 import type { Page } from '@playwright/test';
 
 /**
- * S217 â€” the documents & readiness checklist (`/checklist`, `components/docs-checklist.tsx`) E2E pack.
+ * The documents & readiness checklist (`/checklist`, `components/docs-checklist.tsx`) E2E pack.
  *
  * Signs in with a real Trip Token EXPLICITLY (mirrors e2e/packing.spec.ts) â€” `/checklist` is a
  * non-Home route, so an unidentified visitor would hit the front-door wall (no guest mode, D-241);
@@ -20,8 +20,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -35,7 +35,7 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
     });
 }
 
-test.describe('S217 docs checklist â€” the built-in template renders, no empty state', () => {
+test.describe('docs checklist â€” the built-in template renders, no empty state', () => {
   test('Critical + Day-zero sections render 18 items, progress 0/18, per-section 0/10 & 0/8', async ({ page }) => {
     await gotoAsTraveler(page, '/checklist/');
     await expect(page.getByTestId('docs-checklist')).toBeVisible();
@@ -53,7 +53,7 @@ test.describe('S217 docs checklist â€” the built-in template renders, no em
   });
 });
 
-test.describe('S217 docs checklist â€” check/uncheck updates progress live', () => {
+test.describe('docs checklist â€” check/uncheck updates progress live', () => {
   test('checking items flips them and increments the progress counts', async ({ page }) => {
     await gotoAsTraveler(page, '/checklist/');
     await expect(page.getByTestId('docs-checklist')).toBeVisible();
@@ -72,7 +72,7 @@ test.describe('S217 docs checklist â€” check/uncheck updates progress live'
   });
 });
 
-test.describe('S217 docs checklist â€” check -> reload -> persists (the hard guarantee)', () => {
+test.describe('docs checklist â€” check -> reload -> persists (the hard guarantee)', () => {
   test('a checked item survives a full page reload; untouched items stay unchecked', async ({ page }) => {
     await gotoAsTraveler(page, '/checklist/');
     await expect(page.getByTestId('docs-checklist')).toBeVisible();

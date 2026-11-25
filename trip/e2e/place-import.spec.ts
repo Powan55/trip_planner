@@ -2,8 +2,8 @@ import { test, expect } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 
 /**
- * S285 — place-link import, inbox + palette integration & the reload-persistence guarantee
- * (`components/share-inbox.tsx`, `components/import-place-sheet.tsx` [S284], `components/command-
+ * Place-link import, inbox + palette integration & the reload-persistence guarantee
+ * (`components/share-inbox.tsx`, `components/import-place-sheet.tsx`, `components/command-
  * palette.tsx`). Runs against the served static
  * `out/` build (D-093), signed-in traveler by default (./fixtures) so the front-door wall
  * (D-241) never appears on `/share`, `/nepal`, `/plan`.
@@ -109,7 +109,7 @@ async function assertResolveWired(page: Page, hits: { count: number }): Promise<
   ).toBe(true);
 }
 
-test.describe('S285 · place import — persistence hard guarantee (paste → confirm → card + plan item → reload)', () => {
+test.describe('place import — persistence hard guarantee (paste → confirm → card + plan item → reload)', () => {
   test('paste a Google link, (stub) resolve, add to plan, and both the card and its plan link survive a reload', async ({
     page,
   }) => {
@@ -165,7 +165,7 @@ test.describe('S285 · place import — persistence hard guarantee (paste → co
     // Sanity: the day picked was a real trip day (the plan write targeted it).
     expect(dayValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-    // S349 — the actual bug: coords.lat/lng must ride the addItem() payload, not just the
+    // The actual bug: coords.lat/lng must ride the addItem() payload, not just the
     // MyPlace card. Open the plan item's editor (same day the sheet wrote to) and confirm the
     // pin is seeded from the resolve — the ItemEditor reads its pin straight from
     // item.lat/item.lng (calendar-planner.tsx), so a populated pin readout is direct proof
@@ -175,9 +175,9 @@ test.describe('S285 · place import — persistence hard guarantee (paste → co
     // (the resolved coordinates survive all the way into persisted plan state) the FIRST thing to
     // be skipped on the builds most likely to be broken.
     //
-    // 🔴 S357B: this assertion changed SHAPE because its subject was deleted, not because it
+    // 🔴 This assertion changed SHAPE because its subject was deleted, not because it
     // was inconvenient. The pin used to be two text inputs and was read with `toHaveValue`;
-    // S357B replaced them with a map picker whose chosen coordinate is echoed on
+    // they were replaced with a map picker whose chosen coordinate is echoed on
     // `calendar-editor-pin-value`. The EXPECTED LITERALS are unchanged ('27.7215' / '85.362',
     // the same `String(item.lat)` formatting the inputs carried), and the pin section is
     // reached with one disclosure click rather than by reading a hidden node — so this is
@@ -198,7 +198,7 @@ test.describe('S285 · place import — persistence hard guarantee (paste → co
   });
 });
 
-test.describe('S349 · resolve outcomes — non-Google rejection, ccTLD allow-list, name-only success (D-243 amendment)', () => {
+test.describe('resolve outcomes — non-Google rejection, ccTLD allow-list, name-only success (D-243 amendment)', () => {
   test('a non-Google URL shows the rejection line and "Look up" stays disabled', async ({ page }) => {
     await page.goto('/share/', { waitUntil: 'load' });
     await expect(page.getByTestId('share-inbox')).toBeVisible();
@@ -253,7 +253,7 @@ test.describe('S349 · resolve outcomes — non-Google rejection, ccTLD allow-li
   });
 });
 
-test.describe('S285 · place import — resolution failure degrades to a working manual import (never a dead end)', () => {
+test.describe('place import — resolution failure degrades to a working manual import (never a dead end)', () => {
   test('a 500 from /resolve lands the sheet in manual mode and a hand-typed place still imports', async ({
     page,
   }) => {
@@ -288,7 +288,7 @@ test.describe('S285 · place import — resolution failure degrades to a working
   });
 });
 
-test.describe('S285 · inbox rows — "Import as place" only on Google-host links', () => {
+test.describe('inbox rows — "Import as place" only on Google-host links', () => {
   test('an Android text-only Maps share seeds and resolves the import sheet', async ({ page }) => {
     const hits = await stubResolve(page, RESOLVE_OK);
     const sharedText = `S285 Test Spot\n${GOOGLE_URL}.\nShared from Google Maps`;
@@ -350,7 +350,7 @@ test.describe('S285 · inbox rows — "Import as place" only on Google-host link
   });
 });
 
-test.describe('S285 · import sheet — keyboard a11y (Esc, Tab-trap, focus return) + no console errors', () => {
+test.describe('import sheet — keyboard a11y (Esc, Tab-trap, focus return) + no console errors', () => {
   test('Esc closes and returns focus to the opener; Tab stays trapped; the console stays clean', async ({
     page,
   }) => {

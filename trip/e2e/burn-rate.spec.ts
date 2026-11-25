@@ -2,9 +2,9 @@ import { test, expect, seedPinnedRates } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S103 — Burn-rate vs plan + calendar cost overlays E2E pack.
+ * Burn-rate vs plan + calendar cost overlays E2E pack.
  *
- * Layers onto the S101 budget panel + S102 expense log with NO reshape: the burn-rate view
+ * Layers onto the budget panel + expense log with NO reshape: the burn-rate view
  * (`burn-rate`, in the budget panel) reads the SAME live `rollUp` totals + the trip clock and shows
  * spending pace (spent-vs-budget bar, days elapsed/remaining, daily avg vs budget, projected total,
  * under/on/over). The calendar cost overlay (`calendar-day-spend-total` single-day readout +
@@ -51,16 +51,16 @@ async function reloadSettled(page: Page) {
 
 /** Block until the budget island has mounted + hydrated (the USD toggle has a concrete state). */
 async function settleBudget(page: Page) {
-  // S167/FU-26: give the readiness wait a real timeout (was the implicit 5s, which `networkidle`
+  // Give the readiness wait a real timeout (was the implicit 5s, which `networkidle`
   // used to cushion). The panel genuinely mounts under load; a real regression still fails, at 15s.
   await expect(page.getByTestId('budget-panel')).toBeVisible({ timeout: 15_000 });
-  // S146: the home-currency toggle relocated to /settings, so the readiness signal is now the
+  // The home-currency toggle relocated to /settings, so the readiness signal is now the
   // grand-total value (always rendered on /plan once the panel has mounted + hydrated).
   await expect(page.getByTestId('budget-grand-total-value')).toBeVisible({ timeout: 15_000 });
 }
 
 /**
- * S322: the money panel's four views (budget · expenses · burn · settle) now sit behind a segmented
+ * The money panel's four views (budget · expenses · burn · settle) now sit behind a segmented
  * control (one at a time). Select a view's tab before asserting on its content / clicking its
  * controls. The budget view is the default, so budget inputs + grand total need no select.
  */
@@ -74,7 +74,7 @@ async function showView(page: Page, view: 'budget' | 'expenses' | 'burn' | 'sett
  * attributed to that day with no extra taps — which is what the calendar overlay reads.
  */
 async function logExpense(page: Page, amount: string, category: string) {
-  await showView(page, 'expenses'); // S322: the log trigger lives on the Expenses view
+  await showView(page, 'expenses'); // the log trigger lives on the Expenses view
   await page.getByTestId('expense-log-open').click();
   await expect(page.getByTestId('expense-dialog')).toBeVisible();
   await page.getByTestId('expense-amount-input').fill(amount);
@@ -92,7 +92,7 @@ async function readStored(page: Page): Promise<Array<Record<string, unknown>> | 
   }, EXPENSES_KEY);
 }
 
-test.describe('S103 Burn-rate vs plan — pace figures over the live budget + clock', () => {
+test.describe('Burn-rate vs plan — pace figures over the live budget + clock', () => {
   test('mid-trip: setting a budget + logging spend shows elapsed days, spent, pace, and a projected total', async ({
     page,
   }) => {
@@ -109,7 +109,7 @@ test.describe('S103 Burn-rate vs plan — pace figures over the live budget + cl
     // Before any spend, the burn-rate view is present (budget is set) and reads the real elapsed day.
     // The elapsed-day value lives in the figure's <dd> (burn-rate-days); the "N days left" sub-line
     // is a sibling <p> in the same figure card, so assert it against the burn-rate root.
-    await showView(page, 'burn'); // S322: the burn-rate view is behind its own tab now
+    await showView(page, 'burn'); // the burn-rate view is behind its own tab now
     await expect(page.getByTestId('burn-rate')).toBeVisible();
     await expect(page.getByTestId('burn-rate-days')).toHaveText('Day 4 / 32');
     await expect(page.getByTestId('burn-rate')).toContainText('28 days left');
@@ -157,7 +157,7 @@ test.describe('S103 Burn-rate vs plan — pace figures over the live budget + cl
   });
 });
 
-test.describe('S103 Calendar cost overlay — read-only per-day spend (D-018 preserved)', () => {
+test.describe('Calendar cost overlay — read-only per-day spend (D-018 preserved)', () => {
   test('a day with logged spend shows the single-day readout + a month-grid marker, and persists', async ({
     page,
   }) => {

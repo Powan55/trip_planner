@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S217 — WIRED-behavior unit suite for the docs-checklist Sync-v2 seam (lib/docs-remote.ts +
+// WIRED-behavior unit suite for the docs-checklist Sync-v2 seam (lib/docs-remote.ts +
 // lib/docs-ports.ts), against a FAKE Firestore (the firebase SDK modules are vi.mock'd) + the real
 // merge core. The "the wiring is correct off a live server" proof the two-client E2E cannot run in
 // the dormant sandbox (no firebase env). Proves, on a real run:
@@ -11,7 +11,7 @@
 //   3. The outbox-decorated SyncPort.push issues ONE merged write on the single 'checklist' doc when
 //      the row-set changed, and NO write when it did not (D-088/D-151).
 //   4. The new 'docs' domain shows up in the sync-status badge's pending sum with ZERO badge edits
-//      (D-193/S229 N-domain tolerance) — one enqueue via the decorated push, read back through the
+//      (D-193 N-domain tolerance) — one enqueue via the decorated push, read back through the
 //      same outboxSnapshot the badge hook uses.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -283,7 +283,7 @@ describe('SyncPort.push (outbox-decorated) — ONE merged write on the single do
   });
 });
 
-describe('sync-status badge — the new "docs" domain is counted with ZERO badge edits (D-193/S229)', () => {
+describe('sync-status badge — the new "docs" domain is counted with ZERO badge edits (D-193)', () => {
   it('a failed docs push keeps the checklist chunk dirty under the "docs" key, counted in pending', async () => {
     expect(outboxSnapshot().dirty).toEqual({});
     fake.failWrites = true; // remote unreachable → the write-ahead enqueue persists, no ack

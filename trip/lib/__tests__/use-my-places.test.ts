@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S284 — my-places hook (`hooks/use-my-places.ts`), exercised by RENDERING the real hook (the same
+// My-places hook (`hooks/use-my-places.ts`), exercised by RENDERING the real hook (the same
 // renderHook shim as use-share.test.ts — no new dependency). Proves: hydrate-seeds-the-empty-
 // collection, add/remove persist through the gateway-key-31 `myPlacesStore` (byte-transport proof),
 // reload (unmount+remount) survives, cross-instance sync via the CustomEvent fan-out, and a corrupt
@@ -63,7 +63,7 @@ function renderMyPlaces(): HookHandle {
   };
 }
 
-describe('useMyPlaces (S284)', () => {
+describe('useMyPlaces', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();

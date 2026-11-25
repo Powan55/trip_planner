@@ -10,7 +10,7 @@ import { buildMapStyle } from '@/lib/map-style';
  *   lib/map-style.ts        the `glyphs` URL template (must be same-origin + basePath'd)
  *   components/trip-map.tsx the `text-font` stacks MapLibre substitutes into it
  *   public/font/**          the PBFs that must sit at exactly the resulting path
- *   scripts/gen-sw.mjs      the precache list — which must NOT carry them (V6-14, below)
+ *   scripts/gen-sw.mjs      the precache list — which must NOT carry them (see below)
  *
  * Every failure mode here is SILENT at runtime: a wrong directory name, a missing
  * range file or an external host that is merely unreachable all render as markers
@@ -122,12 +122,12 @@ describe('map glyphs — the PBFs sit where MapLibre will ask for them', () => {
   );
 });
 
-describe('map glyphs — RUNTIME-cached, never precached (V6-14)', () => {
+describe('map glyphs — RUNTIME-cached, never precached', () => {
   /**
    * 🔴 THIS INVARIANT IS INVERTED FROM WHAT IT ONCE WAS, deliberately — the old shape
    * ("gen-sw.mjs adds font/** to the precache list") is worth knowing so nobody restores it.
    *
-   * V6-14 took the glyph PBFs BACK OUT of the install list: 154 KiB (~87 KB gzip) on EVERY
+   * The glyph PBFs were taken BACK OUT of the install list: 154 KiB (~87 KB gzip) on EVERY
    * install, for `/map` — the one route D-274 already declines to promise offline. The
    * maplibre engine that consumes them is withheld for the same reason.
    *

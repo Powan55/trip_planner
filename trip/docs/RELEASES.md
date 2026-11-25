@@ -807,7 +807,7 @@ Four more, from the other half of the backlog:
 Full unit suite green (2357 tests). The e2e specs covering every touched surface were run against a
 real build: photos, currency-command, expenses, budget, offline-banner, sync-status-badge,
 flights-page, journal, journal-browse, journal-browse-a11y, journal-browse-photos,
-recap-story-photos, interaction, travel-route, countdown, s157-a11y-close-targets, tm-acceptance,
+recap-story-photos, interaction, travel-route, countdown, a11y-close-targets, tm-acceptance,
 and all 24 visual baselines — 210 passed, 0 failed. Two specs changed with the code: `photos.spec.ts`
 clicks through the new delete confirm, and `sync-code.test.ts`'s fake Firestore learned
 `runTransaction`.

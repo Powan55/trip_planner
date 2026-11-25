@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * Reduced-motion sweep E2E pack (slice S84, D-007 / D-056) — E2E wave 4 (part 2).
+ * Reduced-motion sweep E2E pack (D-007 / D-056).
  *
  * Proves the app's "NONE under reduced motion" contract against the served
  * static `out/` build (D-093): every test here runs in a context created with
@@ -18,7 +18,7 @@ import type { Page } from '@playwright/test';
  *   2. Infinite/looping CSS animations are hard-stopped — `.animate-shimmer`
  *      resolves to `animationName: none` via the reduced-motion block in
  *      globals.css (D-007 / D-056 named guarantee), with a same-test positive
- *      control proving the rule is live without the preference. (S354: the former
+ *      control proving the rule is live without the preference. (The former
  *      `.animate-pulse-glow` / `.animate-float` probes went with those classes when
  *      the decoration was deleted — see the describe-block note below.)
  *   3. Count-up does not animate — the hero countdown lands on its EXACT final
@@ -34,7 +34,7 @@ import type { Page } from '@playwright/test';
  *     `waitUntil:'load'` (D-093 — no networkidle).
  *   - `reducedMotion:'reduce'` is applied per-test via
  *     `page.emulateMedia({ reducedMotion:'reduce' })` BEFORE the first
- *     navigation (mirrors the S82 countdown pack), so the very first paint
+ *     navigation (mirrors the countdown pack), so the very first paint
  *     already sees the preference — matching how the app reads it on mount.
  *   - `animationName` is read from `getComputedStyle`; under the reduced-motion
  *     block (`animation: none !important`) it is exactly the string `'none'`.
@@ -82,7 +82,7 @@ async function animationNameOf(page: Page, selector: string): Promise<string> {
 
 /**
  * Computed `animation-name` for a class, read off a throwaway element injected into the
- * live document (the S134 pack's idiom, lifted here by S354). Used when the class has no
+ * live document (the micro-interaction pack's idiom). Used when the class has no
  * guaranteed on-screen instance — it proves the CSS RULE, independent of app state.
  */
 function probeAnimationName(page: Page, className: string): Promise<string> {
@@ -96,7 +96,7 @@ function probeAnimationName(page: Page, className: string): Promise<string> {
   }, className);
 }
 
-test.describe('S84 · reduced motion — route-fade wrapper is imperceptible (app/template.tsx)', () => {
+test.describe('reduced motion — route-fade wrapper is imperceptible (app/template.tsx)', () => {
   test('the route-fade animation is collapsed to ~0ms under reduced motion', async ({ page }) => {
     await gotoReduced(page, '/');
 
@@ -142,7 +142,7 @@ test.describe('S84 · reduced motion — route-fade wrapper is imperceptible (ap
 
   // POSITIVE CONTROL: without the preference the same wrapper animates for real. Without this,
   // the assertion above would pass just as happily against a stylesheet that had dropped the
-  // animation entirely — a test that cannot fail is not coverage (the S354 lesson, below).
+  // animation entirely — a test that cannot fail is not coverage (the lesson below).
   test('without the preference the route-fade wrapper animates for real', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.goto('/', { waitUntil: 'load' });
@@ -157,9 +157,9 @@ test.describe('S84 · reduced motion — route-fade wrapper is imperceptible (ap
 });
 
 /**
- * S354 REWRITE — this pack previously read `.animate-pulse-glow` (hero countdown cells)
- * and `.animate-float` (hero orbs) off the live DOM. S354 DELETED both rules AND both
- * usages (decoration removal: two infinite loops). Left as they were, those two tests
+ * REWRITE: this pack previously read `.animate-pulse-glow` (hero countdown cells)
+ * and `.animate-float` (hero orbs) off the live DOM. Both rules were DELETED, AND both
+ * usages too (decoration removal: two infinite loops). Left as they were, those two tests
  * would have asserted `animationName: 'none'` against classes that declare no animation
  * anywhere — green forever, detecting nothing, whether or not the reduced-motion block
  * still worked. A test that cannot fail is not coverage.
@@ -171,7 +171,7 @@ test.describe('S84 · reduced motion — route-fade wrapper is imperceptible (ap
  * `.animate-shimmer` rule and the control fails; delete the reduced-motion block and the
  * reduce assertion fails. Neither can rot silently into a pass.
  */
-test.describe('S84 · reduced motion — infinite CSS loops are hard-stopped (globals.css)', () => {
+test.describe('reduced motion — infinite CSS loops are hard-stopped (globals.css)', () => {
   test('.animate-shimmer: real keyframe by default, animationName none under reduce', async ({
     page,
   }) => {
@@ -187,11 +187,11 @@ test.describe('S84 · reduced motion — infinite CSS loops are hard-stopped (gl
   });
 });
 
-test.describe('S84 · reduced motion — count-up does not animate (useCountUp, D-056b)', () => {
+test.describe('reduced motion — count-up does not animate (useCountUp, D-056b)', () => {
   test('the hero countdown shows its EXACT final value on first paint (no 0→N ramp)', async ({
     page,
   }) => {
-    // Same frozen instant as the S82 countdown pack: Nov 9 2026 (local noon) →
+    // Same frozen instant as the countdown pack: Nov 9 2026 (local noon) →
     // Dec 9 2026 00:00 is exactly 00m/00w/29d/12h/00m/00s, totalDays 29 (issue #60 /
     // D-313: calendar-accurate months again, so the 29-day residue hits the
     // WEEKS_SUPPRESSED_AT window and reads as raw days, not carried into a month —
@@ -223,14 +223,14 @@ test.describe('S84 · reduced motion — count-up does not animate (useCountUp, 
   });
 });
 
-test.describe('S84 · reduced motion — loading skeleton shimmer is neutralized', () => {
+test.describe('reduced motion — loading skeleton shimmer is neutralized', () => {
   test('any present .animate-shimmer bar has animationName: none', async ({ page }) => {
     // The SectionSkeleton (dynamic `loading:` fallback) may flash only briefly
     // before the island mounts, so we cannot GUARANTEE one is on screen at any
     // instant. This test asserts the invariant CONDITIONALLY: if a shimmer bar is
     // present, it MUST be neutralized; if none is present, we fall through to the
     // injected probe, which proves the SAME rule on the same class without depending
-    // on the skeleton's lifetime. (S354: this note used to cite the .animate-float /
+    // on the skeleton's lifetime. (This note used to cite the .animate-float /
     // .animate-pulse-glow loops as the fallback proof — both are deleted.)
     await gotoReduced(page, '/nepal/');
 
@@ -250,24 +250,24 @@ test.describe('S84 · reduced motion — loading skeleton shimmer is neutralized
       expect(shimmerName).toBe('none');
     } else {
       // No skeleton on screen right now — fall back to the injected probe, which proves
-      // the same rule without depending on the skeleton's lifetime. (S354: this branch
+      // the same rule without depending on the skeleton's lifetime. (This branch
       // used to read `.animate-float`, a class that no longer exists.)
       expect(await probeAnimationName(page, 'animate-shimmer')).toBe('none');
     }
   });
 });
 
-test.describe('S134 · reduced motion — micro-interaction keyframes are neutralized', () => {
+test.describe('reduced motion — micro-interaction keyframes are neutralized', () => {
   test('today-pulse / undo-ring / drag-lift compute to animationName none under reduce', async ({
     page,
   }) => {
     await gotoReduced(page, '/');
     // Inject a probe element per new class and read its computed animation-name. This
-    // proves the reduced-motion CSS rule governs each S134 keyframe regardless of whether
+    // proves the reduced-motion CSS rule governs each micro-interaction keyframe regardless of whether
     // a live instance (a today cell, an undo toast, an active drag overlay) is on screen —
     // those are state-dependent and would make a direct read flaky. The rule under test is
     // the same `animation: none !important` @media block that governs .animate-shimmer
-    // (proven live above, with a positive control), extended to cover the S134 additions.
+    // (proven live above, with a positive control), extended to cover the micro-interaction additions.
     const names = await page.evaluate(() =>
       ['animate-today-pulse', 'animate-undo-ring', 'drag-overlay'].map((cls) => {
         const el = document.createElement('div');
@@ -319,7 +319,7 @@ const vtWasSeen = (page: Page) =>
   page.evaluate(() => (window as unknown as { __vtSeen: boolean }).__vtSeen);
 
 /**
- * S179 (D-171) — View Transitions wrapper reconciled with the
+ * D-171: View Transitions wrapper reconciled with the
  * template.tsx route fade. The centerpiece guarantees:
  *   - the ONE CSS handshake (`html[data-vt-active] .animate-route-fade { animation-duration:0s }`)
  *     pins the route fade at opacity 1 for the bracketed window without restarting it;
@@ -328,7 +328,7 @@ const vtWasSeen = (page: Page) =>
  *     Firefox/Safari path), setting no attribute;
  *   - reduced motion is NONE of either kind (no fade AND no VT) — D-007/D-056.
  */
-test.describe('S179 · view transitions — route-fade suppression handshake', () => {
+test.describe('view transitions — route-fade suppression handshake', () => {
   test('html[data-vt-active] keeps .animate-route-fade at opacity 1 and removal does not restart it', async ({
     page,
   }) => {
@@ -370,7 +370,7 @@ test.describe('S179 · view transitions — route-fade suppression handshake', (
     expect(supported).toBe(true);
 
     await watchVtAttr(page);
-    // S320 (D-231): Nepal left the desktop top row (consolidated behind Guides); this VT
+    // D-231: Nepal left the desktop top row (consolidated behind Guides); this VT
     // test only needs any primary navbar link — retargeted to the Guides primary.
     await page.locator('[data-testid="navbar-link-guides"]').click();
     await expect(page).toHaveURL(/\/guides\//);
@@ -411,7 +411,7 @@ test.describe('S179 · view transitions — route-fade suppression handshake', (
     ).not.toBe('function');
 
     await watchVtAttr(page);
-    // S320 (D-231): Nepal left the desktop top row (consolidated behind Guides); this VT
+    // D-231: Nepal left the desktop top row (consolidated behind Guides); this VT
     // test only needs any primary navbar link — retargeted to the Guides primary.
     await page.locator('[data-testid="navbar-link-guides"]').click();
     await expect(page).toHaveURL(/\/guides\//);
@@ -432,7 +432,7 @@ test.describe('S179 · view transitions — route-fade suppression handshake', (
     await settleSW(page);
 
     await watchVtAttr(page);
-    // S320 (D-231): Nepal left the desktop top row (consolidated behind Guides); this VT
+    // D-231: Nepal left the desktop top row (consolidated behind Guides); this VT
     // test only needs any primary navbar link — retargeted to the Guides primary.
     await page.locator('[data-testid="navbar-link-guides"]').click();
     await expect(page).toHaveURL(/\/guides\//);
@@ -450,7 +450,7 @@ test.describe('S179 · view transitions — route-fade suppression handshake', (
   });
 });
 
-test.describe('S84 · reduced motion — smooth scroll is disabled (globals.css html rule)', () => {
+test.describe('reduced motion — smooth scroll is disabled (globals.css html rule)', () => {
   test('html computed scroll-behavior is auto under reduced motion', async ({ page }) => {
     await gotoReduced(page, '/');
     // Read via the <html> locator's evaluate (auto-waits for the element and is
@@ -474,7 +474,7 @@ test.describe('S84 · reduced motion — smooth scroll is disabled (globals.css 
 });
 
 /**
- * S180 — scroll-progress bar: scroll-driven CSS animation with framer fallback.
+ * Scroll-progress bar: scroll-driven CSS animation with framer fallback.
  * Three rungs, mirroring the component's feature-detect:
  *   - supported (this Chromium): the CSS element renders, its scaleX is driven
  *     by `animation-timeline: scroll(root)` (keyframe `scroll-progress-fill`),
@@ -496,7 +496,7 @@ const scaleXOf = (page: Page, selector: string) =>
 const scrollToBottom = (page: Page) =>
   page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
 
-test.describe('S180 · scroll progress — scroll-driven CSS with framer fallback', () => {
+test.describe('scroll progress — scroll-driven CSS with framer fallback', () => {
   test('supported path: CSS element, scroll(root) timeline, tracks top→bottom', async ({
     page,
   }) => {
@@ -510,7 +510,7 @@ test.describe('S180 · scroll progress — scroll-driven CSS with framer fallbac
     const bar = page.locator('[data-testid="scroll-progress"][data-scroll-driven="css"]');
     await expect(bar).toBeAttached();
 
-    // Driven by the S180 keyframe, not by inline JS styles.
+    // Driven by the scroll-progress keyframe, not by inline JS styles.
     expect(await bar.evaluate((el) => getComputedStyle(el).animationName)).toBe(
       'scroll-progress-fill',
     );

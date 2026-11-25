@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S378 (D-277) — the display name is an attribute of the ACCOUNT.
+// D-277: the display name is an attribute of the ACCOUNT.
 //
 // Pins the reconciler `runAccountIdentitySync` in components/itinerary-provider: a one-shot read of
 // `trips/{userToken}/profile/identity` on provider mount, with D-277's ordered rule
@@ -96,7 +96,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('S378 branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
+describe('branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
   it("THE DEFECT: a device that logged in as the placeholder adopts the account's real name", async () => {
     setSyncCode(CODE);
     signIn(DEFAULT_TRAVELER_NAME); // exactly what token-gate's handleLogin leaves behind
@@ -151,7 +151,7 @@ describe('S378 branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
   });
 });
 
-describe('S378 branch 2 — remote doc missing ⇒ create-only HEAL (D-565)', () => {
+describe('branch 2 — remote doc missing ⇒ create-only HEAL (D-565)', () => {
   it('heals with the local real name and leaves both slots alone', async () => {
     setSyncCode(CODE);
     signIn('Sora');
@@ -185,7 +185,7 @@ describe('S378 branch 2 — remote doc missing ⇒ create-only HEAL (D-565)', ()
   });
 });
 
-describe('S378 branch 3 — doc exists with no name', () => {
+describe('branch 3 — doc exists with no name', () => {
   it('backfills a real local name', async () => {
     setSyncCode(CODE);
     signIn('Sora');
@@ -214,7 +214,7 @@ describe('S378 branch 3 — doc exists with no name', () => {
   });
 });
 
-describe('S378 branch 4 — read ERROR ⇒ write nothing', () => {
+describe('branch 4 — read ERROR ⇒ write nothing', () => {
   it.each(['Sora', DEFAULT_TRAVELER_NAME])('local %s: no heal, no push', async (name) => {
     setSyncCode(CODE);
     signIn(name);
@@ -231,7 +231,7 @@ describe('S378 branch 4 — read ERROR ⇒ write nothing', () => {
   });
 });
 
-describe('S378 sign-out safety (trap 4 — D-240s bug class)', () => {
+describe('sign-out safety (trap 4 — D-240s bug class)', () => {
   it('a late resolve landing after signOut() does NOT resurrect the session', async () => {
     setSyncCode(CODE);
     signIn('Sora');
@@ -281,7 +281,7 @@ describe('S378 sign-out safety (trap 4 — D-240s bug class)', () => {
   });
 });
 
-describe('S378 — the "signed in as Traveler" nudge is now CONDITIONAL', () => {
+describe('the "signed in as Traveler" nudge is now CONDITIONAL', () => {
   it('does NOT fire when the name is about to be adopted from the account (branch 1)', async () => {
     setSyncCode(CODE);
     signIn(DEFAULT_TRAVELER_NAME);
@@ -353,7 +353,7 @@ function renderHook(): { myName: () => string | null; unmount: () => void } {
   };
 }
 
-describe('S378 — useAuthorFilter refreshes myName on identity:changed', () => {
+describe('useAuthorFilter refreshes myName on identity:changed', () => {
   it('picks up an adopted name without waiting for an unrelated itinerary edit', () => {
     signIn('Traveler');
     const hook = renderHook();

@@ -3,17 +3,17 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S207 — currency converter ⌘K command (components/command-palette.tsx,
+ * Currency converter ⌘K command (components/command-palette.tsx,
  * lib/currency-convert.ts). Runs against the served static `out/` build (D-093).
  * Frankfurter (`api.frankfurter.dev`) is STUBBED with `page.route(...)`, mirroring
- * travel-essentials.spec.ts's (S188) pattern — the live network is never touched.
+ * travel-essentials.spec.ts's pattern — the live network is never touched.
  *
  * Proves, on a real run:
  *   1. Typing "100 usd to jpy" in the palette surfaces a "Currency Converter" result
  *      with a plausible converted number, sourced from the stubbed Frankfurter fixture.
  *   2. NPR (D-189, no Frankfurter coverage) renders the honest "unavailable" state when
  *      there is no prior cache — never a raw error, never a blank/hung result.
- *   3. A prior cached NPR rate (seeded directly into S188's cache key) is reused and
+ *   3. A prior cached NPR rate (seeded directly into the rate cache key) is reused and
  *      shown, tagged as cached/stale — the offline-cache-hit path.
  *   4. No console errors; axe is serious/critical-clean with the result visible.
  */
@@ -38,7 +38,7 @@ async function openPalette(page: Page) {
   }).toPass({ timeout: 15_000 });
 }
 
-test.describe('S207 · currency converter command', () => {
+test.describe('currency converter command', () => {
   test('typing "100 usd to jpy" shows a converted result from the live/stubbed rate', async ({ page }) => {
     await stubFrankfurter(page);
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -56,9 +56,9 @@ test.describe('S207 · currency converter command', () => {
     await expect(result).toContainText('JPY');
   });
 
-  test('S276: NPR with no prior cache resolves via the labeled reference rate (not a live quote), no crash', async ({ page }) => {
+  test('NPR with no prior cache resolves via the labeled reference rate (not a live quote), no crash', async ({ page }) => {
     // Frankfurter is stubbed defensively, but fetchCurrencyRate short-circuits NPR WITHOUT
-    // ever calling it (D-189 gap). S276 superseded D-189's `unavailable` outcome: NPR with no
+    // ever calling it (D-189 gap). The reference rate superseded D-189's `unavailable` outcome: NPR with no
     // cache now resolves via a hand-set STATIC_REFERENCE_RATES entry (source:'reference'),
     // labeled "reference rate … not a live quote" — never presented as a live figure.
     await stubFrankfurter(page);

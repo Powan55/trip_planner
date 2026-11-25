@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S228 — gzip transport for export/import blobs (D-098: transport only, schema untouched).
+// Gzip transport for export/import blobs (D-098: transport only, schema untouched).
 // Covers: compress/decompress round-trip byte-identity, auto-detect compressed vs plain by
 // magic bytes (not extension), and the unsupported-browser fallback (CompressionStream mocked
 // undefined).
@@ -13,7 +13,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('S228 compress/decompress round-trip', () => {
+describe('compress/decompress round-trip', () => {
   it('compressToBlob → decompressBlobOrText reproduces the original text byte-for-byte', async () => {
     const blob = await compressToBlob(SAMPLE);
     const out = await decompressBlobOrText(blob);
@@ -45,13 +45,13 @@ describe('S228 compress/decompress round-trip', () => {
   });
 });
 
-describe('S228 auto-detect on import — compressed vs plain, independent of extension', () => {
+describe('auto-detect on import — compressed vs plain, independent of extension', () => {
   it('a plain (uncompressed) JSON Blob decodes as-is', async () => {
     const plainBlob = new Blob([SAMPLE], { type: 'application/json' });
     expect(await decompressBlobOrText(plainBlob)).toBe(SAMPLE);
   });
 
-  it('an OLD pre-S228 plain-JSON export string still imports (string passthrough)', async () => {
+  it('an OLD pre-gzip plain-JSON export string still imports (string passthrough)', async () => {
     expect(await decompressBlobOrText(SAMPLE)).toBe(SAMPLE);
   });
 
@@ -66,7 +66,7 @@ describe('S228 auto-detect on import — compressed vs plain, independent of ext
   });
 });
 
-describe('S228 unsupported-browser fallback (CompressionStream/DecompressionStream absent)', () => {
+describe('unsupported-browser fallback (CompressionStream/DecompressionStream absent)', () => {
   it('compressToBlob falls back to an uncompressed Blob when CompressionStream is undefined', async () => {
     const original = globalThis.CompressionStream;
     // @ts-expect-error — simulating an unsupported browser.

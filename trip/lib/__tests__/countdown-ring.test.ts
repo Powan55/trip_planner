@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ringFraction } from '@/lib/countdown-ring';
 
-describe('ringFraction — S204 pure derivation over computeCountdown output', () => {
+describe('ringFraction — pure derivation over computeCountdown output', () => {
   it('is 0 at the horizon (365 days out by default)', () => {
     expect(ringFraction(365, false)).toBe(0);
   });

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S274 (D-224) — trip-day timezone derivation E2E pack.
+ * D-224: trip-day timezone derivation E2E pack.
  *
  * Proves, on the served static `out/` build, that the REAL-clock branch of `getTodayInTrip`
  * (`lib/trip-now.ts` → `core/dates/day-in-trip.ts`'s `dayInTripFor`) now derives the trip-day
@@ -16,9 +16,9 @@ import type { Page } from '@playwright/test';
  * local-noon override (which declares the destination day directly, D-140) cannot express.
  * Reduced motion is pinned so the hero's count-up/reveal animations resolve immediately.
  *
- * The frozen S82 `?today=` boundary matrix (`e2e/countdown.spec.ts`) is run SEPARATELY,
- * unchanged, as the regression guard for the untouched override branch (D-224: "ZERO risk to
- * the frozen S82 matrix — that net runs only through the untouched override branch").
+ * The frozen `?today=` boundary matrix (`e2e/countdown.spec.ts`) is run SEPARATELY,
+ * unchanged, as the regression guard for the untouched override branch (D-224: zero risk to
+ * the frozen matrix, because that net runs only through the untouched override branch).
  *
  * Amended: the offset names WHICH trip day it is, but the DEVICE calendar decides whether we
  * are inside the trip window at all — see the third describe below for the two ends, where
@@ -34,7 +34,7 @@ async function seedDefaultIdentity(page: Page) {
     window.localStorage.setItem('tripPlannerToken', token);
     window.localStorage.setItem('tripPlannerUserName', token);
     window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1');
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, DEFAULT_TOKEN);
 }
 
@@ -74,7 +74,7 @@ async function seedCustomTrip(page: Page) {
   );
 }
 
-test.describe('S274 (D-224) — home-time-phone regression guard', () => {
+test.describe('D-224 — home-time-phone regression guard', () => {
   test.use({ timezoneId: 'America/New_York' });
 
   test('2026-12-11T03:00:00Z on a NY-time phone -> Day 3 / Kathmandu (device-local would say Day 2)', async ({
@@ -110,7 +110,7 @@ test.describe('S274 (D-224) — home-time-phone regression guard', () => {
   });
 });
 
-test.describe('S274 (D-224) — Dec-18->19 rollover uses the earliest-leg seed', () => {
+test.describe('D-224 — Dec-18->19 rollover uses the earliest-leg seed', () => {
   test.use({ timezoneId: 'America/New_York' });
 
   test('16:00Z Dec 18 (21:45 NPT) -> still Day 10 / Kathmandu, not Day 11', async ({ page }) => {
@@ -137,7 +137,7 @@ test.describe('S274 (D-224) — Dec-18->19 rollover uses the earliest-leg seed',
   });
 });
 
-test.describe('S274 (D-224) — boundary sharpness at Kathmandu midnight (18:15 UTC)', () => {
+test.describe('D-224 — boundary sharpness at Kathmandu midnight (18:15 UTC)', () => {
   test.use({ timezoneId: 'America/New_York' });
 
   // #754: the 23:30 KTM departure (4h10m) is in the air across Kathmandu midnight, so the day it
@@ -239,7 +239,7 @@ test.describe('the trip window is the DEVICE calendar, at both ends', () => {
   });
 });
 
-test.describe('S274 (D-224) — custom trip has no known geography -> device-local fallback', () => {
+test.describe('D-224 — custom trip has no known geography -> device-local fallback', () => {
   test.use({ timezoneId: 'America/New_York' });
 
   test('fixed instant on a custom trip -> header tracks device-local date, not any leg offset', async ({

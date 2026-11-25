@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S154 — connectivity hook (`hooks/use-online.ts`), exercised by RENDERING the real
+// Connectivity hook (`hooks/use-online.ts`), exercised by RENDERING the real
 // hook (a tiny renderHook shim over react-dom/client + act — no new dependency,
 // mirrors lib/__tests__/use-favorites.test.ts). Proves: the SSR-safe default (true)
 // is corrected to the real navigator.onLine reading on mount, it flips live on
@@ -89,7 +89,7 @@ function resetReachability() {
   h.unmount();
 }
 
-describe('useOnline (S154)', () => {
+describe('useOnline', () => {
   beforeEach(() => {
     setNavigatorOnLine(true);
     fetchOutcome = { kind: 'ok' };

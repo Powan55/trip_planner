@@ -4,8 +4,8 @@ import type { Page } from '@playwright/test';
 /**
  * Shared E2E fixtures.
  *
- * DEFAULT IDENTITY = a SIGNED-IN traveler (slice S113E). There is no guest mode (D-241,
- * slice S351): a logged-out visitor sees the front-door wall on EVERY route, with no
+ * DEFAULT IDENTITY = a SIGNED-IN traveler. There is no guest mode (D-241):
+ * a logged-out visitor sees the front-door wall on EVERY route, with no
  * bypass. Since most specs in this pack navigate to `/plan`, `/nepal`, `/japan`, `/map`,
  * `/flights`, the default identity must be one that can see those pages: a signed-in
  * traveler.
@@ -17,7 +17,7 @@ import type { Page } from '@playwright/test';
  * `page.addInitScript` (runs before any other script on every navigation in this
  * context) — the wall never has a chance to open, on any route.
  *
- * S155: the default fixture ALSO pre-seeds the first-run-tour
+ * The default fixture ALSO pre-seeds the first-run-tour
  * "seen" flag (`nepal_japan_first_run_tour_seen`, gateway key 17) and the install-hint
  * "dismissed" flag (`nepal_japan_install_hint_dismissed`, key 30 — a standing app-wide
  * `duration: Infinity` Sonner toast that would otherwise trip axe's `list` rule on every
@@ -56,11 +56,11 @@ export const test = base.extend({
     await page.addInitScript((token: string) => {
       window.localStorage.setItem('tripPlannerToken', token);
       window.localStorage.setItem('tripPlannerUserName', token);
-      window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep the tour dormant pack-wide
-      window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss the app-wide install-to-Home toast (duration:Infinity would poison every axe scan)
+      window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep the tour dormant pack-wide
+      window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss the app-wide install-to-Home toast (duration:Infinity would poison every axe scan)
     }, DEFAULT_TOKEN);
     /**
-     * S363 regression hunt (2026-08-01) — HARNESS ARTIFACT, not app behaviour. Kept as the
+     * Regression hunt (2026-08-01): HARNESS ARTIFACT, not app behaviour. Kept as the
      * historical record of WHY the raster stub below exists; the glyph half no longer fires
      * (see the vestigial note on `MAPLIBRE_GLYPH_URL`).
      *
@@ -206,7 +206,7 @@ export async function seedPinnedRates(page: Page): Promise<void> {
 }
 
 /**
- * R5 (S363A) — fail-fast guard for a spec that assumes a WIRED build, i.e. `NEXT_PUBLIC_
+ * Fail-fast guard for a spec that assumes a WIRED build, i.e. `NEXT_PUBLIC_
  * CONCIERGE_URL` baked in at build time so `ConciergeChat` actually mounts (see
  * `e2e/concierge.spec.ts`'s header for the exact local build command). Without this, a wired-only
  * spec meeting an inert (unconfigured) build produces either a ~30s timeout on the first

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 //
-// S97 — WIRED-behavior unit suite for the Sync v2 seam in lib/itinerary-remote.ts, exercised
+// WIRED-behavior unit suite for the Sync v2 seam in lib/itinerary-remote.ts, exercised
 // against a FAKE Firestore (the firebase SDK modules are vi.mock'd) + the real merge core.
 // This is the "the wiring is correct off a live server" proof the two-client E2E cannot run
 // in the dormant sandbox (no firebase env). It proves, on a real run:
 //
-//   1. docToDayPlan stays BEHAVIOR-FROZEN (pure shape-mapper, no defaulting) — the S77
+//   1. docToDayPlan stays BEHAVIOR-FROZEN (pure shape-mapper, no defaulting) — the frozen
 //      contract — while defaultDayForMerge/defaultItemSyncFields apply the default-on-
 //      read separately (v1 remote item → valid mergeable v2 item).
 //   2. SNAPSHOT-MERGE applies remote against the current local view WITHOUT pushing
@@ -224,7 +224,7 @@ afterEach(() => {
 });
 
 describe('docToDayPlan stays behavior-frozen; default-on-read is a SEPARATE step (D-107)', () => {
-  it('docToDayPlan is a PURE shape-mapper — it does NOT add rev/hlc/deleted (S77 freeze)', () => {
+  it('docToDayPlan is a PURE shape-mapper — it does NOT add rev/hlc/deleted (frozen contract)', () => {
     const mapped = docToDayPlan('2026-12-09', {
       date: '2026-12-09',
       country: 'nepal',
@@ -508,15 +508,15 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     expect(written.city).toBe('Pokhara');
   });
 
-  // ── S407 — the per-day DISPLAY label must survive the Firestore ROUND TRIP ────────────────
+  // ── The per-day DISPLAY label must survive the Firestore ROUND TRIP ────────────────
   // `DayPlan.countryLabel` is what makes the Dec-9 header read "New York, USA" instead of
   // "New York, Nepal". The write side was always fine (`sanitizeDayForWrite` is a JSON clone),
   // but BOTH read-shaped constructions dropped it: `docToDayPlan`'s four-field literal, and
   // `pushDayMerged`'s absent-remote fallback — and since `mergeDay` takes day-level fields from
   // its FIRST argument, that fallback erased the label on the very first push (when the call
-  // order still passed `remoteNow` first). Without these two cases the whole S407 fix silently
+  // order still passed `remoteNow` first). Without these two cases the whole label fix silently
   // reverts on any synced device while every other test on the machine stays green.
-  it('S407: a per-day countryLabel survives docToDayPlan, and stays ABSENT when the doc has none', () => {
+  it('a per-day countryLabel survives docToDayPlan, and stays ABSENT when the doc has none', () => {
     const withLabel = docToDayPlan('2026-12-09', {
       date: '2026-12-09',
       country: 'nepal',
@@ -526,7 +526,7 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     });
     expect(withLabel.countryLabel).toBe('USA');
 
-    // Pass-through, NOT defaulting (the S77 frozen contract): no label in ⇒ no key out.
+    // Pass-through, NOT defaulting (the frozen contract): no label in ⇒ no key out.
     const without = docToDayPlan('2026-12-10', { date: '2026-12-10', country: 'nepal', city: 'Kathmandu', items: [] });
     expect(without).not.toHaveProperty('countryLabel');
     // A wrong-typed field is ignored the same way the other fields' guards ignore theirs.
@@ -534,7 +534,7 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     expect(wrongType).not.toHaveProperty('countryLabel');
   });
 
-  it('S407: countryLabel survives the full push round trip — absent remote, then present remote', async () => {
+  it('countryLabel survives the full push round trip — absent remote, then present remote', async () => {
     const base = day('2026-12-09', [item('X', { hlc: hlc(1000, 'me'), rev: 1 })]);
     const localDay: DayPlan = { ...base, city: 'New York', countryLabel: 'USA' };
 
@@ -557,7 +557,7 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
   });
 
   // ── #42: a day field NOBODY WROTE CODE FOR survives the whole round trip ──────────────────
-  // The generalization of S407 above. S407 was this bug hit once and patched by name (one
+  // The generalization of the label fix above. That was this bug hit once and patched by name (one
   // `countryLabel` line in the mapper); the next per-day feature would have hit it again. Two
   // places narrowed a day and BOTH are exercised here: `docToDayPlan` (now spreads the doc) and
   // `mergeDay`'s day-metadata copy (now a union: `pushDayMerged` merges local ON TOP OF the

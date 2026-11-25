@@ -3,8 +3,8 @@ import type { Page } from '@playwright/test';
 import { openPalette } from './fixtures';
 
 /**
- * S217 — command-palette discoverability for `/checklist`. The route is deliberately off the navbar/
- * tab bar (FU-33 pattern, same as packing), so the palette is its desktop discovery path. Proves the
+ * Command-palette discoverability for `/checklist`. The route is deliberately off the navbar/
+ * tab bar (same pattern as packing), so the palette is its desktop discovery path. Proves the
  * "Documents" entry in the "More" group navigates to /checklist on a real run.
  */
 
@@ -13,13 +13,13 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
     window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1');
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await expect(page.locator('h1').first()).toBeVisible();
 }
 
-test.describe('S217 command palette — the Documents entry navigates to /checklist', () => {
+test.describe('command palette — the Documents entry navigates to /checklist', () => {
   test('open ⌘K, type "documents", select, land on /checklist', async ({ page }) => {
     await gotoAsTraveler(page, '/');
     await openPalette(page);

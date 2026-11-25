@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * Whole-trip export/import E2E pack (slice S92, D-098) — E2E wave (Vault Phase B).
+ * Whole-trip export/import E2E pack (D-098).
  *
  * Drives the real Backup & Restore panel on the served static `out/` build:
  *   - EXPORT produces a real browser download (`page.on('download')`) whose bytes are a
@@ -13,9 +13,9 @@ import type { Page } from '@playwright/test';
  *     untouched, surviving reload (the D-098 fail-safe, proven at the browser level).
  *
  * Harness notes (mirroring persistence.spec.ts):
- *   - S322 (A4): Backup & Restore moved OFF `/plan` into the Settings "Data management" group
+ *   - Backup & Restore moved OFF `/plan` into the Settings "Data management" group
  *     (`/settings`, `components/settings-panel.tsx`) — a native `<details>` group we expand before
- *     interacting. Navigate with `waitUntil:'domcontentloaded'` (FU-26/S167 — never `networkidle`,
+ *     interacting. Navigate with `waitUntil:'domcontentloaded'` (never `networkidle`,
  *     the SW precache defeats it), wait for the settings panel, then expand the Data group. The
  *     imported itinerary is verified on `/plan`'s calendar after the restore's auto-reload.
  *   - Itinerary state is seeded ONCE via `page.evaluate` + reload (NEVER addInitScript,
@@ -63,7 +63,7 @@ async function gotoPlanCalendar(page: Page) {
 }
 
 /**
- * S273: a SUCCESSFUL restore auto-reloads the page (~600ms) to re-hydrate every store (D-172). Set a
+ * A SUCCESSFUL restore auto-reloads the page (~600ms) to re-hydrate every store (D-172). Set a
  * window sentinel, click Replace, and wait for it to vanish (i.e. the reload actually happened) before
  * asserting the post-restore UI — deterministic, no fixed sleeps. Lands back on /settings (re-expanded).
  */
@@ -107,7 +107,7 @@ async function readItineraryRaw(page: Page): Promise<string | null> {
   return page.evaluate((key) => window.localStorage.getItem(key), ITINERARY_KEY);
 }
 
-test.describe('S273 export — downloads the WHOLE trip as one backup file', () => {
+test.describe('export — downloads the WHOLE trip as one backup file', () => {
   test('Export button produces a download that is a full-trip backup envelope nesting the v-current itinerary', async ({
     page,
   }) => {
@@ -121,11 +121,11 @@ test.describe('S273 export — downloads the WHOLE trip as one backup file', () 
       page.getByTestId('backup-export-button').click(),
     ]);
 
-    // S273: the export is now the whole-trip backup (gzip via CompressionStream in this real Chromium).
+    // The export is now the whole-trip backup (gzip via CompressionStream in this real Chromium).
     expect(download.suggestedFilename()).toBe('nepal-japan-trip-backup.json.gz');
 
     // Read the actual downloaded bytes, gunzip with Node's own zlib (independent of the app), and
-    // assert the S273 backup envelope with the itinerary nested as its own v-current Vault envelope.
+    // assert the backup envelope with the itinerary nested as its own v-current Vault envelope.
     const path = await download.path();
     expect(path).toBeTruthy();
     const fs = await import('node:fs/promises');
@@ -153,7 +153,7 @@ test.describe('S273 export — downloads the WHOLE trip as one backup file', () 
   });
 });
 
-test.describe('S92 import — known-good file replaces the trip and survives reload', () => {
+test.describe('import — known-good file replaces the trip and survives reload', () => {
   test('choosing a valid backup → confirm → the imported itinerary is reflected and persists', async ({
     page,
   }) => {
@@ -183,12 +183,12 @@ test.describe('S92 import — known-good file replaces the trip and survives rel
       buffer: Buffer.from(JSON.stringify(importedEnvelope), 'utf-8'),
     });
 
-    // Confirm dialog appears, then confirm — the successful restore auto-reloads (S273).
+    // Confirm dialog appears, then confirm — the successful restore auto-reloads.
     await expect(page.getByTestId('backup-confirm-dialog')).toBeVisible();
     await confirmAndAwaitReload(page);
 
     // After the auto-reload the itinerary is re-hydrated from localStorage (persistence proof); the
-    // calendar lives on /plan (S322: backup is on /settings now), so hop over to verify it there.
+    // calendar lives on /plan (backup is on /settings now), so hop over to verify it there.
     await gotoPlanCalendar(page);
     await page.getByTestId(`calendar-day-${IMPORT_DAY}`).click();
     await expect(
@@ -205,7 +205,7 @@ test.describe('S92 import — known-good file replaces the trip and survives rel
     const raw = await readItineraryRaw(page);
     expect(raw).not.toBeNull();
     const onDisk = JSON.parse(raw as string);
-    // S96/D-104 → S124/D-139: savePlans() writes the v5 envelope now (CURRENT bumped 4→5).
+    // D-104 → D-139: savePlans() writes the v5 envelope now (CURRENT bumped 4→5).
     expect(onDisk.schemaVersion).toBe(5);
     const day = onDisk.payload.find((d: { date: string }) => d.date === IMPORT_DAY);
     expect(day.items.some((i: { id: string }) => i.id === 's92-imported')).toBe(true);
@@ -235,7 +235,7 @@ test.describe('S92 import — known-good file replaces the trip and survives rel
   });
 });
 
-test.describe('S92 import — corrupt file fails safe and the current trip survives', () => {
+test.describe('import — corrupt file fails safe and the current trip survives', () => {
   test('choosing a corrupt file → confirm → safe error AND pre-import itinerary survives reload', async ({
     page,
   }) => {
@@ -264,7 +264,7 @@ test.describe('S92 import — corrupt file fails safe and the current trip survi
     const quarantined = await page.evaluate((k) => window.localStorage.getItem(k), QUARANTINE_KEY);
     expect(quarantined).toBe('{ this is not valid json at all');
 
-    // Survives reload: navigating fresh to /plan re-reads the itinerary from disk (S322: the
+    // Survives reload: navigating fresh to /plan re-reads the itinerary from disk (the
     // calendar lives there, backup is on /settings) — the original item is still there, no destruction.
     await gotoPlanCalendar(page);
     await page.getByTestId(`calendar-day-${SEED_DAY}`).click();
@@ -276,7 +276,7 @@ test.describe('S92 import — corrupt file fails safe and the current trip survi
   });
 });
 
-test.describe('S92 confirm dialog portals to body (D-094) — clickable when /settings is scrolled', () => {
+test.describe('confirm dialog portals to body (D-094) — clickable when /settings is scrolled', () => {
   test('with /settings SCROLLED TO THE BOTTOM, the confirm button is topmost + reaches body, and Confirm imports', async ({
     page,
   }) => {
@@ -285,7 +285,7 @@ test.describe('S92 confirm dialog portals to body (D-094) — clickable when /se
       { id: 's92-scroll-orig', title: 'Pre-scroll original stop', category: 'sightseeing' },
     ]);
 
-    // Scroll the app <footer> fully into the viewport — this is the exact FU-11 condition
+    // Scroll the app <footer> fully into the viewport — this is the exact bug condition
     // under which an INLINE fixed modal's buttons get painted over / pointer-captured by
     // the footer (a sibling outside /plan's .animate-route-fade stacking context). If the
     // dialog were still inline, the click below would be intercepted by the footer and the
@@ -339,7 +339,7 @@ test.describe('S92 confirm dialog portals to body (D-094) — clickable when /se
       );
     });
 
-    // ── FU-11 document-level proof ──────────────────────────────────────────────────
+    // ── Document-level proof ──────────────────────────────────────────────────
     // At the confirm button's on-screen centre, the TOPMOST hit-test node must be the
     // confirm button itself (not the footer), and walking that node's ancestry upward
     // must reach <body> WITHOUT passing through the route-transition wrapper
@@ -379,10 +379,10 @@ test.describe('S92 confirm dialog portals to body (D-094) — clickable when /se
 
     // And prove it functionally: the click actually lands (Playwright actionability would
     // fail here for an inline modal because the footer would be the topmost element) — the
-    // successful restore then auto-reloads (S273).
+    // successful restore then auto-reloads.
     await confirmAndAwaitReload(page);
 
-    // The import applied — verify on /plan's calendar (S322: backup is on /settings now).
+    // The import applied — verify on /plan's calendar (backup is on /settings now).
     await gotoPlanCalendar(page);
     await page.getByTestId(`calendar-day-${IMPORT_DAY}`).click();
     await expect(

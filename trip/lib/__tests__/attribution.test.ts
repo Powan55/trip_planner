@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-// S316 / D-230 — completion attribution stamping. `stampDone` is transition-gated on the patch
+// D-230: completion attribution stamping. `stampDone` is transition-gated on the patch
 // and name-gated exactly like `stampUpdated`, so the dormant (no-name) build stays byte-identical.
 
 import { stampDone } from '@/lib/attribution';

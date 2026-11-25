@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S143 — WIRED-behavior unit suite for the budget Sync-v2 seam (lib/budget-remote.ts +
+// WIRED-behavior unit suite for the budget Sync-v2 seam (lib/budget-remote.ts +
 // lib/budget-ports.ts), against a FAKE Firestore (the firebase SDK modules are vi.mock'd) + the real
 // merge/flatten core. This is the "the wiring is correct off a live server" proof the two-client E2E
 // cannot run in the dormant sandbox (no firebase env / JDK ceiling). It proves, on a real run:

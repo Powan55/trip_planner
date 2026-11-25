@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S140 — unit coverage for `createReactiveStore` (D-148), the ONE reactive-store skeleton the
+// Unit coverage for `createReactiveStore` (D-148), the ONE reactive-store skeleton the
 // four domains now share. Exercised by RENDERING the real hook (a tiny renderHook shim over
 // react-dom/client + act — no new dependency, mirroring lib/__tests__/use-itinerary-sync.test.ts).
 // Proves, on a real run, the four behavior lines the factory centralizes:

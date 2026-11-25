@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S215 — pointer-driven 3D tilt on the `RecommendationCard` family (`components/
+ * Pointer-driven 3D tilt on the `RecommendationCard` family (`components/
  * recommendation-section.tsx`, `hooks/use-card-tilt.ts`). Guides-scoped, desktop project.
  *
  * Proves, on a real run:
@@ -39,7 +39,7 @@ async function waitForGuide(page: Page) {
   await expect(page.getByTestId(`guide-tilt-${BOUDHA_ID}`)).toBeAttached();
 }
 
-test.describe('S215 · card tilt (desktop pointer)', () => {
+test.describe('card tilt (desktop pointer)', () => {
   test('pointer move over a card applies a 3D tilt transform', async ({ page }) => {
     await goto(page, '/nepal/');
     await waitForGuide(page);

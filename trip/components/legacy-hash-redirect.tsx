@@ -21,7 +21,7 @@ import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
  * the travel-inspiration gallery, which has kept the `inspiration` id throughout)
  * scroll locally; an unknown hash no-ops harmlessly.
  *
- * (#94): `timeline` left LOCAL_ANCHORS. Its section moved off Home to /plan in S321 — so
+ * (#94): `timeline` left LOCAL_ANCHORS. Its section moved off Home to /plan, so
  * `/#timeline` had already degraded to a bounded poll for an id that was never coming — and
  * #94 deleted the section outright (it was a second, unsynced copy of the itinerary). `/#itinerary`
  * above already routes the itinerary-shaped legacy hash to /plan/; `/#timeline` now falls through

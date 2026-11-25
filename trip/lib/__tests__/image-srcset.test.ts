@@ -20,7 +20,7 @@ describe('buildSrcSet', () => {
     );
   });
 
-  it('emits no .webp URL — the WebP tier is deleted (V6-13)', () => {
+  it('emits no .webp URL — the WebP tier is deleted', () => {
     const variants = [
       { width: 800, avif: '/images/b.avif' },
       { width: 640, avif: '/images/b-640w.avif' },

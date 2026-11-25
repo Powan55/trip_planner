@@ -52,7 +52,7 @@ function VenueCard({
           </div>
           <div>
             <h3 className="text-t-body font-semibold text-ink-hi flex items-center gap-1.5">
-              {/* V6-10: the details control is the TITLE, not the card body — a button
+              {/* The details control is the TITLE, not the card body — a button
                   cannot legally wrap flow content, and its children-presentational ARIA
                   role hid this <h3> from the heading outline entirely. The `::after`
                   restores the whole-card hit area against the `relative` root above, and

@@ -12,7 +12,7 @@ import { CURRENT_ITINERARY_VERSION } from '@/core/vault/migrations';
 import type { DayPlan } from '@/lib/trip-data';
 
 /**
- * Whole-trip export/import unit suite (S92; D-098 LOCKED).
+ * Whole-trip export/import unit suite (D-098 LOCKED).
  *
  * Exercises `core/vault/export-import.ts` against the REAL Vault-backed storage
  * (`loadPlans`/`savePlans` on the real `nepal_japan_itinerary` key), so these tests
@@ -69,7 +69,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('S92 exportItinerary', () => {
+describe('exportItinerary', () => {
   it('serializes the current itinerary as a v3 Vault envelope { schemaVersion, updatedAt, payload }', () => {
     savePlans(REAL_PLANS);
     const parsed = JSON.parse(exportItinerary());
@@ -81,7 +81,7 @@ describe('S92 exportItinerary', () => {
   });
 });
 
-describe('S92 export → import round-trip identity', () => {
+describe('export → import round-trip identity', () => {
   it('exporting then importing the same JSON reproduces the itinerary byte-for-byte', () => {
     savePlans(REAL_PLANS);
     const exported = exportItinerary();
@@ -97,7 +97,7 @@ describe('S92 export → import round-trip identity', () => {
   });
 });
 
-describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', () => {
+describe('fail-safe — a bad import NEVER destroys current data (D-098)', () => {
   it('malformed JSON → {ok:false} AND the on-disk itinerary is BYTE-UNCHANGED', () => {
     savePlans(REAL_PLANS);
     const before = localStorage.getItem(ITINERARY_STORAGE_KEY);
@@ -229,10 +229,10 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
   });
 });
 
-describe('S92 migration on import — a v2-era export upgrades to v3 (D-095/D-098)', () => {
+describe('migration on import — a v2-era export upgrades to v3 (D-095/D-098)', () => {
   it('a legacy bare DayPlan[] JSON (v2, no envelope) imports → migrates → CURRENT envelope on disk', () => {
     // Simulate a file produced by (or hand-crafted from) a pre-Vault v2 build.
-    // S96 (D-104): the import now runs the full chain v2→v3→v4, so items gain the defaulted
+    // D-104: the import now runs the full chain v2→v3→v4, so items gain the defaulted
     // sync fields — a LOSSLESS superset (every original field preserved). Assert the version
     // via the constant and the lossless-superset property (matchObject), not byte-identity.
     const v2Json = JSON.stringify(REAL_PLANS);
@@ -251,7 +251,7 @@ describe('S92 migration on import — a v2-era export upgrades to v3 (D-095/D-09
   });
 });
 
-describe('S124 migration on import — a v4-era export upgrades through migration #3 (D-139)', () => {
+describe('v4 migration on import — a v4-era export upgrades through migration #3 (D-139)', () => {
   it('a v4 envelope (items with `time`, no `startMinutes`) imports → gains startMinutes losslessly', () => {
     // A file produced by a v4 build: no startMinutes on any item.
     const v4Envelope = makeEnvelope(4, REAL_PLANS, '2026-07-05T00:00:00.000Z');
@@ -270,7 +270,7 @@ describe('S124 migration on import — a v4-era export upgrades through migratio
   });
 });
 
-describe('S92 empty-itinerary round-trip (delete-everything is portable)', () => {
+describe('empty-itinerary round-trip (delete-everything is portable)', () => {
   it('exporting an empty [] then importing it yields [] (NOT re-seeded sample)', () => {
     savePlans([]);
     const exported = exportItinerary();

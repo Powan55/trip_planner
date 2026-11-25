@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S126 — warn-only clash badges (D-142) + the D-018 stored-order guarantee, E2E pack.
+ * Warn-only clash badges (D-142) + the D-018 stored-order guarantee, E2E pack.
  * Mirrors time-picker.spec.ts / persistence.spec.ts's harness conventions exactly: same
  * signed-in fixture, `domcontentloaded` + `waitForPlannerReady`, never `networkidle`
  * (D-093). Presentation-only, zero store writes — the zero-writes-proof test is the
@@ -19,7 +19,7 @@ import type { Page } from '@playwright/test';
  * Every test here used to have a second half that drove `#timeline` on /plan; #94 deleted that
  * section (it was an unsynced duplicate of the itinerary), so those halves are gone and each
  * test is retitled to name the surface it still proves — the calendar. The view-level
- * `sortItemsByTime` projection and the S377 Jan-9 date-line case (the DTW layover sorting after
+ * `sortItemsByTime` projection and the Jan-9 date-line case (the DTW layover sorting after
  * the HND→DTW flight that produces it) are covered against the REAL seed content by
  * `lib/__tests__/sort-items-by-time.test.ts` :91 and :106 — that is where a date-line
  * regression is caught, not here.
@@ -149,7 +149,7 @@ test.describe('drag follows from the chronological order', () => {
   });
 });
 
-test.describe('S126 — warn-only clash badges (half-open, D-142)', () => {
+test.describe('warn-only clash badges (half-open, D-142)', () => {
   test('two overlapping timed items both show the clash badge in the calendar', async ({ page }) => {
     // 9:00-10:00 and 9:30-10:30 — genuinely overlapping.
     await gotoSettled(page, '/plan/');
@@ -182,7 +182,7 @@ test.describe('S126 — warn-only clash badges (half-open, D-142)', () => {
   });
 });
 
-test.describe('S126 — zero-writes proof (D-018/D-142)', () => {
+test.describe('zero-writes proof (D-018/D-142)', () => {
   test('viewing the calendar day does not change stored item order or content', async ({ page }) => {
     await gotoSettled(page, '/plan/');
     await seedFixtureDay(page, [

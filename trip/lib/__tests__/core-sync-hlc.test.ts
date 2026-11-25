@@ -15,7 +15,7 @@ import {
 import { mergeItems, type SyncedRow } from '@/core/sync/merge-items';
 
 /**
- * Sync v2 — HLC unit suite (S96; D-105 LOCKED).
+ * Sync v2 — HLC unit suite (D-105 LOCKED).
  *
  * Proves the five properties of the pure Hybrid Logical Clock: monotonicity, skew
  * absorption, total order, string-sort==tuple-sort, and the ct-overflow ceiling. Physical
@@ -144,7 +144,7 @@ describe('HLC — skew absorption (clamped, D-228)', () => {
   });
 });
 
-describe('HLC — clock-skew clamp (D-228, S278): bounds hlcReceive RUNNING clock only, never the stored-stamp merge path', () => {
+describe('HLC — clock-skew clamp (D-228): bounds hlcReceive RUNNING clock only, never the stored-stamp merge path', () => {
   it('R1 far-future non-poisoning: an absurdly-future peer (1000 years) is clamped, and the clamp HOLDS across a subsequent receive/send — the running clock never adopts it', () => {
     const NOW = 1751700000000;
     const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
@@ -254,10 +254,10 @@ describe('HLC — total order is a strict total order', () => {
     });
   }
 
-  // FU-30 (S161): these two are inherently O(n²) over the 300-item fuzz set (~90k pairs, up to
+  // These two are inherently O(n²) over the 300-item fuzz set (~90k pairs, up to
   // ~180k compareHlc calls) — correct, but the 5000ms DEFAULT test timeout trips under full-suite
   // CPU contention (parallel Playwright / a second session), false-failing the reality gate on
-  // nearly every net while passing 19/19 isolated. Raise the budget to 15s (the FU-16 precedent for
+  // nearly every net while passing 19/19 isolated. Raise the budget to 15s (the precedent set by
   // the serialize sibling below); the pairwise coverage is unchanged, only the deadline moves.
   it('is antisymmetric: sign(compare(a,b)) === -sign(compare(b,a))', () => {
     // Normalize -0 → 0 so an equal pair (both signs 0) compares cleanly under toBe (Object.is
@@ -320,13 +320,13 @@ describe('HLC — string-sort == tuple-sort (guards the padding width)', () => {
         actor: ['', 'a', 'zzz', 'uid-' + Math.floor(r() * 3)][Math.floor(r() * 4)],
       });
     }
-    // FU-16 (S114): serialize each stamp ONCE up front (O(n)) instead of 4× per
+    // Serialize each stamp ONCE up front (O(n)) instead of 4× per
     // inner-loop pair (O(n²) redundant serializations, ~640k calls) — the 400×400
     // pair coverage is byte-for-byte identical, but the ~5s-default timeout it kept
     // tripping under the full 21-file suite is gone. The property (string-sort ==
     // tuple-sort, the pad-width guard) is unchanged.
     const ser = set.map(serialize);
-    // S277-close (run-determinism): assert ONCE, not 160k times. The 400×400 pair
+    // Run-determinism: assert ONCE, not 160k times. The 400×400 pair
     // coverage is byte-identical, but ~160k `expect()` calls carried enough per-call overhead
     // to push this past its 15s timeout once the suite grew (21 → 126 files). Accumulating the
     // first mismatch and asserting once drops the runtime to <1s and removes the load-variance

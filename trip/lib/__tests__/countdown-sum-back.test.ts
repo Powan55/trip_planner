@@ -3,7 +3,7 @@ import { addDays, addMonths, startOfDay, differenceInDays } from 'date-fns';
 import { computeCountdown, type Countdown } from '../countdown';
 
 /**
- * S423 / D-313 — the countdown must add up, must not jump, and must never say "4 weeks".
+ * D-313: the countdown must add up, must not jump, and must never say "4 weeks".
  *
  * THE governing invariant is the SUM-BACK, and everything else here is secondary to it.
  * Issue #60 reverted months to calendar-accurate (D-313), superseding issue #11's fixed
@@ -112,7 +112,7 @@ function dstTransitions(year: number): Date[] {
   return out;
 }
 
-describe('S423 (1) SUM-BACK — the reported fields add back up to the target instant', () => {
+describe('(1) SUM-BACK — the reported fields add back up to the target instant', () => {
   it('now + months (calendar) + weeks*7+days + h:m:s lands exactly on the target, swept over 2,928 instants across a year', () => {
     const instants = sweepInstants();
     expect(instants).toHaveLength(2928);
@@ -152,7 +152,7 @@ describe('S423 (1) SUM-BACK — the reported fields add back up to the target in
       }
       // `days < 7` is NOT asserted here: once the sub-month residue reaches the suppression
       // window (>= 28, WEEKS_SUPPRESSED_AT) it is reported unsplit, which can be up to 30 —
-      // that is the D-313 revert's shape (see S423 (4)), not slack in the walk. `weeks < 4`
+      // that is the D-313 revert's shape (see (4) below), not slack in the walk. `weeks < 4`
       // still is, unconditionally.
       if (c.weeks >= 4) slack.push(`${fmt(now)} -> ${show(c)}: ${c.weeks} weeks is another MONTH`);
     }
@@ -180,7 +180,7 @@ describe('S423 (1) SUM-BACK — the reported fields add back up to the target in
   });
 });
 
-describe('S423 (2) field ranges — the borrow, not clamping, keeps hours under 24', () => {
+describe('(2) field ranges — the borrow, not clamping, keeps hours under 24', () => {
   it('every swept instant yields non-negative integers with hours<24, minutes<60, seconds<60', () => {
     const bad: string[] = [];
     for (const now of sweepInstants()) {
@@ -218,7 +218,7 @@ describe('S423 (2) field ranges — the borrow, not clamping, keeps hours under 
   });
 });
 
-describe('S423 (3) monotonicity — nothing grows as `now` advances', () => {
+describe('(3) monotonicity — nothing grows as `now` advances', () => {
   it('months and the total remaining encoded by the fields are non-increasing across the sweep', () => {
     // Implied by the sum-back (the fields encode target - now, which shrinks), but months
     // alone is NOT implied: end-of-month clamping in addMonths could make it non-monotone.
@@ -249,7 +249,7 @@ describe('S423 (3) monotonicity — nothing grows as `now` advances', () => {
   });
 });
 
-describe('S423 (4) "4 weeks" is never rendered', () => {
+describe('(4) "4 weeks" is never rendered', () => {
   it('no instant in a full year before the target produces weeks === 4', () => {
     const offenders: string[] = [];
     for (const now of sweepInstants()) {
@@ -309,7 +309,7 @@ describe('S423 (4) "4 weeks" is never rendered', () => {
   });
 });
 
-describe('S423 (5) crossing DST', () => {
+describe('(5) crossing DST', () => {
   it('crosses every DST transition the runtime has: the walk is date-fns field math, never epoch arithmetic', () => {
     // The zone is PINNED (`vitest.config.ts` sets TZ=America/New_York), which is what makes this
     // case run at all -- it located zero transitions on the UTC CI runner and passed vacuously
@@ -334,7 +334,7 @@ describe('S423 (5) crossing DST', () => {
         const where = `${fmt(day)} ${label}: ${fmt(now)} -> ${show(c)}`;
         expect(sumBack(now, c).getTime(), where).toBe(target.getTime());
         expect(c.hours, where).toBeLessThan(24);
-        // See S423 (2): the weaker still-true reconciliation, not the retired multiplication.
+        // See (2): the weaker still-true reconciliation, not the retired multiplication.
         expect(differenceInDays(walkOnly(now, c), now), where).toBe(c.totalDays);
       }
     }

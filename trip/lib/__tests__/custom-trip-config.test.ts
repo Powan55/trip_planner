@@ -18,7 +18,7 @@ import { setActiveTripId } from '@/core/storage/gateway';
 import { LEGS, DEFAULT_BUDGET, legCurrency } from '@/core/budget/model';
 
 /**
- * S250 — the custom-trip config foundation. Proves, on a real run:
+ * The custom-trip config foundation. Proves, on a real run:
  *  - sanitizeTripConfig accepts a good block + drops every malformed shape (entry-kept policy);
  *  - customTripConfig synthesizes the single-leg TripConfig (Plan D2);
  *  - buildDayShells produces one empty DayPlan per date in range (Plan D4);

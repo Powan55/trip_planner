@@ -3,7 +3,7 @@ import type { Page, BrowserContext } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S219 — the "Trip Wrapped" capstone (`components/wrapped-story.tsx`, `/recap`) E2E pack.
+ * The "Trip Wrapped" capstone (`components/wrapped-story.tsx`, `/recap`) E2E pack.
  * Mirrors `e2e/recap-story.spec.ts`'s harness: signs in with a real Trip Token, drives the clock
  * via `?today=`, seeds every composed domain via a ONE-TIME `page.evaluate` after navigation + a
  * single reload (never `addInitScript` for the data), `domcontentloaded` navigation, and
@@ -36,7 +36,7 @@ async function seedTraveler(page: Page, token = 'Powan') {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
     window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1');
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
 }
 
@@ -115,7 +115,7 @@ async function seedStores(page: Page) {
   await page.reload({ waitUntil: 'domcontentloaded' });
 }
 
-test.describe('S219 wrapped — exact stats against a known seed (mid-trip)', () => {
+test.describe('wrapped — exact stats against a known seed (mid-trip)', () => {
   test('every headline stat matches the seed exactly', async ({ page }) => {
     await seedTraveler(page);
     await gotoRecapWithClock(page, MID_TRIP_DAY);
@@ -180,7 +180,7 @@ test.describe('S219 wrapped — exact stats against a known seed (mid-trip)', ()
   });
 });
 
-test.describe('S219 wrapped — share: clipboard + toast fallback', () => {
+test.describe('wrapped — share: clipboard + toast fallback', () => {
   test('with navigator.share absent, Share copies the summary text to the clipboard', async ({ page, context }: { page: Page; context: BrowserContext }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await seedTraveler(page);
@@ -203,7 +203,7 @@ test.describe('S219 wrapped — share: clipboard + toast fallback', () => {
   });
 });
 
-test.describe('S219 wrapped — reduced motion renders static, no celebration burst', () => {
+test.describe('wrapped — reduced motion renders static, no celebration burst', () => {
   test('post-trip + reduced motion: panels are visible immediately, celebration burst never renders', async ({ page }) => {
     await seedTraveler(page);
     await gotoRecapWithClock(page, POST_TRIP_DAY); // emulateMedia reduced already set by the helper
@@ -218,17 +218,17 @@ test.describe('S219 wrapped — reduced motion renders static, no celebration bu
   });
 });
 
-test.describe('S219 axe — /recap with the wrapped section open', () => {
+test.describe('axe — /recap with the wrapped section open', () => {
   test('zero serious/critical violations with wrapped stats rendered', async ({ page }, testInfo) => {
     await seedTraveler(page);
     await gotoRecapWithClock(page, MID_TRIP_DAY);
     await seedStores(page);
     await settleWrapped(page);
 
-    // S336: the mid-trip travel-arrival toast (fixed, fades opacity 0->1 on mount) can be sampled
+    // The mid-trip travel-arrival toast (fixed, fades opacity 0->1 on mount) can be sampled
     // by axe mid-fade, which multiplies its text-ink-mid down to ~0.42 effective (4.05:1) — a
     // false positive; at rest it composites to ~7:1 on the glass surface. Settle it to opacity 1
-    // first (the s157-a11y-close-targets settle-guard pattern), so the scan reads its true colors.
+    // first (the a11y-close-targets settle-guard pattern), so the scan reads its true colors.
     const arrivalToast = page.getByTestId('travel-arrival-toast');
     await arrivalToast.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
     if (await arrivalToast.count()) {

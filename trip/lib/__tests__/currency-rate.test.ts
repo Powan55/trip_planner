@@ -4,7 +4,7 @@ import { fetchCurrencyRate, parseFrankfurter, type CurrencyRateNow } from '@/lib
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 
 /**
- * S188 — Frankfurter currency-rate client. DETERMINISTIC: `fetch` is mocked, the pure parser
+ * Frankfurter currency-rate client. DETERMINISTIC: `fetch` is mocked, the pure parser
  * takes fixed inputs, and the cache round-trips through jsdom localStorage. NO live network is
  * ever touched.
  *
@@ -112,7 +112,7 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
     expect(result).toEqual({ status: 'unavailable', currency: 'EUR' });
   });
 
-  it('USD: short-circuits to the identity rate WITHOUT ever calling fetch or touching the cache (V6-3/#99)', async () => {
+  it('USD: short-circuits to the identity rate WITHOUT ever calling fetch or touching the cache (#99)', async () => {
     const fetchImpl = vi.fn(async () => {
       throw new Error('fetchImpl must never be called for USD');
     });
@@ -147,7 +147,7 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
     expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.currencyRateCache)!).NPR.rate).toBe(151.92);
   });
 
-  it('NPR: fetch fails and nothing cached → labeled static reference rate, never `unavailable` (S276/P6)', async () => {
+  it('NPR: fetch fails and nothing cached → labeled static reference rate, never `unavailable`', async () => {
     const offline = async () => {
       throw new Error('offline');
     };

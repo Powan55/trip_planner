@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S97 — WIRED-behavior unit suite for the Sync v2 store changes in hooks/use-itinerary.ts,
+// WIRED-behavior unit suite for the Sync v2 store changes in hooks/use-itinerary.ts,
 // exercised by RENDERING the real hook (a tiny renderHook shim over react-dom/client + act —
 // no new dependency). Two regimes are proven on a real run, and the CONTRAST between them is
 // the whole point of the D-038 dormant-build byte-identity gate:
@@ -15,7 +15,7 @@
 //   DORMANT (isRemoteConfigured() === false):
 //     - removeItem PHYSICALLY removes (no tombstone); NO rev/hlc is ever stamped, so the
 //       on-disk bytes are exactly today's — the dormant portfolio build is byte-for-byte
-//       unchanged (D-038) and the S81 persistence pack + D-018 hold verbatim.
+//       unchanged (D-038) and the persistence e2e pack + D-018 hold verbatim.
 //
 // D-026 (the exposed-plans filter is the ONLY selector change — consumers untouched), D-018/
 // D-091 (delete-all-stays-empty, tombstones never resurrect the sample), D-038 (dormant gate),
@@ -262,7 +262,7 @@ describe('DORMANT — no stamping, physical remove, byte-for-byte today (D-038)'
     expect(rawDay.map((i) => i.id)).toEqual(['b']); // 'a' is truly gone, no deleted:true ghost
     expect(rawDay.some((i) => 'deleted' in i)).toBe(false);
 
-    // delete the rest → empty day, survives reload (the S81/D-018 guarantee, unchanged).
+    // delete the rest → empty day, survives reload (the D-018 guarantee, unchanged).
     await h.run((s) => s.removeItem(TEST_DATE, 'b'));
     expect(dayItems(rawOnDisk(), TEST_DATE)).toEqual([]);
     await h.rerenderFresh();

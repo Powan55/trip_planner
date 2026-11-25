@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S128 — inline quick-add + duplicate-item E2E pack (dormant `out/` build).
+ * Inline quick-add + duplicate-item E2E pack (dormant `out/` build).
  *
  * Both features route through the EXISTING `addItem` → `commit()` choke-point (no new store
  * code), so they inherit the D-018 persistence hard guarantee. This pack proves, on a real run:
@@ -66,7 +66,7 @@ async function itemIdsWithTitle(page: Page, title: string): Promise<string[]> {
     );
 }
 
-test.describe('S128 inline quick-add — calendar', () => {
+test.describe('inline quick-add — calendar', () => {
   test('type a title, press Enter, the item appears and survives reload', async ({ page }) => {
     const title = `S128 quick-add ${Date.now()}`;
 
@@ -95,7 +95,7 @@ test.describe('S128 inline quick-add — calendar', () => {
     ).toHaveCount(1);
   });
 
-  // S357A — the composer is now the PRIMARY add path and it extracts a time from the typed
+  // The composer is now the PRIMARY add path and it extracts a time from the typed
   // text. `lib/__tests__/quick-add-parse.test.ts` pins the pure extractor; this test pins the
   // WIRING, which a unit test cannot see: that `handleQuickAdd` passes the extracted minutes
   // into `addItem`, that the peeled token does NOT survive into the stored title, and that the
@@ -180,7 +180,7 @@ test.describe('S128 inline quick-add — calendar', () => {
   });
 });
 
-test.describe('S128 duplicate-item — fresh id, same content', () => {
+test.describe('duplicate-item — fresh id, same content', () => {
   test('duplicate → two items, same content, different ids → both persist', async ({ page }) => {
     const title = 'S128 Ramen at Ichiran';
 
@@ -217,7 +217,7 @@ test.describe('S128 duplicate-item — fresh id, same content', () => {
   });
 });
 
-test.describe('S128 inline quick-add — Today panel', () => {
+test.describe('inline quick-add — Today panel', () => {
   async function gotoHomeInTrip(page: Page) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/?today=${IN_TRIP_DAY}`, { waitUntil: 'domcontentloaded' });

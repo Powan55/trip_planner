@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S140 — unit coverage for `use-budget`, the greenfield factory-backed budget
+// Unit coverage for `use-budget`, the greenfield factory-backed budget
 // hook the budget panel now consumes. Rendered for real (react-dom/client + act shim). Proves:
 //   - hydrates the persisted BudgetModel (or the seeded DEFAULT when absent — D-018 fresh visitor);
 //   - `commit` persists through `saveBudget` and survives a reload (the budget hard guarantee);
@@ -67,7 +67,7 @@ const sample: BudgetModel = {
   categoryBudgets: { nepal: { food: 2760 } },
 };
 
-describe('use-budget — factory-backed reactive budget store (S140, D-148)', () => {
+describe('use-budget — factory-backed reactive budget store (D-148)', () => {
   beforeEach(() => {
     localStorage.clear();
   });

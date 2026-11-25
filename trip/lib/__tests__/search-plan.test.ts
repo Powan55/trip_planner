@@ -11,7 +11,7 @@ function mkPlan(date: string, items: ItineraryItem[]): DayPlan {
   return { date, city: 'Kathmandu', country: 'nepal', items };
 }
 
-describe('searchPlanItems — pure client-side matcher (S147, D-018 read-only)', () => {
+describe('searchPlanItems — pure client-side matcher (D-018 read-only)', () => {
   it('empty/whitespace query returns []', () => {
     const plans = [mkPlan('2026-12-09', [mkItem('a', { title: 'Boudhanath Stupa' })])];
     expect(searchPlanItems(plans, '')).toEqual([]);

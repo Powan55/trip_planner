@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S103 — pure burn-rate + per-day bucketing core (D-016/D-099). `core/budget/burn-rate.ts` is
+ * Pure burn-rate + per-day bucketing core (D-016/D-099). `core/budget/burn-rate.ts` is
  * framework-free; these tests pin the TIME math (`burnRate` — inclusive daysElapsed at every trip
  * boundary, the daily budget/avg, the projected-at-pace total, and the under/on/over indicator with
  * its ±5% band) and the per-day aggregator (`expensesByDate` — leg-local per-day sums, undated
@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
  *
  * Clock instants are constructed at LOCAL noon (`new Date(y, m-1, d, 12, 0, 0)`) — the exact shape
  * `lib/trip-now.ts` resolves a `?today=` override to — so the elapsed-day diff is exercised the way
- * production computes it, TZ-independently (the FU-10 suite runs under TZ=America/New_York).
+ * production computes it, TZ-independently (the unit suite runs under TZ=America/New_York).
  */
 
 import { burnRate, expensesByDate } from '@/core/budget/burn-rate';

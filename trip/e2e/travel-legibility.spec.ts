@@ -3,10 +3,10 @@ import type { ConsoleMessage } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S189 — Travel Mode outdoor high-legibility toggle E2E pack (D-165 LOCKED).
+ * Travel Mode outdoor high-legibility toggle E2E pack (D-165 LOCKED).
  *
  * Runs against the served static `out/` build (D-093) on the DEFAULT (signed-in) identity, so
- * `/travel` is reachable with no gate. Mirrors the S184–S188 packs' seeding/mobile-viewport style.
+ * `/travel` is reachable with no gate. Mirrors the other Travel Mode packs' seeding/mobile-viewport style.
  */
 
 test.use({ viewport: { width: 390, height: 844 } });
@@ -16,7 +16,7 @@ async function goto(page: import('@playwright/test').Page, path = '/travel/') {
   await expect(page.getByTestId('travel-mode-root')).toBeVisible();
 }
 
-test.describe('S189 · toggling flips the presentation (token/attribute, not a screenshot)', () => {
+test.describe('toggling flips the presentation (token/attribute, not a screenshot)', () => {
   test('OFF by default: no attribute, base surface tokens', async ({ page }) => {
     await goto(page);
     const attr = await page.evaluate(() => document.documentElement.getAttribute('data-tm-legibility'));
@@ -53,7 +53,7 @@ test.describe('S189 · toggling flips the presentation (token/attribute, not a s
   });
 });
 
-test.describe('S189 · persists across reload / PWA relaunch', () => {
+test.describe('persists across reload / PWA relaunch', () => {
   test('ON survives a reload', async ({ page }) => {
     await goto(page);
     await page.getByTestId('travel-legibility-toggle').click();
@@ -74,7 +74,7 @@ test.describe('S189 · persists across reload / PWA relaunch', () => {
   });
 });
 
-test.describe('S189 · the attribute NEVER leaks off /travel (the leak test)', () => {
+test.describe('the attribute NEVER leaks off /travel (the leak test)', () => {
   test('ON on /travel, then navigating Home: the attribute is absent everywhere else', async ({ page }) => {
     await goto(page);
     await page.getByTestId('travel-legibility-toggle').click();
@@ -97,7 +97,7 @@ test.describe('S189 · the attribute NEVER leaks off /travel (the leak test)', (
   });
 });
 
-test.describe('S189 · ≥44px hit target', () => {
+test.describe('≥44px hit target', () => {
   test('the toggle button meets the 44×44 minimum', async ({ page }) => {
     await goto(page);
     const box = await page.getByTestId('travel-legibility-toggle').boundingBox();
@@ -139,7 +139,7 @@ test.describe('Outdoor at 360px', () => {
   });
 });
 
-test.describe('S189 axe — /travel in BOTH states', () => {
+test.describe('axe — /travel in BOTH states', () => {
   test('zero serious/critical violations OFF', async ({ page }, testInfo) => {
     await goto(page);
     const results = await new AxeBuilder({ page }).analyze();
@@ -164,7 +164,7 @@ test.describe('S189 axe — /travel in BOTH states', () => {
   });
 });
 
-test.describe('S189 · no console errors toggling on and off', () => {
+test.describe('no console errors toggling on and off', () => {
   test('a full toggle on -> off cycle runs with no console.error / pageerror', async ({ page }) => {
     const errors: string[] = [];
     page.on('console', (msg: ConsoleMessage) => {

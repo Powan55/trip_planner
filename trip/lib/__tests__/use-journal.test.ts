@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S282 — coverage for hooks/use-journal.ts (S104), exercised by RENDERING the real hook (the
+// Coverage for hooks/use-journal.ts, exercised by RENDERING the real hook (the
 // same renderHook shim over react-dom/client + act lib/__tests__/use-docs.test.ts uses — no new
 // dependency). use-journal is the SIMPLEST `createReactiveStore` consumer (D-148): NO sync port
 // (the journal is local-only, D-002/D-152), so this suite proves the hydrate/local-read/CRUD-write/
@@ -69,7 +69,7 @@ function renderJournal(): HookHandle {
   };
 }
 
-describe('useJournal (S104)', () => {
+describe('useJournal', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();

@@ -620,7 +620,7 @@ export default function MapSection() {
     closeSearch();
   };
 
-  // (INTAKE-05): a day-order row flies the camera to that stop and opens its popup —
+  // A day-order row flies the camera to that stop and opens its popup —
   // the SAME gesture as a search result, via the same imperative handle.
   // a row addresses its GROUP's pin — several plans can share one coordinate and are
   // drawn as a single pin whose popup lists them, so flying to the row's own
@@ -1362,7 +1362,7 @@ export default function MapSection() {
                           return (
                             <li key={row.item.id}>
                               {segNode}
-                              {/* (INTAKE-05): a real <button>, not a click handler on the
+                              {/* A real <button>, not a click handler on the
                                   <li> — native Enter/Space, native focus, 44px tap target. The
                                   fly/zoom/popup engine is TripMap's existing focusMarker (which
                                   already branches on prefers-reduced-motion); this only calls it.

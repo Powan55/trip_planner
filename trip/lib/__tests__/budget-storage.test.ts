@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * S101 — budget persistence round-trip through the typed storage gateway (key 10, D-097) +
+ * Budget persistence round-trip through the typed storage gateway (key 10, D-097) +
  * the `core/budget/storage.ts` load/save adapter. Proves: seeded default when absent, set→get,
  * corrupt slot → normalized default (never throws), and SSR / quota safety inherited from the
  * gateway. The on-disk key string is pinned (additive, no migration).

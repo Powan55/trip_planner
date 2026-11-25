@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * S220 — share-inbox persistence round-trip through the typed storage gateway (key 23, D-097) +
+ * Share-inbox persistence round-trip through the typed storage gateway (key 23, D-097) +
  * the `core/share/storage.ts` load/save adapter. Proves: empty inbox on first load, set→get,
  * corrupt slot → [] (never throws), sanitize-on-write drops malformed/caps, the on-disk key string
  * is pinned + additive (key tail 23 = next free after 22 `dayAnchors`), and SSR/quota safety

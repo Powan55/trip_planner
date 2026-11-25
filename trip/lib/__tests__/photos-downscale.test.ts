@@ -1,4 +1,4 @@
-// S160 — downscale sizing math (`fitWithin`) unit suite. The pure half of the capture pipeline: a
+// Downscale sizing math (`fitWithin`) unit suite. The pure half of the capture pipeline: a
 // >1600px source scales to a ≤1600px long edge preserving aspect; a source already within the box is
 // NEVER upscaled. The Canvas/`toBlob` JPEG encode is browser-only glue (jsdom has neither
 // `createImageBitmap` nor `canvas.toBlob`), proven end-to-end (real JPEG blob in IDB) by the Playwright

@@ -1,4 +1,4 @@
-// S143 — PURE unit suite for `mergeBudget` (core/sync/merge-budget.ts), the LWW-per-field budget
+// PURE unit suite for `mergeBudget` (core/sync/merge-budget.ts), the LWW-per-field budget
 // merge (D-149). Proves, on a real run, the whole convergence contract:
 //   - concurrent edits to DIFFERENT fields BOTH survive (each path independent);
 //   - same-field higher-HLC-wins (and, NON-VACUOUSLY, a lower-HLC same-field edit does NOT win);

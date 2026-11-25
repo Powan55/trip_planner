@@ -847,7 +847,7 @@ export default function CalendarPlanner() {
   const { filter: authorFilter, myName, myPriorNames } = useAuthorFilter();
 
   /**
-   * 🔴 (INTAKE-07) — THE ONE PLACE THE FILTER IS APPLIED.
+   * 🔴 THE ONE PLACE THE FILTER IS APPLIED.
    *
    * Reported: *"when i click on the filter by name all everything thats not related to that person
    * should dessipear from the calander"*. Before this, exactly one consumer (the day list)
@@ -1641,7 +1641,7 @@ export default function CalendarPlanner() {
                   className="mt-1 flex flex-wrap justify-center items-center gap-1.5"
                 >
                   {/* the VISIBLE count. This pill sitting at "7 items" above a list showing
-                      2 was the headline symptom of INTAKE-07. */}
+                      2 was the headline symptom of the filter bug. */}
                   {visibleItems.length > 0 && (
                     <span
                       data-testid="calendar-day-glance-count"

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * S251 — New-trip wizard (`/trips/` Create card) + clean slate.
+ * New-trip wizard (`/trips/` Create card) + clean slate.
  *
  * Proves, on the served static `out/` build:
  *   1. Creating a trip with explicit start/end dates lands on Home, and `/plan/` shows day
@@ -43,7 +43,7 @@ async function gotoPlan(page: Page) {
 const readActiveTrip = (page: Page) =>
   page.evaluate((k) => window.localStorage.getItem(k), ACTIVE_TRIP_KEY);
 
-test.describe('S251 — trip wizard creates a clean-slate custom trip', () => {
+test.describe('trip wizard creates a clean-slate custom trip', () => {
   test('explicit dates → own day shells, no N×J content; switching back restores N×J', async ({
     page,
   }) => {

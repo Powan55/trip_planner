@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S142 — WIRED-behavior unit suite for the expense-sync store changes in hooks/use-expenses.ts,
+// WIRED-behavior unit suite for the expense-sync store changes in hooks/use-expenses.ts,
 // exercised by RENDERING the real hook (a tiny renderHook shim over react-dom/client + act — no
 // new dependency), plus a direct sanitizeExpenses passthrough check. The CONTRAST between the two
 // regimes is the D-038 dormant-build byte-identity gate:
@@ -191,7 +191,7 @@ describe('DORMANT — no stamping, physical remove, byte-for-byte today (D-038)'
     state.remoteOn = false;
   });
 
-  it('addExpense stamps NO sync/attribution fields (on disk byte-identical to S102)', async () => {
+  it('addExpense stamps NO sync/attribution fields (on disk byte-identical to the pre-sync shape)', async () => {
     const h = renderExpenses();
     await h.run((s) => s.addExpense(LOG));
     const e = h.current.expenses[0];

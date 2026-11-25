@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S149 — favorites/bookmarks hook (`hooks/use-favorites.ts`), exercised by RENDERING the real
+// Favorites/bookmarks hook (`hooks/use-favorites.ts`), exercised by RENDERING the real
 // hook (a tiny renderHook shim over react-dom/client + act — no new dependency, mirrors
 // lib/__tests__/use-itinerary-sync.test.ts). Proves: hydrate-from-storage, toggle add/remove is
 // idempotent, persistence through the gateway key-14 `favoritesStore` (byte-transport proof),
@@ -71,7 +71,7 @@ function renderFavorites(): HookHandle {
   return handle;
 }
 
-describe('useFavorites (S149)', () => {
+describe('useFavorites', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -177,13 +177,13 @@ describe('useFavorites (S149)', () => {
     h.unmount();
   });
 
-  // FU-34: map-marker favorites (`components/trip-map.tsx`'s popup heart) and guide
+  // Map-marker favorites (`components/trip-map.tsx`'s popup heart) and guide
   // favorites (`components/recommendation-section.tsx`) share this SAME flat store
   // (D-130) — raw ids, no namespacing. That's only safe because the two id spaces
   // never collide: map ids are `np-*`/`jp-*` kebab (lib/map-data.ts), guide rec ids
   // are `na#`/`nf#`/`ja#`/`jf#` short codes (lib/nepal-data.ts, lib/japan-data.ts).
   // This guard fails loudly if either id scheme ever drifts into the other's territory.
-  it('id-disjointness guard (FU-34): map marker ids and guide rec ids never collide', () => {
+  it('id-disjointness guard: map marker ids and guide rec ids never collide', () => {
     const mapIds = new Set(MAP_MARKERS.map((m) => m.id));
     const recIds = new Set(
       [...NEPAL_ATTRACTIONS, ...NEPAL_FOOD, ...JAPAN_ATTRACTIONS, ...JAPAN_FOOD].map((r) => r.id),

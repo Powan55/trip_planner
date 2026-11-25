@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S147 — search-within-plan (dormant `out/` build).
+ * Search-within-plan (dormant `out/` build).
  *
  * Proves, on a real run:
  *   1. From `/plan`: typing a title fragment surfaces the seeded item; selecting it
- *      keeps the planner on the same day and rings the row (the S136 highlight+scroll
+ *      keeps the planner on the same day and rings the row (the split-view highlight+scroll
  *      path, generalized to item ids).
  *   2. Cross-day jump: searching an item seeded on a DIFFERENT day than the current
  *      selection jumps `selectedDate` AND the highlight lands correctly — proving the
@@ -26,7 +26,7 @@ import AxeBuilder from '@axe-core/playwright';
  *
  * Identity: default fixture (`./fixtures`) seeds a signed-in traveler so every route
  * is reachable (dormant build, no `.env.local`). Seeding + settle discipline mirrors
- * plan-map-split.spec.ts (S136): navigate `domcontentloaded`, block on the lazy
+ * plan-map-split.spec.ts: navigate `domcontentloaded`, block on the lazy
  * planner island's `calendar-day-*` grid, never `networkidle`.
  */
 
@@ -75,12 +75,12 @@ async function openPalette(page: Page) {
   }).toPass({ timeout: 15_000 });
 }
 
-test.describe('S147 · search-within-plan', () => {
+test.describe('search-within-plan', () => {
   test('from /plan: search + select stays on the same day and highlights the row', async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await seedPlan(page);
 
-    // Default selection is DAY_A (today is out of the trip window, S65 travel-mode
+    // Default selection is DAY_A (today is out of the trip window, travel-mode
     // never overrides), so searching an item seeded on DAY_A is the same-day path.
     await expect(page.getByTestId(`calendar-day-${DAY_A}`)).toHaveAttribute('aria-pressed', 'true');
 
@@ -164,7 +164,7 @@ test.describe('S147 · search-within-plan', () => {
     await expect(paletteResult).toHaveAttribute('role', 'option');
     // Keyboard selection (Enter), not a mouse click — cmdk items are pointer-driven and
     // flake under the single-worker harness (the same rationale interaction.spec.ts's
-    // S83 palette spec documents); the query is specific enough that this is the only
+    // palette spec documents); the query is specific enough that this is the only
     // visible option, so Enter deterministically selects it.
     await paletteInput.press('Enter');
 

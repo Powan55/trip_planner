@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S351B — closes a false coverage claim. `e2e/nightlife-gate.spec.ts`'s docstring says the
+// Closes a false coverage claim. `e2e/nightlife-gate.spec.ts`'s docstring says the
 // render-gate's `traveler === null` branch (components/nightlife-section.tsx) "is covered at the
 // unit level (`components/__tests__/` / gate-consumer tests)" — no such test existed anywhere
 // under `lib/__tests__/` or `components/__tests__/`. This is that test. Mirrors the mock shape in
@@ -39,7 +39,7 @@ function render(el: ReturnType<typeof createElement>) {
   };
 }
 
-describe('NightlifeSection visibility gate (S113; unit coverage added S351B)', () => {
+describe('NightlifeSection visibility gate (unit coverage)', () => {
   it('renders nothing when traveler is null (no guest mode, D-241)', () => {
     const r = render(createElement(NightlifeSection));
     expect(r.container.innerHTML).toBe('');

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S136 — split map/list planning view on /plan (dormant `out/` build).
+ * Split map/list planning view on /plan (dormant `out/` build).
  *
  * Proves, on a real run:
  *   1. Interaction-lazy island — the MapLibre canvas does NOT exist on /plan first
@@ -68,7 +68,7 @@ async function rowIds(page: Page): Promise<string[]> {
 
 const CANVAS = 'canvas.maplibregl-canvas';
 
-test.describe('S136 · split map/list view on /plan', () => {
+test.describe('split map/list view on /plan', () => {
   test('map island is interaction-lazy: no canvas before toggle, mounts on toggle with no console errors', async ({
     page,
   }) => {

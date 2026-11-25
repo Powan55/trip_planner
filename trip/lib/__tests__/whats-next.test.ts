@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
-// S100 → re-signatured S124 — the "what's-next rail" pure helper. `nextUp(items, ctx)` is PURE
+// The "what's-next rail" pure helper. `nextUp(items, ctx)` is PURE
 // (D-016): no clock/fetch/storage — the caller injects the day, place offset, and "now" (a UTC
-// epoch-ms instant). Fully deterministic here. Every S100 behavioral case is re-asserted under
+// epoch-ms instant). Fully deterministic here. Every original behavioral case is re-asserted under
 // the new signature (matrix item 12), plus the place-clock / fallback cases.
 
 import { nextUp } from '@/lib/whats-next';
@@ -34,7 +34,7 @@ function item(
   };
 }
 
-// A fixed Nepal trip day; "now" = NOON at the place (parity with S100's NOON="12:00" compare).
+// A fixed Nepal trip day; "now" = NOON at the place (parity with the original NOON="12:00" compare).
 // So items before 12:00 are past, an item exactly at 12:00 is upcoming (>= inclusive).
 const DAY = '2026-12-10';
 const NOON_CTX = {
@@ -125,7 +125,7 @@ describe('nextUp — purity (D-016)', () => {
   });
 });
 
-describe('nextUp — structured startMinutes + legacy fallback (S124, matrix item 12)', () => {
+describe('nextUp — structured startMinutes + legacy fallback (matrix item 12)', () => {
   it('picks an item that has ONLY legacy `time` (no startMinutes) via the fallback parser', () => {
     // Every prior case already exercises the fallback; this pins it explicitly.
     const legacyOnly = item('13:00', { id: 'legacy' }); // no startMinutes
@@ -146,10 +146,10 @@ describe('nextUp — structured startMinutes + legacy fallback (S124, matrix ite
     expect(nextUp([conflicted, other], NOON_CTX)?.id).toBe('x');
   });
 
-  it('S377 — ranks by INSTANT, not wall clock, when a day holds two zones (D-225)', () => {
+  it('ranks by INSTANT, not wall clock, when a day holds two zones (D-225)', () => {
     // The real Jan-9 shape: the Tokyo departure reads 17:35 (JST, day offset) and the Detroit
     // layover it produces reads 15:35 (EST, tzOffsetMin -300) — a LATER instant with an EARLIER
-    // clock face. Pre-S377 `nextUp` rejected past items by instant but ranked by minutes, so it
+    // clock face. Previously `nextUp` rejected past items by instant but ranked by minutes, so it
     // returned the layover as "next" while the traveller was still standing in Haneda.
     const flight: ItineraryItem = {
       id: 'j22-4', title: 'Fly HND → DTW', category: 'transportation', startMinutes: 1055, // 17:35 JST

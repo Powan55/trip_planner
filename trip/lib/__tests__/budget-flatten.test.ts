@@ -1,4 +1,4 @@
-// S143 — PURE unit suite for the budget ⇄ leaf-field bridge (core/budget/flatten.ts) + the
+// PURE unit suite for the budget ⇄ leaf-field bridge (core/budget/flatten.ts) + the
 // normalizeModel round-trip of the additive sync.fieldHlc (a DoD line). Proves, on a real run:
 //   - flattenBudget covers EVERY leaf of a full model, incl. category budgets on BOTH legs;
 //   - normalizeModel PRESERVES sync.fieldHlc when present and TOLERATES it absent (byte-identity);

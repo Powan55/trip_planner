@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S110-FIX / F19a — regression suite for the cross-day `moveItem` fix (F1) in
+// Regression suite for the cross-day `moveItem` fix (F1) in
 // hooks/use-itinerary.ts, exercised by RENDERING the real hook (the same tiny renderHook shim
 // over react-dom/client + act that use-itinerary-sync.test.ts uses — no new dependency). This
 // closes the sync-ON blind spot: the old physical-remove move left NO tombstone on the source

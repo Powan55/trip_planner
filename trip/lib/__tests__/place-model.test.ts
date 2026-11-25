@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S284 — pure my-places core (D-016/D-099). `core/places/model.ts` is framework-free; these tests
+ * Pure my-places core (D-016/D-099). `core/places/model.ts` is framework-free; these tests
  * pin the Zod read boundary (`sanitizePlace`/`sanitizePlaces` — total, id/name/legId/addedAt-required,
  * drops bad coords, dedupe by id, cap-200 drop-oldest, empty on non-array/all-corrupt), the pure
  * mutators (`addPlace`/`removePlace`), the leg inference (`inferLegId` — custom single-leg, default-pack
@@ -174,32 +174,32 @@ describe('isGooglePlaceUrl — host allow/deny', () => {
     expect(isGooglePlaceUrl(42)).toBe(false);
   });
 
-  // S349 — widened to the same anchored ccTLD regex as the Worker's `isAllowedGoogleHost`
+  // Widened to the same anchored ccTLD regex as the Worker's `isAllowedGoogleHost`
   // (worker/src/resolve.ts): a share link copied on a phone abroad carries the local Google
   // domain, and the old exact-match set silently rejected it (disabled "Look up" for no reason).
-  it('S349: widens to Google ccTLD hosts (google.co.jp, google.de, maps.google.co.jp)', () => {
+  it('widens to Google ccTLD hosts (google.co.jp, google.de, maps.google.co.jp)', () => {
     expect(isGooglePlaceUrl('https://www.google.co.jp/maps/place/Foo')).toBe(true);
     expect(isGooglePlaceUrl('https://google.co.jp/maps/place/Foo')).toBe(true);
     expect(isGooglePlaceUrl('https://www.google.de/maps/place/Foo')).toBe(true);
     expect(isGooglePlaceUrl('https://maps.google.co.jp/?q=1')).toBe(true);
   });
 
-  // S349 — anchored both ends, matching the Worker's own attacker-host cases verbatim so the two
+  // Anchored both ends, matching the Worker's own attacker-host cases verbatim so the two
   // allow-lists agree on the exact boundary, not just the happy path.
-  it('S349: rejects anchor-bypass attacker hosts (evil-google.com, google.com.attacker.net)', () => {
+  it('rejects anchor-bypass attacker hosts (evil-google.com, google.com.attacker.net)', () => {
     expect(isGooglePlaceUrl('https://evil-google.com/maps')).toBe(false);
     expect(isGooglePlaceUrl('https://google.com.attacker.net/maps')).toBe(false);
     expect(isGooglePlaceUrl('https://notgoogle.com')).toBe(false);
   });
 
-  // S669 — widened to Google's com.XX country domains (google.com.np, google.com.au) per issue #669
-  it('S669: allows com.XX country domain hosts (google.com.np, google.com.au)', () => {
+  // Widened to Google's com.XX country domains (google.com.np, google.com.au) per issue #669
+  it('allows com.XX country domain hosts (google.com.np, google.com.au)', () => {
     expect(isGooglePlaceUrl('https://www.google.com.np/maps/place/Foo')).toBe(true);
     expect(isGooglePlaceUrl('https://google.com.au/maps/place/Foo')).toBe(true);
   });
 
-  // S669 — rejects attacker hosts with com.XX pattern (google.com.np.evil.net)
-  it('S669: rejects com.XX-pattern attacker hosts (google.com.np.evil.net)', () => {
+  // Rejects attacker hosts with com.XX pattern (google.com.np.evil.net)
+  it('rejects com.XX-pattern attacker hosts (google.com.np.evil.net)', () => {
     expect(isGooglePlaceUrl('https://google.com.np.evil.net/maps')).toBe(false);
   });
 });

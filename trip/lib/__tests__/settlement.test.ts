@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
 /**
- * S144 — pure settlement math (`core/budget/settlement.ts`, D-016/D-099). Proves the who-owes-whom
+ * Pure settlement math (`core/budget/settlement.ts`, D-016/D-099). Proves the who-owes-whom
  * derivation: even division, net balances, a MINIMAL transfer set, circular-debt-nets-flat, self-
  * payment, per-leg/per-currency isolation, and that fast-path (no-split) expenses contribute zero.
- * Also pins that `paidBy`/`split` survive the S142 `mergeItems` row merge (no new sync code).
+ * Also pins that `paidBy`/`split` survive the `mergeItems` row merge (no new sync code).
  */
 
 import { createElement } from 'react';
@@ -222,7 +222,7 @@ describe('settle — largest-remainder rounding keeps balances summing to 0 (D-3
   });
 });
 
-describe('paidBy/split — sanitize passthrough + mergeItems row merge (S142, no new sync code)', () => {
+describe('paidBy/split — sanitize passthrough + mergeItems row merge (no new sync code)', () => {
   it('sanitizeExpense passes paidBy + split through; a no-split expense is byte-identical', () => {
     const withSplit = sanitizeExpense({
       id: 'e1', leg: 'nepal', category: 'food', amount: 300, createdAt: 't',
@@ -231,7 +231,7 @@ describe('paidBy/split — sanitize passthrough + mergeItems row merge (S142, no
     expect(withSplit?.paidBy).toBe('Powan');
     expect(withSplit?.split).toEqual(['Powan', 'Sushil']);
 
-    // Fast path: no split fields in, none out — object has exactly the pre-S144 keys.
+    // Fast path: no split fields in, none out — object has exactly the pre-split keys.
     const plain = { id: 'e2', leg: 'nepal', category: 'food', amount: 300, createdAt: 't' };
     expect(sanitizeExpense(plain)).toEqual(plain);
     expect(Object.keys(sanitizeExpense(plain)!)).not.toContain('paidBy');

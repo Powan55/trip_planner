@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S157 — dialog close-X ≥44px touch targets (FU-22).
+ * Dialog close-X ≥44px touch targets.
  *
  * Five sub-44px close-X buttons (`p-1`/`p-1.5` + a `w-4/w-5` icon = ~24-32px hit
  * area) grew a HIT-AREA-ONLY fix — `inline-flex items-center justify-center
- * min-h-[44px] min-w-[44px]` (the S110-FIX / tour-Skip idiom), the visible icon
+ * min-h-[44px] min-w-[44px]` (the tour-Skip idiom), the visible icon
  * size UNCHANGED (no visual drift):
  *   - add-to-itinerary-dialog.tsx  `add-item-cancel`
  *   - calendar-planner.tsx         `calendar-editor-cancel`
@@ -36,7 +36,7 @@ import AxeBuilder from '@axe-core/playwright';
  * `command-palette.tsx`) was ALSO sub-44px, deliberately left unfixed pending a
  * visual baseline for the open palette (see the old comment this replaces).
  *
- * FU-39 (S173) closes that gap: `e2e/visual.spec.ts` now carries an open-palette
+ * That gap is closed: `e2e/visual.spec.ts` now carries an open-palette
  * baseline (`command-palette-*.png`, added and verified BEFORE the fix), and the
  * same hit-area-only pattern (`inline-flex items-center justify-center
  * min-h-[44px] min-w-[44px]`, corner anchoring + icon size unchanged) is applied
@@ -83,7 +83,7 @@ async function assertHitArea44(locator: ReturnType<Page['getByTestId']>) {
  * page (e.g. the /plan budget panel's `dl`/icon structure) can't leak into a
  * dialog-specific assertion. Assert zero serious/critical.
  *
- * FU-38: `place-detail-sheet`'s meta `<dl>` used to carry a `only-dlitems`
+ * `place-detail-sheet`'s meta `<dl>` used to carry a `only-dlitems`
  * finding (each `<dt>/<dd>` wrapping `<div>` also held a decorative icon
  * `<svg>` as a third sibling). Fixed by moving each icon INSIDE its `<dt>` —
  * the `<dl>` is now fully valid, so no exclusion is needed here any more.
@@ -108,7 +108,7 @@ async function assertDialogAxeClean(
   ).toEqual([]);
 }
 
-test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => {
+test.describe('dialog close-X >=44px touch targets + axe', () => {
   test('calendar item editor close-X (calendar-editor-cancel)', async ({ page }) => {
     await gotoPlanPhoneSettled(page);
     await page.getByTestId(`day-strip-${KNOWN_DAY}`).click();
@@ -117,7 +117,7 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
     // Settle the entrance fade before the axe scan (same guard the time-picker test
     // below uses): axe samples COMPUTED colors, and the dialog's opacity 0→1 entrance
     // composites text to a lower-contrast blend mid-fade — a false serious hit. The
-    // S323 de-glass exposed this (the former glass gradient bg made axe skip contrast).
+    // The de-glass pass exposed this (the former glass gradient bg made axe skip contrast).
     await expect(page.getByTestId('calendar-editor')).toHaveCSS('opacity', '1');
 
     const closeBtn = page.getByTestId('calendar-editor-cancel');
@@ -131,8 +131,8 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
   test('add-to-itinerary (quick-add FAB) dialog close-X (add-item-cancel)', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(PHONE);
-    // S357C: hosted on `/` (was `/plan/`) — the FAB is route-suppressed on the planner now
-    // (it has the S357A sticky composer), and the FAB is the app's only `quickadd:open`
+    // Hosted on `/` (was `/plan/`) — the FAB is route-suppressed on the planner now
+    // (it has its own sticky composer), and the FAB is the app's only `quickadd:open`
     // dispatcher, so Home is where this dialog is reachable. The scan below is a SCOPED
     // subtree scan of `add-item-dialog` itself, so the host route does not change what is
     // audited; the `toBeVisible()` below would fail loudly if the host were wrong.
@@ -168,7 +168,7 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
     await expect(page.getByTestId('budget-panel')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('budget-grand-total-value')).toBeVisible({ timeout: 15_000 });
 
-    await page.getByTestId('budget-view-tab-expenses').click(); // S322: log trigger is on the Expenses view
+    await page.getByTestId('budget-view-tab-expenses').click(); // log trigger is on the Expenses view
     await page.getByTestId('expense-log-open').click();
     const dialog = page.getByTestId('expense-dialog');
     await expect(dialog).toBeVisible();
@@ -205,7 +205,7 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
 
     const closeBtn = page.getByTestId('place-detail-close');
     await assertHitArea44(closeBtn);
-    // FU-38: the dl/icon `only-dlitems` finding is fixed — no exclusion needed.
+    // The dl/icon `only-dlitems` finding is fixed — no exclusion needed.
     await assertDialogAxeClean(page, 'place-detail-sheet', 'place detail sheet');
 
     await closeBtn.click();
@@ -233,7 +233,7 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
     await expect(panel).toHaveCount(0);
   });
 
-  test('command palette close-X (shared ui/dialog.tsx DialogPrimitive.Close, FU-39)', async ({ page }) => {
+  test('command palette close-X (shared ui/dialog.tsx DialogPrimitive.Close)', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(PHONE);
     await page.goto('/', { waitUntil: 'load' });
@@ -250,7 +250,7 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
 
     const closeBtn = dialog.getByRole('button', { name: 'Close' });
     await assertHitArea44(closeBtn);
-    // FU-40 (S178): the selected-item ~2.97:1 contrast finding is FIXED at the token
+    // The selected-item ~2.97:1 contrast finding is FIXED at the token
     // level (--accent-foreground flipped dark in globals.css, ~6:1 on the sakura
     // accent), so the exclusion is removed and this scan is back at full strength.
     await assertDialogAxeClean(page, 'command-palette-dialog', 'command palette');

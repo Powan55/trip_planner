@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S220 — the share-target inbox (`/share`, `components/share-inbox.tsx`) E2E pack.
+ * The share-target inbox (`/share`, `components/share-inbox.tsx`) E2E pack.
  *
  * Signs in with a real Trip Token EXPLICITLY (mirrors e2e/packing.spec.ts) — every route,
  * `/share` included, sits behind the single front-door wall (D-241); a signed-in traveler
@@ -19,8 +19,8 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);
-    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // S155: keep dormant
-    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss app-wide install toast (duration:Infinity poisons axe scans)
+    window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant
+    window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // dismiss app-wide install toast (duration:Infinity poisons axe scans)
   }, token);
   await page.goto(path, { waitUntil: 'load' });
   await page
@@ -36,7 +36,7 @@ async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
 
 const rows = (page: Page) => page.locator('li[data-testid^="share-item-"]');
 
-test.describe('S220 share inbox — receiver captures a shared item, strips params, survives reload', () => {
+test.describe('share inbox — receiver captures a shared item, strips params, survives reload', () => {
   test('visiting /share/?title&text&url lands ONE item, strips the query, and persists across reload', async ({
     page,
   }) => {
@@ -77,7 +77,7 @@ test.describe('S220 share inbox — receiver captures a shared item, strips para
   });
 });
 
-test.describe('S220 share inbox — day assignment persists across reload', () => {
+test.describe('share inbox — day assignment persists across reload', () => {
   test('assigning a trip day to a shared item survives a full reload', async ({ page }) => {
     await gotoAsTraveler(page, '/share/?title=Assign%20me&url=https://example.com/x');
     await expect(page.getByTestId('share-inbox')).toBeVisible();
@@ -94,7 +94,7 @@ test.describe('S220 share inbox — day assignment persists across reload', () =
   });
 });
 
-test.describe('S220 share inbox — delete returns to the designed empty state', () => {
+test.describe('share inbox — delete returns to the designed empty state', () => {
   test('deleting the only item removes it and shows the empty state', async ({ page }) => {
     await gotoAsTraveler(page, '/share/?title=Delete%20me&url=https://example.com/y');
     await expect(page.getByTestId('share-inbox')).toBeVisible();
@@ -114,7 +114,7 @@ test.describe('S220 share inbox — delete returns to the designed empty state',
   });
 });
 
-test.describe('S220 share inbox — axe (serious/critical = 0)', () => {
+test.describe('share inbox — axe (serious/critical = 0)', () => {
   test('empty state and a populated inbox both pass axe with zero serious/critical', async ({ page }, testInfo) => {
     // Empty state.
     await gotoAsTraveler(page, '/share/');

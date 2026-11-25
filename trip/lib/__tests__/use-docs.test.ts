@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// S217 — docs-checklist hook (`hooks/use-docs.ts`), exercised by RENDERING the real hook (a tiny
+// Docs-checklist hook (`hooks/use-docs.ts`), exercised by RENDERING the real hook (a tiny
 // renderHook shim over react-dom/client + act — no new dependency, mirrors use-packing.test.ts).
 // Proves: hydrate-seeds-the-built-in-template, toggle/setNote persist through gateway key 25
 // (byte-transport proof), RELOAD (unmount+remount) survives (the hard guarantee), completion updates,
@@ -66,7 +66,7 @@ function renderDocs(): HookHandle {
   };
 }
 
-describe('useDocs (S217)', () => {
+describe('useDocs', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();

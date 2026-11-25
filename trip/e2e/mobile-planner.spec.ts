@@ -2,14 +2,14 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S131 — mobile ItemEditor bottom-sheet + swipe-to-delete E2E pack (dormant `out/` build).
+ * Mobile ItemEditor bottom-sheet + swipe-to-delete E2E pack (dormant `out/` build).
  *
  * Two additive mobile ergonomics, proven on a real run:
  *   1. Bottom-sheet: on `<lg` the ItemEditor opens ANCHORED TO THE BOTTOM (slide-up sheet),
  *      stays a focus-trapped `role=dialog` portaled to <body> (open → focus in → Esc →
  *      focus restored); on `lg+` it stays the CENTERED panel.
  *   2. Swipe-to-delete: a horizontal left-swipe on a row body routes through the EXISTING
- *      delete→undo handler (S127) — deleted → Undo toast → Undo restores → reload persists.
+ *      delete→undo handler: deleted → Undo toast → Undo restores → reload persists.
  *      The visible Delete button still deletes (the non-gesture a11y path), and the swipe is
  *      gated so it never hijacks the grip's dnd drag or native vertical scroll (keyboard
  *      reorder still swaps order; a vertical gesture on the body does NOT delete).
@@ -92,7 +92,7 @@ async function swipe(page: Page, testId: string, dx: number, dy = 0) {
   await el.dispatchEvent('pointerup', at(dx, dy));
 }
 
-test.describe('S131 · ItemEditor bottom-sheet', () => {
+test.describe('ItemEditor bottom-sheet', () => {
   test('mobile (<lg): opens bottom-anchored, focus-trapped dialog, portal-to-body, Esc restores focus', async ({
     page,
   }) => {
@@ -110,7 +110,7 @@ test.describe('S131 · ItemEditor bottom-sheet', () => {
     await expect(editor).toHaveAttribute('role', 'dialog');
     await expect(editor).toHaveAttribute('aria-modal', 'true');
 
-    // Portal-to-body (D-069/FU-11): the panel is NOT inside the itinerary section.
+    // Portal-to-body (D-069): the panel is NOT inside the itinerary section.
     const insideSection = await editor.evaluate((el) => el.closest('#itinerary') !== null);
     expect(insideSection).toBe(false);
 
@@ -165,12 +165,12 @@ test.describe('#960 · the first itinerary item shows above the tab bar', () => 
   }
 });
 
-test.describe('S357B · the quick-add time hint is legible at 390px', () => {
+test.describe('the quick-add time hint is legible at 390px', () => {
   /**
-   * S357A cut the "try 7pm dinner" hint out of the composer placeholder because at 390px it
+   * The composer rework cut the "try 7pm dinner" hint out of the composer placeholder because at 390px it
    * truncated MID-WORD, and moved it into the accessible name — which left the syntax with no
    * visible affordance at all on the mobile-first surface whose whole value is that syntax.
-   * S357B put it back as its own line under the input.
+   * A follow-up put it back as its own line under the input.
    *
    * 🔴 This is measured as GEOMETRY, deliberately. A text assertion (`toContainText`) cannot
    * see a CSS ellipsis: `innerText`/`textContent` return the full string whether or not a
@@ -237,7 +237,7 @@ test.describe('S357B · the quick-add time hint is legible at 390px', () => {
   });
 });
 
-test.describe('S131 · swipe-to-delete (routes through the S127 delete→undo handler)', () => {
+test.describe('swipe-to-delete (routes through the delete→undo handler)', () => {
   test('horizontal swipe deletes → Undo toast restores → reload persists', async ({ page }) => {
     await page.setViewportSize(PHONE);
     await gotoPlan(page);
@@ -252,7 +252,7 @@ test.describe('S131 · swipe-to-delete (routes through the S127 delete→undo ha
     await swipe(page, 'calendar-row-swipe-s131-a', -170);
     await expect(page.getByTestId('calendar-item-s131-a')).toHaveCount(0);
 
-    // Same delete→undo as the Delete button (S127): a sonner "Undo" toast restores it.
+    // Same delete→undo as the Delete button: a sonner "Undo" toast restores it.
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect(page.getByTestId('calendar-item-s131-a')).toBeVisible();
 

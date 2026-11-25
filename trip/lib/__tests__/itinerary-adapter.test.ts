@@ -1,4 +1,4 @@
-// Unit tests for `lib/itinerary-adapter.ts` — S138 (D-146). Covers the new
+// Unit tests for `lib/itinerary-adapter.ts` (D-146). Covers the new
 // `nightlifeSourceId` helper: its exact namespaced shape, and the no-false-positive
 // guarantee that a nightlife-derived sourceId can NEVER collide with a
 // recommendation/photo/map/`featured-*` sourceId produced by `toItineraryDraft` for any
@@ -14,7 +14,7 @@ import { PHOTO_SPOTS } from '@/lib/photography-data';
 import { MAP_MARKERS } from '@/lib/map-data';
 import { FEATURED_DESTINATIONS } from '@/lib/travel-tips-data';
 
-describe('formatPlacementSummary (S248)', () => {
+describe('formatPlacementSummary', () => {
   it('returns "" for no placements', () => {
     expect(formatPlacementSummary([])).toBe('');
   });

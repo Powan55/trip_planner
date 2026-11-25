@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildMapsSearchUrl, buildMapsDirectionsUrl, buildMapsPlaceUrl } from '@/lib/maps-link';
 
-// S151 — buildMapsDirectionsUrl (D-074: a plain URL, not an API). Byte-exact
+// buildMapsDirectionsUrl (D-074: a plain URL, not an API). Byte-exact
 // assertions against the exact decided URL scheme, plus a re-assertion of the
 // pre-existing buildMapsSearchUrl (regression guard against a shared-file slip).
 
@@ -45,10 +45,10 @@ describe('buildMapsSearchUrl (regression guard — shared file with buildMapsDir
   });
 });
 
-// S349 — coordinate-first link-out. A pasted/resolved link's coords (or a manually dropped pin)
+// Coordinate-first link-out. A pasted/resolved link's coords (or a manually dropped pin)
 // beat a text-search guess, which is unreliable for small or non-Latin venues; every existing
 // call site still degrades to buildMapsSearchUrl byte-identically when no pin is known.
-describe('buildMapsPlaceUrl (S349) — coordinate-first, falls back to text search', () => {
+describe('buildMapsPlaceUrl — coordinate-first, falls back to text search', () => {
   it('returns the coordinate query form when both lat/lng are finite', () => {
     expect(buildMapsPlaceUrl('Fushimi Inari Shrine', 34.9671, 135.7727)).toBe(
       'https://www.google.com/maps/search/?api=1&query=34.9671,135.7727',
