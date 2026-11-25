@@ -14,7 +14,7 @@ import OptimizedImage from '@/components/optimized-image';
 export const metadata = {
   title: 'Guides · Trip Journey',
   description:
-    'Choose a destination guide — the Kathmandu Valley (Nepal) or Japan — for photography spots, nightlife, local foods, and cultural essentials.',
+    'Destination guides for the sample trip: photography spots, nightlife, local food and essentials for Nepal and Japan.',
 };
 
 // Section anchors that BOTH country pages own (see photography-guide.tsx #photography,

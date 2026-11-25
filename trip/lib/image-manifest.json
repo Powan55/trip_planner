@@ -1449,7 +1449,7 @@
   },
   "/images/landing/shot-1-day-planner.png": {
     "avif": "/images/landing/shot-1-day-planner.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRpwAAABXRUJQVlA4IJAAAABQBACdASoUACsAPu1qrlCppaQiqrgKATAdiWcAz9wPAK+/z3P43saVp4OAAP7vopYlDyT3uloeK/ZU3hTnlSJteGn4ur8N17JY3Xy4FL80oCmdSrP8Dh/9QdJVJQoK27MbOhWVwbBRsCCxy4Fs2SPjEboKt4aB9UwUitDhPoMSmTLTN622qoU64ZJxrrI1AAA=",
+    "blurDataURL": "data:image/webp;base64,UklGRqQAAABXRUJQVlA4IJgAAAAQBQCdASoUACsAPu1gqE6ppSOiMBVdUTAdiWcAzcAOyvqe+rfG2/8n28EDm5DL10uAAP7vfwCmd1VAl5pWmhLVmKob4+SsFIYfZER5ddrw2LmHflHrMiqXmBQVQ3nx5G5CZGv5scsl8v+L3lvk6CIwKSeHvT5Xj7+VABD1clYxND0xYlxCgsYwbzxjge5sa1YeeSmzQAAAAA==",
     "width": 390,
     "height": 844,
     "variants": [
@@ -1461,7 +1461,7 @@
   },
   "/images/landing/shot-2-expenses.png": {
     "avif": "/images/landing/shot-2-expenses.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRsAAAABXRUJQVlA4ILQAAABwBQCdASoUACsAPu1orlEppaQiqrgKATAdiWUAyrQLDzuRhiWSclaV5KZKkGAf/AlQh5dgAP7s0iJkdUDpbib9s982cm8DrbmpjqUnQGMdxU3eCHd9LfCtql3NstFyvtO1imfL2wQKlvIyxs/0Ogl9psgMzwgeH8FVI8ssy1Eq+IyjSRLSa5PNZilli9+Cubfwvc7gKZSuVblJGagDLLJ5LqSNSu3yyoj/9JePrGl9iVAAAAA=",
+    "blurDataURL": "data:image/webp;base64,UklGRrwAAABXRUJQVlA4ILAAAADQBQCdASoUACsAPu1mr1EppSQiqrgKATAdiWUAygMugI8xfJyQrEMlts9FfX5ggZofR+69egwAAP7sLnl5yXCmWfFAmdT8LUrEqvIpvzz9zSTyjUPiVTSR0LUSkYqiawxapDDEImQcdOZV9oetq249CLQMsSUCwrqTaPyWp3Xt7AYG1sMzZVrXDEfGm9qxPT2M7VgAbSvuMWi7EXegKs5BKS+gAQVso9oebEoHGAAAAA==",
     "width": 390,
     "height": 844,
     "variants": [
@@ -1473,7 +1473,7 @@
   },
   "/images/landing/shot-3-map.png": {
     "avif": "/images/landing/shot-3-map.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRsIAAABXRUJQVlA4ILYAAAAwBQCdASoUACsAPt1YoE2opSMiNVv8ARAbiWUAA+WiK/+nK3E1gavXBfW/E+NV9fdAAAD+71yggXYIIpl4xh61qgrCixNZ0BroikfIPas6pS+EI10y3P8iQeSFUCYxrFBLzlcjnTD1HqiYZh64jwWEiRWy7gmyelK07EuSHTBZJFXaj7g0UhCt9WmliqTGz5Dlnk13FEFDP9qAkfA5qNNrqFYY+EsS5ZnuN8n4IyFeaGdCAOCgAA==",
+    "blurDataURL": "data:image/webp;base64,UklGRrYAAABXRUJQVlA4IKoAAADQBQCdASoUACsAPu1mpU2ppaMiMBqqqTAdiWUAzvCS63AELXjyK5Nzv/tRwBo4de9WXHcmplwAAP7sv7AX/J/j4L41K2uLdSKC/Mk9KaRhgl4t+4TMGJwrgsJ9zRxCcf8j2RZcu+b8CNJ+KD6yKKqt+4S67yREH1bg1kHvSUC27ZpmILsZ61B82BqpfdRYPA1WggvGH7TgggyDUxyVTjFuT3pfcEWZBwgAAA==",
     "width": 390,
     "height": 844,
     "variants": [
