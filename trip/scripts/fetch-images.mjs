@@ -459,16 +459,16 @@ Two things worth knowing before regenerating them:
   every visitor, and **no test, lint or grep in this repo can read text inside a PNG** — every check
   would stay green. \`lib/sample-itinerary.ts\` is *not* a demo fixture; it re-exports the real content
   pack. Do not seed from it.
-- **One basemap frame carries third-party map data.** \`shot-3-map.png\` contains CARTO dark-matter
-  raster tiles rendered from OpenStreetMap data. The required attribution ("© OpenStreetMap
-  contributors © CARTO") is visible **inside the image**, as it is in the live map — that is the
-  attribution, and cropping it out would break the licence.
+- **One basemap frame carries third-party map data.** \`shot-3-map.png\` contains OpenFreeMap vector
+  tiles (OpenMapTiles schema) rendered from OpenStreetMap data. The required attribution
+  ("OpenFreeMap © OpenMapTiles Data from OpenStreetMap") is visible **inside the image**, as it is
+  in the live map — that is the attribution, and cropping it out would break the licence.
 
 | Local path | Subject | Author | License | Source |
 |---|---|---|---|---|
 | \`/images/landing/shot-1-day-planner.png\` | The day planner, a fictional morning in Kathmandu | This project | Own work | \`e2e/landing-shots.spec.ts\` |
 | \`/images/landing/shot-2-expenses.png\` | The shared expense list, a fictional split dinner | This project | Own work | \`e2e/landing-shots.spec.ts\` |
-| \`/images/landing/shot-3-map.png\` | The trip map, fictional stops pinned over CARTO/OSM tiles | This project; basemap © OpenStreetMap contributors © CARTO | Own work; basemap ODbL / CC BY | \`e2e/landing-shots.spec.ts\` |`;
+| \`/images/landing/shot-3-map.png\` | The trip map, fictional stops pinned over OpenFreeMap/OSM tiles | This project; basemap OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors | Own work; basemap ODbL / CC BY | \`e2e/landing-shots.spec.ts\` |`;
 
 const CREDITS_SECTIONS = [
   ['hero', 'Hero', CREDITS_HERO_NOTE],

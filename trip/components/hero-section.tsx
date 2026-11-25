@@ -543,7 +543,7 @@ export default function HeroSection() {
             ? [customDestinations, customMeta?.config?.vibe !== NO_VIBE && customVibe?.tagline]
                 .filter(Boolean)
                 .join(' — ')
-            : 'From the mystical temples of Kathmandu to the neon-lit streets of Tokyo. A journey across ancient peaks and futuristic cities.'}
+            : 'The Kathmandu Valley, then Osaka, Kyoto and Tokyo over New Year.'}
         </m.p>
 
         {/* the decorative quote was dropped to keep the hero calm and content-first
