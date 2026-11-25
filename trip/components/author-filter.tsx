@@ -49,7 +49,7 @@ export default function AuthorFilterControl({
 }) {
   const { filter, setFilter, myName, myPriorNames } = useAuthorFilter();
 
-  //-C: prior names collapse into the current one, so a user who renamed gets ONE chip.
+  // Prior names collapse into the current one, so a user who renamed gets ONE chip.
   const authors = distinctAuthors(plans, myName, myPriorNames);
 
   // Dormant / no-attribution: nothing to filter by → render nothing (portfolio unchanged).

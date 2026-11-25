@@ -1,5 +1,5 @@
-// The "what's-next rail" pure helper ( 3; re-signatured for the place-clock
-// time model, /).
+// The "what's-next rail" pure helper, re-signatured for the place-clock
+// time model.
 //
 // ── Purity ─────────────────────────────────────────────────────────────────
 // `nextUp` is PURE — no clock read, no fetch, no storage. It takes the day's items AND a
@@ -38,7 +38,7 @@ export interface NextUpContext {
  *
  * "Upcoming" = the earliest not-done item whose effective start INSTANT is NOT past at the
  * place (an item exactly at "now" IS upcoming — the `<` strictness carried over from the
- * pre- past-gate). "Earliest" is by that same instant, so an item logged in another
+ * old past-gate). "Earliest" is by that same instant, so an item logged in another
  * zone ranks where it actually falls in time, not where its clock face reads. Ties resolve to
  * the FIRST in array order (stable, matches the agenda's top-to-bottom order).
  *
@@ -58,7 +58,7 @@ export function nextUp(items: ItineraryItem[], ctx: NextUpContext): ItineraryIte
     if (item.done === true) continue;
     const min = effectiveStartMinutes(item);
     if (min === undefined) continue; // no scheduled slot
-    // — ONE key for both the past-gate and the ranking. This used to reject past items by
+    // ONE key for both the past-gate and the ranking. This used to reject past items by
     // absolute instant but rank the survivors by wall-clock minutes; the two disagree as soon as
     // a day holds items in different zones, which the Jan-9 date-line
     // crossing now does. `startMs < now` IS the whole past-gate, computed once. That

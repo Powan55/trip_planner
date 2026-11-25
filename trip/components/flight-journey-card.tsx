@@ -5,7 +5,7 @@
 // proximity countdown change with `now` (derived from the trip-clock via `lib/flight-phase`,
 // NEVER from booking labels).
 //
-// every time/duration/total/date LABEL renders verbatim from the booking (display-only,
+// Every time/duration/total/date LABEL renders verbatim from the booking (display-only,
 // JSX text). This file does NO `new Date`/parse/`getTime` on any label — timing lives entirely
 // in `getFlightTiming`. The actions rail deep-links OUT only, never a live feed.
 

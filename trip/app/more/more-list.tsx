@@ -25,7 +25,7 @@ import { openPalette } from '@/lib/palette-open';
  * DefaultTripOnly / home-trip-strip). A route page is static-export-safe this way.
  *
  * Sign-out mirrors the navbar's `TravelerChip`: a `<button>` wrapped in the shared
- * `<SignOutConfirm>` ( — sign-out is now a confirm-gated full local teardown, not a bare
+ * `<SignOutConfirm>` (sign-out is now a confirm-gated full local teardown, not a bare
  * `onClick`). Desktop keeps sign-out in the TravelerChip.
  *
  * Search mirrors navbar.tsx's "More" dropdown Search row (#281): a plain `<button>`,

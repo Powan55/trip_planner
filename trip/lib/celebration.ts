@@ -1,4 +1,4 @@
-// — pure helpers behind the micro-celebration burst, kept outside React so the fire-once
+// Pure helpers behind the micro-celebration burst, kept outside React so the fire-once
 // transition edge and the reduced-motion gate are unit-testable without a DOM render.
 
 import { celebrationLedger } from '@/core/storage/gateway';

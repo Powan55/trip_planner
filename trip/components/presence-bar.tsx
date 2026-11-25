@@ -7,7 +7,7 @@ import { usePresence } from '@/hooks/use-presence';
  * Active-traveler presence bar.
  *
  * A compact, premium "active now" cluster — accent-colored avatar dots (the traveler's
- * brand accent,) + names — for the travelers who are on the trip right now. The
+ * brand accent) + names — for the travelers who are on the trip right now. The
  * data + gating live in `usePresence()` (which subscribes via `lib/presence.ts`); this
  * component is purely presentational.
  *

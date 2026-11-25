@@ -8,7 +8,7 @@ import { m, useScroll, useSpring, useReducedMotion } from 'framer-motion';
  * fixed bar at the very top of the page whose width tracks how far the
  * document is scrolled (0% -> 100%).
  *
- * — two rendering paths, feature-detected at runtime:
+ * Two rendering paths, feature-detected at runtime:
  *
  * - **CSS path** (Chromium): a plain `<div class="scroll-progress-css">`
  * whose `scaleX` is driven entirely by a scroll-driven CSS animation

@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
  * `<a href="#id">` anchors: keyboard-focusable and
  * Enter-activated for free, and the smooth-scroll + reduced-motion behavior is ALREADY global
  * (`app/globals.css`: `html{scroll-behavior:smooth}`, neutralized to `auto` under
- * `prefers-reduced-motion` —), so this component ships NO scroll JS of its own.
+ * `prefers-reduced-motion`), so this component ships NO scroll JS of its own.
  * The visible focus ring is also free — the global `:focus-visible` fallback rule in
  * `globals.css` already rings every focusable element that doesn't set its own, so no
  * per-link focus-ring classes are needed here.

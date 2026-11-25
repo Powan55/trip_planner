@@ -1,6 +1,6 @@
 // The SINGLE app-wide clock / trip-day source — the ClockPort ADAPTER.
 //
-// As of the app is split into a framework-free `core/` and thin
+// The app is split into a framework-free `core/` and thin
 // `lib/` adapters. This module is the ADAPTER that implements `core/ports.ts`'s
 // `ClockPort`: it owns all the I/O — reading the real clock AND resolving the `?today=`
 // simulation override — and delegates the PURE trip-day
@@ -23,7 +23,7 @@
 // real clock.
 //
 // Storage rules: sessionStorage ONLY — NEVER localStorage, NEVER
-// shared/reactive state. As of the `tripPlannerTodayOverride` key + raw sessionStorage
+// shared/reactive state. The `tripPlannerTodayOverride` key + raw sessionStorage
 // access live in the typed storage gateway, which is store-aware
 // and keeps this key on the SESSION backend. All resolution/validation/
 // precedence logic stays HERE — the gateway is byte-transport only, not policy. The

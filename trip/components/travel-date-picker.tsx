@@ -42,7 +42,7 @@ const TravelEssentialsCard = dynamic(() => import('@/components/travel-essential
   ),
 });
 
-// — two small night-out affordances (plan-audit-nightlife-2026-07-21.md), same nested
+// Two small night-out affordances (plan-audit-nightlife-2026-07-21.md), same nested
 // dynamic(ssr:false) pattern as TravelEssentialsCard just above: both are
 // pure/clock-driven reads with nothing to render server-side, so they split off the initial
 // `/travel` chunk too.
@@ -55,7 +55,7 @@ const TravelTonightCard = dynamic(() => import('@/components/travel-tonight-card
   loading: () => <div aria-hidden="true" className="mx-auto mt-4 min-h-0 max-w-2xl" />,
 });
 
-// — the day's map (a collapsed <details> hosting the existing <PlanDayMap>). Same nested
+// The day's map (a collapsed <details> hosting the existing <PlanDayMap>). Same nested
 // dynamic(ssr:false) island pattern as the three above: its own chunk, and the maplibre
 // runtime inside it stays interaction-lazy because the pane only renders once the row is opened.
 const TravelDayMap = dynamic(() => import('@/components/travel-day-map'), {

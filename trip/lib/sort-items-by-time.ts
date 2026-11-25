@@ -9,8 +9,8 @@ import {
 } from '@/core/dates';
 
 /**
- * — the two passive, non-destructive time VIEWS (; follow-on
- * to). Pure, view-level only: NEVER writes the store, NEVER reorders the
+ * The two passive, non-destructive time VIEWS.
+ * Pure, view-level only: NEVER writes the store, NEVER reorders the
  * calendar's manually-dragged persisted order. Reuses `effectiveStartMinutes`
  * as the ONE sort key / clash gate — no new parsing/offset math here.
  */
@@ -22,7 +22,7 @@ import {
  * is stable in every engine this app targets — a comparator that treats `undefined` as
  * +Infinity is sufficient). Returns a NEW array; the input is never mutated.
  *
- * — the key is the INSTANT, not the wall clock. A day can contain items in different
+ * The key is the INSTANT, not the wall clock. A day can contain items in different
  * zones, and on 2027-01-09 it contains a date-line crossing:
  * the Detroit layover reads 15:35 (EST) while the Tokyo flight that produces it reads 17:35
  * (JST), so a wall-clock key rendered the traveller arriving before they left. `dayDate` +
@@ -56,8 +56,8 @@ export function sortItemsByTime(
  * another's start) never clash. Pure, order-independent — never writes.
  *
  * The overlap is judged on the ABSOLUTE INSTANT, exactly like this file's
- * `sortItemsByTime` has been since. Two items on one day can sit in different zones
- *, and a raw wall-clock comparison then answers "when" in a
+ * `sortItemsByTime` already does. Two items on one day can sit in different zones,
+ * and a raw wall-clock comparison then answers "when" in a
  * frame that does not exist: two 09:00 items 14 hours apart read as a clash, and the Jan-9
  * Tokyo flight that genuinely overlaps its Detroit layover reads as disjoint. `dayDate` +
  * `dayOffsetMin` resolve each item through the SAME `placeWallClockToUtcMs` every other
@@ -67,7 +67,7 @@ export function sortItemsByTime(
  * in `core/content/itinerary.ts`, so the shipped seed is clean and the badge now only ever
  * reports a collision a user, a peer's sync or an import produced.)
  *
- * — MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` that still
+ * MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` that still
  * covers the day being checked is a multi-day span. Its clock-time overlap with a same-day
  * timed item is not a meaningful conflict (a hotel stay "overlapping" a dinner is expected),
  * so a genuine span is simply dropped before the pairwise check — no cross-day clash math in

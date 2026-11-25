@@ -1,6 +1,6 @@
 'use client';
 
-// — Next.js NATIVE error boundary for the route segments below the root
+// Next.js NATIVE error boundary for the route segments below the root
 // layout (D-none needed: this is a documented Next App Router file convention,
 // not a custom class-based boundary). Next mounts this in place of the failed
 // segment and calls it with `{ error, reset }`. Root layout (ThemeProvider,

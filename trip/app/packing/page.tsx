@@ -4,7 +4,7 @@
 // state survives reload. NOT the same thing as the critical-docs checklist on /checklist
 // (passport/visa/insurance) — this is packing ITEMS (clothing/gear/toiletries). The island is
 // lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15: the ssr:false
-// dynamic import lives in./sections (a client module); this Server Component page exports
+// dynamic import lives in ./sections (a client module); this Server Component page exports
 // metadata. Reached as a companion in `lib/nav-items.ts` (the `/more/` page + the desktop "More"
 // menu), the command palette's "Packing" entry, or a direct URL. The masthead is a client
 // component because its copy is trip-aware (#240) and this page is statically exported.

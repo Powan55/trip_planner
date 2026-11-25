@@ -8,12 +8,12 @@ import type { ReactNode } from 'react';
 import { FADE_FLOOR, entranceFor } from '@/lib/motion';
 
 /**
- * Reveal — the ONE canonical section-masthead entrance (; scroll-driven CSS
+ * Reveal — the ONE canonical section-masthead entrance (a scroll-driven CSS
  * conversion extending dual-path idiom from the page-progress bar
  * (`components/scroll-progress.tsx`) — read that file's doc comment first, this
  * mirrors it exactly).
  *
- * — the reveal now FLOORS its fade instead of pinning it. / the
+ * The reveal now FLOORS its fade instead of pinning it. The old
  * convention pinned opacity at 1 on both paths (a slide that never faded)
  * because the axe scan does NOT run under reduced motion, so it races the
  * transition and flags a mid-fade muted subtitle as a transient contrast failure.
@@ -28,7 +28,7 @@ import { FADE_FLOOR, entranceFor } from '@/lib/motion';
  * Net effect: on Chromium the floored fade is only seen on the reduced-motion /
  * no-support framer path; Firefox/Safari get it on every reveal.
  *
- * — two rendering paths, feature-detected at runtime:
+ * Two rendering paths, feature-detected at runtime:
  * - **CSS path** (Chromium): a plain `<div class="reveal-view-css">` whose
  * `translateY` is driven entirely by a scroll-driven CSS animation keyed to
  * an ELEMENT VIEW timeline (`animation-timeline: view()` + `animation-range:
@@ -44,7 +44,7 @@ import { FADE_FLOOR, entranceFor } from '@/lib/motion';
  * emit the framer path (hydration-consistent), and supporting browsers swap to
  * the CSS element right after mount — mirrors scroll-progress.tsx exactly.
  *
- * unlike the framer path's `viewport:{once:true}` (plays once, then
+ * Known limit: unlike the framer path's `viewport:{once:true}` (plays once, then
  * stays revealed forever), a native view-timeline has no "play once" primitive
  * — it is a pure function of current scroll position, so scrolling an
  * already-revealed section back OUT of its `entry` range and back in will

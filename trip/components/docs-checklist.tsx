@@ -50,7 +50,7 @@ const SECTION_META: Record<DocSection, { label: string; eyebrow: string; icon: t
 const SECTION_ORDER: DocSection[] = ['critical', 'dayzero'];
 
 /** One checklist row: the checkbox + label, plus an optional note input that commits on blur (so a
- * synced build writes ONE Firestore doc per finished note, not one per keystroke —). */
+ * synced build writes ONE Firestore doc per finished note, not one per keystroke). */
 function DocRow({
   item,
   onToggle,

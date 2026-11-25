@@ -160,7 +160,7 @@ export function StoragePersistence() {
       }
     }
 
-    // ── 4. Reactive write-failure toast (; complements #2's proactive estimate() warning) ──
+    // ── 4. Reactive write-failure toast (complements #2's proactive estimate() warning) ──
     const onQuotaExceeded = () => {
       // Fixed id: a burst replaces one toast, and a later refusal after dismissal shows again.
       toast("Couldn't save — device storage is full", {

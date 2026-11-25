@@ -18,19 +18,19 @@ export interface ItemTimeDisplay {
  * The ONE display rule for rendering an
  * item's time anywhere in the UI: a defined `effectiveStartMinutes` renders as
  * AM/PM + the day-country badge (badge derived from the day's country, NEVER a
- * per-item TZ —); a legacy-only free-text `time` renders verbatim, UNBADGED
+ * per-item TZ); a legacy-only free-text `time` renders verbatim, UNBADGED
  * (free text carries no asserted zone); no usable time renders nothing (`null`).
  * Pure — reuses `effectiveStartMinutes`/`formatTimeAmPm`/`getCountryForDate`,
  * adds no new parsing/offset math.
  *
- *-A found the defect: `j22-5` (the Detroit layover, `tzOffsetMin: -300`, on a
+ * An audit found the defect: `j22-5` (the Detroit layover, `tzOffsetMin: -300`, on a
  * `country: 'japan'` day) rendered "3:35 PM JST" — a claim 14 hours away from the time the item
  * actually means. Sorting, `whats-next` and `travel-hero` were always right because they resolve
- * `effectiveOffsetMin`; only this LABEL lied.-A SUPPRESSED the badge there, which stopped the
+ * `effectiveOffsetMin`; only this LABEL lied. A first fix SUPPRESSED the badge there, which stopped the
  * lie but left the ceiling it named: an unbadged time among badged siblings still reads as the
  * day's zone by context.
  *
- * closes it — an item in another zone is now badged with its
+ * This version closes it — an item in another zone is now badged with its
  * REAL zone (EST/IST/CST) instead of nothing. **The time itself is still never TZ-converted**
  * `startMinutes` stays wall-clock-at-place and we only label that
  * wall-clock correctly. Only "the badge is derived from the day's country ONLY" gave way.

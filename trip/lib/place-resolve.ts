@@ -1,7 +1,7 @@
 // Client caller for the Worker's `GET /resolve?url=…` place-link resolver.
 // Reuses the concierge client's worker-origin/token
 // plumbing: the same deployed Worker (`CONCIERGE_URL` from `lib/concierge-config.ts`) and the same
-// `x-trip-token: getActiveTripId()` header the chat route uses ( — token-possession IS
+// `x-trip-token: getActiveTripId()` header the chat route uses (token-possession IS
 // the authorization). No new secret, no new dependency.
 //
 // NEVER THROWS — degrades to `null` on ANY failure (unconfigured Worker, 404/non-200, timeout,

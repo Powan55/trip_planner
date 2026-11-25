@@ -20,11 +20,11 @@ import { getCachedForecastForDate, weatherTagForDay } from '@/lib/weather';
 import { describeItemTime } from '@/lib/item-time-display';
 
 /**
- * — the Home "at a glance" bento grid. A read-only composition of data already computed
+ * The Home "at a glance" bento grid. A read-only composition of data already computed
  * by EXISTING hooks/selectors:
  * next-up, budget spent-so-far,
- * cached weather, packing % (`usePacking`,
- *), docs checklist %, a static map/photo link tile, and the shared Travel
+ * cached weather, packing % (`usePacking`),
+ * docs checklist %, a static map/photo link tile, and the shared Travel
  * Mode entry. Rendered as a lazy below-fold island
  * from `app/page.tsx` — its chunk is NOT in Home's First Load JS.
  *
@@ -71,7 +71,7 @@ export default function HomeBento() {
       : null;
   const upcomingTime = upcoming && todayInTrip ? describeItemTime(upcoming, todayInTrip.date) : null;
 
-  // — pre-trip, "Next up" used to say "Appears once your trip begins", which is a tile
+  // Pre-trip, "Next up" used to say "Appears once your trip begins", which is a tile
   // spending a whole card to tell you it has nothing. The genuinely useful answer to "next up"
   // before departure is the FIRST thing on the itinerary, and we already hold it: `plans` is on
   // the store's public surface, so this is presentation-only.
@@ -124,7 +124,7 @@ export default function HomeBento() {
             hairline edges, so a leftover track paints nothing and a conditional cell (weather
             is in-trip only) costs nothing to leave out. */}
         <ul className="list">
-          {/* Next up.: no longer in-trip only, and no longer a "come back later"
+          {/* Next up: no longer in-trip only, and no longer a "come back later"
               placeholder. In-trip it is the next upcoming item; PRE-trip it is the first
               thing on the itinerary. If there is genuinely nothing to say (an emptied
               itinerary, pre-trip) the row is not rendered — a row whose only content is an

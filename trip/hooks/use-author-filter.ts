@@ -42,7 +42,7 @@ export function useAuthorFilter() {
   // refreshed on the itinerary store's change event, so a name set during this session
   // (e.g. via the token gate / name prompt) is picked up without a reload.
   const [myName, setMyName] = useState<string | null>(null);
-  //-C: the names this same user went by BEFORE a rename. Read from the same source, on the
+  // The names this same user went by BEFORE a rename. Read from the same source, on the
   // same events, as `myName` — a rename fires IDENTITY_CHANGED_EVENT, and that is exactly the
   // moment the list grows, so the two can never be read one rename apart.
   const [myPriorNames, setMyPriorNames] = useState<string[]>([]);

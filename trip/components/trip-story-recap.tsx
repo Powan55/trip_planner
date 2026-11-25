@@ -23,13 +23,13 @@ import SectionSkeleton from '@/components/section-skeleton';
 import type { ItineraryItem } from '@/lib/trip-data';
 
 /**
- * — the POST-TRIP STORY: a read-only, scroll-storytelling TEXT recap on its own `/recap`
+ * The POST-TRIP STORY: a read-only, scroll-storytelling TEXT recap on its own `/recap`
  * route (separate from the compact home `TripRecap` card island, `components/trip-recap.tsx`,
  * which stays untouched — a prose narrative is a different presentation over the SAME pure data
  * layer, read-only). Reuses `core/recap/model.ts`'s pure functions and mirrors the read
  * hooks `trip-recap.tsx` already established; adds nothing new to the persisted domains.
  *
- * Two states, gated on `isPostTrip(nowDateStr)` (: the pure fn takes the already-
+ * Two states, gated on `isPostTrip(nowDateStr)` (the pure fn takes the already-
  * resolved clock string; the clock read itself stays here, the I/O boundary):
  * - POST-TRIP: the full chronological (Dec 9 -> Jan 9, oldest-first — a narrative reads
  * forward, the OPPOSITE order of the home card's most-recent-first) day-by-day story, opening
@@ -38,10 +38,10 @@ import type { ItineraryItem } from '@/lib/trip-data';
  * story for a direct-URL visitor mid-trip.
  *
  * Reduced motion: the global `<MotionConfig reducedMotion="user">` (`theme-provider.tsx`)
- * auto-neutralizes every `m.*` transition here — no manual `useReducedMotion` guard needed
- *, matching `presence-bar.tsx` / `offline-banner.tsx`'s established pattern.
+ * auto-neutralizes every `m.*` transition here — no manual `useReducedMotion` guard needed,
+ * matching `presence-bar.tsx` / `offline-banner.tsx`'s established pattern.
  *
- * each day also gets a READ-ONLY thumbnail strip of that day's journal photos
+ * Each day also gets a READ-ONLY thumbnail strip of that day's journal photos
  * (`usePhotos().photosFor({kind:'journal',date})` — a pure filter, no mutator reachable from here).
  * Present only when the day has >=1 photo; an evicted blob (`BlobStorePort.get`->null) renders the
  * placeholder tile, never a broken `<img>`.
@@ -351,7 +351,7 @@ function DayStory({
 }
 
 /**
- * — the day's journal photos, read-only. `photos` is the already-filtered
+ * The day's journal photos, read-only. `photos` is the already-filtered
  * `photosFor({kind:'journal',date})` result (a pure filter over the local key-16 index, computed
  * once in `TripStoryRecap`) — this component only renders it. Present ONLY when `photos.length >
  * 0`, mirroring `story-journal-<date>` / `story-spend-<date>`'s presence gating; renders nothing

@@ -1,5 +1,5 @@
 /**
- * Capture downscale pipeline. Browser-facing but dependency-free ( — native
+ * Capture downscale pipeline. Browser-facing but dependency-free (native
  * `createImageBitmap` + Canvas + `toBlob`, no `sharp`/`browser-image-compression`/etc.). A captured
  * `File`/`Blob` is decoded, drawn scaled onto an offscreen canvas, and re-encoded as JPEG q0.8 with a
  * long edge of at most 1600 px BEFORE any `BlobStorePort.put` — original full-size bytes are never

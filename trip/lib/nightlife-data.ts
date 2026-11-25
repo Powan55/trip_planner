@@ -45,7 +45,7 @@ export const NIGHTLIFE_VENUES: NightlifeVenue[] = [
   { id: 'nl9', name: 'Roppongi Hills Club Area', country: 'Japan', location: 'Roppongi, Tokyo', vibe: 'International nightlife hub', musicType: 'Mixed', priceRange: '$$$', bestDays: 'Fri-Sat', description: 'Tokyo\'s famous nightlife district with dozens of clubs and bars. Popular with expats and tourists.' },
   { id: 'nl10', name: 'Zoetrope Whisky Bar', country: 'Japan', location: 'Shinjuku, Tokyo', vibe: 'Whisky haven', musicType: 'Jazz', priceRange: '$$$', bestDays: 'Any night', description: 'Over 200 Japanese whiskies in a tiny, atmospheric bar. Perfect for whisky enthusiasts. Cinema-themed decor.' },
 
-  // — Osaka + Kyoto nightlife (boys-trip route). Legal venues/districts only — no
+  // Osaka + Kyoto nightlife (boys-trip route). Legal venues/districts only — no
   // Tobita Shinchi card (red-light district; not a base, not a place to visit). The
   // Soemoncho caution from the source research is folded into nl13's description below,
   // not given its own card (a deliberate planning boundary).

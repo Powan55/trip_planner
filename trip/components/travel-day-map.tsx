@@ -1,6 +1,6 @@
 'use client';
 
-// — Travel Mode per-day map. "A map with pinned places for that specific day only, nothing
+// Travel Mode per-day map. "A map with pinned places for that specific day only, nothing
 // more, only that specific day's plans, and it should update as I change the days."
 //
 // This file is a MOUNT, not a new map: the pane is the existing `<PlanDayMap>`, fed
@@ -88,7 +88,7 @@ export default function TravelDayMap({ date }: { date: string }) {
           // Rendered ONLY while open: the maplibre chunk stays interaction-lazy, and a
           // collapsed <details> would otherwise keep it mounted (its content is hidden, not
           // unmounted). Sized here because PlanDayMap is h-full/w-full.
-          // /: wrapped, because this is one of the 3 call sites gen-sw.mjs
+          // Wrapped, because this is one of the 3 call sites gen-sw.mjs
           // reports as maplibre-reduced. Its chunk is deliberately not precached, so
           // cold-offline React.lazy throws here; unwrapped, Travel Mode's whole
           // /travel/ route would drop to app/error.tsx when someone opens the day map.

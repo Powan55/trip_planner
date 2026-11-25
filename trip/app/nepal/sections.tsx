@@ -41,7 +41,7 @@ export const NightlifeSection = ({ country }: CountryProps) => (
 export const CountryEssentials = ({ country }: CountryProps) => (
   <LazyVisible id="essentials" component={Essentials} props={{ country }} minHeight="1500px" idle={false} />
 );
-// — the user's imported "My places" for the Nepal leg. No `loading:` skeleton: the section
+// The user's imported "My places" for the Nepal leg. No `loading:` skeleton: the section
 // renders null when this leg has no places (or pre-hydration), so a reserved box would be wrong.
 export const MyPlacesSection = dynamic(() => import('@/components/my-places-section'), {
   ssr: false,

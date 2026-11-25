@@ -4,7 +4,7 @@ import { getCountryForDate } from '@/core/dates';
 import { lastTrainNotice } from '@/lib/travel-last-train';
 
 /**
- * — Travel Mode last-train chip.
+ * Travel Mode last-train chip.
  * A thin client shell over the PURE `lastTrainNotice` static lookup —
  * no clock, no fetch, no storage. Japan-phase only (Nepal/Thamel is walk/taxi, per-day
  * country resolution decides this per `date`); the Dec 31 exception is baked into the lookup.

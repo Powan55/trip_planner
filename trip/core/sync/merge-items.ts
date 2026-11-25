@@ -262,8 +262,8 @@ function contentFingerprint(row: SyncedRow): string {
 }
 
 /**
- * Merge the local view of an id-keyed row-set with the remote view of the SAME set (
- *). Union by `id`; on a same-`id` collision, `resolvePair` picks the winner. Result rows
+ * Merge the local view of an id-keyed row-set with the remote view of the SAME set.
+ * Union by `id`; on a same-`id` collision, `resolvePair` picks the winner. Result rows
  * INCLUDE tombstones; the caller's exposed
  * selector filters `deleted` out downstream.
  *

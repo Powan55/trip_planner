@@ -14,7 +14,7 @@ export interface ImageVariant {
  * Build a `srcset` value from the manifest's `variants` array. AVIF is the only
  * <source> tier (V6-13 removed WebP), so there is no format to choose.
  * Returns `null` when there are no variants (caller falls back to a single-URL
- * srcSet — today's pre- behavior, still used whenever a caller doesn't pass
+ * srcSet — the original behavior, still used whenever a caller doesn't pass
  * `sizes`).
  */
 export function buildSrcSet(

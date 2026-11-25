@@ -15,7 +15,7 @@ import type { FeaturedDestination } from '@/lib/travel-tips-data';
  * "Already added" is a pure `sourceId` equality — no fuzzy matching —
  * resolved at the card via `findPlacements(sourceId)`.
  *
- * implemented the `'recommendation'` branch; adds the `'photo' | 'map' |
+ * The `'recommendation'` branch came first; this adds the `'photo' | 'map' |
  * 'featured'` branches WITHOUT touching the recommendation branch or the map.
  */
 
@@ -55,8 +55,8 @@ export function featuredSourceId(name: string): string {
 }
 
 /**
- * Derive a stable, collision-free `sourceId` for a nightlife venue ( amends
- *). Nightlife has no `AddToPlanSource` adapter branch, so a custom-add draft
+ * Derive a stable, collision-free `sourceId` for a nightlife venue.
+ * Nightlife has no `AddToPlanSource` adapter branch, so a custom-add draft
  * used to carry NO sourceId at all.
  * Namespacing the venue's own id the same way `featuredSourceId` does preserves that
  * guarantee (it can never collide with a recommendation/photo/map/`featured-*` id)

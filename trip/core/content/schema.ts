@@ -44,7 +44,7 @@ export const itineraryCategories = [
 // that for free.
 //
 // `sourceId` is the ONE exception: it is a back-link from a hardcoded seed item to the
-// place record it represents ( — `findPlacements(sourceId)` pure equality, no
+// place record it represents (`findPlacements(sourceId)` pure equality, no
 // fuzzy matching), so the "Added" badge fires for seed items too. It is optional, validated
 // only for non-emptiness here (the guard test in lib/__tests__/seed-sourceids.test.ts checks it
 // actually resolves to a real recommendation/photo/map/featured/nightlife id — a cross-content
@@ -72,7 +72,7 @@ export const contentDayPlanSchema = z
     date: isoDate,
     city: z.string().min(1),
     country: z.enum(['nepal', 'japan']),
-    // — optional DISPLAY label for the country half of the day line ("New York, USA").
+    // Optional DISPLAY label for the country half of the day line ("New York, USA").
     // `country` above stays the leg id/enum; this never affects currency or offset.
     countryLabel: z.string().min(1).optional(),
     items: z.array(contentItineraryItemSchema),

@@ -18,11 +18,11 @@ const config: Config = {
     // 🔴 — `lib/` IS a class-name source and must stay scanned. DO NOT prune this as an
     // over-broad glob. `lib/trip-data.ts`'s CATEGORY_COLORS holds the 30 itinerary-chip classes
     // (and `lib/fly-chip.ts` a few more); every component that renders a chip reads them from
-    // there rather than writing them inline ( forbids interpolating class names, so the
-    // table is the right home). While this glob was missing, those utilities emitted CSS only
+    // there rather than writing them inline (Tailwind's scanner can't see interpolated class names,
+    // so the table is the right home). While this glob was missing, those utilities emitted CSS only
     // when some component happened to contain the byte-identical string — 4 of the 10 categories
     // had NEVER rendered their declared colour, and `transportation` rendered purely because
-    // trip-map.tsx carried the same cyan trio for its "Day Trip" badge. re-hued that badge,
+    // trip-map.tsx carried the same cyan trio for its "Day Trip" badge. A later change re-hued that badge,
     // which destroyed the coincidence and would have left the chip colourless.
     './lib/**/*.{js,ts,jsx,tsx,mdx}',
     // NOT the pruning the note above forbids — the scan still covers all of `lib/`. This only

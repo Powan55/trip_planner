@@ -42,7 +42,7 @@ const TodayPanel = dynamic(() => import('@/components/today-panel'), { ssr: fals
 // (Home unchanged before Dec 9), in-trip AND post-trip via getNow()/`?today=`.
 const TripRecap = dynamic(() => import('@/components/trip-recap'), { ssr: false });
 const LegacyHashRedirect = dynamic(() => import('@/components/legacy-hash-redirect'), { ssr: false });
-// — the sticky section nav rides the SAME lazy-island pattern as the deferred sections
+// The sticky section nav rides the SAME lazy-island pattern as the deferred sections
 // below: Home's First Load JS has ~zero headroom left (it sits within a couple of
 // bytes of the 106 kB rounding boundary), so even this small component must stay OUT of the
 // initial required-chunk set. `LazyVisible`'s idle-callback fallback still mounts it within
@@ -60,7 +60,7 @@ const HomeSectionNav = dynamic(() => import('@/components/home-section-nav'), {
   ssr: false,
   loading: () => <SectionSkeleton height={SECTION_NAV_H} />,
 });
-// — the compact "Your trips" chip strip (multi-trip on first paint; null when signed out).
+// The compact "Your trips" chip strip (multi-trip on first paint; null when signed out).
 // Same lazy-island recipe as HomeSectionNav above: Home's First Load JS has ~zero
 // headroom, so even this small component must stay OUT of the initial required-chunk set.
 /** Measured height of the rendered strip (44px chip + `py-2`, which is 2 x 8.5 at the 17px
@@ -90,7 +90,7 @@ const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), {
  *  Independent of viewport HEIGHT and identical pre-trip and in-trip. 305 is the mobile
  *  number, so >=640 over-reserves by ~71. */
 const STAT_ROW_H = '305px';
-// — the stat band directly under the hero (issue #26): trip days, countries, cities and the
+// The stat band directly under the hero (issue #26): trip days, countries, cities and the
 // one live figure. Same lazy-island recipe as every other Home section, so its chunk stays
 // out of Home's First Load JS; it is deliberately NOT inside <HeroSection>, whose height is
 // a fold budget (D-311, and `e2e/countdown.spec.ts`'s CTA clearance assertion).
@@ -116,7 +116,7 @@ const HomeJourneyBar = dynamic(() => import('@/components/home-journey-bar'), {
   ssr: false,
   loading: () => <SectionSkeleton height={JOURNEY_H} />,
 });
-// — the readiness roll-up: what is done and what is not, across the four subjects that have
+// The readiness roll-up: what is done and what is not, across the four subjects that have
 // a completion state (day plans, docs, packing, budget). Read-only composition of hooks the
 // bento already calls, so it adds no new data source. Same dynamic(ssr:false) + LazyVisible
 // island pattern as every other below-fold section — its chunk stays out of First Load JS.
@@ -136,7 +136,7 @@ const HomeReadiness = dynamic(() => import('@/components/home-readiness'), {
   ssr: false,
   loading: () => <SectionSkeleton height={READINESS_H} />,
 });
-// — the "at a glance" bento grid (read-only composition of existing hooks: next-up,
+// The "at a glance" bento grid (read-only composition of existing hooks: next-up,
 // budget spent, cached weather, packing/docs %, map link, Travel Mode entry). Same
 // dynamic(ssr:false) + LazyVisible island pattern as every other below-fold Home section
 // — its chunk stays out of Home's First Load JS.
@@ -224,7 +224,7 @@ const TravelInspiration = dynamic(() => import('@/components/travel-inspiration'
   loading: () => <SectionSkeleton height={INSPIRATION_H} />,
 });
 
-// — the user's imported "My places" for a CUSTOM trip's home (custom trips have no guide pages;
+// The user's imported "My places" for a CUSTOM trip's home (custom trips have no guide pages;
 // the default pack shows My Places on /nepal/ + /japan/ instead). Rendered through LazyVisible as a
 // COMPONENT REFERENCE (like every other deferred section) so the gate + section chunk stay OUT of
 // Home's First Load JS; the island itself returns null on the default pack.

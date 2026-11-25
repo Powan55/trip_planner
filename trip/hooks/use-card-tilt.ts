@@ -9,7 +9,7 @@ import {
 } from 'framer-motion';
 
 /**
- * — pointer/gyro-driven 3D tilt for the `RecommendationCard` family ONLY.
+ * Pointer/gyro-driven 3D tilt for the `RecommendationCard` family ONLY.
  *
  * Two input paths feed the SAME pair of spring-smoothed rotation values:
  * - Desktop: pointer position over the card (`onPointerMove`), settling back to

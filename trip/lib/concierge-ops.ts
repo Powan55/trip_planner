@@ -13,7 +13,7 @@
 // message + pre-state restore fn for `showUndoToast`. Nothing here mutates until a caller
 // invokes it on an explicit user confirm (proposals-only, the load-bearing safety property).
 //
-// nothing is logged here (no ops, no reply, no context).
+// Nothing is logged here (no ops, no reply, no context).
 
 import type { DayPlan, ItineraryCategory, ItineraryItem } from '@/lib/trip-data';
 import { ALL_CATEGORIES } from '@/lib/itinerary-category';
@@ -190,7 +190,7 @@ export function dropReason(raw: unknown, plans: DayPlan[]): DropCode | undefined
 }
 
 /**
- * — validate a single raw op against the LIVE itinerary. Returns true only if EVERY applicable
+ * Validate a single raw op against the LIVE itinerary. Returns true only if EVERY applicable
  * rule holds; any failure = drop (the caller filters). The boolean wrapper over `dropReason`, so
  * a drop and its stated reason are the same computation. No throw, no log.
  */
@@ -199,7 +199,7 @@ function isValidOp(raw: unknown, plans: DayPlan[]): raw is Op {
 }
 
 /**
- * — filter raw ops (whatever the Worker sent) to the ones valid against `livePlans`. Rule 1:
+ * Filter raw ops (whatever the Worker sent) to the ones valid against `livePlans`. Rule 1:
  * a non-array (or absent) `ops` yields `[]` (pure chat). Order preserved; invalid ops dropped
  * (the caller says WHY via `dropReason` — this function itself never explains, logs or throws).
  * Run this at CHIP-RENDER time against the live plans so a chip never shows for an op
@@ -239,7 +239,7 @@ function itemFromAddOp(op: Op, id: string): ItineraryItem {
 }
 
 /**
- *-B — a short, human summary of WHAT an updateItem actually changes, derived from the SAME
+ * A short, human summary of WHAT an updateItem actually changes, derived from the SAME
  * `contentPatch(op)` that `applyOp` writes. Reusing that one extraction (rather than re-reading the
  * op's fields here) is the point: the chip can never name a field the Confirm won't write, or stay
  * silent about one it will.
@@ -383,7 +383,7 @@ export function clashForOp(op: Op, plans: DayPlan[]): ItineraryItem | undefined 
 }
 
 /**
- * — EXECUTE one (already-validated) op through `useItinerary()` and return the undo message +
+ * EXECUTE one (already-validated) op through `useItinerary()` and return the undo message +
  * a restore fn capturing PRE-STATE at apply time. The caller feeds these to `showUndoToast`.
  * addItem MINTS a fresh id (`generateItemId`) — the agent NEVER supplies a new-item id.
  * Routing through the store earns attribution + rev/hlc sync stamping for free.
@@ -444,7 +444,7 @@ export function applyOp(
       const found = resolveLive(plans, itemId);
       const fromDate = found?.date ?? (op.fromDate as string); // resolved day, not the model's hint
       const prev = found?.item;
-      //-A: invert by the id the store says the item LANDED on, never by the original. Under
+      // Invert by the id the store says the item LANDED on, never by the original. Under
       // sync `moveItem` mints a fresh target id (freshCopyOf), so an inverse addressed by the
       // original id resolves nothing — the undo toast showed and did nothing. `landedId` is
       // `itemId` under dormant, the minted id under sync, and `undefined` when nothing moved (in

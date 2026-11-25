@@ -10,7 +10,7 @@
 import type { ItineraryItem } from '@/lib/trip-data';
 import { getActiveTrip } from '@/core/trips';
 
-// As of the per-leg wall-clock offsets are DERIVED from the active trip pack's legs
+// The per-leg wall-clock offsets are DERIVED from the active trip pack's legs
 // (`utcOffsetMin`) rather than hardcoded, so a pack authors its own offsets in one place.
 // Byte-identical for the default pack: NPT 345 / JST 540.
 const activeTrip = getActiveTrip();

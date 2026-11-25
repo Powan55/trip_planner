@@ -3,7 +3,7 @@
 import { useId } from 'react';
 
 /**
- * — a decorative SVG radial progress ring WRAPPING the existing "total days" countdown
+ * A decorative SVG radial progress ring WRAPPING the existing "total days" countdown
  * digit (`hero-section.tsx`). Purely presentational: `fraction` is computed by the caller
  * via the pure `ringFraction()` (`lib/countdown-ring.ts`) from the SAME `computeCountdown`
  * result already driving the digit grid — the ring can never desync from the live tick.

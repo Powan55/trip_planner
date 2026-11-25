@@ -31,7 +31,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  * - `addSource` + `addSourceType`: a source-linked place (recommendation / photo) —
  * renders the shared state-aware `AddToPlanButton`.
  * - `customAddDraft`: a place with no adapter source (nightlife) — opens the custom
- * add dialog prefilled with the venue's title/location.: when the
+ * add dialog prefilled with the venue's title/location. When the
  * draft carries a (namespaced) sourceId, the footer control mirrors the source-linked
  * state-aware "Added"/modify/remove treatment; an empty-sourceId draft (none today,
  * kept for shape-compat) still gets the plain static button.

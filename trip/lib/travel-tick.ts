@@ -1,6 +1,6 @@
 'use client';
 
-// — ONE shared tick source. Replaces the four independent
+// ONE shared tick source. Replaces the four independent
 // per-card `setInterval(…, 1000)` clocks (hero / agenda / tonight / date-picker) with a single
 // module-level interval every subscribing card reads from. `/flights`' four journey cards ran the
 // same anti-pattern and now subscribe here too (#118) — nothing in this module was ever

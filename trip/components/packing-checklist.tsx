@@ -50,7 +50,7 @@ export default function PackingChecklist() {
     setDraft('');
   };
 
-  // — last-item-checked micro-celebration: fires only on an OBSERVED not-complete→complete
+  // Last-item-checked micro-celebration: fires only on an OBSERVED not-complete→complete
   // edge. The ref starts null and the effect skips until hydration, so the first REAL state —
   // even "already complete in storage" — only seeds the baseline (no celebration on load), and
   // a re-render while the list stays fully checked never re-fires (lib/celebration.ts).

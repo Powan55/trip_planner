@@ -1,7 +1,7 @@
 import { parseTimeString } from '@/core/dates';
 
 /**
- * — the sticky composer's time EXTRACTOR.
+ * The sticky composer's time EXTRACTOR.
  *
  * `parseTimeString` is ANCHORED (`^…$`): it parses a
  * whole trimmed string and returns `undefined` for anything with text around it. It is shared

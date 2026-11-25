@@ -8,7 +8,7 @@
 // 🔴 THE INVERSE IS BUILT FROM THE LANDED IDS, NEVER THE ORIGINAL ONES. Under sync
 // `moveItems` tombstones the source copy and adds a FRESHLY MINTED id at the target, so an
 // inverse addressed by the original id resolves a tombstone and does nothing — the toast appears
-// and the data stays put. That is the bug-A fixed on the concierge's single-item move, and
+// and the data stays put. That is the bug already fixed on the concierge's single-item move, and
 // `moveItems` now returns the landed ids precisely so this cannot be reintroduced.
 //
 // It lives HERE rather than inline in `calendar-planner.tsx` for one reason: the mandated

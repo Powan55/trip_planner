@@ -595,8 +595,8 @@ export default function CommandPalette() {
                   const destination = routeLabel(section.route, section.hash);
                   return (
                     <CommandItem
-                      // Key on the (unique) label — two entries now share the /share/ route
-                      //, so route+hash is no longer unique.
+                      // Key on the (unique) label — two entries now share the /share/ route,
+                      // so route+hash is no longer unique.
                       key={section.label}
                       value={section.label}
                       keywords={section.keywords}

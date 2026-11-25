@@ -1,4 +1,4 @@
-// Flight/transit deep-links for Travel Mode's Essentials block (: flight-
+// Flight/transit deep-links for Travel Mode's Essentials block (flight-
 // status APIs REJECTED — deep-links instead). Pure, React-free URL builders — the
 // URL-not-API pattern (`lib/maps-link.ts` precedent: a plain string builder, no fetch, no key).
 // Nothing here is fetched; every export is a byte-exact `<a href>` built from the confirmed

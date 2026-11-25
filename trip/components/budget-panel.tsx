@@ -88,9 +88,9 @@ export default function BudgetPanel() {
   // spend → check pace → settle up). Every view stays reachable; all money math is unchanged.
   const [view, setView] = useState<MoneyView>('budget');
 
-  // Persist every change through the store's single commit choke-point ( fresh-base +
-  //). Gated on `hydrated` INSIDE `commit` (so a first-render seed can't clobber a saved
-  // model before load — the discipline), which is why the setters can build `next` from the
+  // Persist every change through the store's single commit choke-point (fresh-base
+  // read). Gated on `hydrated` INSIDE `commit` (so a first-render seed can't clobber a saved
+  // model before load), which is why the setters can build `next` from the
   // current `model` and hand it in as a constant compute.
   const persist = (next: BudgetModel) => {
     commit(() => next);

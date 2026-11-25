@@ -1,6 +1,6 @@
 'use client';
 
-// — Next.js NATIVE root error boundary. This ONE file is special: it
+// Next.js NATIVE root error boundary. This ONE file is special: it
 // fires only when the ROOT layout itself throws, which means `app/layout.tsx`
 // (and everything it renders — ThemeProvider, Tailwind's globals.css, fonts)
 // never mounted. Per Next's App Router convention this file must render its

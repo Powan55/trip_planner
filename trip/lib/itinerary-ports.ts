@@ -48,7 +48,7 @@ export const itineraryStoragePort: StoragePort<DayPlan[]> = {
  * Itinerary `ChunkSync` for the offline outbox. Chunk = a day (keyed by `date`).
  * - `chunkDiff` = the dates whose day-contents changed prev→next (the same per-day JSON compare
  * the retired `pushPlans` used as `dayEquals`, inlined here so this module keeps NOT statically importing
- * `itinerary-remote` — firebase stays off the dormant hot path,).
+ * `itinerary-remote` — firebase stays off the dormant hot path).
  * - `pushChunk` = the merge-aware per-day transactional write of ONE present day, reached via the
  * SAME dynamic, gated import as before; it REJECTS on failure so the decorator keeps the chunk
  * dirty (the decorator is the swallower now, not this port).

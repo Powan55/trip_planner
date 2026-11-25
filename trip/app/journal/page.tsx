@@ -1,6 +1,6 @@
 // JOURNAL BROWSE: the journal is localStorage-only — the island is lazy +
 // ssr:false, mirroring BudgetPanel/BackupRestore on `/plan`. Next 15: the
-// ssr:false dynamic import lives in./sections (a client module); this Server Component page
+// ssr:false dynamic import lives in ./sections (a client module); this Server Component page
 // exports metadata. Reached as a companion in `lib/nav-items.ts` (the `/more/` page + the desktop
 // "More" menu, plus a tab-bar seat on a custom trip — it is the one `customPrimary`), the command
 // palette, the "View all entries" link on `journal-card.tsx`, or a direct URL.

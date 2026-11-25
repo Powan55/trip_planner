@@ -12,7 +12,7 @@
 // against this exact type): two textually-identical unions would compile today and drift apart
 // the first time only one of them is edited, with nothing to catch it. (This is the same
 // prose-rot mechanism that produced the false `satisfies` comment concierge-ops.ts used to
-// carry —: a claim needs a mechanism behind it, not just prose repeating it elsewhere.)
+// carry: a claim needs a mechanism behind it, not just prose repeating it elsewhere.)
 //
 // Changes if: a category is added to or removed from the trip's itinerary vocabulary. Edit the
 // union below AND `ALL_CATEGORIES` under it — `trip-data.ts`'s re-export follows automatically

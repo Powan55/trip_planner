@@ -67,8 +67,8 @@ export interface ItineraryStore {
   moveItem(itemId: string, fromDate: string, toDate: string): string | undefined;
   deleteItems(targets: Array<{ date: string; itemId: string }>): void;
   /** Returns the id each item ACTUALLY landed on, in target order, OMITTING any the guards
-   * refused — fresh ids under sync, the original ids under dormant (; the plural of
-   * `moveItem`'s-A contract). Anything building an INVERSE must address these. */
+   * refused — fresh ids under sync, the original ids under dormant (the plural of
+   * `moveItem`'s contract). Anything building an INVERSE must address these. */
   moveItems(targets: Array<{ itemId: string; fromDate: string }>, toDate: string): string[];
   /** Rewrite stored attribution: every LIVE item whose `createdBy`/`updatedBy`/`doneBy` equals
    * `fromName` gets the current display name instead. Returns how many items were rewritten.
@@ -158,7 +158,7 @@ function stampedBy(item: ItineraryItem, name: string): boolean {
 // The push self-gates on `isRemoteConfigured()` behind a dynamic import, so the dormant build
 // still pulls no firebase onto the hot path; echo-suppression (push only from
 // commit, never the snapshot path) is unchanged. The StoragePort impl owns the
-// key-presence / []-survives / quarantine contract — the factory is agnostic ( reads the
+// key-presence / []-survives / quarantine contract — the factory is agnostic (it reads the
 // freshest base via `load()`, so chained mutations in one handler compose).
 const useItineraryStore = createReactiveStore<DayPlan[]>({
   eventName: ITINERARY_CHANGED_EVENT,
@@ -207,7 +207,7 @@ export function useItinerary(): ItineraryStore {
         return itinerary.updateItem(current, date, itemId, patch, (i) => {
           // stampUpdated → stampDone → stampSyncUpdated
           // (rev/hlc). All three land on ONE merged item / ONE commit, so done + doneBy/doneAt +
-          // updatedBy + rev/hlc stay atomic.: patch-gated on
+          // updatedBy + rev/hlc stay atomic. Patch-gated on
           // `patch.done` — the whole-row toggle always sends `{ done: !current }` so patch === the
           // real transition today; if a future writer ever sets `done` idempotently, switch to a
           // prev→next compare inside core.updateItem.
@@ -354,13 +354,13 @@ export function useItinerary(): ItineraryStore {
   // being unwound.
   // - DORMANT: a plain local overwrite — there is no sync to unwind, so this is
   // byte-identical to the local path's `savePlans(backup)` (one commit, no stamping, no push).
-  // - SYNC ON: a tombstone-replace in ONE commit (, the mechanic applied to a
+  // - SYNC ON: a tombstone-replace in ONE commit (the clearAll mechanic applied to a
   // whole restore):
   // (a) TOMBSTONE every currently-live item across every day (removeItem's sync stamp), so each
-  // removal PROPAGATES + wins over a peer's still-live copy (: a backup with an
+  // removal PROPAGATES + wins over a peer's still-live copy (so a backup with an
   // empty day therefore leaves that day empty — the items are tombstoned, none re-added);
-  // (b) ADD every backup item as a FRESH-ID copy (freshCopyOf + addItem's sync stamp —/
-  //), so a restored item can NEVER lose to an existing tombstone on an HLC tie, and a
+  // (b) ADD every backup item as a FRESH-ID copy (freshCopyOf + addItem's sync stamp),
+  // so a restored item can NEVER lose to an existing tombstone on an HLC tie, and a
   // concurrent peer edit that is STRICTLY-LATER still survives the next merge (not a blind
   // clobber). A backup tombstone is skipped (not re-added live).
   // One commit ⇒ the outbox diffs the changed days ⇒ per-day writes via the normal outbox/commit
@@ -497,10 +497,10 @@ export function useItinerary(): ItineraryStore {
   // moveItem sync path, accumulated so all moves land in one write. The fresh id is required
   // so the moved copy can never collide with its own source tombstone.
   //
-  // RETURNS the LANDED ids — the plural of `moveItem`'s-A contract, added the moment
+  // RETURNS the LANDED ids — the plural of `moveItem`'s contract, added the moment
   // bulk move gained an Undo (open item B). Under sync a landed id is a FRESHLY MINTED one, so an
   // inverse addressed by the ORIGINAL id resolves a tombstone and silently does nothing: the toast
-  // appears and the data stays put. That is the exact bug-A fixed on `moveItem`; the ids are
+  // appears and the data stays put. That is the exact bug already fixed on `moveItem`; the ids are
   // captured INSIDE the commit updater so they report what the write really produced, and items the
   // guards refused (same-day target, missing original, pre-hydration no-op commit) are OMITTED.
   const moveItems = useCallback(

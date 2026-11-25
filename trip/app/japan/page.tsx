@@ -5,7 +5,7 @@ import GuideCards from '@/components/guide-cards';
 // JAPAN: mirror of /nepal/ with country="Japan". Section ids
 // (#japan/#photography/#nightlife/#essentials) are kept for sub-anchors + the
 // command palette.
-// (Next 15): ssr:false islands live in./sections (client module); this
+// (Next 15): ssr:false islands live in ./sections (client module); this
 // Server Component page exports metadata so can't declare them./ skeletons.
 import {
   JapanSection,

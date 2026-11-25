@@ -24,7 +24,7 @@ import { isDefaultTrip } from '@/core/trips';
  * components previously each carried a byte-identical local copy of this array + the
  * route-match helpers below).
  *
- * the nav is ROUTE-driven, trailing-slash canonical hrefs
+ * The nav is ROUTE-driven, trailing-slash canonical hrefs
  * (`trailingSlash:true`). next/link handles basePath; active state comes from
  * usePathname() (which EXCLUDES basePath), so the whole nav is basePath-agnostic.
  *
@@ -39,7 +39,7 @@ import { isDefaultTrip } from '@/core/trips';
  * "primary" (daily-use) items are re-exported as `PRIMARY_NAV_ITEMS` for the two
  * width/slot-constrained surfaces (the bottom tab bar and the desktop top row).
  *
- * the mobile IA is now 5 tabs —
+ * The mobile IA is now 5 tabs —
  * Today · Plan · Map · Guides · More. `Home` relabels to `Today`; `Nepal`/`Japan` leave
  * NAV_ITEMS and a
  * single `Guides` primary takes their place; `Flights` drops to a companion; `Documents`
@@ -92,7 +92,7 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 /** The daily-use primaries for the width/slot-constrained surfaces (tab bar, desktop top row)
- * ON THE DEFAULT TRIP.: Today · Plan · Map · Guides (4). */
+ * ON THE DEFAULT TRIP: Today · Plan · Map · Guides (4). */
 export const PRIMARY_NAV_ITEMS: NavItem[] = NAV_ITEMS.filter((item) => item.primary !== false);
 
 /**
@@ -107,7 +107,7 @@ export function navItemsForActiveTrip(): NavItem[] {
 }
 
 /**
- * — the primary tab-bar/desktop-row set for the ACTIVE trip. Default
+ * The primary tab-bar/desktop-row set for the ACTIVE trip. Default
  * pack: `PRIMARY_NAV_ITEMS` verbatim (Today · Plan · Map · Guides). Custom trip: the
  * `defaultTripOnly` `Guides` seat is dropped and refilled by the one `customPrimary`
  * companion (Journal), in NAV_ITEMS declaration order — Today · Plan · Map · Journal (4).

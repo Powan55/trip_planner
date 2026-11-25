@@ -64,8 +64,8 @@ export interface DocsStore {
    */
   restoreDocsChecklist(backup: DocItem[]): boolean;
   /**
-   * — reclaim the attribution stamps left under a name the traveler used to go by (the docs
-   * half of the itinerary's owner-initiated `claimAuthorship`,/Q3). `updatedBy` is the ONLY
+   * Reclaim the attribution stamps left under a name the traveler used to go by (the docs
+   * half of the itinerary's owner-initiated `claimAuthorship`). `updatedBy` is the ONLY
    * identity field on a `DocItem`, so it is the only one rewritten. Returns how many rows changed
    * (0 = nothing written at all).
    *
@@ -128,7 +128,7 @@ export function useDocs(): DocsStore {
     [commit],
   );
 
-  // — see the `claimAuthorship` doc on DocsStore.
+  // See the `claimAuthorship` doc on DocsStore.
   const claimAuthorship = useCallback(
     (fromName: string): number => {
       const from = fromName.trim();

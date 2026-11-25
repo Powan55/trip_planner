@@ -7,7 +7,7 @@ import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
 import { getTodayInTrip } from '@/lib/trip-now';
 
 /**
- * — PWA relaunch re-enter. On app BOOT, if the `travelMode` gateway flag is `'active'`,
+ * PWA relaunch re-enter. On app BOOT, if the `travelMode` gateway flag is `'active'`,
  * land on `/travel` via `router.replace` — a same-document CLIENT navigation, not a full page load,
  * so it cannot re-trigger this boot-once effect itself. The flag is armed by an actual entry and
  * cleared only by the exit X (its one caller, `travel-exit-button.tsx`) — sign-out does NOT clear

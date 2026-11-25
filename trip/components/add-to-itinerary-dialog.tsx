@@ -54,8 +54,8 @@ export { buildMapsSearchUrl, buildMapsPlaceUrl };
  * - parent-owned focus-return: the invoking button captures the trigger and
  * refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
  * effect cleanup.
- * Reduced-motion is respected by framer-motion via the global reduced-motion CSS
- *; Tailwind classes are static literals.
+ * Reduced-motion is respected by framer-motion via the global reduced-motion CSS;
+ * Tailwind classes are static literals.
  *
  * RENDERING: the overlay is rendered through a React PORTAL to
  * `document.body`. Every trigger surface (recommendations, photography, map popup,
@@ -73,7 +73,7 @@ export { buildMapsSearchUrl, buildMapsPlaceUrl };
  * post-hydration, so this is always satisfied in practice.
  */
 
-// Build the date-select option label: "Tue, Dec 12 · Kathmandu, Nepal".: the city
+// Build the date-select option label: "Tue, Dec 12 · Kathmandu, Nepal". The city
 // was hardcoded to Kathmandu/Tokyo and the country to a nepal/japan ternary — both now come from
 // the one shared place-label helper, so Dec 9 reads "New York, USA" and a custom trip reads its
 // own city with no country appended.

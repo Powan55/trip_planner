@@ -124,10 +124,10 @@ function VenueCard({
 /**
  * optional `country` filter prop. No prop = both country blocks
  * (v1 behavior); on /nepal/ and /japan/ only that country's venues show. The show/hide
- * toggle and its `nightlife_section_visible` key/value shape are unchanged; as of
- * the key + storage access live in the gateway.
+ * toggle and its `nightlife_section_visible` key/value shape are unchanged; the
+ * key + storage access now live in the gateway.
  *
- * adds a search box, city + vibe chips with live counts, sort, an empty state,
+ * This section adds a search box, city + vibe chips with live counts, sort, an empty state,
  * must-see badges, and a tap-to-open detail sheet. Nightlife venues have no adapter
  * source, so the detail sheet's add-to-plan uses the
  * CUSTOM add flow: a plain item prefilled with the venue's title/location.
@@ -264,7 +264,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   // Custom-add prefill for the detail sheet: nightlife has no adapter source,
   // so we open the custom dialog with the venue title/location prefilled. category
-  // defaults to 'nightlife' since it's the honest category for a venue.: sourceId
+  // defaults to 'nightlife' since it's the honest category for a venue. sourceId
   // is now the NAMESPACED `nightlife-<id>` (not empty) so this venue can show
   // planned-state feedback; the namespace guarantees no false "Added" elsewhere.
   const customAddDraft: ItineraryDraft | undefined = selected
@@ -286,7 +286,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
     setQuery('');
   };
 
-  // visibility gate ( soft/UI-only, NOT real access control — the content
+  // Visibility gate (soft/UI-only, NOT real access control — the content
   // still ships in the static bundle either way). Hidden entirely (not a teaser) unless
   // a real Trip Token is signed in. With no guest mode, `traveler === null` only
   // ever means "not mounted yet" in practice — TokenGate's wall blocks every other case.

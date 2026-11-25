@@ -7,7 +7,7 @@ import { legCurrency, formatMoney } from '@/core/budget/model';
 import type { Expense } from '@/core/budget/expenses';
 
 /**
- * The expense log ( extracted from budget-panel in light module split — behavior
+ * The expense log (extracted from budget-panel in a light module split — behavior
  * byte-identical): a "Log expense" trigger (emits `expense:open` via the parent's `onLog`) + the
  * list of logged expenses (newest first) with per-row edit + delete. Amounts show in each expense's
  * leg-local currency. Empty state when nothing is logged yet. A split expense shows a small

@@ -1,8 +1,8 @@
 /**
  * The DEFAULT trip pack. Dates are copied
  * VERBATIM from the pre-pack `core/dates/trip-dates.ts` literals; leg ids are the legacy
- * 'nepal' | 'japan' union values. Currencies
- * per; offsets NPT 345 / JST 540 per; fallback cities keep trip-cities' fallback
+ * 'nepal' | 'japan' union values. Currencies and
+ * offsets (NPT 345 / JST 540) are unchanged; fallback cities keep trip-cities' fallback
  * byte-identical. Any edit to a date / id / offset here changes the whole app's date backbone
  * and goes loudly red against the unit suites.
  */

@@ -4,7 +4,7 @@ import PageHero from '@/components/page-hero';
 // flex column stretches the section to fill at least the viewport so the map
 // reads as the page's centerpiece (PageHero is a <header>, so the
 // [&>section]:flex-1 selector leaves it at natural height).
-// (Next 15): the ssr:false MapSection island lives in./sections (client
+// (Next 15): the ssr:false MapSection island lives in ./sections (client
 // module); this Server Component page exports metadata./ skeleton kept.
 import { MapHeroSubtitle, MapSection } from './sections';
 

@@ -10,7 +10,7 @@ import { legLabel } from '@/lib/leg-label';
  * "Settle up" summary — the read-only who-owes-whom view over the split expenses.
  *
  * Presentation-only: it renders the pure `settle()` result (`LegSettlement[]`, one per leg with a
- * split, per-currency isolated —). The parent (`budget-panel`) computes the settlement and
+ * split, per-currency isolated). The parent (`budget-panel`) computes the settlement and
  * only mounts this when there is ≥1 split expense, so `settlements` is always non-empty here.
  * No effect, no store — a straight map over the math (extracted from budget-panel to keep that
  * file bounded, light module split).

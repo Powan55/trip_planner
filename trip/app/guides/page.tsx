@@ -6,7 +6,7 @@ import OptimizedImage from '@/components/optimized-image';
 
 // GUIDES: the mobile "Guides" tab and desktop primary both point here.
 // A static chooser landing that fronts the two country guides (Nepal/Japan — their pages
-// and routes stay,) as cards, each surfacing the shared photography/nightlife/
+// and routes stay) as cards, each surfacing the shared photography/nightlife/
 // essentials entry points (section anchors that exist on both country pages). Fully static
 // (output:'export') — a Server Component with metadata; the only client pieces are
 // DefaultTripOnly (an N×J gate that shows an honest empty-state on a custom trip) and

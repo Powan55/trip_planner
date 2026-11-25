@@ -1,6 +1,6 @@
 // The docs-checklist remote-sync seam — the read/write directions for the
 // DOCS domain. HYBRID SHAPE: a SINGLE doc `trips/{tripId}/docs/checklist` (budget's singleton-doc
-// chunking, Spark-quota-friendly —) whose payload is a ROW ARRAY merged with `mergeItems`
+// chunking, Spark-quota-friendly) whose payload is a ROW ARRAY merged with `mergeItems`
 // The fixed template is 18 id-keyed rows; row-merge is
 // what lets two travelers' concurrent offline toggles BOTH survive (a whole-doc LWW would clobber
 // one), while staying one small doc + one onSnapshot.

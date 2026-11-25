@@ -15,10 +15,10 @@ import { elapsedTripDates } from '@/core/recap/model';
 import { useTripDay } from '@/hooks/use-trip-day';
 
 /**
- * — the journal BROWSE view (`/journal`, `app/journal/page.tsx`). Lists every persisted
+ * The journal BROWSE view (`/journal`, `app/journal/page.tsx`). Lists every persisted
  * journal entry (`useJournal().entries`, localStorage-only per-day text journal),
  * NEWEST-FIRST, each as a read-only summary row (date / mood / highlight / text). Reached via a
- * direct URL or the "View all entries" link on `journal-card.tsx` ( fence: no nav/tab/
+ * direct URL or the "View all entries" link on `journal-card.tsx` (fenced: no nav/tab/
  * palette wiring here — that's an explicit follow-up rider).
  *
  * Editing reuses the REAL `journal-card.tsx` primitive, not a re-implementation: tapping a row's
@@ -40,13 +40,13 @@ import { useTripDay } from '@/hooks/use-trip-day';
  * A11y: a section `h2`, one `h3` per entry row, visible focus rings, ≥44px
  * targets, static markup (no motion-only affordance) → reduced-motion-safe by construction.
  *
- * each row also gets a READ-ONLY thumbnail strip of that day's journal
- * photos — the SAME pattern `trip-story-recap.tsx` got in (`usePhotos().photosFor({kind:
+ * Each row also gets a READ-ONLY thumbnail strip of that day's journal
+ * photos — the SAME pattern `trip-story-recap.tsx` uses (`usePhotos().photosFor({kind:
  * 'journal', date})`, a pure filter; `usePhotoObjectUrl` for the blob->objectURL->revoke
  * lifecycle; the placeholder tile on an evicted/missing blob). Present only when the day
  * has >=1 photo, mirroring the existing "only show what exists" gate already used for mood/
- * highlight. No add/delete control here — that stays on the in-trip Today panel's capture UI
- *; this view is read-only for photos exactly as it already is for text/mood.
+ * highlight. No add/delete control here — that stays on the in-trip Today panel's capture UI;
+ * this view is read-only for photos exactly as it already is for text/mood.
  *
  * SEARCH (#221): a month of entries is not browsable by scrolling, and the question is nearly
  * always "which day was that". The filter is a plain substring match over `entries` — data this
@@ -335,7 +335,7 @@ function JournalRow({
 }
 
 /**
- * — that day's journal photos, read-only. `photos` is the already-filtered
+ * That day's journal photos, read-only. `photos` is the already-filtered
  * `photosFor({kind:'journal',date})` result — this component only renders it. Present ONLY when
  * `photos.length > 0` (mirrors `trip-story-recap.tsx`'s `StoryPhotos`); renders nothing on a
  * photo-less day.

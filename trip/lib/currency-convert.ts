@@ -7,7 +7,7 @@
 
 import { fetchCurrencyRate, type CurrencyRateResult } from './currency-rate';
 
-/** The trip's three currencies (: NPR is a confirmed Frankfurter gap, handled via
+/** The trip's three currencies (NPR is a confirmed Frankfurter gap, handled via
  * fetchCurrencyRate's own cache/unavailable short-circuit — never fetched here directly). */
 export const CONVERTER_CURRENCIES = ['USD', 'JPY', 'NPR'] as const;
 

@@ -27,8 +27,8 @@ import {
  * `app/more/more-list.tsx`'s mobile row), so the root-cause fix — `signOut()`'s full local teardown,
  * `core/storage/gateway.ts`'s `wipeAllTripData()` — is never a one-click-destructive surprise.
  *
- * Ruling 1's exact copy (sign-out is unrecoverable data loss in this window — lands before
- * — logging back in restores the ACCOUNT, not the plan). Ruling 2's backup offer, wired to the
+ * Ruling 1's exact copy (sign-out is unrecoverable data loss in this window:
+ * logging back in restores the ACCOUNT, not the plan). Ruling 2's backup offer, wired to the
  * extracted `downloadTripBackup()` (reused verbatim — no new export path, no new dependency): a
  * plain button that stays open on click, so backing up and still confirming (or cancelling) both
  * stay available.

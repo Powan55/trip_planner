@@ -1,6 +1,6 @@
 // TRIPS HUB: the first-class create / join / manage surface for the known-trips
 // registry — fixes "cannot see create trip button or page". Per the /settings split pattern
-// the `ssr:false` dynamic island lives in./sections (a client module) so this
+// the `ssr:false` dynamic island lives in ./sections (a client module) so this
 // Server Component page can export per-route metadata; the masthead is the shared
 // `components/page-header.tsx` and supplies the page's <h1>. Nobody without an active traveler
 // reaches this page: TokenGate is the unconditional, pathname-free wall — it covers /trips like
