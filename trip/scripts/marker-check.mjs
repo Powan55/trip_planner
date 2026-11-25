@@ -109,14 +109,17 @@ const ALLOWED_LINES = [
   // it already ships inside lib/concierge-config.ts. It is not a private
   // address, even though it contains the account handle.
   ['owner-pii', /trip-planner-concierge\.official-shadowverse\.workers\.dev/],
+  // LICENSE and the README credit name the author on purpose.
+  ['owner-pii', /^Copyright \(c\) \d{4} [A-Z][a-z]+ [A-Z][a-z]+\r?$/],
+  ['owner-pii', /^Built by [A-Z][a-z]+ [A-Z][a-z]+ \(\[\w+\]\(https:\/\/github\.com\/\w+\)\)\.\r?$/],
   // SVG keyword and the npm package name, neither related to work-slicing.
   ['process-prose', /xMidYMax slice|prototype\.slice/],
-  // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md,
-  // V-FINAL-DEVPLAN.md) are UUID-shaped but name a `wrangler` deploy, not a
-  // Firestore trip — a different namespace entirely, recorded on purpose.
+  // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md) are
+  // UUID-shaped but name a `wrangler` deploy, not a Firestore trip — a
+  // different namespace entirely, recorded on purpose.
   ['trip-id', /version id `/i],
-  // trip-key-migration.md's own instructions show the UUID SHAPE as a worked
-  // example ("a v4 UUID, e.g. `...`"), not a real trip's id.
+  // A runbook that shows the UUID SHAPE as a worked example ("a v4 UUID,
+  // e.g. `...`") is not a real trip's id. The self-test pins this case.
   ['trip-id', /UUID, e\.g\. `/],
 ];
 
