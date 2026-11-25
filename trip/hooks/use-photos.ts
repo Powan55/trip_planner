@@ -17,8 +17,8 @@ import {
 
 /**
  * Reactive photo-metadata store. A THIN React adapter over the pure
- * `core/photos/model.ts` + the key-16 `photosStoragePort`, wired through `createReactiveStore` (
- *) WITHOUT a `sync` port — photos are LOCAL-ONLY, forever. The shared factory owns the
+ * `core/photos/model.ts` + the key-16 `photosStoragePort`, wired through `createReactiveStore`
+ * WITHOUT a `sync` port — photos are LOCAL-ONLY, forever. The shared factory owns the
  * hydrate/listen/commit skeleton; this file owns the capture pipeline coupling (downscale → blob-store
  * put → meta append) + the delete + the sync-on Undo re-point.
  *

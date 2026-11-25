@@ -1,8 +1,8 @@
 // SHARE-TARGET INBOX: the installed PWA registers as an OS `share_target` (GET,
 // `scripts/gen-sw.mjs::buildManifest()`); the Share sheet navigates here with `?title/?text/?url`,
 // which the island captures, persists (gateway key 23), and strips. The page then renders the
-// triage inbox — assign each shared link to a trip day or delete it. The island is lazy + ssr:false
-//, mirroring
+// triage inbox — assign each shared link to a trip day or delete it. The island is lazy + ssr:false,
+// mirroring
 // app/packing/sections.tsx. Reached as a companion in `lib/nav-items.ts` (the `/more/` page + the
 // desktop "More" menu), the command palette's "Shared Links" entry, the OS Share sheet, or a
 // direct URL.

@@ -1,6 +1,6 @@
 /**
- * Journal domain — the pure, framework-free per-day text-journal core ( —
- * the L-core of proposal #11). Gateway key 12 stores a `JournalEntry[]`.
+ * Journal domain — the pure, framework-free per-day text-journal core
+ * (the L-core of proposal #11). Gateway key 12 stores a `JournalEntry[]`.
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no id generation, no storage. Every function is TOTAL (a bad / missing

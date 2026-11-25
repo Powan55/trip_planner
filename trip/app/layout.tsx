@@ -105,7 +105,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  ///A6 (behavior 6, keyboard-offset): native, zero-JS keyboard handling. The
+  // Behavior 6 (keyboard-offset): native, zero-JS keyboard handling. The
   // default ('resizes-visual') leaves the LAYOUT viewport (and any 100vh/100dvh
   // fixed sheet/dialog sized against it — quick-add, expense dialog, concierge
   // chat, the dark Sheet) full-height UNDER the keyboard, so a bottom-hugging

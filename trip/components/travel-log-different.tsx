@@ -12,14 +12,14 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import QuickAddInput from '@/components/quick-add-input';
 
 /**
- * — "Log something different" inline quick-add (Lane T, T3). Fills the slot
+ * "Log something different" inline quick-add (Lane T, T3). Fills the slot
  * (`data-testid="travel-quick-add-slot"`) directly under the /travel checklist.
  *
  * The capture for "we skipped the museum and found a market": a minimal ≤2-field inline add
  * (title required + optional category) that lands an item on the VIEWED day (`selectedDate`)
  * ALREADY checked `done`, so it shows in the checklist complete with the "✓ Completed ·
  * <name>" footer immediately. Reuses `QuickAddInput` (the light title-only path), `addItem`
- *, and `stampDone`.
+ * and `stampDone`.
  *
  * Attribution: `addItem`'s stamper applies `stampCreated` only — wired `stampDone` into
  * `updateItem` ONLY, not `addItem`. So we construct the item `done:true` and apply

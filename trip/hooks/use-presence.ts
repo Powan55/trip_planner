@@ -151,8 +151,8 @@ export function usePresence(): ActivePresence[] {
   for (const r of records) {
     if (!r.name) continue;
     if (!recordIsActive(r.lastSeen, now)) continue;
-    // Exclude the viewer's own heartbeat — the bar shows who ELSE is here. Match by name
-    //; a traveler signed in on two tabs collapses to one entry below.
+    // Exclude the viewer's own heartbeat — the bar shows who ELSE is here. Match by name;
+    // a traveler signed in on two tabs collapses to one entry below.
     if (me && r.name.trim().toLowerCase() === me.name.trim().toLowerCase()) continue;
     active.push({ uid: r.uid, name: r.name, accent: accentFor(r.name), lastSeen: r.lastSeen });
   }

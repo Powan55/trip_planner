@@ -90,7 +90,7 @@ export const itineraryItemSchema = z
     doneHlc: z.string().optional(),
     // Per-field-group merge stamps (#847, D-705). Additive OPTIONAL: NO migration, NO version bump.
     fieldHlc: z.record(z.string(), z.string()).optional(),
-    // Manual pin-drop ( — additive OPTIONAL, per lenient-read rule, mirrors the
+    // Manual pin-drop (additive OPTIONAL, per lenient-read rule, mirrors the
     // `done` entry above). NO migration and NO version bump: an item with lat/lng absent is
     // trivially un-pinned, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION STAYS
     // 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated
@@ -100,14 +100,14 @@ export const itineraryItemSchema = z
     // snapshot kills the whole map pane.
     lat: ranged(-90, 90),
     lng: ranged(-180, 180),
-    // Multi-day span ( — additive OPTIONAL, per lenient-read rule, mirrors the
+    // Multi-day span (additive OPTIONAL, per lenient-read rule, mirrors the
     // lat/lng entry above). NO migration and NO version bump: an item with `endDate` absent is
     // trivially single-day, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION STAYS
     // 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated it
     // on read; declaring it makes the accepted surface explicit + typed. ISO date string; the
     // ">= startDay & in-trip-range" check lives once, in the ItemEditor UI (matching lat/lng).
     endDate: z.string().optional(),
-    // Per-item place-offset override ( — additive OPTIONAL, per lenient-read rule, mirrors the
+    // Per-item place-offset override (additive OPTIONAL, per lenient-read rule, mirrors the
     // `lat`/`lng`/`endDate` entry above). NO migration and NO version bump: an item with `tzOffsetMin`
     // absent is trivially offset-by-day, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION
     // STAYS 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated it

@@ -24,7 +24,7 @@ function legRows(list: Expense[], leg: Leg): Expense[] {
  * `core/budget/model.ts` (`'nepal'` | `'japan'` for the default pack; `'main'` for a custom trip).
  * - `chunkDiff` = the legs whose row-set changed prev→next (per-leg JSON compare, inlined so
  * this module keeps NOT statically importing `expenses-remote` — firebase stays off the
- * dormant hot path,).
+ * dormant hot path).
  * - `pushChunk` = the merge-aware per-leg transactional write, reached via the SAME dynamic,
  * gated import; it REJECTS on failure so the decorator keeps the chunk dirty.
  */

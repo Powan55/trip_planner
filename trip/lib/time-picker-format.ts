@@ -2,8 +2,8 @@
  * Pure formatting/combination helpers for the AM/PM time picker
  * (`components/time-picker.tsx`) and its duration companion field.
  *
- * Deliberately NOT added to `core/dates/item-time.ts` (
- * module): this change is presentation-only wiring, and these are the INVERSE
+ * Deliberately NOT added to `core/dates/item-time.ts` (the
+ * structured-time module): this change is presentation-only wiring, and these are the INVERSE
  * of that module's parsing (minutes -> text, not text -> minutes), used only
  * to satisfy the dual-write rule when a user picks a value in the UI.
  * No new parsing and no offset/timezone math lives here.

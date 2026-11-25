@@ -37,8 +37,8 @@ import { useBudget } from '@/hooks/use-budget';
 import { cn } from '@/lib/utils';
 
 /**
- * — Travel Mode Essentials block. Mounts BELOW the agenda on `/travel` (a lazy island,
- * `app/travel/sections.tsx`,) and follows the SAME resolved date the hero/agenda use
+ * Travel Mode Essentials block. Mounts BELOW the agenda on `/travel` (a lazy island,
+ * `app/travel/sections.tsx`) and follows the SAME resolved date the hero/agenda use
  * — it never reads its own clock or date param.
  *
  * Drawn as the systems annunciator: one hairline-ruled row per subject, each carrying a mark, a

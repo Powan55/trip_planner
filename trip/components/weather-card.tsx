@@ -13,7 +13,7 @@ import { getNowAtTrip } from '@/lib/trip-now';
 import { useOnline } from '@/hooks/use-online';
 
 /**
- * — 2: the weather + golden-hour card for the CURRENT trip city.
+ * The weather + golden-hour card for the CURRENT trip city.
  *
  * Renders a `WeatherResult` in one of four states:
  * - `loading` — a quiet skeleton while the first fetch is in flight (prop `loading`).
@@ -27,7 +27,7 @@ import { useOnline } from '@/hooks/use-online';
  * construction (the parent TodayPanel owns the reveal animation, already reduced-motion gated).
  *
  *
- * adds a compact 7-day outlook (`data.forecast`) as a native `<details>` disclosure below
+ * It also adds a compact 7-day outlook (`data.forecast`) as a native `<details>` disclosure below
  * the golden-hour block — collapsed by default so it never dominates the card, keyboard-operable
  * with zero extra JS/state, and reduced-motion-safe via the same global CSS rule as everything
  * else. It rides the SAME `WeatherResult`/`WeatherNow` this component already receives (no new

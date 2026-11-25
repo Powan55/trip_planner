@@ -5,13 +5,13 @@ import { getCountryForDate, TRIP_DATES } from '@/core/dates';
 import { useOnline } from '@/hooks/use-online';
 
 /**
- * — Travel Mode running head. The one piece of chrome on a chrome-free route: a scroller of
+ * Travel Mode running head. The one piece of chrome on a chrome-free route: a scroller of
  * printed key/value fields, sticky under the safe-area inset, carrying the day, the leg and the
  * honest connection state. Instrumentation, not a warning banner — offline is the DESIGNED case
  * on this route, so `NET · OFFLINE` is a reading like any other and nothing here changes shape
  * for it. The state is carried by the WORD, never by colour alone.
  *
- * no last-sync TIMESTAMP is tracked anywhere to show a literal "synced HH:MM" — the
+ * No last-sync TIMESTAMP is tracked anywhere to show a literal "synced HH:MM" — the
  * itinerary/expenses/budget/docs sync layer is fire-and-forget (flushOutbox + onSnapshot in
  * itinerary-provider), and nothing persists or exposes a `pushedAt`/`pulledAt` on the store. So
  * this shows honest CONNECTION state from the one existing signal (`useOnline()` — navigator.onLine

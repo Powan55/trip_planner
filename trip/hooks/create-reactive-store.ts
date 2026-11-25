@@ -113,7 +113,7 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
     }, []);
 
     // Single commit path: derive `next` from the freshest persisted state (storage is the
-    // source of truth —), write through `save()`, update React state, then dispatch the
+    // source of truth), write through `save()`, update React state, then dispatch the
     // same-tab CustomEvent so other store instances re-read. Gated on `hydrated` so a
     // first-render seed can't clobber storage before load. Remote push fires ONLY here,
     // AFTER the local save + dispatch, fire-and-forget (the SyncPort swallows its own failures

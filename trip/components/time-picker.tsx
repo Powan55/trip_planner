@@ -16,7 +16,7 @@ import {
 } from '@/lib/time-picker-format';
 
 /**
- * — the ONE hand-rolled AM/PM time picker.
+ * The ONE hand-rolled AM/PM time picker.
  *
  * Three keyboard-operable columns (Hour 1-12 / Minute 00-59 full list / AM-PM), no
  * native `input[type=time]`, no new dependency. Renders its OWN small
@@ -327,7 +327,7 @@ function TimeColumn<T extends string | number>({
 }
 
 /**
- * Duration entry ( duration dual-write rule; widget shape is this change's
+ * Duration entry (duration dual-write rule; widget shape is this change's
  * call — a plain minutes number input, matching the numeric nature of the field,
  * over a second 2-column hour/minute picker YAGNI would only earn back once
  * clash-warnings make duration entry a primary flow). Empty input = clear

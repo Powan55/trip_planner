@@ -11,7 +11,7 @@ import PhotoAttach from '@/components/photo-attach';
 import { JOURNAL_TEXT_MAX, MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
 
 /**
- * —: the in-trip per-day TEXT journal card.
+ * The in-trip per-day TEXT journal card.
  *
  * Renders INSIDE the in-trip Today panel (`components/today-panel.tsx`), below the agenda — so it is
  * intrinsically in-trip-gated (the panel is `null` outside the trip window) and demoable via `?today=`

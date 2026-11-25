@@ -4,7 +4,7 @@ import DefaultTripOnly from '@/components/default-trip-only';
 // FLIGHTS: a dedicated page for the
 // flights/hotels booking overview, previously mounted on Home. `flights-section.tsx`
 // itself is untouched — only WHERE it's mounted changed.
-// (Next 15): the ssr:false FlightsSection island lives in./sections (client
+// (Next 15): the ssr:false FlightsSection island lives in ./sections (client
 // module); this Server Component page exports metadata./ skeleton kept.
 import { FlightsHeroSubtitle, FlightsSection, TripBookings, WorldClockStrip } from './sections';
 

@@ -9,7 +9,7 @@
  * The single "what instant is it, right now" boundary. `core/clock` decomposition
  * (`computeCountdown`) and `core/dates` day-math are PURE — they take a `now: Date` and
  * never read a clock. The impurity (reading the real clock AND resolving the `?today=`
- * simulation override —) is confined to the adapter that implements this
+ * simulation override) is confined to the adapter that implements this
  * port: `lib/trip-now.ts`. Keeping the read behind a one-method port is what lets the
  * override precedence + once-per-load timing live in exactly one place while the math
  * stays deterministically testable.
@@ -67,8 +67,7 @@ export interface StoragePort<T> {
  * an unsubscribe fn; a no-op unsub when not configured.
  * isConfigured() — the dormant/config gate surfaced through the port.
  *
- * finalizes the shape around. The
- * remote→local direction was previously an out-of-band `subscribeRemote` the provider
+ * The remote→local direction was previously an out-of-band `subscribeRemote` the provider
  * called directly; it is now first-class on the port so the whole sync surface is ONE
  * contract. The provider still owns WHEN it subscribes (mount + identity gates) — the port
  * just exposes the operation.

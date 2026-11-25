@@ -8,7 +8,7 @@ import { createReactiveStore } from '@/hooks/create-reactive-store';
  * Reactive favorites store. A THIN React adapter over
  * the gateway's key-14 `favoritesStore`, mirroring `hooks/use-expenses.ts` /
  * `hooks/use-journal.ts` exactly — SIMPLER still: the persisted value is just a `string[]` of
- * `Recommendation` ids, so there is no separate framework-free domain module (: local-only,
+ * `Recommendation` ids, so there is no separate framework-free domain module (local-only,
  * no sync fan-out, no attribution).
  *
  * Reactivity:

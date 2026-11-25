@@ -3,7 +3,7 @@
 // PURE: no clock read, no
 // `window`/URL access. The caller (`components/travel-date-picker.tsx`) supplies the raw
 // `?date=` param, the live day-in-trip date (from `getTodayInTrip()`, incl. the `?today=`
-// override,), and the injected "now" `Date` (from `getNow()`) — so every branch below is
+// override), and the injected "now" `Date` (from `getNow()`) — so every branch below is
 // unit-testable with fixed inputs.
 //
 // ── composition rule ──────────────────────────────────────────────────────────

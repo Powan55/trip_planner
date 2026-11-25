@@ -1,7 +1,7 @@
 // TRAVEL SAFETY KIT: an offline, static travel-safety reference — emergency/embassy
 // numbers, a romanized phrasebook, and a document checklist (`core/content/safety.ts`,
 // static-only). The island is lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15
-// the ssr:false dynamic import lives in./sections (a client module); this
+// the ssr:false dynamic import lives in ./sections (a client module); this
 // Server Component page exports metadata. It is wired into `lib/nav-items.ts` (a companion, not
 // a primary) and the command palette; on a custom trip the nav flag hides it and the
 // DefaultTripOnly wrapper below covers the typed-URL path.

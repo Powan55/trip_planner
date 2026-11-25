@@ -25,7 +25,7 @@ import type { SyncedRow } from '@/core/sync/merge-items';
 export type DocSection = 'critical' | 'dayzero';
 
 /** One checklist row. Extends the id-keyed Sync-v2 row shape (rev/hlc/deleted/updatedAt are the
- * additive sync stamps — present only under sync; absent on the dormant build,). */
+ * additive sync stamps — present only under sync; absent on the dormant build). */
 export interface DocItem extends SyncedRow {
   id: string;
   section: DocSection;

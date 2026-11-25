@@ -14,7 +14,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { selectTonightItem } from '@/lib/travel-tonight';
 
 /**
- * — Travel Mode "Tonight" emphasis.
+ * Travel Mode "Tonight" emphasis.
  * A thin client shell over the PURE `selectTonightItem`: it
  * injects the clock (the same today-panel/hero-card cadence) and reads today's items via the
  * EXISTING `getDayPlan` lookup (`useItineraryContext`) — the SAME source the agenda/hero cards

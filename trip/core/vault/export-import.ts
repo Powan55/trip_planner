@@ -14,7 +14,7 @@
  * client-only, no server).
  * - `parseBackup(rawText)` parses → migrates (if a legacy/older version) →
  * lenient-Zod-validates and returns the validated plans. It WRITES NOTHING: on ANY failure it
- * writes nothing to the main key, quarantines the bad blob ( pattern), and returns
+ * writes nothing to the main key, quarantines the bad blob, and returns
  * `{ ok:false, error }`; on success the CALLER owns the commit (`savePlans` locally,
  * `restorePlans` under sync). A bad/hostile file can therefore never destroy the current trip.
  *

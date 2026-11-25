@@ -32,8 +32,8 @@ import { FIELD_GROUPS, fieldKey } from './merge-items';
 // ── The PURE, TYPE-AGNOSTIC hlc-advance primitives ────────────────────────────────────
 // The itinerary `stampSync*` wrappers below stay
 // `ItineraryItem`-typed so their contextual `category` narrowing is preserved and the suite
-// passes with ZERO edits. To avoid duplicating the rev/hlc math for the SECOND synced domain
-//, the math is factored into these two primitives — a `{rev,hlc}` fragment the
+// passes with ZERO edits. To avoid duplicating the rev/hlc math for the SECOND synced domain,
+// the math is factored into these two primitives — a `{rev,hlc}` fragment the
 // itinerary wrappers AND the expense stampers both spread onto their own typed row (
 // "SAME helpers, generalized", realized as a shared fragment rather than a generic that would
 // forfeit the frozen suite's literal-narrowing). Reads use a narrow structural shape.
@@ -69,7 +69,7 @@ export function stampSyncCreated(item: ItineraryItem, physicalNow: number, actor
 }
 
 /**
- * Stamp a CONTENT EDIT's ordering fields (, `updateItem` / cross-day
+ * Stamp a CONTENT EDIT's ordering fields (`updateItem` / cross-day
  * `moveItem`): bump `rev` and advance `hlc` from the item's PREVIOUS `hlc`:
  * - `rev = (prev.rev ?? 1) + 1`, and
  * - `hlc = hlcSendOrLocal(parse(prev.hlc) ?? null, physicalNow, actor)`.

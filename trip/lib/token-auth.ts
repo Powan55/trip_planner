@@ -206,7 +206,7 @@ export function resolveToken(raw: string): Traveler | null {
  * existing identity pipeline) and the name itself, then return the traveler. Returns null
  * only for an empty/whitespace input. No-op persistence during SSR or if storage fails.
  *
- *-C — this is also the ONE place a rename happens. Every rename path routes through here
+ * This is also the ONE place a rename happens. Every rename path routes through here
  * (the Settings rename form, and the account-identity reconciler ADOPTING a name renamed on
  * another device, `itinerary-provider.tsx`), so recording the outgoing name here covers both
  * without either call site knowing about it. Renaming rewrites no `createdBy`/`updatedBy`

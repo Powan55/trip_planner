@@ -28,7 +28,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
     // Syracuse because SYR is where the plane really leaves from: facts, not labels.
     city: 'New York',
     country: 'nepal',
-    // — the display half of the day line. New York is in the USA; the 'nepal' leg id above
+    // The display half of the day line. New York is in the USA; the 'nepal' leg id above
     // is behaviour (currency + UTC offset) and stays. Without this the header read "New York, Nepal".
     countryLabel: 'USA',
     items: [

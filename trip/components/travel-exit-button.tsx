@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
 
 /**
- * — the Travel Mode exit affordance. A ≥44px X inside the chrome-free
+ * The Travel Mode exit affordance. A ≥44px X inside the chrome-free
  * `/travel` UI (the route hosts no navbar, so the escape hatch lives here). Mirrors the shared
  * dialog close idiom.
  *

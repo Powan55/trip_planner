@@ -16,7 +16,7 @@ import AddToPlanButton from '@/components/add-to-plan-button';
  * photo gallery in `travel-inspiration.tsx`; the two are separate content
  * domains (`FEATURED_DESTINATIONS` here, `INSPIRATION_HIGHLIGHTS` there).
  *
- * FeaturedCard / FoodCard moved here VERBATIM ( micro-interaction recipe,
+ * FeaturedCard / FoodCard moved here VERBATIM (micro-interaction recipe,
  * add-to-plan affordance on Featured only). All Tailwind classes stay
  * static whole-string literals.
  */

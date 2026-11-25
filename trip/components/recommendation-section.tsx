@@ -61,7 +61,7 @@ function RecommendationCard({
 }) {
   const [imgError, setImgError] = useState(false);
   const reduce = useReducedMotion();
-  // — pointer/gyro 3D tilt (cards only). Fully disabled under reduced motion.
+  // Pointer/gyro 3D tilt (cards only). Fully disabled under reduced motion.
   const tilt = useCardTilt();
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesClipped, setNotesClipped] = useState(false);
@@ -330,7 +330,7 @@ export default function RecommendationSection({
   const { favorites, toggle: toggleFavorite, hydrated: favoritesReady } = useFavorites();
   // Reactive planned-state lookup — same mechanism AddToPlanButton uses.
   const { findPlacements } = useItineraryContext();
-  // — one iOS motion opt-in for the whole section (renders only on iOS, sensor
+  // One iOS motion opt-in for the whole section (renders only on iOS, sensor
   // not yet granted, motion allowed). Desktop/Android/reduced-motion → nothing renders.
   const gyro = useGyroOptIn();
 
@@ -451,7 +451,7 @@ export default function RecommendationSection({
     setPlannedOnly(false);
   };
 
-  // — the filter facets (sort + city + Saved/Planned + category chips) collapse
+  // The filter facets (sort + city + Saved/Planned + category chips) collapse
   // behind ONE "Filters · n" trigger + sheet; search stays pinned above the grid (a query,
   // not a facet). `n` counts the active SHEET facets only — category≠All, city≠All,
   // savedOnly, plannedOnly, and a non-default sort — so the trigger's badge/aria mirror what

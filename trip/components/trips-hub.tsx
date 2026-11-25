@@ -61,7 +61,7 @@ const spanDays = (start: string, end: string): number => {
 };
 
 /**
- * — how long trip creation waits for its remote writes before navigating anyway.
+ * How long trip creation waits for its remote writes before navigating anyway.
  *
  * WHY A BUDGET AT ALL: `window.location.assign` unloads the page in 370–740 ms, which aborts an
  * unawaited `pushTripMeta` mid-flight (measured: the doc was absent after 20 s of polling on 5 of
@@ -107,7 +107,7 @@ function settleWithin(pushes: Promise<unknown>[], ms: number): Promise<unknown> 
  * so it has no shareable token, its copy buttons are never rendered, and its subtitle says
  * "Sample — on this device only".
  * 2. CREATE A TRIP — required name AND required destinations → `joinTrip(uuid,
- * name)`, then AWAIT the remote meta push under a budget, then navigate Home ( — the
+ * name)`, then AWAIT the remote meta push under a budget, then navigate Home (the
  * navigation used to abort that push in flight and leave joiners with a contentless trip;
  * see `CREATE_PUSH_BUDGET_MS`). The minted uuid IS that trip's Trip Token.
  * 3. ADD A TRIP BY TRIP TOKEN — pasted Trip Token + optional name → `joinTrip(token, name)` +
@@ -224,8 +224,8 @@ export default function TripsHub() {
       .catch((err) => console.warn('[trips-hub] city coordinate resolve unavailable:', err));
 
   /**
-   * Best-effort mirror of the updated known-trips list to the owner's User Token doc ( Sync
-   * Code, promoted by — same key 28, same remote path) after any
+   * Best-effort mirror of the updated known-trips list to the owner's User Token doc (Sync
+   * Code, same key 28, same remote path) after any
    * list-changing action, so the change reaches their other devices. No-op when no code is set.
    * Dynamically imported so /trips never pulls firebase eagerly; self-gates dormant.
    * returns the in-flight promise (never rejects), same reason as `pushMetaFor`.
@@ -254,7 +254,7 @@ export default function TripsHub() {
   };
 
   /**
-   * Copy the raw Trip Token (: sharing a trip IS sharing its Trip Token — the `?trip=` link
+   * Copy the raw Trip Token (sharing a trip IS sharing its Trip Token — the `?trip=` link
    * is just a nicer envelope for the same secret). Same clipboard idiom as `copyLink`.
    */
   const copyToken = async (id: string) => {
@@ -351,7 +351,7 @@ export default function TripsHub() {
       return;
     }
     setTripConfig(id, config);
-    // — the trip is registered locally above; the remote meta doc is what a JOINER reads to
+    // The trip is registered locally above; the remote meta doc is what a JOINER reads to
     // learn the trip's dates/destinations. Navigating without awaiting the push aborted it in
     // flight, so the joiner's /plan rendered no day cells at all. Await both pushes under one
     // shared budget, then navigate whatever happened (see CREATE_PUSH_BUDGET_MS).

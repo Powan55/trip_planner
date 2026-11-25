@@ -435,7 +435,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
     if (el && followLog.current) el.scrollTop = el.scrollHeight;
   });
 
-  // — "every time I send a message I have to re-click the textbox". Root cause was
+  // "Every time I send a message I have to re-click the textbox". Root cause was
   // `disabled={status==='streaming'}` on the input: disabling blurs it and nothing ever restored
   // focus, so Enter-to-send worked exactly once per pointer click. The `disabled` is gone (both
   // re-entrancy guards — handleSubmit's status check and the hook's sendingRef — already prevent a
@@ -945,7 +945,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Ask the concierge…"
             autoComplete="off"
-            // — the privacy label's a11y association. The header disclosure is a Radix
+            // The privacy label's a11y association. The header disclosure is a Radix
             // `SheetDescription`, which Radix wires to the DIALOG via `aria-describedby`; a
             // second paragraph inherits NOTHING from that, so the label below is pointed at the
             // one control the user is actually typing into. Screen-reader order becomes:

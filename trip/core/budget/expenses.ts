@@ -1,6 +1,6 @@
 /**
- * Expense domain + the pure aggregator that feeds budget rollup ( —
- * expense LOGGING).
+ * Expense domain + the pure aggregator that feeds budget rollup
+ * (expense LOGGING).
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no id generation, no storage. `import type` from `@/lib/trip-data`
@@ -326,7 +326,7 @@ export function addExpense(
 
 /**
  * Update an existing expense by id with a partial patch (any of leg/category/amount/date/note),
- * then apply the optional `stamp` (attribution + sync fields —; a tombstone under sync is an
+ * then apply the optional `stamp` (attribution + sync fields; a tombstone under sync is an
  * `updateExpense` with an empty patch + a delete stamper, mirroring the itinerary `removeItem`
  * sync path). The `id` + `createdAt` are preserved. Returns a NEW array; a non-matching id is a
  * no-op. TOTAL: if the patch would make the entry unsalvageable it is left unchanged.

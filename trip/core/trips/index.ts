@@ -5,7 +5,7 @@
  *
  * ── resolves through the gateway pointer ──────────────────────────────
  * `getActiveTrip()` reads `getActiveTripId()` from the gateway.
- * Unset pointer ⇒ `DEFAULT_TRIP_ID` ⇒ the default pack, byte-identical to the pre- hardcode.
+ * Unset pointer ⇒ `DEFAULT_TRIP_ID` ⇒ the default pack, byte-identical to the old hardcoded value.
  * Resolved once per module load — a pack switch requires a full reload, so module-load
  * resolution is correct by design. `DEFAULT_TRIP_ID` now lives in the gateway (the same id its
  * `keyFor` grandfather test uses) and is re-exported here for existing consumers.

@@ -147,7 +147,7 @@ export interface BudgetModel {
   categoryBudgets: Partial<Record<Leg, Partial<Record<ItineraryCategory, number>>>>;
   /**
    * Sync v2 per-field HLC map — ADDITIVE + OPTIONAL. Absent on a dormant/local-only
-   * model ( byte-identity: field stamping is gated on `isRemoteConfigured()`). Present ⇒ each
+   * model (byte-identity: field stamping is gated on `isRemoteConfigured()`). Present ⇒ each
    * changed leaf path (a `flattenBudget` key) carries the HLC of its last edit, so a per-field LWW
    * merge (`mergeBudget`) converges two peers editing DIFFERENT fields. `normalizeModel` PRESERVES
    * it when present and tolerates it absent.
@@ -478,8 +478,8 @@ export function normalizeModel(value: unknown): BudgetModel {
   };
 
   // PRESERVE the additive per-field HLC map when present, sanitized to string→string.
-  // A dormant/local-only model never carries `sync` (stamping is gated on isRemoteConfigured() —
-  //), so this branch is skipped ⇒ the dormant key-10 bytes stay byte-for-byte identical.
+  // A dormant/local-only model never carries `sync` (stamping is gated on isRemoteConfigured()),
+  // so this branch is skipped ⇒ the dormant key-10 bytes stay byte-for-byte identical.
   const sync = (v as { sync?: unknown }).sync;
   if (sync && typeof sync === 'object') {
     const fh = (sync as { fieldHlc?: unknown }).fieldHlc;

@@ -3,7 +3,7 @@ import { effectiveStartMinutes } from '@/core/dates';
 import { sortItemsByTime } from '@/lib/sort-items-by-time';
 
 /**
- * — phase-of-day grouping for the planner's day-detail list. Pure, presentation-only
+ * Phase-of-day grouping for the planner's day-detail list. Pure, presentation-only
  * — no clock read, no store write.
  *
  * ── ordering ─────────────────────────────────────────────────────────────

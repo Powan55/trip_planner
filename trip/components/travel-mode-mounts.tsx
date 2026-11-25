@@ -5,7 +5,7 @@ import TravelArrivalToast from '@/components/travel-arrival-toast';
 import VisitAutocount from '@/components/visit-autocount';
 
 /**
- * — the app-wide on-trip islands behind ONE lazy boundary: the PWA-relaunch re-enter (behavioral,
+ * The app-wide on-trip islands behind ONE lazy boundary: the PWA-relaunch re-enter (behavioral,
  * renders null), the on-trip arrival auto-suggest toast, and (issue #30) visit auto-counting
  * (behavioral, renders null). Combined so the shared itinerary provider takes a SINGLE
  * `dynamic(ssr:false)` import (one async chunk) instead of one per island — keeping them off the

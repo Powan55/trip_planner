@@ -19,7 +19,7 @@ import { legLabel } from '@/lib/leg-label';
 import { haversineKm } from '@/lib/day-anchor';
 
 // Planned items match a curated marker by (a) sourceId when present (card-created
-// items,), else (b) a name match against the marker vocabulary so the rich
+// items), else (b) a name match against the marker vocabulary so the rich
 // SAMPLE_ITINERARY (which predates sourceId) still plots. Items with no coordinate
 // match (custom/transport/food-at-a-non-marker) are simply skipped — never crash.
 export const MARKER_BY_ID = new Map(MAP_MARKERS.map((mk) => [mk.id, mk]));
@@ -151,7 +151,7 @@ export type Placement =
       marker: MapMarker;
       via: 'area' | 'city';
       /**
-       * — the VERBATIM text the coordinate came from (the matched marker `area`
+       * The VERBATIM text the coordinate came from (the matched marker `area`
        * string, or the day's `city`). The popup renders THIS string, not invented prose,
        * so the user can check the claim.
        */
@@ -205,7 +205,7 @@ export interface DayStop {
   /** How that coordinate was resolved. Never `none` — a `none` row produces no stop. */
   placement: PlacedPlacement;
   /**
-   * — pin dedupe is PER-COORDINATE, not per-marker: every item keeps a row, and
+   * Pin dedupe is PER-COORDINATE, not per-marker: every item keeps a row, and
    * items landing on the same point render as ONE pin listing all of them. `items[0]` is
    * always `item`.
    */
@@ -332,7 +332,7 @@ function derivedMarker(
 }
 
 /**
- * — resolve where an item sits, and how confident that is. PURE: reads `item` and
+ * Resolve where an item sits, and how confident that is. PURE: reads `item` and
  * `day`, writes nothing anywhere. `day` supplies the city (rung 5) and the
  * country used for a synthesized marker's cosmetic styling.
  */

@@ -68,7 +68,7 @@ function sanitizeFieldsForWrite(fields: BudgetFields): Record<string, unknown> {
 }
 
 /**
- * Merge-aware transactional write of the SINGLETON budget doc ( — the `pushChunkMerged`
+ * Merge-aware transactional write of the SINGLETON budget doc (the `pushChunkMerged`
  * analog). Reads the current remote doc inside a transaction, `mergeBudget`s the local field-map on
  * top, and writes the merged result — so a concurrent peer edit to a DIFFERENT field is not clobbered
  * (both survive) and a same-field edit resolves by HLC. Exported for the wired-behavior unit test.

@@ -16,8 +16,8 @@ import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
  * #japan → /japan/ #flights → /flights/
  * #map → /map/
  *
- * via `router.replace` (no history entry for the dead URL — basePath-agnostic,
- *). Hashes whose sections still live on Home (#hero/#dashboard/#inspiration —
+ * via `router.replace` (no history entry for the dead URL — basePath-agnostic).
+ * Hashes whose sections still live on Home (#hero/#dashboard/#inspiration —
  * the travel-inspiration gallery, which has kept the `inspiration` id throughout)
  * scroll locally; an unknown hash no-ops harmlessly.
  *

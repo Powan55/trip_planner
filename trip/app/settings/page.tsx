@@ -1,7 +1,7 @@
 // SETTINGS: a grouped, progressively-disclosed settings page — identity/sign-out,
 // currency + rate overrides (relocated from budget-panel), and data management (export/import +
 // per-domain clears). The island is lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15
-// the ssr:false dynamic import lives in./sections (a client module); this Server
+// the ssr:false dynamic import lives in ./sections (a client module); this Server
 // Component page exports metadata. Reached via the companion nav (mobile hamburger + command
 // palette, split) or a direct URL.
 import PageHeader from '@/components/page-header';

@@ -22,7 +22,7 @@
  *
  * ── The trigger: visibility, with a post-hydration idle fallback ─────────────────
  * 1. VISIBILITY (primary, a minimal inline native `IntersectionObserver` hook — see
- * `useInView` below; ZERO deps,). A generous `rootMargin`
+ * `useInView` below; ZERO deps). A generous `rootMargin`
  * (default 600px) starts loading the chunk BEFORE the section reaches the viewport,
  * so there is no visible pop-in on a normal scroll. Latches once (triggerOnce).
  * 2. IDLE FALLBACK (`requestIdleCallback`, `setTimeout` fallback). Shortly AFTER

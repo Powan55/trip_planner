@@ -1,5 +1,5 @@
 /**
- * — pure ring-fraction derivation for the Home countdown's radial progress ring.
+ * Pure ring-fraction derivation for the Home countdown's radial progress ring.
  * WRAPS (never reimplements) the existing countdown math: `computeCountdown` / `totalDays`
  * are untouched — this takes their OUTPUT and derives a presentational
  * 0..1 fraction only. No clock read.

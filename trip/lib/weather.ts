@@ -1,6 +1,6 @@
 // Weather + golden-hour for the current trip city.
 //
-// A KEYLESS, no-card, no-signup client for Open-Meteo ( free-tools-only: Open-Meteo is
+// A KEYLESS, no-card, no-signup client for Open-Meteo (free-tools-only: Open-Meteo is
 // genuinely free forever, requires no API key / card / account — only CC-BY 4.0 attribution).
 // Because there is no secret to protect, the fetch is a plain browser `fetch` DIRECTLY to
 // api.open-meteo.com — NO route handler, NO server. NO npm
@@ -8,8 +8,8 @@
 //
 // ── Offline / failure = graceful (never throws) ─────────────────────────────────────────
 // On any fetch failure (offline, network error, non-200, malformed body) `fetchWeather`
-// returns the CACHED last-good value for that city — read through the typed storage gateway
-//, tagged `stale: true`. On success it
+// returns the CACHED last-good value for that city — read through the typed storage gateway,
+// tagged `stale: true`. On success it
 // write-throughs the fresh value (tagged `stale: false`) and returns it. With no cache AND a
 // failed fetch it returns a typed `unavailable` state — the UI shows a quiet fallback, never
 // an error. The function is total: it resolves, it never rejects.
@@ -20,7 +20,7 @@
 // (impure) fetch + gateway I/O.
 
 import { weatherCache } from '@/core/storage/gateway';
-// /: the city table moved to its own pure module so the MAP can reuse it
+// The city table moved to its own pure module so the MAP can reuse it
 // (placement ladder rung 5) without pulling this Open-Meteo fetch client into /map's bundle.
 // Same data, same object — there is exactly ONE city table and a second copy is forbidden.
 import { CITY_COORDS, cityCoord, type CityCoord } from '@/lib/city-coords';
@@ -224,7 +224,7 @@ export function weatherTagForDay(day: ForecastDay | null): WeatherTag | null {
 
 /**
  * Format a `fetchedAt` ISO timestamp into the short "as of" age string the UI renders next to
- * stale/cached weather ( — mirrors `currency-rate.ts`'s `asOf` label so a cached value
+ * stale/cached weather (mirrors `currency-rate.ts`'s `asOf` label so a cached value
  * never looks current). PURE given the timestamp. Invalid input degrades to `''` rather
  * than "Invalid Date" — total, never throws.
  */
@@ -541,7 +541,7 @@ function readAqiCache(city: string): AirQualityNow | null {
 
 /**
  * Read ONE day out of a city's cached 7-day outlook, through the gateway (`weatherCache`,
- * — never raw `localStorage`). Read-only, no fetch triggered: `null` when
+ * never raw `localStorage`). Read-only, no fetch triggered: `null` when
  * that city has never been fetched (no cache entry) or the cached window doesn't cover that
  * date — expected for most of a 32-day trip, since the cache only holds whichever 7 days were
  * last fetched for whichever surface (Essentials/today panel) the user actually viewed.

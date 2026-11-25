@@ -5,7 +5,7 @@ import { Sun } from 'lucide-react';
 import { legibilityPrefs } from '@/core/storage/gateway';
 
 /**
- * — Travel Mode outdoor high-legibility toggle.
+ * Travel Mode outdoor high-legibility toggle.
  *
  * v5's deliberate substitute for a site-wide light mode: ONE tap flips `/travel`'s presentation
  * to a higher-contrast, larger-type mode for bright-sunlight use. The choice persists via the

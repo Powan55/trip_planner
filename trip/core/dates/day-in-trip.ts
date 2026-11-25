@@ -1,6 +1,6 @@
 /**
- * Core date backbone — the PURE "where in the trip is this instant" math (;
- *). Framework-free: takes a `now: Date` and returns the trip-day, or `null`
+ * Core date backbone — the PURE "where in the trip is this instant" math.
+ * Framework-free: takes a `now: Date` and returns the trip-day, or `null`
  * when outside the window. Extracted from `lib/trip-now.ts`'s `getTodayInTrip`; the
  * adapter there now reads the clock (`getNow()`, incl. the `?today=` override) and hands
  * the resulting Date to this function. The impurity (clock read) stays in the adapter;
@@ -16,7 +16,7 @@ export interface TripToday {
   date: string;
   dayNumber: number;
   city: string;
-  // Leg id (: `string`, not the `'nepal' | 'japan'` union — a custom trip's single leg is
+  // Leg id (`string`, not the `'nepal' | 'japan'` union — a custom trip's single leg is
   // `'main'`). For the DEFAULT pack it is still exactly nepal/japan.
   country: string;
 }
@@ -30,7 +30,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
  * stays pure/`page.clock`-testable, the impure clock/leg read stays in the adapter:
  * - `null`/omitted (default): the calendar day from `now`'s LOCAL parts (NOT
  * `toISOString()`, which is UTC and can slip a day at the edges) — byte-identical to
- * the pre- behavior. Used for the `?today=` override and custom
+ * the earlier behavior. Used for the `?today=` override and custom
  * trips (no known geography).
  * - a number: the destination-leg wall-clock day via `utcDayAtOffset` — the real clock,
  * re-derived at the trip's own fixed offset so a home-time phone shows the right day.
@@ -58,8 +58,8 @@ export function dayInTripFor(now: Date, offsetMin?: number | null): TripToday | 
 }
 
 /**
- * Destination calendar day for a UTC instant read at a fixed wall-clock offset (
- *). B-01-safe: shift the epoch-ms, then UTC getters only (never `new Date(string)`,
+ * Destination calendar day for a UTC instant read at a fixed wall-clock offset.
+ * B-01-safe: shift the epoch-ms, then UTC getters only (never `new Date(string)`,
  * never a local getter) — TZ-deterministic regardless of device TZ.
  */
 export function utcDayAtOffset(now: Date, offsetMin: number): string {

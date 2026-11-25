@@ -1,10 +1,10 @@
 // POST-TRIP STORY RECAP: a read-only, scroll-storytelling TEXT recap of the whole
 // trip — weaves plan-vs-actual (`core/recap/model.ts`'s `summarizePlan`), journal reflections
-//, and spend into a chronological day-by-day narrative. Only unlocks once
+// and spend into a chronological day-by-day narrative. Only unlocks once
 // `isPostTrip()` is true; before that it shows a tasteful "unlocks after the trip" state
 // (`components/trip-story-recap.tsx`). Localstorage-only — the island is lazy +
 // ssr:false, mirroring app/journal/. Next 15: the ssr:false dynamic import
-// lives in./sections (a client module); this Server Component page exports metadata.
+// lives in ./sections (a client module); this Server Component page exports metadata.
 // Reached as a companion in `lib/nav-items.ts` (the `/more/` page + the desktop "More" menu), the
 // command palette, or a direct URL.
 import RecapHeader from '@/components/recap-header';

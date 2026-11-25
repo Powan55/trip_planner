@@ -12,12 +12,12 @@ import { isTravelRoute } from '@/lib/travel-route';
  * Mobile bottom tab bar.
  *
  * The phone's primary navigation: a fixed, thumb-reach tab bar shown only `<md` (desktop
- * keeps the top navbar).: FIVE tabs — the 4 shared primaries (Today · Plan ·
+ * keeps the top navbar): FIVE tabs — the 4 shared primaries (Today · Plan ·
  * Map · Guides) plus a synthetic `More → /more/` tab — each an app-like icon + label,
  * ≥44×44 target, live `aria-current="page"`, and the same warm/cool accent tint the navbar uses.
  *
  * DESIGN CONTRACT / SEAMS
- * - Route array + active-match helper are imported from `lib/nav-items.ts` ( — the
+ * - Route array + active-match helper are imported from `lib/nav-items.ts` (the
  * navbar and this bar previously each carried a byte-identical local copy; closed
  * by unifying on the single shared module). Both navs consume the same source module, so
  * they can never drift out of sync.
@@ -68,8 +68,8 @@ export default function BottomTabBar() {
 
   // BottomTabBar is `dynamic(ssr:false)` (see
   // app/chrome-islands.tsx) — it never renders server-side, so there is no hydration
-  // mismatch to gate against here. The active-trip pointer only changes via a full reload
-  //, so it's stable for the component's lifetime — computed once.
+  // mismatch to gate against here. The active-trip pointer only changes via a full reload,
+  // so it's stable for the component's lifetime — computed once.
   const items = useMemo(() => [...primaryItemsForActiveTrip(), MORE_TAB], []);
 
   // route changes run through the View Transitions helper (progressive

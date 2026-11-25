@@ -1,6 +1,6 @@
 // Trip date constants and utilities.
 //
-// As of the framework-free date BACKBONE (constants, `TRIP_DATES`, `TRIP_DATE_LABEL`,
+// The framework-free date BACKBONE (constants, `TRIP_DATES`, `TRIP_DATE_LABEL`,
 // the TZ-safe `getCountryForDate`, and `formatDate`/`formatDateLong`) lives in the
 // framework-free `core/dates/` package. This module RE-EXPORTS every
 // one of those symbols byte-identically so the many `@/lib/trip-data` callers (components,
@@ -37,11 +37,11 @@ export interface ItineraryItem {
   category: ItineraryCategory;
   time?: string;
   duration?: string;
-  // Structured time model ( — additive-optional per; every existing item
+  // Structured time model (additive-optional; every existing item
   // stays valid with both absent). `startMinutes` = 0–1439 minutes-from-midnight, wall-clock
   // at the day's place. `durationMinutes` = elapsed
   // minutes, > 0. `time?`/`duration?` are RETAINED FOREVER (fallback display + migration
-  // source + mixed-fleet surface,). Range is enforced at ONE runtime point
+  // source + mixed-fleet surface). Range is enforced at ONE runtime point
   // (`effectiveStartMinutes`, core/dates/item-time.ts) — an out-of-range value degrades to
   // untimed, never quarantines. Backfilled losslessly at the Vault v4→v5 migration
   // and via the runtime fallback parser for sync-ingest/seed items that bypass migrations.
@@ -73,15 +73,15 @@ export interface ItineraryItem {
   deleted?: boolean; // tombstone; true ⇒ deleted-but-retained so the delete can propagate + win.
   // done-tracking. Absent
   // = not done (falsy); `done === true` = checked off on the Today screen. Toggled via the
-  // existing `updateItem(date, id, { done })` path, so sync-on it rides rev/hlc for free (LWW,
-  //). No backfill needed (unlike the sync fields), so the lenient passthrough schema
+  // existing `updateItem(date, id, { done })` path, so sync-on it rides rev/hlc for free (LWW).
+  // No backfill needed (unlike the sync fields), so the lenient passthrough schema
   // tolerates it and the on-disk envelope stays at v4 (see core/vault/schema.ts).
   done?: boolean;
   // Completion attribution.
   // Stamped on the `done` false→true transition, CLEARED on true→false, untouched on any other
   // edit — unlike `updatedBy` which every edit overwrites, so it durably answers "who
-  // checked this off". `doneBy` = the getUserName() display nickname (SAME identity as updatedBy,
-  //), rendered verbatim (NO uid→name lookup). `doneAt` = ISO via toISOString(). Both
+  // checked this off". `doneBy` = the getUserName() display nickname (SAME identity as updatedBy),
+  // rendered verbatim (NO uid→name lookup). `doneAt` = ISO via toISOString(). Both
   // absent = no completion attribution.
   doneBy?: string;
   doneAt?: string; // ISO timestamp of the completion
@@ -90,7 +90,7 @@ export interface ItineraryItem {
   // names in core/sync/merge-items.ts FIELD_GROUPS. Lets concurrent edits to DIFFERENT fields both
   // survive (#847, D-705).
   fieldHlc?: Record<string, string>;
-  // Manual pin-drop ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
+  // Manual pin-drop (additive OPTIONAL, NO Vault migration / version bump, mirrors the
   // `done` precedent above). Absent = un-pinned (the item plots, if at all, via the existing
   // sourceId/name-match join in lib/itinerary-map.ts). When BOTH are defined the item plots at
   // these exact WGS84 coords instead — a pin always beats a fuzzy name match (buildItineraryStops).
@@ -99,7 +99,7 @@ export interface ItineraryItem {
   // ItemEditor UI, not here — the type itself stays a plain optional number, same as `done`.
   lat?: number;
   lng?: number;
-  // Multi-day span ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
+  // Multi-day span (additive OPTIONAL, NO Vault migration / version bump, mirrors the
   // `lat`/`lng` precedent above). ISO `YYYY-MM-DD`, the INCLUSIVE last day the item spans.
   // Absent = single-day (today's behavior, unchanged). THE MERGE INVARIANT: a spanning
   // item stays stored in EXACTLY ONE DayPlan.items[] — its start day (the DayPlan.date whose
@@ -109,12 +109,12 @@ export interface ItineraryItem {
   // means "genuine span" (used by the clash-exclusion in lib/sort-items-by-time.ts). Rides the
   // existing updateItem path (rev/hlc) for free like every other field here.
   endDate?: string;
-  // Per-item place-offset override ( — additive OPTIONAL, NO Vault migration / version
+  // Per-item place-offset override (additive OPTIONAL, NO Vault migration / version
   // bump, mirrors the `lat`/`lng`/`endDate` precedent above). Minutes east of UTC for the ONE
   // item whose wall-clock time is physically in a different place than the day's `country`
   // (e.g. a Guangzhou layover logged on a Japan day). Absent = today's behavior unchanged: the
   // UTC-instant math (`core/dates/item-time.ts`'s `effectiveOffsetMin`) falls back to the day's
-  // `offsetForCountry`. Display is UNAFFECTED (: the badge stays day-country-derived,
+  // `offsetForCountry`. Display is UNAFFECTED (the badge stays day-country-derived,
   // never per-item) — this only corrects Travel Mode's now/next/progress instant compare.
   tzOffsetMin?: number;
 }
@@ -122,7 +122,7 @@ export interface ItineraryItem {
 export interface DayPlan {
   date: string;
   city: string;
-  // Leg id of the day (: `string`, not the `'nepal' | 'japan'` union — a custom trip's
+  // Leg id of the day (`string`, not the `'nepal' | 'japan'` union — a custom trip's
   // single leg is `'main'`). For the DEFAULT pack the values are still exactly nepal/japan.
   country: string;
   // DISPLAY-ONLY override for the country half of the day's "City, Country" line — set

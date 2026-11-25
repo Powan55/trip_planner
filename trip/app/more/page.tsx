@@ -2,7 +2,7 @@ import PageHero from '@/components/page-hero';
 import MoreList from './more-list';
 
 // MORE: the mobile tab bar's synthetic 5th tab points here. A dedicated
-// route (NOT a bottom sheet —: back-button + deep-link + precache + no modal/z-ladder
+// route (NOT a bottom sheet: back-button + deep-link + precache + no modal/z-ladder
 // cost) that re-homes the long-tail companion routes the 5-tab IA can't fit, grouped, plus the
 // mobile home for sign-out. Static (output:'export'): a Server Component with metadata; the
 // trip-dependent list is the client `MoreList` island (mount-gated → no hydration mismatch).

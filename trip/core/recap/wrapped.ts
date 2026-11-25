@@ -1,7 +1,7 @@
 /**
  * Trip Wrapped — the pure, framework-free derivation over EVERY existing read-only domain
- * ( the capstone; lives alongside `core/recap/model.ts`, the recap
- * module's home).: read-only, ZERO writes, no new persisted state, no new gateway key —
+ * (the capstone; lives alongside `core/recap/model.ts`, the recap
+ * module's home): read-only, ZERO writes, no new persisted state, no new gateway key —
  * this file only COMPOSES existing pure selectors (`expensesToSpent`, `packingProgress`,
  * `docsCompletion`, `elapsedTripDates`/`isPostTrip`) into one headline-stat summary.
  *

@@ -1,6 +1,6 @@
 /**
- * Recap domain — the pure, framework-free plan-vs-actual day-recap core ( —
- * the second and final change of proposal #11's in-trip core).
+ * Recap domain — the pure, framework-free plan-vs-actual day-recap core
+ * (the second and final change of proposal #11's in-trip core).
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no storage. Every function is TOTAL (a bad / missing / corrupt input
@@ -79,7 +79,7 @@ export function elapsedTripDates(nowDateStr: string): string[] {
 }
 
 /**
- * — has the WHOLE trip finished as of `nowDateStr`? True iff `nowDateStr` is a valid
+ * Has the WHOLE trip finished as of `nowDateStr`? True iff `nowDateStr` is a valid
  * 'YYYY-MM-DD' AND strictly AFTER the last `TRIP_DATES` entry (lexicographic ISO compare, same
  * TZ-safe invariant as `elapsedTripDates`). The last trip date itself is still an IN-TRIP day
  * (the trip isn't "over" until it's behind you), so the boundary is exclusive:
@@ -93,7 +93,7 @@ export function isPostTrip(nowDateStr: string): boolean {
 }
 
 /**
- * — the recap's per-day spend line: sum of every logged expense whose `date` matches the
+ * The recap's per-day spend line: sum of every logged expense whose `date` matches the
  * given trip day AND whose own `leg` matches `leg`, in that leg's currency. READ-ONLY derivation
  * over the expense domain — no write path reachable from here.
  *

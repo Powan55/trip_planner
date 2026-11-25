@@ -95,7 +95,7 @@ export function itemAuthors(item: ItineraryItem): (string | undefined)[] {
  * Pure — no storage, no DOM. `myName` / `myPriorNames` are injected (from lib/identity via
  * `useAuthorFilter`) so "My edits" stays testable and this module never imports identity.
  *
- *-C: "My edits" also matches the current user's PRIOR display names. Renaming yourself
+ * "My edits" also matches the current user's PRIOR display names. Renaming yourself
  * used to split you into two people — the rename rewrites no stamps, so items stamped before it
  * stopped being "mine". Prior names are RECORDED AT RENAME TIME (`signIn`), never guessed: a
  * heuristic that inferred which stored name "is" you would alias a fellow traveller into your
@@ -144,11 +144,11 @@ export function filterItemsByAuthor(
  * control reads as "render nothing / inert" so the portfolio build is visually unchanged.
  *
  *
- *-B: `doneBy` is included here for the same reason it is in `itemMatchesAuthor` — a name
+ * `doneBy` is included here for the same reason it is in `itemMatchesAuthor` — a name
  * that can MATCH must also be OFFERABLE, or the traveler who only ticks things off is filterable
  * in principle and unreachable in the UI.
  *
- *-C: any of the current user's `myPriorNames` present in the data COLLAPSES into `myName`,
+ * Any of the current user's `myPriorNames` present in the data COLLAPSES into `myName`,
  * so a rename shows one chip for one human instead of two. Collapsing is display-only; the
  * stored stamps are untouched.
  *

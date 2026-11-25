@@ -9,7 +9,7 @@ import TripAgenda from '@/components/trip-agenda';
 import { sortItemsByTime } from '@/lib/sort-items-by-time';
 
 /**
- * — Travel Mode agenda island.
+ * Travel Mode agenda island.
  *
  * A thin client shell: it injects the clock (the today-panel / hero-card idiom, incl. the
  * `?today=` override) and delegates ALL rendering to the shared `TripAgenda` (travel

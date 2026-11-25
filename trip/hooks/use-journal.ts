@@ -33,10 +33,10 @@ import {
  * load/save adapter (`core/journal/storage.ts`, gateway key 12). The journal follows its author
  * to their own devices only (D-596, `lib/journal-remote.ts`). Explicit saves/removes push per
  * date, so it wires `createReactiveStore` WITHOUT a `sync` port. The shared
- * factory owns the hydrate/listen/commit skeleton ( dual-layer reactivity, fresh-base
+ * factory owns the hydrate/listen/commit skeleton (dual-layer reactivity, fresh-base
  * commit); this file owns only the journal-specific mutators + `getEntry` selector.
  *
- * timestamp injection: `saveEntry` injects `new Date().toISOString()` at the ADAPTER
+ * Timestamp injection: `saveEntry` injects `new Date().toISOString()` at the ADAPTER
  * boundary and hands it to the pure `upsertEntry`, so the core stays deterministic + clock-free.
  */
 
@@ -83,14 +83,14 @@ export function useJournal(): JournalStore {
   // Read against the freshest persisted state (not a stale closure), so a caller that reads right
   // after a save sees the write; falls back to React state under SSR/pre-hydrate.
   //
-  // the per-call `loadJournal()` parse was O(callers) per render — the recap
+  // The per-call `loadJournal()` parse was O(callers) per render — the recap
   // browse renders one card PER elapsed day, each calling `getEntry`, so up to ~32 full parses per
   // render. Memoize the parsed source via a VERSION-STAMPED ref keyed on the `entries` identity:
   // `entries` gets a fresh reference on every `commit()` (setValue(next)) AND every event re-read
   // (setValue(load())) in `createReactiveStore`, so the memo invalidates exactly when the store
   // changes — one parse per change, not per call. Read-after-write-in-one-handler is preserved
   // because no caller reads `getEntry` synchronously after `saveEntry` before re-render (verified:
-  // journal-card seeds its draft on OPEN, recap/trip-story-recap only read at render —).
+  // journal-card seeds its draft on OPEN, recap/trip-story-recap only read at render).
   const sourceRef = useRef<{ key: JournalEntry[]; source: JournalEntry[] } | null>(null);
   const getEntry = useCallback(
     (date: string): JournalEntry | null => {

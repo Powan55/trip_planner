@@ -5,7 +5,7 @@ import GuideCards from '@/components/guide-cards';
 // NEPAL: recommendations · photography (Nepal) · nightlife (Nepal)
 // · foods/etiquette/featured (Nepal). Section ids (#nepal/#photography/
 // #nightlife/#essentials) are kept for sub-anchors + the command palette.
-// (Next 15): the `dynamic({ssr:false})` islands live in./sections (a
+// (Next 15): the `dynamic({ssr:false})` islands live in ./sections (a
 // client module) — Next 15 forbids ssr:false dynamic imports in this Server
 // Component page (it exports metadata). Same/ anti-CLS skeletons.
 import {

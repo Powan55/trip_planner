@@ -1,13 +1,13 @@
 /**
- * Core date backbone — the per-day trip-city map (;;
- *). As of this map is **DERIVED** from the content root
+ * Core date backbone — the per-day trip-city map.
+ * This map is **DERIVED** from the content root
  * `core/content/itinerary.ts` — it is no longer a hand-authored
  * 32-entry literal. Framework-free: plain TS only, NO React / Next / `window`.
  *
  * ── Why derived now ──────────────────────────────────────────────────────────────
- * Pre- the map's DATA was hand-authored HERE and duplicated the sample itinerary's
+ * Previously the map's DATA was hand-authored HERE and duplicated the sample itinerary's
  * per-day `city`, kept honest by an anti-drift unit test — because the content source lived
- * in `lib/` and `core/` may not import `lib/` at runtime. moved that content
+ * in `lib/` and `core/` may not import `lib/` at runtime. A later change moved that content
  * source INTO `core/content/`, so `TRIP_CITIES` now computes straight from it via a
  * core→core import. The drift class the anti-drift test policed is eliminated
  * by construction; `lib/__tests__/trip-cities.test.ts` becomes a derivation-identity test
@@ -20,7 +20,7 @@
  * having to import `core/dates`.
  *
  * ── Why the per-day cities exist ──────────────────────────────────────────────────
- * Before both `dayInTripFor` (`day-in-trip.ts`) and `synthesizeDay`
+ * Previously both `dayInTripFor` (`day-in-trip.ts`) and `synthesizeDay`
  * (`core/itinerary/crud.ts`) collapsed the trip-day city to `Kathmandu` (any Nepal day) /
  * `Tokyo` (any Japan day). That hid the day-trip cities (Nagarkot, Bhaktapur, Kyoto, Osaka,
  * …) from the hero travel-mode panel, the Today header, and the weather card. This map
@@ -28,11 +28,11 @@
  *
  * ── The base cities are FROZEN by the boundary matrix ────────────────────────────────
  * Dec-9/12/18 → Kathmandu. Jan-9 → Tokyo (trip end). Dec-19 (Japan start / the B-01
- * regression guard) is `Osaka` ( replaced the Japan leg with Osaka -> Kyoto ->
+ * regression guard) is `Osaka` (a later change replaced the Japan leg with Osaka -> Kyoto ->
  * Tokyo; the frozen E2E boundary specs were updated in lockstep, so the guard's invariant
  * "Japan window, NOT Kathmandu" stays green). These cities are now authored in the content
  * root — an edit to a frozen boundary city goes loudly red and requires the deliberate
- *-style lockstep with the frozen E2E specs (a known, deliberate coupling).
+ * lockstep with the frozen E2E specs (a known, deliberate coupling).
  *
  * ── route ────────────────────────────────────────────────────
  * Osaka 5 nights (Dec 19–24) → Kyoto 3 nights (Dec 24–27) → Tokyo 13 nights (Dec 27–Jan 9).
@@ -61,8 +61,8 @@ export function deriveTripCities(
 }
 
 /**
- * ISO date ('YYYY-MM-DD') → the real city for that trip day. DERIVED from the content root
- *, so the map can never silently diverge from the itinerary — the two are one value.
+ * ISO date ('YYYY-MM-DD') → the real city for that trip day. DERIVED from the content root,
+ * so the map can never silently diverge from the itinerary — the two are one value.
  */
 export const TRIP_CITIES: Record<string, string> = deriveTripCities(TRIP_ITINERARY);
 

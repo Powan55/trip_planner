@@ -316,7 +316,7 @@ function IdentityGroup({ name }: { name: string | null }) {
           </p>
         </div>
         {/* With no guest mode this page is only ever visibly reached signed-in, so `name`
-            is always truthy here in practice.: sign-out is now a confirm-gated full
+            is always truthy here in practice. Sign-out is now a confirm-gated full
             teardown (see the module doc comment), not a bare onClick. */}
         <SignOutConfirm testId={name ? 'settings-sign-out' : 'settings-sign-in'}>
           <button
@@ -418,7 +418,7 @@ function ExportAccount() {
 /** Editable display name for a signed-in traveler. `signIn` is the one primitive that writes both
  * identity slots (name + token) the app reads, so a rename is just a re-sign-in with the new name.
  *
- * the rename also PUBLISHES to `trips/{userToken}/profile/identity`, so the name is
+ * The rename also PUBLISHES to `trips/{userToken}/profile/identity`, so the name is
  * an attribute of the account and survives to a device that has never seen this browser's
  * localStorage. Fire-and-forget is correct here — unlike the door and `createTrip()`, this surface
  * does NOT navigate, so there is no in-flight write to kill (the structural reason needs no
@@ -1016,7 +1016,7 @@ function TripAccessGroup() {
  * filtering correct for anything the rewrite cannot reach (remote items that arrive later, other
  * devices) — already wired into `itemMatchesAuthor` and `distinctAuthors`.
  *
- * SCOPE, stated so it is not mistaken for complete ( widened it to three stores, and only
+ * SCOPE, stated so it is not mistaken for complete (it was widened to three stores, and only
  * three): itinerary items (`createdBy`/`updatedBy`/`doneBy`), expenses (`createdBy`/`updatedBy`)
  * and documents (`updatedBy`) — all on the ACTIVE trip.
  *
@@ -1178,7 +1178,7 @@ function ClaimOldName({ current }: { current: string }) {
  * Trip group — add a trip by its Trip Token, and share the current
  * trip. Both reuse the pack-switch primitive VERBATIM: `setActiveTripId(id)` then a full page
  * reload (no live re-hydration). Add accepts a pasted Trip Token (only non-empty is validated — an
- * unknown one just resolves to an empty, harmless, never-synced trip,).
+ * unknown one just resolves to an empty, harmless, never-synced trip).
  *
  * 🔴-F — CREATE WAS DELETED FROM THIS SURFACE ON PURPOSE. DO NOT ADD IT BACK. It minted a
  * `crypto.randomUUID()` pack named "New trip" with NO config and NO meta push, so a joiner reading
@@ -1263,7 +1263,7 @@ function TripGroup() {
     window.location.reload();
   };
 
-  // — always a way back to the grandfathered default pack. Writing DEFAULT_TRIP_ID makes
+  // Always a way back to the grandfathered default pack. Writing DEFAULT_TRIP_ID makes
   // getActiveTripId() id-equal the default, so keyFor() grandfathers every slot back to the legacy
   // literal keys and the user sees their own main-trip data again. switch = write + reload.
   const switchToMain = () => {
@@ -1611,7 +1611,7 @@ function DataGroup() {
     })();
   };
 
-  // — CSV export of the logged expenses (read-only over `useExpenses`; no store change).
+  // CSV export of the logged expenses (read-only over `useExpenses`; no store change).
   // Mirrors BackupRestore's Blob/URL.createObjectURL download idiom exactly.
   const handleExportCsv = () => {
     // BOM-prefixed (see `expensesToCsvBlob`) — without it Excel on Windows decodes the download
@@ -1729,8 +1729,8 @@ function DataGroup() {
 /**
  * Expenses backup/restore — mirrors `<BackupRestore>`'s export/confirm/import
  * shape, but over the expenses-only schema (`lib/expense-export.ts`) instead of the itinerary Vault.
- * Restore composes with `useExpenses().restoreExpenses` (tombstone-replace under sync,; a
- * plain overwrite dormant,) — the SAME merge machinery `clearAll`/`restorePlans` use. The
+ * Restore composes with `useExpenses().restoreExpenses` (tombstone-replace under sync; a
+ * plain overwrite dormant) — the SAME merge machinery `clearAll`/`restorePlans` use. The
  * confirm step reuses the app's Radix `AlertDialog` (already imported here) CONTROLLED by
  * `pendingImport`, rather than duplicating BackupRestore's bespoke portal dialog.
  */
@@ -1854,7 +1854,7 @@ function ExpensesBackupRestore({
         onOpenChange={(open) => {
           // Only clears the pending file (covers Escape / outside-click / either button's
           // own auto-close) — NEVER touches `status` here, so it can't race and clobber the
-          // success/error `confirmImport` just set in the SAME click ( fail-safe evidence
+          // success/error `confirmImport` just set in the SAME click (fail-safe evidence
           // must stay visible to the user).
           if (!open) setPendingImport(null);
         }}

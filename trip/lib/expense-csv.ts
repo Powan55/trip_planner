@@ -2,7 +2,7 @@ import { legCurrency } from '@/core/budget/model';
 import type { Expense } from '@/core/budget/expenses';
 
 /**
- * Expense → CSV export — a pure, framework-free serializer (: no CSV dependency;
+ * Expense → CSV export — a pure, framework-free serializer (no CSV dependency;
  * this is a few lines of native string-building). The caller Blob-downloads the result
  * (`components/settings-panel.tsx`, mirroring `core/vault/export-import.ts`'s existing
  * `exportItinerary()`/Blob idiom).

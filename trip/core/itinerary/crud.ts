@@ -210,9 +210,9 @@ export function deleteItems(
 /**
  * Bulk move — move a set of items to `toDate` in ONE transform, by FOLDING the
  * single-item `moveItem` over the selection. Pure `DayPlan[] -> DayPlan[]`: the DORMANT bulk
- * move (physical remove-from-source + append-to-target, same ids — byte-safe under as
- * no source tombstone exists). The SYNC-on move mints fresh-id targets in the hook adapter
- *, exactly as the single `moveItem` sync path does. A cross-day move IS a content edit
+ * move (physical remove-from-source + append-to-target, same ids — byte-safe because
+ * no source tombstone exists). The SYNC-on move mints fresh-id targets in the hook adapter,
+ * exactly as the single `moveItem` sync path does. A cross-day move IS a content edit
  * → the injected `stamp` applies; same-date targets are no-ops (matches `moveItem`).
  */
 export function moveItems(

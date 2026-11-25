@@ -18,8 +18,8 @@
 
 // Trip date constants and utilities.
 //
-// As of these are DERIVED from the active trip pack (`core/trips`) instead of being
-// hardcoded literals, so the trip's dates live in ONE place ( amended: the source is
+// These are DERIVED from the active trip pack (`core/trips`) instead of being
+// hardcoded literals, so the trip's dates live in ONE place (amended: the source is
 // now the default pack). The derivation is byte-identical to the old literals — the
 // unit suites gate that parity. `new Date('YYYY-MM-DDThh:mm:ss')` parses as LOCAL time (no
 // trailing Z), exactly as the old literals did, so every downstream value is unchanged.
@@ -75,7 +75,7 @@ export const TRIP_DATE_LABEL = TRIP_DATES_PENDING
 // B-01 fix: country classification must be timezone-independent. The input is NEVER
 // parsed with `new Date(dateStr)` (the ES spec treats date-ONLY strings as UTC midnight,
 // which at a negative UTC offset would slip Dec 19 before Dec 18 23:59:59 local and
-// misclassify it as 'nepal'). As of the boundary lives in the trip pack's legs and the
+// misclassify it as 'nepal'). The boundary now lives in the trip pack's legs and the
 // classification delegates to `legForDate`, which does the SAME lexicographic ISO compare —
 // so the behavior is byte-identical (`dateStr <= '2026-12-18' ? 'nepal': 'japan'` for the
 // default pack) while the dates stay configured in one place. The return type is a

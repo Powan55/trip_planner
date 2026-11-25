@@ -10,8 +10,8 @@ import { travelModeGate } from '@/core/storage/travel-mode-store';
 import { useEnterTravelMode } from '@/hooks/use-travel-mode';
 
 /**
- * — arrival auto-suggest toast. When the app is opened ON-TRIP (the clock is inside
- * Dec 9 – Jan 9 via `getTodayInTrip()`,) and Travel Mode has never been entered or
+ * Arrival auto-suggest toast. When the app is opened ON-TRIP (the clock is inside
+ * Dec 9 – Jan 9 via `getTodayInTrip()`) and Travel Mode has never been entered or
  * suggested, a dismissible toast nudges the traveler toward Travel Mode. HONEST heuristic — "on-trip
  * AND never seen" is the entire bar (no geolocation, no network).
  *

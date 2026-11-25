@@ -16,13 +16,13 @@ import { legCurrency, formatMoney } from '@/core/budget/model';
 import { FADE_FLOOR } from '@/lib/motion';
 
 /**
- * —: the read-only plan-vs-actual DAY RECAP island.
+ * The read-only plan-vs-actual DAY RECAP island.
  *
  * A Home island that, for each trip day that has already HAPPENED (as of the app clock, incl. the
  * `?today=` override), pairs three things — READ-ONLY:
- * - the PLAN: that day's itinerary items (`useItineraryContext().getDayPlan(date).items`,),
+ * - the PLAN: that day's itinerary items (`useItineraryContext().getDayPlan(date).items`),
  * - the ACTUAL: which items are marked done + a "{done} of {planned} done" line,
- * - the REFLECTION: that day's journal entry (`useJournal().getEntry(date)`,) rendered read-only.
+ * - the REFLECTION: that day's journal entry (`useJournal().getEntry(date)`) rendered read-only.
  *
  * It appears DURING and AFTER the trip (so you can look back over the days you've lived) and renders
  * `null` PRE-trip (Home is byte-unchanged before Dec 9) or before all stores hydrate. It MUTATES
@@ -30,7 +30,7 @@ import { FADE_FLOOR } from '@/lib/motion';
  * expenses are logged from the budget panel; this is a pure surface over the persisted domains
  *.
  *
- * adds a fourth, purely additive read: a per-day SPEND line (`core/recap/model.ts`'s
+ * It also adds a fourth, purely additive read: a per-day SPEND line (`core/recap/model.ts`'s
  * `sumExpensesForDate`, summing the expense store's entries for that date), shown only on days
  * that have logged spend — READ-ONLY, same as the plan/journal reads above.
  *
@@ -46,7 +46,7 @@ import { FADE_FLOOR } from '@/lib/motion';
  */
 
 // The mood glyph + label — re-expressed here to render the journal read-view WITHOUT importing
-// journal-card.tsx's private internals (: consume the journal via `getEntry`, don't reach into
+// journal-card.tsx's private internals (consume the journal via `getEntry`, don't reach into
 // its component). Kept in MOODS order, matching journal-card's MOOD_META.
 const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   great: { glyph: '🤩', label: 'Great' },

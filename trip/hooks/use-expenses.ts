@@ -25,7 +25,7 @@ import {
  * A THIN React adapter over the framework-free expense core (`core/budget/expenses.ts`) + the
  * load/save adapter (`core/budget/storage.ts`, gateway key 11). It wires `createReactiveStore`
  * WITH the expense `SyncPort` — the shared factory owns the
- * hydrate/listen/commit skeleton ( dual-layer reactivity, fresh-base,
+ * hydrate/listen/commit skeleton (dual-layer reactivity, fresh-base,
  * push-from-commit); this file owns the expense-specific mutators + stamping + the tombstone
  * filter.
  *
@@ -73,7 +73,7 @@ export interface ExpenseStore {
    * False when the write was refused. */
   clearAll(): boolean;
   /**
-   * Restore the WHOLE expense store from a validated backup ( tombstone-replace,
+   * Restore the WHOLE expense store from a validated backup (tombstone-replace,
    * mirroring the itinerary's `restorePlans`). DORMANT: a plain local overwrite (no sync to
    * unwind). SYNC ON: tombstone every currently-live row (the `clearAll` sync mechanic) THEN
    * re-add every live backup row as a FRESH-ID copy (the `addExpense` sync-stamp path) — all in
@@ -85,7 +85,7 @@ export interface ExpenseStore {
    */
   restoreExpenses(backup: Expense[]): Map<string, string> | false;
   /**
-   * — reclaim the ATTRIBUTION stamps left under a name the traveler used to go by. The
+   * Reclaim the ATTRIBUTION stamps left under a name the traveler used to go by. The
    * expense-store half of the itinerary's owner-initiated `claimAuthorship`: rewrites
    * `createdBy` / `updatedBy` from `fromName` to the CURRENT display name across every LIVE row,
    * in ONE commit. Returns how many rows changed (0 = nothing written at all).
@@ -111,7 +111,7 @@ export interface ExpenseStore {
 
 /**
  * Generate a stable, collision-free expense id at the ADAPTER boundary (the pure core stays
- * id-agnostic —). Time-prefixed + a random suffix; browser-only.
+ * id-agnostic). Time-prefixed + a random suffix; browser-only.
  */
 function generateExpenseId(): string {
   return `exp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -264,7 +264,7 @@ export function useExpenses(): ExpenseStore {
     return ok ? ids : false;
   }, [commit]);
 
-  // — see the `claimAuthorship` doc on ExpenseStore for WHY paidBy/split are absent here.
+  // See the `claimAuthorship` doc on ExpenseStore for WHY paidBy/split are absent here.
   const claimAuthorship = useCallback((fromName: string): number => {
     const from = fromName.trim();
     const to = getUserName();

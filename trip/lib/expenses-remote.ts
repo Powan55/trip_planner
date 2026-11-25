@@ -16,7 +16,7 @@
 // decorator, which is driven from `commit()`. MUST REJECT on failure so the
 // outbox keeps the chunk dirty (the decorator is the swallower).
 // READ (remote → local): `subscribeRemoteExpenses` opens `onSnapshot` on the `LEGS.length`-doc
-// `expenses` collection; each chunk's first-snapshot marker is DOC PRESENCE (, NOT
+// `expenses` collection; each chunk's first-snapshot marker is DOC PRESENCE (NOT
 // the itinerary trip-doc marker — they coexist). Applies via `saveExpenses()` + the
 // `expenses:changed` event DIRECTLY (never `commit()`) so the snapshot path can never
 // re-push.
@@ -138,7 +138,7 @@ export async function pushChunkMerged(
  * Push ONE expense leg chunk from the CURRENT local state — the `ChunkSync.pushChunk` impl the
  * offline outbox drives. MUST REJECT on failure (getRemote rejects when
  * unreachable; pushChunkMerged rejects on a transport error) so the decorator keeps the chunk
- * dirty. Unlike a day, an EMPTIED leg still writes `items:[]` ( parity — a deliberately
+ * dirty. Unlike a day, an EMPTIED leg still writes `items:[]` (a deliberately
  * emptied leg is a real state, not a skip). Gated + lazy firebase stays behind `getRemote()`.
  */
 export async function pushExpenseChunk(current: Expense[], leg: string, tripId: string): Promise<void> {

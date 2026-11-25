@@ -37,7 +37,7 @@ import { isSafeHref } from '@/lib/safe-href';
  * vault enum is untouched, D-plan) only when the collapsed "Also add to plan" section has a day.
  */
 
-// "Tue, Dec 12 · Kathmandu, Nepal" (mirrors the add-to-plan dialog's dateOptionLabel —:
+// "Tue, Dec 12 · Kathmandu, Nepal" (mirrors the add-to-plan dialog's dateOptionLabel;
 // both now go through the one shared place-label helper instead of mirroring a hardcoded pair).
 function dateOptionLabel(dateStr: string): string {
   return `${formatDate(dateStr)} · ${placeLabelForDate(dateStr)}`;
@@ -192,7 +192,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
         category,
         sourceId: `myplace-${id}`,
         sourceType: 'recommendation',
-        // — the actual link->pin bug: coords were resolved into local state (already used
+        // The actual link->pin bug: coords were resolved into local state (already used
         // above to pre-select the country leg) but never carried onto the plan item itself, so
         // even a perfect resolve produced no marker. stopMarkerFor (lib/itinerary-map.ts) already
         // prefers a manual pin over the name/sourceId join, so passing them through here is the

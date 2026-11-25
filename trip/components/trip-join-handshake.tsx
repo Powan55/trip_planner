@@ -33,7 +33,7 @@ import {
  *
  * - "Join" = the switch primitive via the registry: `joinTrip(token, 'Shared trip')`
  * (register + write the pointer) + a full reload via `location.replace` to the HOME dashboard
- * (`withBasePath('/')`,), so the switch happens, the browser lands somewhere oriented, AND
+ * (`withBasePath('/')`), so the switch happens, the browser lands somewhere oriented, AND
  * the secret token does not linger in the address bar / history.
  * - "Cancel" (button, Esc, or outside-click via Radix) = strip the param via `history.replaceState`
  * and stay on the current trip — no switch, no reload.

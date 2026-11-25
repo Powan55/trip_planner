@@ -121,7 +121,7 @@ export function buildTripDescriptor(): TripDescriptor | null {
  * each fact. Filters tombstoned items (`deleted === true`) the same way `use-itinerary.ts`'s
  * `visiblePlans` does, since the raw Vault load can carry them under sync.
  *
- * format changes (client-only, read-only — no write, no extra request):
+ * Format changes (client-only, read-only — no write, no extra request):
  * - Each planned item carries its STABLE `ItineraryItem.id` compactly as ` #<id>` so the agent
  * can address items by real id, never a positional index.
  * - UNPLANNED days are OMITTED entirely instead of printing a `date (city): unplanned` line each
@@ -389,7 +389,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       }
       lastMessageRef.current = trimmed;
 
-      //-C — fail fast, and in words, when there is no connection. Without this the fetch
+      // Fail fast, and in words, when there is no connection. Without this the fetch
       // rejects with the browser's own `TypeError: Failed to fetch`, which the catch below passes
       // straight through to the traveller as the error text. On foreign mobile data that is the
       // NORMAL case, not an edge one. Nothing leaves the device on this path — no request is made,
@@ -566,7 +566,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         });
         // absent / non-string / blank all collapse to `undefined` HERE — the one place that
         // decides "is this a real model id" — so `concierge-chat.tsx` renders on plain truthiness
-        // with no second guard to keep in sync (: a mechanism in one place, not a claim
+        // with no second guard to keep in sync (a mechanism in one place, not a claim
         // repeated at two call sites).
         const model = typeof data.model === 'string' && data.model.trim() !== '' ? data.model : undefined;
 

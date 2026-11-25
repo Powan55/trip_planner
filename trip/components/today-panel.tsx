@@ -27,7 +27,7 @@ import { FADE_FLOOR } from '@/lib/motion';
 import { useRefreshKey } from '@/hooks/use-refresh-key';
 
 /**
- * —: the "Today" screen (the operational core).
+ * The "Today" screen (the operational core).
  *
  * A home-page island that, ONLY when the app clock is inside the trip window
  * (Dec 9 2026 – Jan 9 2027 — via `getTodayInTrip()` incl. the `?today=`
@@ -54,7 +54,7 @@ export default function TodayPanel() {
   // trip window. Resolved on mount + re-resolved on the same 1s cadence as the
   // hero's countdown/travel-mode flip, so it self-corrects at day boundaries.
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
-  // "Now" as a UTC epoch-ms instant re-interpreted at TODAY'S place offset (: via
+  // "Now" as a UTC epoch-ms instant re-interpreted at TODAY'S place offset (via
   // getNowUtcMsForPlace, incl. the ?today= override — place-noon under a ?today=DATE clock).
   // Feeds the pure `nextUp` helper for the "Up next" rail; re-resolved on the SAME 1s cadence
   // as `todayInTrip` so the rail advances live and self-corrects at day boundaries. `0` until

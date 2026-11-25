@@ -2,7 +2,7 @@
 //
 // PURE, framework-free, dependency-free — no React, no maplibre-gl, no network.
 // The map is an INPUT to day planning: a user
-// assigns a map pin (an "anchor") to a trip day.: that anchor is the day's BASE
+// assigns a map pin (an "anchor") to a trip day. That anchor is the day's BASE
 // POINT — the origin of the per-stop distance label — and no longer re-orders anything;
 // every surface, the map included, sorts by TIME (`lib/sort-items-by-time.ts`).
 // NO routing/geocoding API is used — distance is this arithmetic
