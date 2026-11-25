@@ -2,6 +2,7 @@
   "name": "app",
   "private": true,
   "version": "7.10.3",
+  "license": "MIT",
   "engines": {
     "node": ">=22"
   },

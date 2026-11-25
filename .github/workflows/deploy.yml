@@ -346,7 +346,7 @@ jobs:
   # Pages accepted the artifact; the CDN can keep serving the old bytes for several minutes, and
   # with no rollback a broken release is worth knowing about now, not when a phone fails to update.
   # Read-only and GET/OPTIONS only: nothing here writes to the app or the Worker. A red run does
-  # not undo the deploy, it just says look at the site. See rule.md, "Recovering from a bad deploy".
+  # not undo the deploy, it just says look at the site. See CONTRIBUTING.md, "Recovering from a bad deploy".
   smoke:
     name: Smoke test the live site
     needs: [build, deploy]

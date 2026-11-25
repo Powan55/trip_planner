@@ -105,7 +105,7 @@ try {
   fail(NO_TAGS);
 }
 
-// 2. Says what it changed, AND does not say it must not ship. `rule.md` has always asked
+// 2. Says what it changed, AND does not say it must not ship. `CONTRIBUTING.md` has always asked
 //    for the entry; nothing enforced it, and the file has drifted from reality in both
 //    directions before.
 //
@@ -184,7 +184,7 @@ if ((!heading || headingHeld) && newestTag) {
 
 // 3. Came through `dev`. Set only on the pull-request path; absent on a push, where there
 //    is no source branch to check. This encodes the working agreement's one hard rule about
-//    where releases come from — see rule.md, "The flow".
+//    where releases come from — see CONTRIBUTING.md, "The flow".
 //
 //    CEILING: this makes the pull request red, it cannot prevent a merge. Only a required
 //    status check does that, and that is a repository setting, not a file in this repo.

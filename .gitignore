@@ -33,10 +33,7 @@ Thumbs.db
 coverage/
 .cache/
 
-# Internal planning and process files. These live in the private working repo
-# and are deliberately kept out of this one: they are project-management
-# scaffolding, not part of the app, and they go stale the moment anyone reads
-# them here. Design docs and the decision log ARE published, under docs/.
+# Local notes and planning files. Not part of the app.
 CLAUDE.md
 STATE.md
 STATE-archive-*.md
@@ -46,20 +43,13 @@ DECISIONS-archive-*.md
 PONYTAIL-DEBT.md
 CLEANUP-REVIEW.md
 NEEDS-LAX.md
-# Session-to-session handoff notes. Same reasoning as the rest of this block, plus a
-# sharper one: a handoff names what is half-done, what is still red and what only the
-# owner can do, which is exactly the shape of thing that should not be published.
 HANDOFF.md
 briefs/
 .claude/
 docs/plans/
 docs/reports/
 
-# Local design/agent tooling, created by the design skill in this working tree.
-# Not part of the app, and it carries vendor names and absolute local paths that the
-# publishing scan is right to reject. That scan enumerates with `git ls-files`, so these
-# are invisible to it until someone stages them - which is exactly what the documented
-# `git add -A` pre-commit step does. Ignored so that step stays safe.
+# Local editor and tooling files. Ignored so `git add -A` never stages them.
 .impeccable/
 .github/agents/
 .github/hooks/
@@ -69,6 +59,5 @@ AGENTS.md
 .agents/
 .codex/
 
-# Local knowledge-graph output from the graphify skill. Regeneratable, and it
-# extracts content from files already gitignored above (HANDOFF.md, CLAUDE.md).
+# Generated local output.
 graphify-out/

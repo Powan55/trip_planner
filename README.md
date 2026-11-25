@@ -1,161 +1,98 @@
-# Nepal × Japan Trip Planner
+# Trip Planner
 
-A trip-planning app for an upcoming Nepal and Japan journey (Kathmandu, then across Japan,
-Dec 2026 → Jan 2027), and for any other trip you add beside it. It pulls the whole trip into
-one place: a live countdown, a day-by-day itinerary planner, destination / food / photography /
-nightlife guides for both countries, a journal, an expense log, and a real interactive map, all
-packaged as an installable, offline-capable PWA. Plans are kept on the device and sync across
-devices when the build is wired to Firebase.
+An offline-first trip planner that installs as a PWA. It keeps a whole trip in one place: a
+countdown, a day-by-day itinerary, guides, a map, a journal, expenses and travel documents. Data
+lives on the device first and syncs across phones through Firestore when you sign in. It was built
+for a 32-day Nepal and Japan trip, which ships as the built-in sample; you can create your own
+trips from dates and destinations.
 
 **Live demo:** https://powan55.github.io/trip_planner/
 
+<p>
+  <img src="trip/public/images/landing/shot-1-day-planner.png" alt="Day planner" width="260">
+  <img src="trip/public/images/landing/shot-2-expenses.png" alt="Expense log" width="260">
+  <img src="trip/public/images/landing/shot-3-map.png" alt="Map" width="260">
+</p>
+
 ## Features
 
-- **One app, many surfaces** – Today, Plan, Map and Guides sit in the top navbar and in the
-  thumb-reach bottom tab bar on phones; Flights, Journal, Safety, Recap, Packing, Documents,
-  Shared Links, Trips and Settings live one tap deeper behind **More**. A ⌘K / Ctrl+K command
-  palette jumps straight to most of those routes, and to individual sections within them, from
-  anywhere.
-- **Countdown dashboard** – live months/weeks/days/hours/minutes/seconds to departure plus
-  trip stats (total days, countries, cities, planned vs. unplanned days). Once the trip is
-  underway it switches to a day-by-day travel mode.
-- **Itinerary planner** – add, edit, and delete plans on any of the 32 days. Each day sorts
-  itself by time, so a plan lands under the right Morning / Afternoon / Evening heading whatever
-  order it was entered in, and plans with no time yet gather under "Anytime" at the end. Plans are saved on
-  the device (`localStorage`) and, when the build carries a Firebase web config, mirrored to
-  Firestore under the trip's id, so every device signed in to that trip sees the same plan;
-  with no config the app stays local-only. On mobile, a floating quick-add button opens the add
-  dialog preset to the day you're looking at.
-- **Destination guides** – attractions, neighborhoods, and food for Kathmandu and across
-  Japan, with search, category/city filters, and tap-to-open detail sheets.
-- **Photography & nightlife guides** – locations, subjects, and practical tips for each
-  stop, filterable per country.
-- **AI concierge** – an optional chat that answers questions about the active trip and can
-  propose plan changes; nothing it proposes is applied without an explicit confirm. It is
-  served by a small Cloudflare Worker whose source lives outside this repo, and it renders
-  nothing unless the build sets `NEXT_PUBLIC_CONCIERGE_URL`.
-- **Journal, budget, packing and documents** – day-by-day journal entries, an expense log with
-  a settle-up summary, a packing checklist, a travel-document checklist, and a shared-links
-  inbox. Photos attached to a journal day or an expense are held in IndexedDB.
-- **More than one trip** – the Nepal × Japan pack ships with the app; you can also create your
-  own trip from dates and destinations, or add someone else's with their Trip Token, and switch
-  between them from **Trips**.
-- **Interactive map** – a real MapLibre GL map on free OpenFreeMap vector tiles (no API key),
-  with category-filterable markers, rich popups, an itinerary overlay, and fullscreen mode.
-- **Installable PWA** – web app manifest + a hand-rolled service worker precache the app
-  shell, so the app installs to a home screen and keeps working offline; updates surface as
-  a "New version available" toast (never a silent refresh).
-- **Design** – dark, glassy theme on an aubergine night field (`#0E0920` → `#2F2159`), with
-  one cool chrome accent for anything pressable (volt `#3ED8FF`, which is also the focus ring)
-  and warm country gradients kept for content rather than controls (Nepal `#FF8A3D` → `#FFC43D`,
-  Japan `#FF8FC7` → `#C08CFF`); text sits on three solid tiers that all clear AA; responsive
-  down to small phones; `prefers-reduced-motion` respected throughout.
+- Countdown home that switches to a day-by-day travel mode once the trip starts
+- Itinerary planner with timed plans sorted into morning, afternoon and evening, plus a quick-add
+  button on phones
+- Guides for places, food, photography and nightlife, with search and filters
+- MapLibre map on OpenFreeMap tiles (no API key) with category filters and an itinerary overlay
+- Journal, expense log with settle-up, packing list, document checklist and a shared-links inbox;
+  photos are stored in IndexedDB
+- Multiple trips: create one, join one with an invite, switch between them
+- Optional AI concierge that answers questions about the trip and proposes plan changes, which are
+  applied only after you confirm
+- Works offline after the first visit; a new version shows an update prompt instead of reloading
+- Dark theme, keyboard and screen-reader support, and `prefers-reduced-motion` honoured throughout
 
 ## Tech stack
 
-- [Next.js 16](https://nextjs.org/) (App Router, static export)
-- [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- [Tailwind CSS](https://tailwindcss.com/) with [shadcn/ui](https://ui.shadcn.com/) (Radix UI)
-- [Framer Motion](https://www.framer.com/motion/) for animation
-- [MapLibre GL](https://maplibre.org/) for the map ([OpenFreeMap](https://openfreemap.org/) vector basemap)
-- [date-fns](https://date-fns.org/) for date math
-- Optional [Firebase](https://firebase.google.com/) (Firestore for the data, Firebase Auth for
-  the signed-in floor the rules enforce) for cross-device sync, entirely inert unless configured
+- Next.js 16.3 (App Router, static export), React 19.3, TypeScript 6
+- Tailwind CSS 3 with shadcn/ui on Radix UI, Framer Motion 12
+- MapLibre GL 6, date-fns 4, Zod 4
+- Firebase 12: Firestore for sync, Firebase Auth for accounts
+- Vitest 5 and Playwright 1.63 for tests
 
-## Getting started
+## Architecture
+
+- **Static site.** `next build` exports to `trip/out/` and GitHub Pages serves it. There is no app
+  server.
+- **Service worker.** `trip/scripts/gen-sw.mjs` writes a hand-rolled `sw.js` at build time that
+  precaches the app shell and every route, so the app keeps working with no connection.
+- **Local first.** Every domain reads and writes through one storage gateway
+  (`trip/core/storage/gateway.ts`) backed by `localStorage`, with IndexedDB for photos. Sync is a
+  layer on top: changes go into an outbox and are pushed to Firestore when the build has a
+  Firebase config and the user is signed in. Without a config the app is fully local.
+- **Access control.** `firestore.rules` is the whole access model: everything requires auth, and a
+  trip with a members list is readable and writable only by its members. The rules are tested
+  against the real rules engine in the Firestore emulator on every push.
+- **Concierge.** The chat calls a Cloudflare Worker kept in a separate private repo. The Worker
+  verifies the user's Firebase sign-in and trip membership, and is rate limited. The client
+  renders nothing unless the build sets `NEXT_PUBLIC_CONCIERGE_URL`.
+
+## Testing
+
+- 3,666 unit tests in 355 files (Vitest)
+- 774 end-to-end cases across 112 spec files (Playwright), run against the built static export in
+  Chromium, two iPhone viewports and WebKit, including axe accessibility scans and reduced-motion
+  checks
+- Visual regression against committed screenshot baselines
+- Firestore rules checks in the emulator, with negative controls that prove each guard is load
+  bearing
+
+## CI and releases
+
+Every pull request into `dev` runs type checks, lint, unit tests, the build, the rules emulator
+check, the browser suite and visual regression. `dev` merges into `main` through a reviewed pull
+request; a release gate checks that the version was bumped and that `trip/docs/RELEASES.md` has an
+entry for it. A push to `main` deploys to Pages, tags the version and publishes a GitHub Release.
+The workflow is described in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Running locally
 
 ```bash
 cd trip
-npm ci
-npm run dev
+npm ci --legacy-peer-deps     # the flag is needed: a few deps still declare React 18 peers
+npm run dev                   # http://localhost:3000
+npm test                      # unit tests
+npm run build:e2e && npm run test:e2e   # browser suite; it serves out/, so build first
 ```
 
-Then open http://localhost:3000.
+The service worker only registers in production builds. To try sync, copy
+`trip/.env.local.example` to `trip/.env.local` and fill in a Firebase web config.
 
-> The service worker only registers in production builds, so offline support is not active
-> under `next dev`.
+## Credits
 
-## Build
+Built by Laxmi Poudel ([Powan55](https://github.com/Powan55)).
 
-```bash
-npm run build
-```
+Destination photos under `trip/public/images/` are from Wikimedia Commons under their own
+licences, listed in the [image credits](trip/public/images/CREDITS.md). Map label glyphs in `trip/public/font/` are Noto Sans
+under the SIL Open Font License 1.1.
 
-This runs the static export (`output: 'export'`) and then generates the PWA pieces
-(`manifest.webmanifest` and `sw.js`) into `trip/out/`, which can be served from any static
-host.
+## License
 
-## Deployment
-
-Deployment is automated with GitHub Actions (`.github/workflows/deploy.yml`). On a push to
-`main` it builds the static export and publishes it to GitHub Pages. The base path and site URL
-are derived from the repository name at build time, so no configuration is hard-coded. Two
-gates run first: a repository-hygiene check, and a `version-gate` that fails the run when a tag
-`v<version>` for the current `trip/package.json` version already exists, so a push to `main`
-without a version bump does not publish. The workflow pushes that tag itself once the deploy
-succeeds. The same run has a step to publish `firestore.rules` from the tree it built, between
-the build and the Pages deploy; it is inert until the service-account secret is set — see
-**Firestore rules** below.
-
-To deploy your own copy, push to `main` and set **Settings → Pages → Source** to **GitHub Actions**.
-
-## Firestore rules
-
-`firestore.rules` at the repo root is the source of truth for the database's access rules, and
-the release is what publishes it: `.github/workflows/deploy.yml` deploys the rules from the same
-tree it builds, between the build and the Pages deploy.
-
-**It is inert until the owner sets the `FIREBASE_SERVICE_ACCOUNT` secret.** Without it the job
-warns, publishes nothing, and lets the release through. Until it is set, the live ruleset is
-still whatever was last deployed by hand, which may be older than the file in this tree — so do
-not read `git show v<version>:firestore.rules` as the live authorization gate yet. Once the
-secret is set, that command becomes the answer to "what rules are live", which is the whole point
-of publishing from the release.
-
-**Once armed, the Firebase console is read-only for rules.** The publish is unconditional, not
-conditioned on the file having changed, so a rule edited in the console is reverted by the next
-release without warning. If you ever hotfix there, land the same change in this repo straight
-after.
-
-Nothing unproven ships: the `rules-check` job in `.github/workflows/ci.yml` validates the rules
-against the real rules engine in a local emulator, on every pull request, on pushes to `lax`,
-`uttam` and `dev`, and again on the push to `main` that deploys. Run the same check yourself
-(needs Java and the `firebase` CLI; run from the repo root):
-
-```bash
-firebase emulators:exec --only firestore,auth --project demo-rules "node scripts/rules-check.mjs"
-```
-
-The harness reports eleven phases (the two negative-control phases are *supposed* to show
-failures in their own output — the script accounts for that). Trust its verdict rather than the
-CLI's: `emulators:exec` has been seen exiting 2 after a completely green run, while shutting the
-emulator down, which is why the CI job records the harness's own exit code in a sentinel file
-instead. The harness resolves the `firebase` SDK out of `trip/node_modules`, so
-`npm ci` inside `trip/` must have run first.
-
-The **auth** emulator is required as well as firestore, because the rules now have an
-authentication floor: the harness signs in three anonymous users (owner, member, stranger)
-and keeps a fourth client signed out, so that both the membership rules and the floor itself
-are exercised rather than assumed. Running with `--only firestore` fails in phase 0.
-
-Break-glass, for when the rules have to move and the workflow cannot do it:
-
-```bash
-firebase deploy --only firestore:rules
-```
-
-That is the same command the release runs, against the project named in `.firebaserc`. After any
-rules deploy, by hand or by workflow, re-verify live that trip enumeration is still denied (a
-plain `getDocs(collection('trips'))` must fail with permission-denied).
-
-## Notes
-
-The trip dates live in the trip pack (`trip/core/trips/packs/nepal-japan-2026.ts`); change its
-`start` / `end` (and its legs) to retarget the countdown. `TRIP_START` / `TRIP_END` in
-`trip/lib/trip-data.ts` are re-exports of values derived from that pack, not editable constants.
-The map needs no key: the OpenFreeMap basemap is free with attribution. To enable cross-device sync,
-copy `trip/.env.local.example` to `trip/.env.local` and fill in a Firebase web config; without
-it the app is local-only.
-
-The map's label glyphs under `trip/public/font/` are Noto Sans (Copyright The Noto Project
-Authors), licensed under the [SIL Open Font License 1.1](https://openfontlicense.org).
+Source code is MIT licensed, see [LICENSE](LICENSE). Images and fonts are not covered by it.

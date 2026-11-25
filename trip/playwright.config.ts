@@ -108,8 +108,8 @@ export default defineConfig({
     // documents for parallel chromium. The rule here, determinism on this machine beats
     // engine purity, points at emulation: we take the iPhone descriptor's DPR 3 / touch /
     // isMobile / iOS-Safari UA and drive it on the SAME chromium the green 373-spec net uses.
-    // Viewport is pinned to the device's FULL screen points (393×852 / 430×932 — the V5-DEVPLAN
-    // TM-8 numbers, the standalone-PWA display Travel Mode targets), not the descriptor's
+    // Viewport is pinned to the device's FULL screen points (393×852 / 430×932, the
+    // standalone-PWA display Travel Mode targets), not the descriptor's
     // Safari-chrome-reduced web viewport. testMatch scopes each project to ONLY the TM net.
     {
       name: 'iphone-15-pro',
