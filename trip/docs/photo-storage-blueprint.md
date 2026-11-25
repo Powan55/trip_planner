@@ -1,6 +1,6 @@
 # Photo storage blueprint: `BlobStorePort` over IndexedDB (S159)
 
-_Design doc for M17 Phase 4 (photo track, D-130 G2). It makes `V4-DEVPLAN.md` item #7b concrete and buildable. Source read: `core/storage/gateway.ts`, `core/vault/export-import.ts`, `core/budget/expenses.ts`, `hooks/use-journal.ts`, `hooks/use-expenses.ts`, `docs/sync-everywhere-blueprint.md`, and DECISIONS D-130/D-002/D-038/D-088/D-098/D-150. No production code lands in this slice: this document plus the proposed DECISIONS entries are the whole output (next free decision number is D-159)._
+_Design doc for M17 Phase 4 (photo track, D-130 G2). It makes [V4-DEVPLAN](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/V4-DEVPLAN.md) item #7b concrete and buildable. Source read: `core/storage/gateway.ts`, `core/vault/export-import.ts`, `core/budget/expenses.ts`, `hooks/use-journal.ts`, `hooks/use-expenses.ts`, `docs/sync-everywhere-blueprint.md`, and DECISIONS D-130/D-002/D-038/D-088/D-098/D-150. No production code lands in this slice: this document plus the proposed DECISIONS entries are the whole output (next free decision number is D-159)._
 
 ---
 

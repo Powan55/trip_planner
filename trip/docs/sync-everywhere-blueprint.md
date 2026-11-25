@@ -1,6 +1,6 @@
 # Sync Everywhere blueprint: store factory, per-domain SyncPorts, offline outbox (S139)
 
-_Blueprint for M17 Phase 2 (S140–S145). It takes sections 4, 6 and 8 of `docs/v4-technical-doc.md` and makes them concrete and buildable. Source code read: `core/sync/{hlc,merge-day,stamp}.ts`, `core/ports.ts`, `hooks/use-{itinerary,expenses,journal}.ts`, `lib/{itinerary-ports,itinerary-remote}.ts`, `components/itinerary-provider.tsx`, `core/storage/gateway.ts`, `core/budget/{model,storage}.ts`. No production code changes in this slice: this document plus the proposed decision entries only. D-numbers are cited inline; the proposed new entries are collected in section 8, and their numbers assume D-147 is the latest._
+_Blueprint for M17 Phase 2 (S140–S145). It takes sections 4, 6 and 8 of [docs/v4-technical-doc](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/v4-technical-doc.md) and makes them concrete and buildable. Source code read: `core/sync/{hlc,merge-day,stamp}.ts`, `core/ports.ts`, `hooks/use-{itinerary,expenses,journal}.ts`, `lib/{itinerary-ports,itinerary-remote}.ts`, `components/itinerary-provider.tsx`, `core/storage/gateway.ts`, `core/budget/{model,storage}.ts`. No production code changes in this slice: this document plus the proposed decision entries only. D-numbers are cited inline; the proposed new entries are collected in section 8, and their numbers assume D-147 is the latest._
 
 ---
 
@@ -305,7 +305,7 @@ P3 riders bundled into S145 (from FU-23):
 
 ## 6. Emulator ceiling (test-strategy flag)
 
-The two-client live-Firestore merge and outbox scenarios stay deferred to live validation, because of the JDK/emulator ceiling described in `docs/v4-technical-doc.md` section 8. It is the same document-rather-than-fake pattern as the itinerary two-client procedure in `docs/two-phone-sync-check.md`. What the build slices can prove deterministically: merge property tests (commutative and idempotent, the S96 500-pair pattern) for `mergeItems` and `mergeBudget`; outbox flush/ack/retry unit tests with a fake failing SyncPort; the undo↔outbox netting scenario from section 3.2 as a unit test; and offline E2E via the existing harness (edit offline → reload → outbox slot present → flush on restored network, mocked at the port). Real 3-friend cross-device validation happens on the deployed pair, as usual.
+The two-client live-Firestore merge and outbox scenarios stay deferred to live validation, because of the JDK/emulator ceiling described in [docs/v4-technical-doc](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/v4-technical-doc.md) section 8. It is the same document-rather-than-fake pattern as the itinerary two-client procedure in `docs/two-phone-sync-check.md`. What the build slices can prove deterministically: merge property tests (commutative and idempotent, the S96 500-pair pattern) for `mergeItems` and `mergeBudget`; outbox flush/ack/retry unit tests with a fake failing SyncPort; the undo↔outbox netting scenario from section 3.2 as a unit test; and offline E2E via the existing harness (edit offline → reload → outbox slot present → flush on restored network, mocked at the port). Real 3-friend cross-device validation happens on the deployed pair, as usual.
 
 ---
 
@@ -313,7 +313,7 @@ The two-client live-Firestore merge and outbox scenarios stay deferred to live v
 
 ### 7.1 The journal never syncs (privacy by design)
 
-The journal (gateway key 12) is a private per-day diary: mood, highlight, free text. It stays device-local, permanently. No SyncPort is ever wired (the `createReactiveStore` config simply omits `sync`), no Firestore path is ever assigned, and the export/import bundle remains the only way journal data leaves a device, which is an explicit user act. This is recorded as a decision (section 8, proposed D-152) precisely so that no future slice "helpfully" syncs it. The absence of the feature is not an oversight here; it is the design. Same posture as photos in `docs/v4-technical-doc.md` section 6: never syncs.
+The journal (gateway key 12) is a private per-day diary: mood, highlight, free text. It stays device-local, permanently. No SyncPort is ever wired (the `createReactiveStore` config simply omits `sync`), no Firestore path is ever assigned, and the export/import bundle remains the only way journal data leaves a device, which is an explicit user act. This is recorded as a decision (section 8, proposed D-152) precisely so that no future slice "helpfully" syncs it. The absence of the feature is not an oversight here; it is the design. Same posture as photos in [docs/v4-technical-doc](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/v4-technical-doc.md) section 6: never syncs.
 
 ### 7.2 Packing-list sync is moot, and key 6 is retired (D-130 rider)
 
@@ -362,7 +362,7 @@ Number 6 and the string are never reused; no sync design or quota line is owed; 
 
 ## 9. Honest scope calls and open flags
 
-1. **Signature deviation from the technical doc's sketch.** `docs/v4-technical-doc.md` section 4 sketched `createReactiveStore<T>(key, coreOps, syncPort?)`. This blueprint drops `coreOps` from the factory: domain mutators differ in arity and semantics, and wrapping them generically would be exactly the speculative plugin framework we are avoiding. The factory extracts the triplicated skeleton and nothing else; mutators stay domain-side. Deliberate, and flagged.
+1. **Signature deviation from the technical doc's sketch.** [docs/v4-technical-doc](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/v4-technical-doc.md) section 4 sketched `createReactiveStore<T>(key, coreOps, syncPort?)`. This blueprint drops `coreOps` from the factory: domain mutators differ in arity and semantics, and wrapping them generically would be exactly the speculative plugin framework we are avoiding. The factory extracts the triplicated skeleton and nothing else; mutators stay domain-side. Deliberate, and flagged.
 2. **`restoreExpense` behavior change under sync.** Fresh-id instead of verbatim same-id is user-invisible but byte-visible in stored rows, and the dormant path stays verbatim. Same-id-restamped is also correct and keeps double-undo dedupe by id, if we prefer it; this blueprint picks fresh-id for one rule everywhere (D-032/D-119).
 3. **`sanitizeExpenses` and `normalizeModel` pass-through** of the new optional fields is load-bearing and easy to miss, so it is an explicit DoD line for S142/S143.
 4. **Outbox flush skip of locally-absent days** (section 3.4) accepts that an unflushed *whole-day deletion* is not replayed after reload. No user-reachable op produces one today; if one ever ships, day deletion needs merge-level semantics first, which would be a new decision.

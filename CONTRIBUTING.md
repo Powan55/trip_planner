@@ -1,4 +1,4 @@
-# How we work on this repo
+# Contributing
 
 Two people work here. This file is the agreement between them. If something in
 it stops matching reality, change the file in the same pull request that made it
@@ -54,7 +54,7 @@ git switch lax && git merge dev
 Six jobs, in `.github/workflows/ci.yml`: Checks, Firestore rules, E2E, WebKit,
 Visual regression and Release gate.
 
-**Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
+**Checks** (about 5 minutes) runs on every push to any branch except `main`, on
 every pull request into `dev` or `main`, and again on the push to `main` that
 deploys:
 
@@ -115,13 +115,50 @@ bypass. The way out is to revert, or to fix the check.
 The deploy run also publishes `firestore.rules` to Firebase, between the build
 and the Pages deploy, so the rules and the client that expects them ship
 together. It is inert until the owner sets the service-account secret; without
-it the job warns and publishes nothing.
+it the job warns and publishes nothing. See "Firestore rules" below.
 
 E2E stays on the pull request. When the deploy came from a merged pull request
 that is just economy, because the browser suite already ran against the merge
 result and repeating it would add thirteen minutes for the same answer. A direct
 push to `main` is the case that is *not* covered, because no pull request ever
 ran it. Which is the older reason not to do it.
+
+## Firestore rules
+
+`firestore.rules` at the repo root is the source of truth for database access, and the release
+publishes it from the same tree it builds.
+
+Until the `FIREBASE_SERVICE_ACCOUNT` secret is set, that publish step does nothing and the live
+ruleset is whatever was last deployed by hand, which may be older than the file here. Do not
+read `git show v<version>:firestore.rules` as the live rules until then.
+
+Once the secret is set, the Firebase console is read-only for rules. The publish is
+unconditional, so a rule edited in the console is reverted by the next release without warning.
+If you ever hotfix there, land the same change in this repo straight after.
+
+The `rules-check` job runs `scripts/rules-check.mjs` against the real rules engine in a local
+emulator. Run it yourself from the repo root (needs Java 21, the `firebase` CLI, and `npm ci` in
+`trip/` first, since the harness loads the SDK from `trip/node_modules`):
+
+```bash
+firebase emulators:exec --only firestore,auth --project demo-rules "node scripts/rules-check.mjs"
+```
+
+It runs phases 0 to 15. Five of them are negative controls that remove a guard and are expected
+to show failures in their own output; the script accounts for that. Trust its verdict over the
+CLI's exit code: `emulators:exec` has exited 2 after a green run while shutting down, which is why
+CI reads the harness's own exit code from a sentinel file. The auth emulator is required too,
+because the rules have an auth floor; with `--only firestore` it fails in phase 0.
+
+Break-glass, when the rules have to move and the workflow cannot do it:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+That is the command the release runs, against the project in `.firebaserc`. After any rules
+deploy, check live that trip enumeration is still denied: a plain
+`getDocs(collection('trips'))` must fail with permission-denied.
 
 ## Repository hygiene
 
@@ -310,9 +347,7 @@ Owner checklist, repo settings that are not turned on yet:
 |---|---|
 | `DECISIONS.md` | Every constraint that still binds, and why. **Read the relevant entry before changing an architectural decision** — most of them have a reason that is not obvious from the code. |
 | `trip/app/globals.css` and `trip/tailwind.config.ts` | Colours, type, spacing, motion. The live token contract. Read before touching UI. |
-| `trip/docs/design-spec-v2.md` | *(historical)* The v2 design language and the reasoning behind it. Its token values are three supersessions out of date and it says so at the top. |
 | `trip/core/storage/gateway.ts` | The storage-key registry: every persisted key, its on-disk name and its shape. |
-| `trip/docs/data-core-blueprint.md` | *(historical)* The vault, gateway and port design as it was drafted. Treat every number in it as a snapshot, not the current one. |
 | `trip/docs/time-model-blueprint.md` | Dates, timezones, the trip clock. The easiest place to be subtly wrong. |
 | `trip/docs/test-ids.md` | The `data-testid` contract the E2E specs are written against. Needed to write or fix any spec. |
 | `trip/docs/sync-everywhere-blueprint.md` | Cross-device sync via Firestore. |
@@ -329,9 +364,11 @@ after the blueprint was written.
 
 ```
 cd trip
-npm ci
+npm ci --legacy-peer-deps
 npm run dev
 ```
+
+The flag is required: a few dependencies still declare React 18 peers against React 19.
 
 Tests:
 
@@ -363,8 +400,10 @@ Next.js static export. Nothing of ours serves it. Data is written to the browser
 (`localStorage`, plus IndexedDB for photo bytes) and, when the build carries a
 Firebase web config, mirrored to Firestore under the trip's id. `firestore.rules`
 lives in this repo and is the whole access model. Everything in it sits behind
-`request.auth != null` — the app signs in anonymously, so there is no login
-screen but there is always a uid. Above that floor a trip is in one of two
+`request.auth != null`. The app starts with an anonymous Firebase session, so
+there is always a uid, and the sign-in screen upgrades it to a username and
+password account by linking, so the uid already in trip rosters carries over.
+Above that floor a trip is in one of two
 modes. If its trip document carries a `members` map, only a uid in that map can
 reach the trip's *content*; an owner may remove members, change roles and delete
 the trip, while a plain member has full content read and write and may add

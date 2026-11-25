@@ -16,7 +16,7 @@
 //     touches the default pack's legacy literal key. This suite is TABLE-DRIVEN over the whole
 //     `TripScopedSlot` union so a future slot that forgets `keyFor` regresses HERE, and it proves
 //     the D-172 grandfather (default pack → the exact legacy literal, byte-identical). Inverts the
-//     old S234 probe that pinned the buggy behavior. See docs/multi-trip-audit.md + D-214/D-218.
+//     old S234 probe that pinned the buggy behavior. See D-214/D-218.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Firestore } from 'firebase/firestore';

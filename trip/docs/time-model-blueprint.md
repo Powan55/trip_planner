@@ -7,7 +7,7 @@
 
 # Time-Model Blueprint — Structured Item Times, Vault v5 & Place-Clock Comparison (M17 Phase 1)
 
-> **Status:** blueprint (S123, doc-only). Turns section 2 of `docs/v4-technical-doc.md` into decisions, and governs build slices **S124** (core + migration + Up-Next), **S125** (picker + display), **S126** (sort/timeline/clash).
+> **Status:** blueprint (S123, doc-only). Turns section 2 of [docs/v4-technical-doc](https://github.com/Powan55/trip_planner/blob/dc05903/trip/docs/v4-technical-doc.md) into decisions, and governs build slices **S124** (core + migration + Up-Next), **S125** (picker + display), **S126** (sort/timeline/clash).
 > Drafted 2026-07-10.
 > **Scope:** this document is a contract to build against, not code. It ships zero runtime. The `## Proposed DECISIONS.md entries` section at the end (D-137–D-143) is drafted for the decision log; nothing else in the repo changes because of this slice.
 
