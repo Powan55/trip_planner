@@ -230,10 +230,10 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
   const IDENTITY_PATH = `trips/${CODE}/profile/identity`;
 
   it("doc present ⇒ 'exists' + the account's name, via ONE SERVER read", async () => {
-    fake.setDocData(IDENTITY_PATH, { version: 1, name: 'Powan' });
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: 'Alex' });
     // The name comes back with the verdict: this is the read the door's login uses for BOTH, and
     // one read is the whole point — a second one for the name is what this shape deleted.
-    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: 'Powan' });
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: 'Alex' });
     expect(getDocFromServerCalls).toBe(1);
     expect(getDocCalls).toBe(0); // never the cached read — a cached absence must not reject
   });
@@ -248,8 +248,8 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
   });
 
   it('the returned name is sanitised — trimmed and capped at 24, same as the rename input', async () => {
-    fake.setDocData(IDENTITY_PATH, { version: 1, name: '  Powan  ' });
-    expect((await probeAccountIdentity(CODE)).name).toBe('Powan');
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: '  Alex  ' });
+    expect((await probeAccountIdentity(CODE)).name).toBe('Alex');
     fake.setDocData(IDENTITY_PATH, { version: 1, name: 'P'.repeat(40) });
     expect((await probeAccountIdentity(CODE)).name).toBe('P'.repeat(24));
   });
@@ -280,8 +280,8 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
       throw new Error('network down');
     };
     await expect(probeAccountIdentity(CODE)).resolves.toEqual({ verdict: 'unavailable' });
-    fake.setDocData(IDENTITY_PATH, { version: 1, name: 'Powan' }); // present, but unreadable
-    await expect(probeAccountIdentity(CODE)).resolves.not.toHaveProperty('name', 'Powan');
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: 'Alex' }); // present, but unreadable
+    await expect(probeAccountIdentity(CODE)).resolves.not.toHaveProperty('name', 'Alex');
   });
 
   it("a permission-denied rejection is 'unavailable' AND logs the loud inoperative warning", async () => {
@@ -409,17 +409,17 @@ describe('seedAccountDocs — BOTH account docs for a freshly minted key', () =>
   const pathsWritten = () => writeLog.map((w) => w.path).sort();
 
   it('writes profile/identity AND profile/tripList — the same pair the door mints', async () => {
-    await seedAccountDocs(CODE, 'Uttam');
+    await seedAccountDocs(CODE, 'Sam');
     expect(pathsWritten()).toEqual([IDENTITY_PATH, LIST_PATH].sort());
     expect(writeLog.find((w) => w.path === IDENTITY_PATH)?.data).toEqual({
       version: 1,
-      name: 'Uttam',
+      name: 'Sam',
     });
   });
 
   it('the seeded account is then ADMITTED by the door on another device', async () => {
-    await seedAccountDocs(CODE, 'Uttam');
-    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: 'Uttam' });
+    await seedAccountDocs(CODE, 'Sam');
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: 'Sam' });
   });
 
   it('NEVER publishes the placeholder as the account name — writes the doc nameless instead', async () => {
@@ -449,16 +449,16 @@ describe('seedAccountDocs — BOTH account docs for a freshly minted key', () =>
 
   it('no-ops (no Firestore call) when dormant or the code is blank', async () => {
     isRemoteConfiguredMock.mockReturnValue(false);
-    await seedAccountDocs(CODE, 'Uttam');
+    await seedAccountDocs(CODE, 'Sam');
     isRemoteConfiguredMock.mockReturnValue(true);
-    await seedAccountDocs('', 'Uttam');
+    await seedAccountDocs('', 'Sam');
     expect(writeLog).toHaveLength(0);
   });
 
   it('never rejects when the transport is down — both writes stay best-effort', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     fake.failWrites = true;
-    await expect(seedAccountDocs(CODE, 'Uttam')).resolves.toBeUndefined();
+    await expect(seedAccountDocs(CODE, 'Sam')).resolves.toBeUndefined();
     expect(writeLog).toHaveLength(0);
     expect(warn).toHaveBeenCalled();
     fake.failWrites = false;

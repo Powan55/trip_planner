@@ -17,7 +17,7 @@ import { act } from 'react-dom/test-utils';
 
 const gate = vi.hoisted(() => ({
   remoteOn: true,
-  traveler: { name: 'Powan', token: 'Powan', accent: '#000' } as { name: string } | null,
+  traveler: { name: 'Alex', token: 'Alex', accent: '#000' } as { name: string } | null,
 }));
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
@@ -101,7 +101,7 @@ describe('useSyncStatus', () => {
   beforeEach(() => {
     localStorage.clear();
     gate.remoteOn = true;
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
   });
 
   afterEach(() => {

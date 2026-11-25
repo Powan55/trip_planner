@@ -124,7 +124,7 @@ The hero countdown's display fields (`months`/`weeks`/`days`/`hours`/`minutes`/`
 
 ## M10 — UI/UX redesign + Trip Token gate. Greenlit 2026-06-29.
 
-> M10 adds a Trip Token front door (a token identifies the traveler so edits are attributed to Powna/Sushil/Uttam) and a UI/UX glow-up (LazyMotion-based motion system, scroll-driven accents, ⌘K palette, identity-aware features including presence). The headline architectural insight: an identity system already exists (`lib/identity.ts` + `lib/attribution.ts` + `components/name-prompt.tsx`), so the token gate is a swap-in on top of it. It reuses rather than rebuilds: attribution, the calendar, the timeline, and the sync layer need zero changes to start attributing edits. D-053–D-057 lock the seams (token→identity contract, the always-on landing's reconciliation with D-038, the guest = local-only subscribe-gate, the reduced-motion contract for the new motion types, and the presence data model + free-tier budget) before any M10 code is written. Hard rule carried in: Firebase stays free Spark, never Blaze.
+> M10 adds a Trip Token front door (a token identifies the traveler so edits are attributed to Alxe/Rina/Sam) and a UI/UX glow-up (LazyMotion-based motion system, scroll-driven accents, ⌘K palette, identity-aware features including presence). The headline architectural insight: an identity system already exists (`lib/identity.ts` + `lib/attribution.ts` + `components/name-prompt.tsx`), so the token gate is a swap-in on top of it. It reuses rather than rebuilds: attribution, the calendar, the timeline, and the sync layer need zero changes to start attributing edits. D-053–D-057 lock the seams (token→identity contract, the always-on landing's reconciliation with D-038, the guest = local-only subscribe-gate, the reduced-motion contract for the new motion types, and the presence data model + free-tier budget) before any M10 code is written. Hard rule carried in: Firebase stays free Spark, never Blaze.
 
 ### D-053 · LOCKED · moved to DECISIONS-older.md
 
@@ -500,7 +500,7 @@ The hero countdown's display fields (`months`/`weeks`/`days`/`hours`/`minutes`/`
 
 **Why:** stamps are per-device, sync-replicated data. Rewriting them is a mass mutation across every synced device and is the owner's call, not ours. **Explicit non-decision:** no heuristic may infer that a stored name "is" the current user. `DEFAULT_TRAVELER_NAME` was rejected as exactly that heuristic wearing a constant's clothes, since every signup-door user was `Traveler` first, so seeding from it would fold a fellow traveller's items into the owner's identity on a shared trip.
 
-**Ceiling, stated:** this prevents future splits. It cannot repair a rename that already happened, because no record of the old name exists. The owner's existing `Traveler` → `Powan` split persists until the open-questions doc Q3 is answered (REWRITE or LEAVE).
+**Ceiling, stated:** this prevents future splits. It cannot repair a rename that already happened, because no record of the old name exists. The owner's existing `Traveler` → `Alex` split persists until the open-questions doc Q3 is answered (REWRITE or LEAVE).
 
 **Changes if:** the ruling is REWRITE, which adds a one-time migration and supersedes the non-rewrite half.
 
@@ -1257,8 +1257,8 @@ name to change live on a second device mid-session. Ordered rule:
    section 4.
 3. **remote absent ∧ local is the placeholder ⇒ do nothing.** Never publish `'Traveler'`.
 
-**Conflict case, ruled explicitly.** Device holds "Sora", remote says "Powan": remote wins, and the UI
-shows Powan. The account is the source of truth for the account's name; a device-local disagreement is
+**Conflict case, ruled explicitly.** Device holds "Sora", remote says "Alex": remote wins, and the UI
+shows Alex. The account is the source of truth for the account's name; a device-local disagreement is
 either stale (renamed elsewhere since) or the login default.
 And note why a naive "local wins if set" would be a vacuous fix: `handleLogin` always writes a name
 into the local slot before the reload (`signIn(stored || 'Traveler')`), so the local slot is never empty
@@ -1282,7 +1282,7 @@ the account and traveler are unchanged and that the effect has not been cleaned 
 `cancelled` shape as `runTripMetaSelfHeal`.
 **The nudge becomes conditional in the same slice.** `consumeNameHint` toasts *"You're signed in as
 Traveler — rename yourself in Settings"* from its own mount effect, which fires before the read
-lands. Post-fix it would tell a user their name is Traveler moments before it becomes Powan. It fires
+lands. Post-fix it would tell a user their name is Traveler moments before it becomes Alex. It fires
 only on branch 3. Full retirement is a separate product call.
 
 **Section 4: Migration.** Existing accounts have no identity doc. The first read returns `undefined`
@@ -1754,7 +1754,7 @@ The bland look was not a failure of execution. It was this project's own prior r
 
 > **RULED, NO CODE. Recorded 2026-08-10 (S418).** The ruling above stands; none of it has shipped. This entry is written in the present tense (*"the accent **is** marigold"*, *"the canvas **moves** to aubergine"*) about chrome the app does not have, so a reader of this file alone would conclude it landed.
 >
-> **Proof of absence** (`trip/`, checked on `main`, `dev`, `lax`, `uttam` and `trip-access-control-lax`): grep for `FFC43D`, `marigold`, `100C1A`, `aubergine`, `FF8A3D` and `C08CFF` across `*.ts`/`*.tsx`/`*.css` returns **zero hits**. `scripts/` does not contain `contrast-4.mjs`, the harness this entry cites for its 69 measured pairings.
+> **Proof of absence** (`trip/`, checked on `main`, `dev`, both personal branches and `trip-access-control-lax`): grep for `FFC43D`, `marigold`, `100C1A`, `aubergine`, `FF8A3D` and `C08CFF` across `*.ts`/`*.tsx`/`*.css` returns **zero hits**. `scripts/` does not contain `contrast-4.mjs`, the harness this entry cites for its 69 measured pairings.
 >
 > This entry is dated 2026-08-09, one day before the check, so this is plausibly work in flight rather than work abandoned. It is recorded because "in flight" and "shipped" read identically in a decision log, and only one of them is true.
 
@@ -1813,7 +1813,7 @@ D-009 (dark-only) stands. This is a single scoped exception, decided on 2026-08-
 
 > **RULED, NO CODE. Recorded 2026-08-10 (S418).** The ruling above stands; the surface it describes does not exist. This entry is written in the present tense about a passport page that was never built, and a reader of this file alone would conclude it shipped.
 >
-> **Proof of absence** (`trip/`, checked on `main`, `dev`, `lax`, `uttam` and `trip-access-control-lax`): there is **no passport route**: `app/` holds 17 `page.tsx` files and none is it. Grep for `parchment`, `--paper` and `DCCDAE` across `*.ts`/`*.tsx`/`*.css` returns **zero hits**. `scripts/` does not contain `parchment-verify.mjs`, the harness this entry cites for its six measured ink pairings.
+> **Proof of absence** (`trip/`, checked on `main`, `dev`, both personal branches and `trip-access-control-lax`): there is **no passport route**: `app/` holds 17 `page.tsx` files and none is it. Grep for `parchment`, `--paper` and `DCCDAE` across `*.ts`/`*.tsx`/`*.css` returns **zero hits**. `scripts/` does not contain `parchment-verify.mjs`, the harness this entry cites for its six measured ink pairings.
 >
 > Dated 2026-08-09, one day before the check, so this is plausibly work in flight. Recorded because the exception this entry carves out of D-009 (dark-only) is a real, narrow one, and a live carve-out for a surface that does not exist is the kind of thing a later reader honours by mistake. See D-291, ruled in the same session and in the same state.
 
@@ -1900,7 +1900,7 @@ The Worker treated possession of a trip id as authorization, which is exactly as
 
 **Decision.** `deploy.yml` no longer carries its own copy of any check. `ci.yml` gains a bare `workflow_call:` trigger and `deploy.yml` declares `checks: uses: ./.github/workflows/ci.yml`, with `build: needs: [version-gate, checks]`. The standalone `markers` job is deleted: repository hygiene survives as the first step of `ci.yml`'s `checks` job, still ahead of `setup-node`, so it still fails in about twenty seconds. This closes D-101's arc — `ci.yml` stops being the report-only sibling of an enforcing gate and becomes the gate. D-134's version gate and success-only tag are untouched.
 
-Before this, the branch that deploys was gated by `version-gate` and a marker scan and nothing else. No typecheck, no lint, no unit tests ran on `main`, ever: `ci.yml` triggers on pull requests and on pushes to `lax`/`uttam`/`dev`, and a pull request runs against the merge ref, not `main`'s own commit. A direct push to `main` reached the live site essentially unchecked.
+Before this, the branch that deploys was gated by `version-gate` and a marker scan and nothing else. No typecheck, no lint, no unit tests ran on `main`, ever: `ci.yml` triggers on pull requests and on pushes to the two personal branches and `dev`, and a pull request runs against the merge ref, not `main`'s own commit. A direct push to `main` reached the live site essentially unchecked.
 
 **Why calling and not copying.** Duplicating the steps into `deploy.yml` would make a second copy of three things that are each non-obvious enough to carry a comment today: `--legacy-peer-deps` (three dependencies pin React 18 peers against React 19), `NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test` (a deliberately non-resolving origin, so the chat component mounts), and hygiene-before-install. D-136 already settled this shape for data — deriving is strictly safer than duplicating-plus-testing, because the drift class is eliminated by construction — and a deploy gate is the last place to accept a second copy that can quietly fall behind.
 
@@ -1919,7 +1919,7 @@ Before this, the branch that deploys was gated by `version-gate` and a marker sc
 
 **Concurrency, since the obvious worry about it is wrong.** `deploy.yml` declares workflow-level `concurrency: group: pages` with `cancel-in-progress: false`, which gates the RUN. A second push to `main` therefore sits pending and dispatches no jobs at all — `checks` included — until the first run finishes, so a later run's `checks` cannot cancel an earlier one's, and the first deploy completes normally. This holds either way on the one question the repository cannot answer, namely whether a callee's workflow-level `concurrency` is honoured on the `workflow_call` path: if it is, the `pages` queue keeps `ci-refs/heads/main` uncontested; if it is not, the group never applies on the deploy path. Two residuals, both fail-closed. GitHub keeps one pending run per group, so a third push discards the queued second — pre-existing, and harmless because `main` is linear, so the newest tree still ships. And `workflow_dispatch` from a personal branch is the one case where the callee's `ci-<ref>` group genuinely collides with that branch's own CI runs, so a push to `lax` can cancel a dispatched deploy's `checks`; an unmet `needs` then ships nothing.
 
-**Two ceilings, named rather than fixed.** First, `ci.yml` is now on the deploy critical path: a broken or red `ci.yml` means you cannot ship, including a forward hotfix. A revert is unaffected, since it restores a tree that was already green. There is deliberately NO bypass input — a `skip_checks` knob would be used the first bad night and normalised the second — so the break-glass is: revert, or fix the check. Second, the gate is per-ref, because it lives in the workflow file of the ref being deployed. `lax` and `uttam` still carry the markers-only `deploy.yml`, so a `workflow_dispatch` from one of them deploys under the old gate until this propagates.
+**Two ceilings, named rather than fixed.** First, `ci.yml` is now on the deploy critical path: a broken or red `ci.yml` means you cannot ship, including a forward hotfix. A revert is unaffected, since it restores a tree that was already green. There is deliberately NO bypass input — a `skip_checks` knob would be used the first bad night and normalised the second — so the break-glass is: revert, or fix the check. Second, the gate is per-ref, because it lives in the workflow file of the ref being deployed. Both personal branches still carry the markers-only `deploy.yml`, so a `workflow_dispatch` from one of them deploys under the old gate until this propagates.
 
 **Changes if:** the contract above is violated once in practice, at which point the steps move into a composite action under `.github/actions/` called by both workflows — which makes the e2e asymmetry structural rather than conditional, and drops both the inherited concurrency and the borrowed `event_name`; or branch protection makes a direct push to `main` impossible, which retires the accepted hole above and turns the deploy-side `checks` into belt-and-braces; or `ci.yml` genuinely comes to need a secret, which forces `secrets: inherit` at the call site and a re-reading of clause 2.
 
@@ -2068,7 +2068,7 @@ Checked and **not** siblings: `travel-safety-kit.tsx:38` (key iterates a `const`
 
 **Decision:** any bulk-rewrite invariant gate in this app, the name-claim rewrite (D-288) and anything shaped like it, asserts "this operation changed only what it was allowed to change" by **computing** the changed-key set: diff the union of the before and after objects' keys and compare that set against the allowed one. A hand-written list of fields to check is not acceptable as the gate. New fields are then covered the day they are added, with no edit to the guard.
 
-**Why: this was demonstrated, not theorised.** S408's first guard was the hand-listed form. Forcing `category` onto every claimed row left the guard, the `settle()` invariance check and both merge proofs green, because no listed field had moved. The two readers do not overlap: `settle()` reads `leg`/`deleted`/`split`/`paidBy`/`amount` (`core/budget/settlement.ts:71-79`), while `expensesToSpent` reads `leg`/`category`/`amount` (`core/budget/expenses.ts:169-187`), so a corrupted `category` moves every budget rollup while the shipped test stays green. Replaced with the key-diff form, the money mutation goes red for the right reason: `split: ['Traveler','Powan'] → ['Powan','Powan'] → uniq → 1 member`, so a 3000 NPR bill divides by one and a balance moves from −1500 to 0. A guard whose coverage is the set of fields its author happened to think of is the project's signature defect: a check that reads as coverage and cannot fail.
+**Why: this was demonstrated, not theorised.** S408's first guard was the hand-listed form. Forcing `category` onto every claimed row left the guard, the `settle()` invariance check and both merge proofs green, because no listed field had moved. The two readers do not overlap: `settle()` reads `leg`/`deleted`/`split`/`paidBy`/`amount` (`core/budget/settlement.ts:71-79`), while `expensesToSpent` reads `leg`/`category`/`amount` (`core/budget/expenses.ts:169-187`), so a corrupted `category` moves every budget rollup while the shipped test stays green. Replaced with the key-diff form, the money mutation goes red for the right reason: `split: ['Traveler','Alex'] → ['Alex','Alex'] → uniq → 1 member`, so a 3000 NPR bill divides by one and a balance moves from −1500 to 0. A guard whose coverage is the set of fields its author happened to think of is the project's signature defect: a check that reads as coverage and cannot fail.
 
 **Changes if:** an operation genuinely has an unbounded or data-dependent key set, in which case the exception is named explicitly in the test, never left implicit by writing a list instead.
 
@@ -4564,7 +4564,7 @@ A creator offline at create loses `createTripDoc`, so whichever device first sna
 
 **Decision.** On load, `runAccountIdentitySync` reads `profile/identity` from the server. If it is missing, the device creates it in a transaction that writes only when the doc is still absent: `{ version: 1, name }`, or a nameless `{ version: 1 }` when the local name is the placeholder. A failed read writes nothing. The Settings rename still overwrites.
 
-**Why.** Legacy keys had no identity doc and the door rejects a missing one, so a key that worked on the device holding it was locked out everywhere else (Sushil). Create-only keeps two racing devices, or a doc that appeared mid-read, from being overwritten, and treating a read error as "missing" could have written a local name over a real one.
+**Why.** Legacy keys had no identity doc and the door rejects a missing one, so a key that worked on the device holding it was locked out everywhere else (one of the three accounts hit this). Create-only keeps two racing devices, or a doc that appeared mid-read, from being overwritten, and treating a read error as "missing" could have written a local name over a real one.
 
 **Amendment (2026-09-24).** The door's own probe (`#10`) fails OPEN on a timeout or offline read, so a mistyped or invented key can be admitted while offline. Left ungated, this heal would then mint a *permanent* identity doc for that key the next time the device is online (identity docs are never deleted — D-341), turning a typo into a standing account. The heal now requires positive evidence the key is a real, previously-synced account before it writes: this device already lists it as a known trip, or the server's `profile/tripList` doc exists. Neither present ⇒ no write; the device stays admitted for the session but heals nothing.
 
@@ -4820,7 +4820,7 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 
 ### D-663 · Supersedes D-542 minting and D-598 claimField for the default pack · Amends D-662 · (issue #728, 2026-09-28) · The shared trip belongs to three named accounts
 
-**Decision.** For the shared trip id (`isShared()` in `firestore.rules`) the rules ignore the trip doc and its roster. Read and write go to a token whose email is `powan@`, `uttam@` or `sushil@accounts.trip-planner.invalid`, and to nobody else. There is no `get()` on that path, so it holds when the trip doc or its members map does not exist, and a members map someone writes there grants nothing. Invites and the meta/profile carve-outs are closed for that id. Every other trip is unchanged.
+**Decision.** For the shared trip id (`isShared()` in `firestore.rules`) the rules ignore the trip doc and its roster. Read and write go to a token whose email is one of the three `SHARED_TRIP_USERNAMES` at `accounts.trip-planner.invalid`, and to nobody else. There is no `get()` on that path, so it holds when the trip doc or its members map does not exist, and a members map someone writes there grants nothing. Invites and the meta/profile carve-outs are closed for that id. Every other trip is unchanged.
 
 **Why.** Only people with trip access may see, read or write it. An absent doc read as open, so any signed-in device that knew the id was in.
 
@@ -4832,7 +4832,7 @@ Amends D-296: the identity probe now runs only on the claim path (plus the displ
 
 **Client gate.** The anonymous-session gate applies to shared-trip content only, not to the invite, meta or profile paths.
 
-**Ship order.** Before publishing, the owner checks the Auth console lists all three users (`powan@`, `uttam@`, `sushil@accounts.trip-planner.invalid`). EMAIL_EXISTS is the only thing stopping a squatter, so create any that is missing first. Then publish the rules and probe them with real headers. The id is in the branch, so it is public on the first push; until the rules are live, anyone who reads it can reach the trip. Publish and probe before the branch merges, and push only when the window is acceptable.
+**Ship order.** Before publishing, the owner checks the Auth console lists all three users (the `SHARED_TRIP_USERNAMES` at `accounts.trip-planner.invalid`). EMAIL_EXISTS is the only thing stopping a squatter, so create any that is missing first. Then publish the rules and probe them with real headers. The id is in the branch, so it is public on the first push; until the rules are live, anyone who reads it can reach the trip. Publish and probe before the branch merges, and push only when the window is acceptable.
 
 **Trade-off.** Denied reads still count against the free quota; App Check is the upgrade path. Adding a fourth person means editing the list and publishing.
 

@@ -20,7 +20,7 @@ vi.mock('framer-motion', async () => {
   };
 });
 
-const gate = vi.hoisted(() => ({ remoteOn: true, traveler: { name: 'Powan' } as { name: string } | null }));
+const gate = vi.hoisted(() => ({ remoteOn: true, traveler: { name: 'Alex' } as { name: string } | null }));
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => gate.remoteOn,
@@ -52,7 +52,7 @@ async function mount(): Promise<HTMLElement> {
 beforeEach(() => {
   localStorage.clear();
   gate.remoteOn = true;
-  gate.traveler = { name: 'Powan' };
+  gate.traveler = { name: 'Alex' };
   // D-542: every case below is about a trip that IS shared, so give the default pack a share id.
   // Without one the badge is in its `localOnly` state and never reaches the synced/pending/blocked
   // wording these assert. The local-only state has its own describe block at the bottom.

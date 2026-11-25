@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { SHARED_TRIP_USERNAMES } from '../core/trips/shared-trip';
 
 /**
  * #674 — Trip access is gated on `isRemoteConfigured()` (a build-time read of
@@ -18,12 +19,12 @@ test.describe('#674 settings — Trip access on a Firebase-configured build', { 
       /googleapis\.com|firebaseapp\.com|gstatic\.com\/firebasejs/,
       (route) => route.abort(),
     );
-    await page.addInitScript(() => {
-      window.localStorage.setItem('tripPlannerToken', 'Powan');
-      window.localStorage.setItem('tripPlannerUserName', 'Powan');
+    await page.addInitScript((name) => {
+      window.localStorage.setItem('tripPlannerToken', name);
+      window.localStorage.setItem('tripPlannerUserName', name);
       window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1');
       window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1');
-    });
+    }, SHARED_TRIP_USERNAMES[0]);
     await page.goto('/settings/', { waitUntil: 'load' });
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
 

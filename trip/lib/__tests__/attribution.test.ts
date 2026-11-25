@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { stampDone } from '@/lib/attribution';
 import type { ItineraryItem } from '@/lib/trip-data';
 
-const NAME = () => 'Powan';
+const NAME = () => 'Alex';
 const NO_NAME = () => null;
 const ISO = '2026-07-25T12:00:00.000Z';
 
@@ -17,13 +17,13 @@ function mk(fields: Partial<ItineraryItem> = {}): ItineraryItem {
 describe('stampDone (D-230)', () => {
   it('(a) done false→true stamps BOTH doneBy + doneAt', () => {
     const out = stampDone(mk({ done: true }), { done: true }, NAME, ISO);
-    expect(out.doneBy).toBe('Powan');
+    expect(out.doneBy).toBe('Alex');
     expect(out.doneAt).toBe(ISO);
   });
 
   it('(b) done true→false CLEARS both keys', () => {
     const out = stampDone(
-      mk({ done: false, doneBy: 'Powan', doneAt: ISO }),
+      mk({ done: false, doneBy: 'Alex', doneAt: ISO }),
       { done: false },
       NAME,
       ISO,
@@ -33,9 +33,9 @@ describe('stampDone (D-230)', () => {
   });
 
   it('(c) an edit not touching `done` leaves both untouched', () => {
-    const item = mk({ done: true, doneBy: 'Powan', doneAt: ISO });
+    const item = mk({ done: true, doneBy: 'Alex', doneAt: ISO });
     const out = stampDone(item, { title: 'new title' }, NAME, ISO);
-    expect(out.doneBy).toBe('Powan');
+    expect(out.doneBy).toBe('Alex');
     expect(out.doneAt).toBe(ISO);
     expect(out).toEqual(item); // fully untouched
   });
@@ -50,7 +50,7 @@ describe('stampDone (D-230)', () => {
 
   it('uncheck still clears even with no name set (deleting absent key is a no-op)', () => {
     const out = stampDone(
-      mk({ done: false, doneBy: 'Powan', doneAt: ISO }),
+      mk({ done: false, doneBy: 'Alex', doneAt: ISO }),
       { done: false },
       NO_NAME,
       ISO,

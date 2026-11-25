@@ -119,7 +119,7 @@ describe('token-auth · signOut is a full local teardown (D-249)', () => {
     window.localStorage.setItem('nepal_japan_journal', '[]');
     // A non-default pack's namespaced keys too — both namespaces, one sign-out.
     window.localStorage.setItem('trip:some-other-trip:budget', '{}');
-    signIn('Powan');
+    signIn('Omar');
 
     signOut();
 
@@ -136,7 +136,7 @@ describe('token-auth · signOut is a full local teardown (D-249)', () => {
     window.localStorage.setItem(STORAGE_KEYS.knownTrips, '[{"id":"x"}]');
     window.localStorage.setItem(STORAGE_KEYS.removedTrips, '[{"id":"y"}]');
     window.localStorage.setItem(STORAGE_KEYS.travelMode, 'active');
-    signIn('Powan');
+    signIn('Omar');
 
     signOut();
 
@@ -149,7 +149,7 @@ describe('token-auth · signOut is a full local teardown (D-249)', () => {
 
   it('clears itineraryCorrupt too (Ruling 1b) — the quarantine slot is wiped by sign-out, unlike every other path', () => {
     window.localStorage.setItem(STORAGE_KEYS.itineraryCorrupt, "previous traveler's raw bytes");
-    signIn('Powan');
+    signIn('Omar');
     signOut();
     expect(window.localStorage.getItem(STORAGE_KEYS.itineraryCorrupt)).toBeNull();
   });
@@ -157,7 +157,7 @@ describe('token-auth · signOut is a full local teardown (D-249)', () => {
   it('emits identity:changed only AFTER the full teardown — a listener must never see half-deleted state', () => {
     window.localStorage.setItem(STORAGE_KEYS.activeTrip, 'some-trip');
     window.localStorage.setItem('nepal_japan_budget', '{}');
-    signIn('Powan');
+    signIn('Omar');
 
     let activeTripDuringEvent: string | null = 'sentinel-not-yet-fired';
     let budgetDuringEvent: string | null = 'sentinel-not-yet-fired';
@@ -177,7 +177,7 @@ describe('token-auth · signOut is a full local teardown (D-249)', () => {
   });
 
   it('is total: never throws when storage is disabled mid-teardown', () => {
-    signIn('Powan');
+    signIn('Omar');
     vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
       throw new Error('disabled');
     });

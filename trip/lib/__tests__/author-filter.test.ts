@@ -70,49 +70,49 @@ describe('a rename does not split one person into two', () => {
   });
 
   it('signIn RECORDS the outgoing name when it changes (and only then)', () => {
-    signIn('Powan');
+    signIn('Omar');
     expect(getPriorUserNames()).toEqual([]); // a first sign-in renames nothing
 
-    signIn('Powan'); // re-sign-in with the same name is not a rename
+    signIn('Omar'); // re-sign-in with the same name is not a rename
     expect(getPriorUserNames()).toEqual([]);
 
     signIn('Nadia'); // the actual rename
     expect(getUserName()).toBe('Nadia');
-    expect(getPriorUserNames()).toEqual(['Powan']);
+    expect(getPriorUserNames()).toEqual(['Omar']);
 
     signIn('Rina'); // renaming again keeps the whole chain
-    expect(getPriorUserNames()).toEqual(['Powan', 'Nadia']);
+    expect(getPriorUserNames()).toEqual(['Omar', 'Nadia']);
 
     signIn('Nadia'); // renaming BACK does not duplicate an already-recorded name
-    expect(getPriorUserNames()).toEqual(['Powan', 'Nadia', 'Rina']);
+    expect(getPriorUserNames()).toEqual(['Omar', 'Nadia', 'Rina']);
     expect(new Set(getPriorUserNames()).size).toBe(3);
   });
 
   it('"My edits" matches items stamped under a prior name', () => {
-    const before = mk({ id: 'before', createdBy: 'Powan' });
+    const before = mk({ id: 'before', createdBy: 'Omar' });
     const after = mk({ id: 'after', createdBy: 'Nadia' });
-    expect(filterItemsByAuthor([before, after], { kind: 'mine' }, 'Nadia', ['Powan']).map((i) => i.id)).toEqual(
+    expect(filterItemsByAuthor([before, after], { kind: 'mine' }, 'Nadia', ['Omar']).map((i) => i.id)).toEqual(
       ['before', 'after'],
     );
   });
 
   it('distinctAuthors collapses a prior name into the current one — ONE chip per human', () => {
     const plans = day([
-      mk({ id: 'a', createdBy: 'Powan' }),
+      mk({ id: 'a', createdBy: 'Omar' }),
       mk({ id: 'b', createdBy: 'Nadia' }),
       mk({ id: 'c', createdBy: 'Kenji' }),
     ]);
-    expect(distinctAuthors(plans)).toEqual(['Kenji', 'Nadia', 'Powan']); // uncollapsed: 3 chips
-    expect(distinctAuthors(plans, 'Nadia', ['Powan'])).toEqual(['Kenji', 'Nadia']); // collapsed: 2
+    expect(distinctAuthors(plans)).toEqual(['Kenji', 'Nadia', 'Omar']); // uncollapsed: 3 chips
+    expect(distinctAuthors(plans, 'Nadia', ['Omar'])).toEqual(['Kenji', 'Nadia']); // collapsed: 2
   });
 
   it('🔴 a fellow traveller is NEVER absorbed — only names this user actually renamed away from', () => {
     // The recorded list is the ONLY source of aliases. Kenji is a different human whose stamps
     // happen to sit in the same trip; nothing here may make his items "mine".
-    expect(itemMatchesAuthor(mk({ createdBy: 'Kenji' }), { kind: 'mine' }, 'Nadia', ['Powan'])).toBe(
+    expect(itemMatchesAuthor(mk({ createdBy: 'Kenji' }), { kind: 'mine' }, 'Nadia', ['Omar'])).toBe(
       false,
     );
-    expect(distinctAuthors(day([mk({ createdBy: 'Kenji' })]), 'Nadia', ['Powan'])).toEqual(['Kenji']);
+    expect(distinctAuthors(day([mk({ createdBy: 'Kenji' })]), 'Nadia', ['Omar'])).toEqual(['Kenji']);
   });
 
   it('🔴 THE HONEST LIMIT: a rename that happened BEFORE this shipped is not repaired', () => {
@@ -121,14 +121,14 @@ describe('a rename does not split one person into two', () => {
     signIn('Nadia'); // arrives with an old name already stamped in the data, never recorded here
     expect(getPriorUserNames()).toEqual([]);
     expect(
-      filterItemsByAuthor([mk({ id: 'old', createdBy: 'Powan' })], { kind: 'mine' }, getUserName(), getPriorUserNames()),
+      filterItemsByAuthor([mk({ id: 'old', createdBy: 'Omar' })], { kind: 'mine' }, getUserName(), getPriorUserNames()),
     ).toEqual([]);
   });
 
   it('sign-out clears the prior-name history with the rest of the identity', () => {
-    signIn('Powan');
+    signIn('Omar');
     signIn('Nadia');
-    expect(getPriorUserNames()).toEqual(['Powan']);
+    expect(getPriorUserNames()).toEqual(['Omar']);
     signOut();
     // A handed-down device must not give the next person the previous traveller's aliases.
     expect(getPriorUserNames()).toEqual([]);

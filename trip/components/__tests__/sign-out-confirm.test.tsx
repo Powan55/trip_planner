@@ -83,8 +83,8 @@ const click = async (id: string) => {
 beforeEach(() => {
   session.password = true;
   window.localStorage.clear();
-  window.localStorage.setItem(TOKEN_KEY, 'Uttam');
-  window.localStorage.setItem(NAME_KEY, 'Uttam');
+  window.localStorage.setItem(TOKEN_KEY, 'Sam');
+  window.localStorage.setItem(NAME_KEY, 'Sam');
   // The dialog reloads after teardown (Ruling 3). jsdom's `location.reload` is non-configurable,
   // so it cannot be spied — it just logs "Not implemented: navigation" and returns, which is
   // harmless here. Silence that one line rather than fight the property descriptor.
@@ -165,7 +165,7 @@ describe('SignOutConfirm — password session (D-660)', () => {
     await mount();
     await click('t-cancel');
     expect(window.localStorage.getItem(SYNC_KEY)).toBe(CODE);
-    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
   });
 });
 
@@ -190,8 +190,8 @@ describe('SignOutConfirm — teardown', () => {
 
     await click('t-backup');
     expect(downloadTripBackup).toHaveBeenCalledTimes(1);
-    expect(tokenAtBackup).toBe('Uttam');
-    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    expect(tokenAtBackup).toBe('Sam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
 
     await click('t-confirm');
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
@@ -267,7 +267,7 @@ describe('SignOutConfirm — teardown', () => {
     await click('t-confirm');
     expect(at('t-flushing')!.textContent).toContain('Syncing');
     expect(clearRemoteCache).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
     await act(async () => release());
     expect(clearRemoteCache).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
@@ -284,7 +284,7 @@ describe('SignOutConfirm — teardown', () => {
     expect(flushPrefs).toHaveBeenCalled();
     expect(flushPendingTripSync).toHaveBeenCalled();
     expect(clearRemoteCache).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
     await act(async () => release());
     expect(clearRemoteCache).toHaveBeenCalledTimes(1);
   });
@@ -295,7 +295,7 @@ describe('SignOutConfirm — teardown', () => {
     vi.useFakeTimers();
     try {
       await click('t-confirm');
-      expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
       await act(async () => {
         await vi.advanceTimersByTimeAsync(8000);
       });
@@ -318,7 +318,7 @@ describe('SignOutConfirm — teardown', () => {
       btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(clearRemoteCache).toHaveBeenCalledTimes(1);
-    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
     await act(async () => release());
     expect(window.localStorage.getItem(TOKEN_KEY)).toBeNull();
   });
@@ -351,7 +351,7 @@ describe('SignOutConfirm — busy dismissal', () => {
       });
       expect(at('t-dialog')).not.toBeNull();
       expect(at('t-flushing')!.textContent).toBe('Syncing your last changes…');
-      expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+      expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
     } finally {
       await act(async () => release());
     }
@@ -364,7 +364,7 @@ describe('SignOutConfirm — busy dismissal', () => {
       at('t-dialog')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });
     expect(at('t-dialog')).toBeNull();
-    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Uttam');
+    expect(window.localStorage.getItem(TOKEN_KEY)).toBe('Sam');
   });
 });
 

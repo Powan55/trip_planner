@@ -45,7 +45,7 @@ vi.mock('@/lib/expenses-ports', async (importOriginal) => {
 // A signed-in traveler so actor() is a real distinct name (drives attribution + the hlc actor).
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 import { useExpenses } from '@/hooks/use-expenses';
@@ -119,7 +119,7 @@ describe('sanitizeExpenses — PASSES THROUGH the new sync/attribution fields (a
   it('rev/hlc/deleted/createdBy/updatedBy survive a sanitize round-trip', () => {
     const stamped: Expense = {
       id: 'e1', leg: 'nepal', category: 'food', amount: 1000, createdAt: 't',
-      rev: 3, hlc: '000000000005000:000000:Powan', deleted: true, createdBy: 'Powan', updatedBy: 'Sushil',
+      rev: 3, hlc: '000000000005000:000000:Alex', deleted: true, createdBy: 'Alex', updatedBy: 'Rina',
     };
     const [out] = sanitizeExpenses([stamped]);
     expect(out).toEqual(stamped); // nothing stripped — merge ordering + attribution preserved
@@ -142,8 +142,8 @@ describe('SYNC ON — stamping + attribution + tombstone + live-filter + fresh-i
     let e = h.current.expenses[0];
     expect(e.rev).toBe(1);
     expect(typeof e.hlc).toBe('string');
-    expect(e.createdBy).toBe('Powan');
-    expect(e.updatedBy).toBe('Powan');
+    expect(e.createdBy).toBe('Alex');
+    expect(e.updatedBy).toBe('Alex');
     const firstHlc = e.hlc!;
 
     await h.run((s) => s.updateExpense(e.id, { amount: 1500 }));
@@ -179,7 +179,7 @@ describe('SYNC ON — stamping + attribution + tombstone + live-filter + fresh-i
     expect(live[0].id).not.toBe(original.id); // fresh id, not the tombstoned one
     expect(live[0].amount).toBe(original.amount); // same content restored
     expect(live[0].deleted).not.toBe(true);
-    expect(live[0].createdBy).toBe('Powan');
+    expect(live[0].createdBy).toBe('Alex');
     // The original tombstone is still on disk (so the delete keeps propagating to peers).
     expect(rawOnDisk().find((e) => e.id === original.id)?.deleted).toBe(true);
     h.unmount();

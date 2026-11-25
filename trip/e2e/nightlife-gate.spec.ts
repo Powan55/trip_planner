@@ -38,7 +38,7 @@ import type { Page } from '@playwright/test';
 const GATED_ROUTES = ['/nepal/', '/japan/'] as const;
 
 /** Seed a SIGNED-IN traveler's token and navigate; wait for real render (h1). */
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('nepal_japan_first_run_tour_seen', '1'); // keep dormant

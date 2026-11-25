@@ -115,7 +115,7 @@ import { startPresence, stopPresence, HEARTBEAT_MS } from '@/lib/presence';
 import { signIn } from '@/lib/token-auth';
 import { deviceStore, markTripCreatedHere } from '@/core/storage/gateway';
 import { upsertKnownTrip } from '@/core/trips/registry';
-import { SHARED_TRIP_ID } from '@/lib/shared-trip';
+import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 
 const TRIP = 'trip-abc';
 const TRIP_PATH = `trips/${TRIP}`;
@@ -339,7 +339,7 @@ describe('Google identity adoption repairs every known remote trip (#450)', () =
 
   it('skips a kept legacy-name row: that path is an account, not a trip (#775)', async () => {
     gate.tripId = '';
-    upsertKnownTrip('Sushil', 'Old');
+    upsertKnownTrip(SHARED_TRIP_USERNAMES[2], 'Old');
     upsertKnownTrip('trip-one', 'One');
 
     await ensureKnownTripMemberships();
@@ -371,7 +371,7 @@ describe('presence heartbeat STOPS on a refusal instead of retrying forever (#10
 
   it('one denied beat tears the loop down and warns once', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    signIn('Powan');
+    signIn(SHARED_TRIP_USERNAMES[0]);
     const presencePath = `trips/${TRIP}/presence/${deviceStore.getId()}`;
     fake.denied.add(presencePath);
     vi.useFakeTimers();
@@ -388,7 +388,7 @@ describe('presence heartbeat STOPS on a refusal instead of retrying forever (#10
   });
 
   it('an allowed beat keeps the loop running (the stop is specific to a refusal)', async () => {
-    signIn('Powan');
+    signIn(SHARED_TRIP_USERNAMES[0]);
     const presencePath = `trips/${TRIP}/presence/${deviceStore.getId()}`;
     vi.useFakeTimers();
 

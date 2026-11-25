@@ -114,7 +114,7 @@ export interface ItineraryStore {
 // - CONFIGURED (sync on): the tombstone + rev/hlc path activates, and the exposed `plans`
 // selector filters `deleted` items so the UI still shows a normal delete.
 // The `actor` is sourced synchronously + firebase-free from the active traveler token
-// (`getActiveTraveler().name` — Powan/Sushil/Uttam, distinct per friend, spirit),
+// (`getActiveTraveler().name` — Alex/Rina/Sam, distinct per friend, spirit),
 // falling back to the display name, then ''. The anon-auth uid would be strictly-better as
 // the actor but is only available async inside the remote handle; the per-friend token is a
 // stable, synchronous, dormant-safe id sufficient for the HLC tie-break (distinct across the

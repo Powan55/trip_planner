@@ -64,8 +64,8 @@ async function createTrip(
 
 beforeEach(() => {
   localStorage.clear();
-  localStorage.setItem('tripPlannerToken', 'Uttam');
-  localStorage.setItem('tripPlannerUserName', 'Uttam');
+  localStorage.setItem('tripPlannerToken', 'Sam');
+  localStorage.setItem('tripPlannerUserName', 'Sam');
   localStorage.setItem('tripPlannerSyncCode', 'already-has-one');
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });

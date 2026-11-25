@@ -16,7 +16,7 @@ import type { Page } from '@playwright/test';
  *   4. Unchecking an item persists too (the full toggle round trip).
  */
 
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

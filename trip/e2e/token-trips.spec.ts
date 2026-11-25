@@ -39,7 +39,7 @@ async function gotoFresh(page: Page, path = '/') {
 }
 
 /** Signed-in traveler seeded before any app script (mirrors settings.spec). */
-async function gotoSignedIn(page: Page, path = '/settings/', token = 'Powan') {
+async function gotoSignedIn(page: Page, path = '/settings/', token = 'Alex') {
   await page.addInitScript(
     ({ t, tour }: { t: string; tour: string }) => {
       window.localStorage.setItem('tripPlannerToken', t);
@@ -74,7 +74,7 @@ const readIdentity = (page: Page) =>
 async function logIn(page: Page) {
   await page.getByTestId('landing-cta-login').click();
   await page.getByTestId('token-gate-mode-login').click();
-  await page.getByTestId('token-gate-username').fill('powan');
+  await page.getByTestId('token-gate-username').fill('alex');
   await page.getByTestId('token-gate-password').fill('password1');
   await page.getByTestId('token-gate-submit').click();
 }

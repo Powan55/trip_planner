@@ -58,7 +58,7 @@ vi.mock('@/lib/itinerary-ports', async (importOriginal) => {
 // A signed-in traveler so syncActor() is a real distinct id (drives the hlc actor).
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 import { useItinerary } from '@/hooks/use-itinerary';

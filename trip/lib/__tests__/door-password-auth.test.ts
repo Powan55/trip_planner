@@ -61,8 +61,12 @@ import TokenGate from '@/components/token-gate';
 import { getSyncCode, setSyncCode } from '@/core/storage/gateway';
 import { getActiveTraveler, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { setUserName } from '@/lib/identity';
+import { SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 
-const EMAIL = 'powan@accounts.trip-planner.invalid';
+const [NAME, OTHER] = SHARED_TRIP_USERNAMES;
+const USER = NAME.toLowerCase();
+const OTHER_USER = OTHER.toLowerCase();
+const EMAIL = `${USER}@accounts.trip-planner.invalid`;
 let container: HTMLDivElement;
 let root: Root;
 let replace: ReturnType<typeof vi.fn>;
@@ -108,7 +112,7 @@ async function submit() {
   await flush();
 }
 
-async function logIn(username = 'Powan', password = 'temporary1') {
+async function logIn(username = NAME, password = 'temporary1') {
   await open('landing-cta-login');
   await type('token-gate-username', username);
   await type('token-gate-password', password);
@@ -155,17 +159,17 @@ afterEach(() => {
 describe('sign-up', () => {
   it('links the credential, writes users/{uid}, seeds the account, then admits', async () => {
     await open('landing-cta-create');
-    await type('token-gate-name', 'Powan');
-    await type('token-gate-username', '  Powan ');
+    await type('token-gate-name', NAME);
+    await type('token-gate-username', `  ${NAME} `);
     await type('token-gate-password', 'longenough');
     await submit();
 
     expect(fr.createPasswordAccount).toHaveBeenCalledWith(EMAIL, 'longenough');
     const accountId = getSyncCode();
     expect(accountId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-new', { username: 'powan', accountId });
-    expect(tr.seedAccountDocs).toHaveBeenCalledWith(accountId, 'Powan');
-    expect(getActiveTraveler()?.name).toBe('Powan');
+    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-new', { username: USER, accountId });
+    expect(tr.seedAccountDocs).toHaveBeenCalledWith(accountId, NAME);
+    expect(getActiveTraveler()?.name).toBe(NAME);
     expect(replace).toHaveBeenCalledTimes(1);
   });
 
@@ -174,8 +178,8 @@ describe('sign-up', () => {
       Object.assign(new Error('x'), { code: 'auth/email-already-in-use' }),
     );
     await open('landing-cta-create');
-    await type('token-gate-name', 'Powan');
-    await type('token-gate-username', 'powan');
+    await type('token-gate-name', NAME);
+    await type('token-gate-username', USER);
     await type('token-gate-password', 'longenough');
     await submit();
 
@@ -189,13 +193,13 @@ describe('sign-up', () => {
 
   it('checks the username and password shape before calling anything', async () => {
     await open('landing-cta-create');
-    await type('token-gate-name', 'Powan');
+    await type('token-gate-name', NAME);
     await type('token-gate-username', 'no spaces!');
     await type('token-gate-password', 'longenough');
     await submit();
     expect(errorText()).toMatch(/3 to 20 characters/);
 
-    await type('token-gate-username', 'powan');
+    await type('token-gate-username', USER);
     await type('token-gate-password', 'short');
     await submit();
     expect(errorText()).toMatch(/at least 8 characters/);
@@ -206,14 +210,14 @@ describe('sign-up', () => {
 
 describe('sign-in', () => {
   it('an account with users/{uid} adopts its account id and the account name', async () => {
-    fr.readAccountLink.mockResolvedValueOnce({ username: 'powan', accountId: 'acct-1' });
-    tr.probeAccountIdentity.mockResolvedValueOnce({ verdict: 'exists', name: 'Powan P' });
+    fr.readAccountLink.mockResolvedValueOnce({ username: USER, accountId: 'acct-1' });
+    tr.probeAccountIdentity.mockResolvedValueOnce({ verdict: 'exists', name: `${NAME} P` });
     await logIn();
 
     expect(fr.signInWithPassword).toHaveBeenCalledWith(EMAIL, 'temporary1');
     expect(fr.readAccountLink).toHaveBeenCalledWith('uid-acct');
     expect(getSyncCode()).toBe('acct-1');
-    expect(getActiveTraveler()?.name).toBe('Powan P');
+    expect(getActiveTraveler()?.name).toBe(`${NAME} P`);
     expect(fr.changePassword).not.toHaveBeenCalled();
     expect(fr.writeAccountLink).not.toHaveBeenCalled();
     expect(replace).toHaveBeenCalledTimes(1);
@@ -240,7 +244,7 @@ describe('sign-in', () => {
 describe('first sign-in claim (users/{uid} missing)', () => {
   it('carries over this device’s account id: password first, then users/{uid}', async () => {
     setSyncCode(DEVICE);
-    setUserName('Powan');
+    setUserName(NAME);
     await logIn();
     expect(at('token-gate-claim-device')).not.toBeNull();
     expect(at('token-gate-old-key')).toBeNull();
@@ -250,7 +254,7 @@ describe('first sign-in claim (users/{uid} missing)', () => {
     expect(log).toEqual(['signin', 'changePassword', 'writeLink']);
     expect(fr.changePassword).toHaveBeenCalledWith('mine-now-123');
     expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', {
-      username: 'powan',
+      username: USER,
       accountId: DEVICE,
     });
     expect(tr.seedAccountDocs).not.toHaveBeenCalled();
@@ -263,7 +267,7 @@ describe('first sign-in claim (users/{uid} missing)', () => {
     await claim(undefined, undefined, ` ${OLD_KEY.toUpperCase()} `);
     expect(tr.probeAccountIdentity).toHaveBeenCalledWith(OLD_KEY);
     expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', {
-      username: 'powan',
+      username: USER,
       accountId: OLD_KEY,
     });
     expect(getSyncCode()).toBe(OLD_KEY);
@@ -297,7 +301,7 @@ describe('first sign-in claim (users/{uid} missing)', () => {
     const fresh = getSyncCode();
     expect(fresh).not.toBe(DEVICE);
     expect(fresh).toMatch(/^[0-9a-f-]{36}$/);
-    expect(fr.writeAccountLink).toHaveBeenLastCalledWith('uid-acct', { username: 'powan', accountId: fresh });
+    expect(fr.writeAccountLink).toHaveBeenLastCalledWith('uid-acct', { username: USER, accountId: fresh });
     expect(tr.seedAccountDocs).toHaveBeenCalledWith(fresh);
     expect(replace).toHaveBeenCalledTimes(1);
   });
@@ -327,7 +331,7 @@ describe('first sign-in claim (users/{uid} missing)', () => {
     await claim(undefined, undefined, '');
     const accountId = getSyncCode();
     expect(accountId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', { username: 'powan', accountId });
+    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', { username: USER, accountId });
     expect(tr.seedAccountDocs).toHaveBeenCalledWith(accountId);
   });
 
@@ -357,7 +361,7 @@ describe('dormant build (no account server)', () => {
     gate.on = false;
     await open('landing-cta-login');
     expect(at('token-gate-local-note')).not.toBeNull();
-    await type('token-gate-username', 'powan');
+    await type('token-gate-username', USER);
     await type('token-gate-password', 'anything8');
     await submit();
 
@@ -372,8 +376,8 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
   const ANON = { kind: 'anonymous' as const, claimed: false };
 
   async function mountAdmitted(withCode = true) {
-    window.localStorage.setItem('tripPlannerToken', 'Uttam');
-    window.localStorage.setItem('tripPlannerUserName', 'Uttam');
+    window.localStorage.setItem('tripPlannerToken', OTHER);
+    window.localStorage.setItem('tripPlannerUserName', OTHER);
     if (withCode) setSyncCode(DEVICE);
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -383,7 +387,7 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
   }
 
   async function fillAndSubmit() {
-    await type('token-gate-username', 'uttam');
+    await type('token-gate-username', OTHER_USER);
     await type('token-gate-password', 'password1');
     await submit();
   }
@@ -405,10 +409,10 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
 
   it('(a) an account that already has users/{uid} is adopted', async () => {
     fr.needsAccountUpgrade.mockResolvedValue(ANON);
-    fr.readAccountLink.mockResolvedValueOnce({ username: 'uttam', accountId: 'acct-server' });
+    fr.readAccountLink.mockResolvedValueOnce({ username: OTHER_USER, accountId: 'acct-server' });
     await mountAdmitted();
     await fillAndSubmit();
-    expect(fr.signInWithPassword).toHaveBeenCalledWith('uttam@accounts.trip-planner.invalid', 'password1');
+    expect(fr.signInWithPassword).toHaveBeenCalledWith(`${OTHER_USER}@accounts.trip-planner.invalid`, 'password1');
     expect(getSyncCode()).toBe('acct-server');
     expect(fr.writeAccountLink).not.toHaveBeenCalled();
     expect(reload()).toHaveBeenCalledTimes(1);
@@ -423,10 +427,10 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
     expect(at('token-gate-later')).toBeNull();
     await claim();
     expect(log).toEqual(['signin', 'changePassword', 'writeLink']);
-    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', { username: 'uttam', accountId: DEVICE });
+    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', { username: OTHER_USER, accountId: DEVICE });
     expect(tr.seedAccountDocs).not.toHaveBeenCalled();
     expect(getSyncCode()).toBe(DEVICE);
-    expect(getActiveTraveler()?.name).toBe('Uttam');
+    expect(getActiveTraveler()?.name).toBe(OTHER);
     expect(reload()).toHaveBeenCalledTimes(1);
   });
 
@@ -437,11 +441,11 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
       at('token-gate-mode-create')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await fillAndSubmit();
-    expect(fr.createPasswordAccount).toHaveBeenCalledWith('uttam@accounts.trip-planner.invalid', 'password1');
-    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-new', { username: 'uttam', accountId: DEVICE });
+    expect(fr.createPasswordAccount).toHaveBeenCalledWith(`${OTHER_USER}@accounts.trip-planner.invalid`, 'password1');
+    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-new', { username: OTHER_USER, accountId: DEVICE });
     expect(tr.seedAccountDocs).not.toHaveBeenCalled();
     expect(getSyncCode()).toBe(DEVICE);
-    expect(getActiveTraveler()?.name).toBe('Uttam');
+    expect(getActiveTraveler()?.name).toBe(OTHER);
     expect(reload()).toHaveBeenCalledTimes(1);
   });
 
@@ -461,8 +465,8 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
     await fillAndSubmit();
     const minted = getSyncCode();
     expect(minted).toMatch(/^[0-9a-f-]{36}$/);
-    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-new', { username: 'uttam', accountId: minted });
-    expect(tr.seedAccountDocs).toHaveBeenCalledWith(minted, 'Uttam');
+    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-new', { username: OTHER_USER, accountId: minted });
+    expect(tr.seedAccountDocs).toHaveBeenCalledWith(minted, OTHER);
   });
 
   it('no account id: (a) the claim offers the old-key field / fresh start', async () => {
@@ -474,14 +478,14 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
   });
 
   it('a half-done claim (password session, no users/{uid}) resumes at the claim, with no Later', async () => {
-    fr.needsAccountUpgrade.mockResolvedValue({ kind: 'claim', uid: 'uid-acct', username: 'uttam' });
+    fr.needsAccountUpgrade.mockResolvedValue({ kind: 'claim', uid: 'uid-acct', username: OTHER_USER });
     await mountAdmitted();
     expect(at('token-gate-new-password')).not.toBeNull();
     expect(at('token-gate-later')).toBeNull();
     await claim();
     expect(fr.signInWithPassword).not.toHaveBeenCalled();
     expect(log).toEqual(['changePassword', 'writeLink']);
-    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', { username: 'uttam', accountId: DEVICE });
+    expect(fr.writeAccountLink).toHaveBeenCalledWith('uid-acct', { username: OTHER_USER, accountId: DEVICE });
     expect(reload()).toHaveBeenCalledTimes(1);
   });
 
@@ -494,7 +498,7 @@ describe('upgrade: a device admitted before passwords (anonymous session)', () =
   });
 
   it('a stale session on resume sends the user back to log in, with nothing written', async () => {
-    fr.needsAccountUpgrade.mockResolvedValue({ kind: 'claim', uid: 'uid-acct', username: 'uttam' });
+    fr.needsAccountUpgrade.mockResolvedValue({ kind: 'claim', uid: 'uid-acct', username: OTHER_USER });
     fr.changePassword.mockRejectedValueOnce(
       Object.assign(new Error('x'), { code: 'auth/requires-recent-login' }),
     );
@@ -518,8 +522,8 @@ describe('create retry after a failed users/{uid} write', () => {
   it('finishes the SAME Auth user even if the username was edited in between', async () => {
     fr.writeAccountLink.mockRejectedValueOnce(new Error('offline'));
     await open('landing-cta-create');
-    await type('token-gate-name', 'Powan');
-    await type('token-gate-username', 'powan');
+    await type('token-gate-name', NAME);
+    await type('token-gate-username', USER);
     await type('token-gate-password', 'longenough');
     await submit();
     expect(errorText()).toMatch(/could not reach your account/);
@@ -529,7 +533,7 @@ describe('create retry after a failed users/{uid} write', () => {
     await submit();
     expect(fr.createPasswordAccount).toHaveBeenCalledTimes(1);
     expect(fr.writeAccountLink).toHaveBeenLastCalledWith('uid-new', {
-      username: 'powan',
+      username: USER,
       accountId: expect.any(String),
     });
     expect(replace).toHaveBeenCalledTimes(1);

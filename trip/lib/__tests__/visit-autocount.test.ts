@@ -48,8 +48,8 @@ const KATHMANDU = { latitude: 27.7172, longitude: 85.324 };
  */
 async function load({ today, signedIn = true }: { today: string; signedIn?: boolean }) {
   if (signedIn) {
-    window.localStorage.setItem('tripPlannerToken', 'Powan');
-    window.localStorage.setItem('tripPlannerUserName', 'Powan');
+    window.localStorage.setItem('tripPlannerToken', 'Alex');
+    window.localStorage.setItem('tripPlannerUserName', 'Alex');
   }
   window.sessionStorage.removeItem(TODAY_KEY); // no `?today=` override — the real (faked) clock
   vi.useFakeTimers({ toFake: ['Date'] });
@@ -213,8 +213,8 @@ describe('day-arrival counting — the itinerary credits a city once its day has
   });
 
   it('a `?today=` demo override writes nothing to the lifetime visit set (#590)', async () => {
-    window.localStorage.setItem('tripPlannerToken', 'Powan');
-    window.localStorage.setItem('tripPlannerUserName', 'Powan');
+    window.localStorage.setItem('tripPlannerToken', 'Alex');
+    window.localStorage.setItem('tripPlannerUserName', 'Alex');
     window.sessionStorage.setItem(TODAY_KEY, '2026-12-20'); // the real override path, not a faked clock
     vi.resetModules();
     const { runVisitAutocount } = await import('@/lib/visit-autocount');

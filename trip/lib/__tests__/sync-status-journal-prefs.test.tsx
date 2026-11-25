@@ -10,7 +10,7 @@ const gate = vi.hoisted(() => ({
   online: false,
   deny: false,
   calls: 0,
-  traveler: { name: 'Powan' } as { name: string } | null,
+  traveler: { name: 'Alex' } as { name: string } | null,
 }));
 vi.mock('framer-motion', async () => {
   const React = await import('react');
@@ -63,7 +63,7 @@ describe('sync badge counts journal and prefs queues (#753)', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    Object.assign(gate, { online: false, deny: false, calls: 0, traveler: { name: 'Powan' } });
+    Object.assign(gate, { online: false, deny: false, calls: 0, traveler: { name: 'Alex' } });
     setSyncCode('tok-1');
   });
 
@@ -96,7 +96,7 @@ describe('sync badge counts journal and prefs queues (#753)', () => {
     expect(journalDirty(getActiveTripId()) + personPrefsDirty()).toBe(2);
     gate.traveler = null;
     expect(render().current.pending).toBe(0);
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
     setSyncCode('');
     expect(render().current.pending).toBe(0);
   });

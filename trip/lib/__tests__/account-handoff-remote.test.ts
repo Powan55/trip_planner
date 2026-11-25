@@ -59,7 +59,7 @@ vi.mock('@/lib/firebase-remote', () => ({
     uid: 'uid-B',
   }),
   readAccountLink: async (uid: string) =>
-    uid === 'uid-A' ? { username: 'powan', accountId: 'acct-1' } : null,
+    uid === 'uid-A' ? { username: 'alex', accountId: 'acct-1' } : null,
   signInWithPassword: async () => (fake.log.push('swap'), 'uid-A'),
 }));
 vi.mock('@/core/trips/registry', () => ({
@@ -87,8 +87,8 @@ beforeEach(() => {
 
 describe('signInWithHandoff', () => {
   it('grants A the role B holds on known and listed trips, then swaps the session', async () => {
-    const out = await signInWithHandoff('powan@accounts.trip-planner.invalid', 'right-pass');
-    expect(out).toEqual({ uid: 'uid-A', link: { username: 'powan', accountId: 'acct-1' } });
+    const out = await signInWithHandoff('alex@accounts.trip-planner.invalid', 'right-pass');
+    expect(out).toEqual({ uid: 'uid-A', link: { username: 'alex', accountId: 'acct-1' } });
     expect(fake.log[0]).toBe('secondary signin');
     expect(fake.log.at(-1)).toBe('swap');
     expect(fake.log.slice(1, -1).sort()).toEqual([

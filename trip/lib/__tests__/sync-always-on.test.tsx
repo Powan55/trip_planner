@@ -32,7 +32,7 @@ vi.mock('@/lib/firebase-config', () => ({
 }));
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: SHARED_TRIP_USERNAMES[0] }) };
 });
 vi.mock('@/hooks/use-presence', () => ({ usePresence: () => [] }));
 vi.mock('firebase/app', () => ({
@@ -65,7 +65,7 @@ vi.mock('firebase/auth', () => ({
 }));
 
 import { getRemote, getSharedRemote, SignInRequiredError } from '@/lib/firebase-remote';
-import { SHARED_TRIP_ID } from '@/lib/shared-trip';
+import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 import { redeemInvite } from '@/lib/invites-remote';
 import { fetchTripMeta } from '@/lib/trips-remote';
 import { withOutbox, flushOutbox, outboxDirty, outboxBlocked, type ChunkSync } from '@/core/sync/outbox';
@@ -74,7 +74,7 @@ import { STORAGE_KEYS } from '@/core/storage/gateway';
 import SyncStatusBadge from '@/components/sync-status-badge';
 
 const ANON = { uid: 'anon-uid' };
-const SIGNED_IN = { uid: 'acct-uid', email: 'powan@accounts.trip-planner.invalid' };
+const SIGNED_IN = { uid: 'acct-uid', email: `${SHARED_TRIP_USERNAMES[0].toLowerCase()}@accounts.trip-planner.invalid` };
 
 type State = Record<string, number>;
 const pushed: string[] = [];

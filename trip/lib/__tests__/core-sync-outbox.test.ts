@@ -17,7 +17,7 @@ import type { StoragePort } from '@/core/ports';
 // Controllable gates: the outbox reads isRemoteConfigured() + getActiveTraveler() through these.
 const gate = vi.hoisted(() => ({
   remoteOn: true,
-  traveler: { name: 'Powan', token: 'Powan', accent: '#000' } as { name: string } | null,
+  traveler: { name: 'Alex', token: 'Alex', accent: '#000' } as { name: string } | null,
 }));
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
@@ -113,7 +113,7 @@ beforeEach(async () => {
   } = await import('@/core/sync/outbox'));
   localStorage.clear();
   gate.remoteOn = true;
-  gate.traveler = { name: 'Powan' };
+  gate.traveler = { name: 'Alex' };
 });
 
 afterEach(() => {
@@ -399,7 +399,7 @@ describe('DORMANT / GUEST — the slot is NEVER written (D-038 / D-055)', () => 
     await flushOutbox(h.cs, storage); // gated off → no drain
     expect(outboxDirty('itinerary')).toEqual(['d1']); // entries kept
 
-    gate.traveler = { name: 'Powan' }; // sign back in
+    gate.traveler = { name: 'Alex' }; // sign back in
     await flushOutbox(h.cs, storage); // resumes
     expect(outboxDirty('itinerary')).toEqual([]);
   });
@@ -582,7 +582,7 @@ describe('#267 — a rules refusal is permanent, a transport failure is not', ()
 
     gate.traveler = null; // guest (D-055)
     expect(outboxBlocked()).toBe(0);
-    gate.traveler = { name: 'Powan' };
+    gate.traveler = { name: 'Alex' };
 
     gate.remoteOn = false; // dormant (D-038)
     expect(outboxBlocked()).toBe(0);

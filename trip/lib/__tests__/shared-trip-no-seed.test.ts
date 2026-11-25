@@ -5,7 +5,7 @@
 // other trip it still happens (the control that makes the assertion mean something).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { SHARED_TRIP_ID } from '@/lib/shared-trip';
+import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/lib/shared-trip';
 
 const gate = vi.hoisted(() => ({ tripId: '' }));
 
@@ -17,7 +17,7 @@ vi.mock('@/lib/firebase-config', () => ({
 }));
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: SHARED_TRIP_USERNAMES[0], token: SHARED_TRIP_USERNAMES[0], accent: '#000' }) };
 });
 
 type Listener = { kind: 'doc' | 'collection'; path: string; next: (snap: unknown) => void };

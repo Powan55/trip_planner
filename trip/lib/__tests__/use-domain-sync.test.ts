@@ -24,7 +24,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
   return {
     ...orig,
-    getActiveTraveler: () => (auth.signedIn ? { name: 'Powan', token: 'Powan', accent: '#000' } : null),
+    getActiveTraveler: () => (auth.signedIn ? { name: 'Alex', token: 'Alex', accent: '#000' } : null),
   };
 });
 

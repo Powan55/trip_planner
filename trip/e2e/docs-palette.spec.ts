@@ -8,7 +8,7 @@ import { openPalette } from './fixtures';
  * "Documents" entry in the "More" group navigates to /checklist on a real run.
  */
 
-async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
+async function gotoAsTraveler(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

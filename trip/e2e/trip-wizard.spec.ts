@@ -21,8 +21,8 @@ const NJ_TITLE = 'Boudhanath'; // a real Nepal-leg itinerary item title (core/co
 async function seedTraveler(page: Page) {
   await page.addInitScript(
     ({ tour }: { tour: string }) => {
-      window.localStorage.setItem('tripPlannerToken', 'Powan');
-      window.localStorage.setItem('tripPlannerUserName', 'Powan');
+      window.localStorage.setItem('tripPlannerToken', 'Alex');
+      window.localStorage.setItem('tripPlannerUserName', 'Alex');
       window.localStorage.setItem(tour, '1');
     },
     { tour: TOUR_SEEN },

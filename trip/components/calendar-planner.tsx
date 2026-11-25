@@ -852,7 +852,7 @@ export default function CalendarPlanner() {
    * Reported: *"when i click on the filter by name all everything thats not related to that person
    * should dessipear from the calander"*. Before this, exactly one consumer (the day list)
    * filtered, and every other piece of calendar chrome read the day straight off the store — so
-   * "Sushil" showed 2 rows under a pill that said "7 items", a month grid with 7 dots, and a map
+   * "Rina" showed 2 rows under a pill that said "7 items", a month grid with 7 dots, and a map
    * plotting all 7.
    *
    * The fix is ONE filtered accessor, not seven guards. Every calendar surface already derives its

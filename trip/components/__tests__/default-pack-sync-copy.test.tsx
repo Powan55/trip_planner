@@ -51,8 +51,8 @@ async function mount(el: React.ReactElement): Promise<void> {
 
 beforeEach(() => {
   window.localStorage.clear();
-  window.localStorage.setItem('tripPlannerToken', 'Uttam');
-  window.localStorage.setItem('tripPlannerUserName', 'Uttam');
+  window.localStorage.setItem('tripPlannerToken', 'Sam');
+  window.localStorage.setItem('tripPlannerUserName', 'Sam');
   window.localStorage.setItem('tripPlannerSyncCode', 'already-has-one');
   gate.configured = true;
   gate.shareId = 'shared-id';

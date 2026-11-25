@@ -35,7 +35,7 @@ vi.mock('@/lib/firebase-config', () => ({
 
 type IdentityRead = import('@/lib/trips-remote').AccountIdentityRead;
 const MISSING: IdentityRead = { status: 'missing' };
-const POWAN: IdentityRead = { status: 'exists', name: 'Powan' };
+const ALEX: IdentityRead = { status: 'exists', name: 'Alex' };
 const fetchAccountIdentityMock = vi.fn<(code: string) => Promise<IdentityRead>>(
   async () => MISSING,
 );
@@ -100,7 +100,7 @@ describe('branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
   it("THE DEFECT: a device that logged in as the placeholder adopts the account's real name", async () => {
     setSyncCode(CODE);
     signIn(DEFAULT_TRAVELER_NAME); // exactly what token-gate's handleLogin leaves behind
-    fetchAccountIdentityMock.mockResolvedValue(POWAN);
+    fetchAccountIdentityMock.mockResolvedValue(ALEX);
 
     const cleanup = runAccountIdentitySync();
     await flush();
@@ -108,34 +108,34 @@ describe('branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
 
     expect(fetchAccountIdentityMock).toHaveBeenCalledTimes(1);
     expect(fetchAccountIdentityMock).toHaveBeenCalledWith(CODE);
-    expect(getUserName()).toBe('Powan');
+    expect(getUserName()).toBe('Alex');
     // TRAP 1: `signIn`, never a bare `setUserName` — the NAME slot (what attribution stamps) and the
     // TOKEN slot (what getActiveTraveler displays) must agree, or the app shows one and stamps another.
-    expect(getActiveTraveler()?.name).toBe('Powan');
+    expect(getActiveTraveler()?.name).toBe('Alex');
     expect(getUserName()).toBe(getActiveTraveler()?.name);
     // An adopt never publishes.
     expect(pushAccountIdentityMock).not.toHaveBeenCalled();
   });
 
-  it('CONFLICT: device holds "Sora", remote says "Powan" ⇒ remote wins', async () => {
+  it('CONFLICT: device holds "Sora", remote says "Alex" ⇒ remote wins', async () => {
     setSyncCode(CODE);
     signIn('Sora');
-    fetchAccountIdentityMock.mockResolvedValue(POWAN);
+    fetchAccountIdentityMock.mockResolvedValue(ALEX);
 
     const cleanup = runAccountIdentitySync();
     await flush();
     cleanup();
 
     expect(fetchAccountIdentityMock).toHaveBeenCalledTimes(1);
-    expect(getUserName()).toBe('Powan');
-    expect(getActiveTraveler()?.name).toBe('Powan');
+    expect(getUserName()).toBe('Alex');
+    expect(getActiveTraveler()?.name).toBe('Alex');
     expect(pushAccountIdentityMock).not.toHaveBeenCalled();
   });
 
   it('remote === local ⇒ no write, no identity churn', async () => {
     setSyncCode(CODE);
-    signIn('Powan');
-    fetchAccountIdentityMock.mockResolvedValue(POWAN);
+    signIn('Alex');
+    fetchAccountIdentityMock.mockResolvedValue(ALEX);
     const identityEvents = vi.fn();
     window.addEventListener('identity:changed', identityEvents);
 
@@ -147,7 +147,7 @@ describe('branch 1 — remote present ⇒ ADOPT (remote wins)', () => {
     expect(fetchAccountIdentityMock).toHaveBeenCalledTimes(1);
     expect(pushAccountIdentityMock).not.toHaveBeenCalled();
     expect(identityEvents).not.toHaveBeenCalled();
-    expect(getUserName()).toBe('Powan');
+    expect(getUserName()).toBe('Alex');
   });
 });
 
@@ -249,7 +249,7 @@ describe('sign-out safety (trap 4 — D-240s bug class)', () => {
     signOut(); // the user signs out mid-read
     expect(getActiveTraveler()).toBeNull();
 
-    resolveFetch(POWAN); // the read lands late, for an identity that no longer exists
+    resolveFetch(ALEX); // the read lands late, for an identity that no longer exists
     await flush();
     cleanup();
 
@@ -273,7 +273,7 @@ describe('sign-out safety (trap 4 — D-240s bug class)', () => {
     await flush();
     cleanup(); // provider unmounted
 
-    resolveFetch(POWAN);
+    resolveFetch(ALEX);
     await flush();
 
     expect(getUserName()).toBe('Sora'); // unchanged — the late adopt was cancelled
@@ -286,14 +286,14 @@ describe('the "signed in as Traveler" nudge is now CONDITIONAL', () => {
     setSyncCode(CODE);
     signIn(DEFAULT_TRAVELER_NAME);
     sessionStorage.setItem('name-hint', '1');
-    fetchAccountIdentityMock.mockResolvedValue(POWAN);
+    fetchAccountIdentityMock.mockResolvedValue(ALEX);
 
     const cleanup = runAccountIdentitySync();
     await flush();
     cleanup();
 
     expect(toastMock).not.toHaveBeenCalled();
-    expect(getUserName()).toBe('Powan');
+    expect(getUserName()).toBe('Alex');
   });
 
   it('fires on branch 3, where the placeholder really is the final answer', async () => {
@@ -360,10 +360,10 @@ describe('useAuthorFilter refreshes myName on identity:changed', () => {
     expect(hook.myName()).toBe('Traveler');
 
     act(() => {
-      signIn('Powan'); // what the reconciler's adopt does — fires identity:changed
+      signIn('Alex'); // what the reconciler's adopt does — fires identity:changed
     });
 
-    expect(hook.myName()).toBe('Powan');
+    expect(hook.myName()).toBe('Alex');
     hook.unmount();
   });
 });

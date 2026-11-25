@@ -19,8 +19,8 @@ const TOUR_SEEN = 'nepal_japan_first_run_tour_seen';
 async function seedCustomTrip(page: Page) {
   await page.addInitScript(
     ({ token, tour }: { token: string; tour: string }) => {
-      window.localStorage.setItem('tripPlannerToken', 'Powan');
-      window.localStorage.setItem('tripPlannerUserName', 'Powan');
+      window.localStorage.setItem('tripPlannerToken', 'Alex');
+      window.localStorage.setItem('tripPlannerUserName', 'Alex');
       window.localStorage.setItem(tour, '1');
       window.localStorage.setItem('tripPlannerActiveTrip', token);
       window.localStorage.setItem(

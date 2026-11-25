@@ -264,11 +264,11 @@ describe('prior names (D-601)', () => {
     identityStore.addPriorName('Pow');
     await syncPriorNames();
     asDevice('uid-b');
-    identityStore.setName('Powan');
+    identityStore.setName('Alex');
     const item = { id: 'x', createdBy: 'Pow' } as unknown as ItineraryItem;
-    expect(itemMatchesAuthor(item, { kind: 'mine' }, 'Powan', identityStore.getPriorNames())).toBe(false);
+    expect(itemMatchesAuthor(item, { kind: 'mine' }, 'Alex', identityStore.getPriorNames())).toBe(false);
     await syncPriorNames();
-    expect(itemMatchesAuthor(item, { kind: 'mine' }, 'Powan', identityStore.getPriorNames())).toBe(true);
+    expect(itemMatchesAuthor(item, { kind: 'mine' }, 'Alex', identityStore.getPriorNames())).toBe(true);
   });
 
   it('never drops what the account holds, and stops growing at the cap', async () => {

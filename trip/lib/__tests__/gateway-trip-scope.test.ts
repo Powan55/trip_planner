@@ -279,12 +279,12 @@ describe('wipeAllTripData — the sign-out teardown clears BOTH trip-scoped name
   });
 
   it('does NOT touch identity or anything else unrelated (the caller, signOut(), clears identity itself)', () => {
-    window.localStorage.setItem(STORAGE_KEYS.token, 'Powan');
-    window.localStorage.setItem(STORAGE_KEYS.userName, 'Powan');
+    window.localStorage.setItem(STORAGE_KEYS.token, 'Alex');
+    window.localStorage.setItem(STORAGE_KEYS.userName, 'Alex');
     window.localStorage.setItem(STORAGE_KEYS.firstRunTour, '1');
     wipeAllTripData();
-    expect(window.localStorage.getItem(STORAGE_KEYS.token)).toBe('Powan');
-    expect(window.localStorage.getItem(STORAGE_KEYS.userName)).toBe('Powan');
+    expect(window.localStorage.getItem(STORAGE_KEYS.token)).toBe('Alex');
+    expect(window.localStorage.getItem(STORAGE_KEYS.userName)).toBe('Alex');
     expect(window.localStorage.getItem(STORAGE_KEYS.firstRunTour)).toBe('1');
   });
 

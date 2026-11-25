@@ -14,7 +14,7 @@ vi.mock('@/lib/itinerary-ports', async (importOriginal) => {
 });
 vi.mock('@/lib/token-auth', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/lib/token-auth')>();
-  return { ...orig, getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }) };
+  return { ...orig, getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }) };
 });
 
 import { mergeDays } from '@/core/sync/merge-day';
@@ -46,37 +46,37 @@ beforeEach(() => {
 });
 
 describe('detectLosses', () => {
-  const mine = [day([item('a', 'Mine', 100, 'Powan')])];
-  const theirs = [day([item('a', 'Theirs', 200, 'Uttam')])];
+  const mine = [day([item('a', 'Mine', 100, 'Alex')])];
+  const theirs = [day([item('a', 'Theirs', 200, 'Sam')])];
 
   it('records the same loss whichever way the merge was folded', () => {
-    const ab = detectLosses(mine, mergeDays(mine, theirs), 'Powan', 't');
-    const ba = detectLosses(mine, mergeDays(theirs, mine), 'Powan', 't');
+    const ab = detectLosses(mine, mergeDays(mine, theirs), 'Alex', 't');
+    const ba = detectLosses(mine, mergeDays(theirs, mine), 'Alex', 't');
     expect(ab).toEqual(ba);
-    expect(ab).toEqual([{ itemId: 'a', date: DATE, loserFields: { title: 'Mine' }, winnerActor: 'Uttam', at: 't' }]);
+    expect(ab).toEqual([{ itemId: 'a', date: DATE, loserFields: { title: 'Mine' }, winnerActor: 'Sam', at: 't' }]);
   });
 
   it('records nothing when my own edit wins, or when the other side lost', () => {
-    expect(detectLosses(theirs, mergeDays(theirs, mine), 'Powan', 't')).toEqual([]);
-    expect(detectLosses(mine, mergeDays(mine, [day([item('a', 'Old', 50, 'Uttam')])]), 'Powan', 't')).toEqual([]);
+    expect(detectLosses(theirs, mergeDays(theirs, mine), 'Alex', 't')).toEqual([]);
+    expect(detectLosses(mine, mergeDays(mine, [day([item('a', 'Old', 50, 'Sam')])]), 'Alex', 't')).toEqual([]);
   });
 
   it('ignores a value stamped by someone else, even when a third person wins', () => {
-    const uttam = [day([item('a', 'Uttam', 100, 'Uttam')])];
-    const sushil = [day([item('a', 'Sushil', 200, 'Sushil')])];
-    expect(detectLosses(uttam, mergeDays(uttam, sushil), 'Powan', 't')).toEqual([]);
+    const sam = [day([item('a', 'Sam', 100, 'Sam')])];
+    const rina = [day([item('a', 'Rina', 200, 'Rina')])];
+    expect(detectLosses(sam, mergeDays(sam, rina), 'Alex', 't')).toEqual([]);
   });
 
   it('stores the whole group, null for an absent key', () => {
     const t = (pt: number, actor: string, extra: Partial<ItineraryItem>) => [day([item('a', 'T', pt, actor, extra)])];
-    const local = t(100, 'Powan', { time: '9am' });
-    const merged = mergeDays(local, t(200, 'Uttam', { time: '10am', startMinutes: 600 }));
-    expect(detectLosses(local, merged, 'Powan', 't')[0].loserFields).toEqual({ time: '9am', startMinutes: null });
+    const local = t(100, 'Alex', { time: '9am' });
+    const merged = mergeDays(local, t(200, 'Sam', { time: '10am', startMinutes: 600 }));
+    expect(detectLosses(local, merged, 'Alex', 't')[0].loserFields).toEqual({ time: '9am', startMinutes: null });
   });
 
   it('does not count a win by my own name from another device as a conflict', () => {
-    const other = [day([item('a', 'Phone', 300, 'Powan')])];
-    expect(detectLosses(mine, mergeDays(mine, other), 'Powan', 't')).toEqual([]);
+    const other = [day([item('a', 'Phone', 300, 'Alex')])];
+    expect(detectLosses(mine, mergeDays(mine, other), 'Alex', 't')).toEqual([]);
   });
 });
 
@@ -90,22 +90,22 @@ describe('store', () => {
 
   it('caps at the newest 50 and prunes entries whose item is gone', () => {
     const ids = Array.from({ length: MAX_CONFLICTS + 5 }, (_, i) => `i${i}`);
-    const local = [day(ids.map((id) => item(id, 'Mine', 100, 'Powan')))];
-    const merged = [day(ids.map((id) => item(id, 'Theirs', 200, 'Uttam')))];
-    recordConflicts(local, merged, 'Powan');
+    const local = [day(ids.map((id) => item(id, 'Mine', 100, 'Alex')))];
+    const merged = [day(ids.map((id) => item(id, 'Theirs', 200, 'Sam')))];
+    recordConflicts(local, merged, 'Alex');
     const list = listConflicts();
     expect(list).toHaveLength(MAX_CONFLICTS);
     expect(list[MAX_CONFLICTS - 1].itemId).toBe('i54');
 
-    const gone = [day(ids.slice(5).map((id) => item(id, 'Theirs', 200, 'Uttam')).map((i) => (i.id === 'i54' ? { ...i, deleted: true } : i)))];
-    recordConflicts(merged, gone, 'Powan');
+    const gone = [day(ids.slice(5).map((id) => item(id, 'Theirs', 200, 'Sam')).map((i) => (i.id === 'i54' ? { ...i, deleted: true } : i)))];
+    recordConflicts(merged, gone, 'Alex');
     const after = listConflicts().map((e) => e.itemId);
     expect(after).not.toContain('i54');
     expect(after).toHaveLength(MAX_CONFLICTS - 1);
   });
 
   it('dismiss drops one entry', () => {
-    recordConflicts([day([item('a', 'Mine', 1, 'Powan')])], [day([item('a', 'Theirs', 2, 'Uttam')])], 'Powan');
+    recordConflicts([day([item('a', 'Mine', 1, 'Alex')])], [day([item('a', 'Theirs', 2, 'Sam')])], 'Alex');
     dismissConflict('a');
     expect(listConflicts()).toEqual([]);
   });
@@ -113,7 +113,7 @@ describe('store', () => {
 
 async function restore(local: DayPlan[], remote: DayPlan[]) {
   const merged = mergeDays(local, remote);
-  recordConflicts(local, merged, 'Powan');
+  recordConflicts(local, merged, 'Alex');
   savePlans(merged);
   const ref: { current: ReturnType<typeof useItinerary> } = { current: null as never };
   const root = createRoot(document.createElement('div'));
@@ -132,19 +132,19 @@ async function restore(local: DayPlan[], remote: DayPlan[]) {
 describe('restoreConflict', () => {
   it('applies the loser fields as a fresh edit and forgets the entry', async () => {
     const { ok, restored } = await restore(
-      [day([item('a', 'Mine', 100, 'Powan')])],
-      [day([item('a', 'Theirs', 200, 'Uttam')])],
+      [day([item('a', 'Mine', 100, 'Alex')])],
+      [day([item('a', 'Theirs', 200, 'Sam')])],
     );
     expect(ok).toBe(true);
     expect(restored.title).toBe('Mine');
-    expect(restored.hlc! > stamp(200, 'Uttam')).toBe(true);
+    expect(restored.hlc! > stamp(200, 'Sam')).toBe(true);
     expect(listConflicts()).toEqual([]);
   });
 
   it('clears a key the lost group did not have', async () => {
     const { restored } = await restore(
-      [day([item('a', 'T', 100, 'Powan', { time: '9am' })])],
-      [day([item('a', 'T', 200, 'Uttam', { time: '10am', startMinutes: 600 })])],
+      [day([item('a', 'T', 100, 'Alex', { time: '9am' })])],
+      [day([item('a', 'T', 200, 'Sam', { time: '10am', startMinutes: 600 })])],
     );
     expect(restored.time).toBe('9am');
     expect(restored.startMinutes).toBeUndefined();

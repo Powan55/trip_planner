@@ -20,7 +20,7 @@ vi.mock('@/hooks/use-my-places', () => ({ useMyPlaces: () => ({ restoreMyPlaces:
 vi.mock('@/hooks/use-docs', () => ({ useDocs: () => ({ restoreDocsChecklist: vi.fn() }) }));
 vi.mock('@/hooks/use-expenses', () => ({ useExpenses: () => ({ restoreExpenses: vi.fn() }) }));
 vi.mock('@/lib/firebase-config', () => ({ isTripRemoteConfigured: () => gate.synced }));
-vi.mock('@/lib/token-auth', () => ({ getActiveTraveler: () => ({ name: 'Powan' }) }));
+vi.mock('@/lib/token-auth', () => ({ getActiveTraveler: () => ({ name: 'Alex' }) }));
 vi.mock('@/lib/itinerary-storage', () => ({ savePlans: vi.fn() }));
 vi.mock('@/lib/trip-backup', () => ({
   downloadTripBackup: vi.fn(),

@@ -19,7 +19,7 @@ import type { Page } from '@playwright/test';
 
 const A4 = { width: 794, height: 1123 };
 
-async function gotoPrint(page: Page, path: string, token = 'Powan') {
+async function gotoPrint(page: Page, path: string, token = 'Alex') {
   await page.addInitScript((t: string) => {
     window.localStorage.setItem('tripPlannerToken', t);
     window.localStorage.setItem('tripPlannerUserName', t);

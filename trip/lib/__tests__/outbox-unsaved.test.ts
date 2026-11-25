@@ -12,7 +12,7 @@ vi.mock('@/lib/firebase-config', () => ({
 }));
 vi.mock('@/lib/token-auth', async (orig) => ({
   ...(await orig<typeof import('@/lib/token-auth')>()),
-  getActiveTraveler: () => ({ name: 'Powan', token: 'Powan', accent: '#000' }),
+  getActiveTraveler: () => ({ name: 'Alex', token: 'Alex', accent: '#000' }),
 }));
 
 type State = Record<string, number>;

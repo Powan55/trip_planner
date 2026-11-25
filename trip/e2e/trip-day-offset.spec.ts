@@ -26,7 +26,7 @@ import type { Page } from '@playwright/test';
  * flights card.
  */
 
-const DEFAULT_TOKEN = 'Powan';
+const DEFAULT_TOKEN = 'Alex';
 
 /** Seed the default signed-in identity (mirrors e2e/fixtures.ts) on a fresh context. */
 async function seedDefaultIdentity(page: Page) {
@@ -48,8 +48,8 @@ async function seedCustomTrip(page: Page) {
   const token = '11111111-2222-4333-8444-555566667777';
   await page.addInitScript(
     ({ token, tour }: { token: string; tour: string }) => {
-      window.localStorage.setItem('tripPlannerToken', 'Powan');
-      window.localStorage.setItem('tripPlannerUserName', 'Powan');
+      window.localStorage.setItem('tripPlannerToken', 'Alex');
+      window.localStorage.setItem('tripPlannerUserName', 'Alex');
       window.localStorage.setItem(tour, '1');
       window.localStorage.setItem('tripPlannerActiveTrip', token);
       window.localStorage.setItem(

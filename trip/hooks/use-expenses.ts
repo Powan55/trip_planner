@@ -97,7 +97,7 @@ export interface ExpenseStore {
    * every transfer. The owner ruled "extend the claim to expenses", then narrowed it himself to
    * attribution-only after seeing that arithmetic — the narrowing is the ruling.
    * Note the field comment in `core/budget/expenses.ts` calls `paidBy`/`split` "TRAVELERS id":
-   * they are display-name STRINGS (`e2e/expenses.spec.ts` pins ['Powan','Sushil','Uttam']
+   * they are display-name STRINGS (`e2e/expenses.spec.ts` pins ['Alex','Rina','Sam']
    * literally), so a rename genuinely COULD reach them. That is exactly why it must not.
    *
    * Under sync we advance `rev`/`hlc` via the SAME `nextSyncStamp` fragment every other mutator

@@ -53,7 +53,7 @@ beforeEach(() => {
 describe('runTripMembership — when enrolment runs (#10)', () => {
   it('enrols the ACTIVE trip once for an identified traveler', async () => {
     setActiveTripId(TRIP);
-    signIn('Powan');
+    signIn('Alex');
 
     const cleanup = runTripMembership();
     await flush();
@@ -65,7 +65,7 @@ describe('runTripMembership — when enrolment runs (#10)', () => {
 
   it('never enrols on the local-only sample pack', async () => {
     setActiveTripId(DEFAULT_TRIP_ID);
-    signIn('Powan');
+    signIn('Alex');
 
     const cleanup = runTripMembership();
     await flush();
@@ -77,7 +77,7 @@ describe('runTripMembership — when enrolment runs (#10)', () => {
   it('enrols the shared default pack under its remote share id (D-595)', async () => {
     setActiveTripId(DEFAULT_TRIP_ID);
     setDefaultTripShareId('share-xyz');
-    signIn('Powan');
+    signIn('Alex');
 
     const cleanup = runTripMembership();
     await flush();
@@ -100,7 +100,7 @@ describe('runTripMembership — when enrolment runs (#10)', () => {
   it('never enrols on a dormant build', async () => {
     gate.on = false;
     setActiveTripId(TRIP);
-    signIn('Powan');
+    signIn('Alex');
 
     const cleanup = runTripMembership();
     await flush();
@@ -113,7 +113,7 @@ describe('runTripMembership — when enrolment runs (#10)', () => {
 describe('runTripMembership — a refusal is ONE actionable toast (#10)', () => {
   it('turns trip:access-pending into a single toast naming where to fix it', async () => {
     setActiveTripId(TRIP);
-    signIn('Powan');
+    signIn('Alex');
 
     const cleanup = runTripMembership();
     await flush();
@@ -130,7 +130,7 @@ describe('runTripMembership — a refusal is ONE actionable toast (#10)', () => 
 
   it('stops listening after the effect is cleaned up', async () => {
     setActiveTripId(TRIP);
-    signIn('Powan');
+    signIn('Alex');
 
     const cleanup = runTripMembership();
     await flush();

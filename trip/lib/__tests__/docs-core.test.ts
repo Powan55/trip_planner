@@ -115,7 +115,7 @@ describe('sanitizeItem', () => {
       note: 'expires 2028',
       rev: 3,
       hlc: '000000000005000:000000:me',
-      updatedBy: 'Powan',
+      updatedBy: 'Alex',
     });
     expect(r).toEqual({
       id: 'x',
@@ -125,7 +125,7 @@ describe('sanitizeItem', () => {
       note: 'expires 2028',
       rev: 3,
       hlc: '000000000005000:000000:me',
-      updatedBy: 'Powan',
+      updatedBy: 'Alex',
     });
   });
 
