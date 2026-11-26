@@ -1,14 +1,7 @@
 /**
- * Known-trips registry — the data layer that remembers every trip this browser has
- * created or joined, with a user-visible name. Backed by gateway key 26 (`tripPlannerKnownTrips`,
- * APP-SCOPED raw-string transport); ALL shape/sanitize/policy logic lives HERE.
- *
- * `joinTrip` is the ONE shared entry point every active-trip pointer write flows through, so no
- * future surface can switch trips without registering them. It does NOT reload — the caller
- * performs the full page reload.
- *
- * Trip NAME is local-only in this change (no Firestore sync). (/trips hub) and (home
- * trip strip) consume `listKnownTrips()`.
+ * Every trip this browser has created or joined. The gateway stores the raw string (key 26);
+ * shape, sanitizing and policy live here. `joinTrip` is the only way to switch the active trip,
+ * so every switch registers the trip. Callers reload afterwards.
  */
 import {
   DEFAULT_TRIP_ID,
@@ -30,37 +23,21 @@ import {
 } from '@/core/storage/gateway';
 import { outboxDirty, type SyncDomain } from '@/core/sync/outbox';
 import { sanitizePhotos } from '@/core/photos/model';
-// Type only — `lib/city-coords.ts` is a leaf module (no imports of its own), so this does not
-// pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
-// the trip's own record, never written into that shared table.
 import type { CityCoord } from '@/lib/city-coords';
 import { SHARED_TRIP_ID, SHARED_TRIP_USERNAMES } from '@/core/trips/shared-trip';
 
-/**
- * Per-trip user config for a CUSTOM (non-default-pack) trip. Lives INSIDE the
- * TripMeta entry (gateway key 26) — NO new storage key. `core/trips/custom.ts` synthesizes a
- * single-leg `TripConfig` from this. `updatedAt` is the config's own LWW stamp.
- */
+/** Config for a custom trip, stored inside its TripMeta entry. `updatedAt` is its LWW stamp. */
 export type TripConfigBlock = {
   start: string;
   end: string;
   destinations: string[];
   vibe: string;
   currency?: string;
-  /**
-   * #250 — one-shot geocoded coordinates for this trip's OWN destinations, keyed by the exact
-   * destination string. Populated lazily by `lib/city-geocode.ts` (Nominatim, via
-   * `lib/world-search.ts`'s existing throttled wrapper) after trip creation, never on the
-   * weather-fetch path. ADDITIVE + OPTIONAL — absent on every config that predates this field,
-   * and on any destination not yet resolved. This is the trip's own cache, not a second copy of
-   * `lib/city-coords.ts`'s shared table.
-   */
+  /** Geocoded coordinates per destination, filled lazily by lib/city-geocode.ts. Optional. */
   cityCoords?: Record<string, CityCoord>;
   /**
-   * #1052 — per-day city for a multi-destination trip: from `date` onward the city is `city`
-   * (verbatim one of `destinations`) until the next stop. Before the first stop, `destinations[0]`
-   * applies. ADDITIVE + OPTIONAL — absent on every config that predates it, and an old client just
-   * ignores it (every day is `destinations[0]`).
+   * Multi-city trips: from `date` on, the city is `city` (one of `destinations`). Before the first
+   * stop it's `destinations[0]`. Optional; older clients ignore it.
    */
   stops?: { date: string; city: string }[];
   updatedAt: number;
@@ -76,36 +53,22 @@ export type TripMeta = {
   config?: TripConfigBlock;
 };
 
-/**
- * A trip-forget tombstone. `id` is the forgotten trip's id; `removedAt` is the local
- * `Date.now()` at the moment of forgetting — the LWW stamp the Sync-Code merge compares against a
- * trip entry's own recency to decide "stay forgotten" vs "a re-join beats a stale tombstone".
- */
+/** Forget tombstone. A later re-join or rename beats `removedAt` in the merge. */
 export type RemovedTrip = { id: string; removedAt: number };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Inclusive day cap on a custom trip's span — the ONE source for both the validator below and the
- * create form (`components/trips-hub.tsx`), so the two cannot drift.
- *
- * There has to be a cap at all because every consumer treats the span as a length it materialises:
- * `TRIP_DATES` and `buildDayShells` produce one entry per day, ~15 components render one node per
- * entry, and `reconcileFirstSnapshot`'s seed branch pushes ONE FIRESTORE DOCUMENT PER DAY against a
- * free-tier write ceiling. A one-digit year typo (`2027` → `2227`) is 73k days, ~4.3 MB of shells,
- * and 73k writes. 730 is two years: past any real trip, and small enough that the worst case is
- * survivable rather than a wedged account.
+ * Max trip length in days, shared with the create form. Every day becomes a shell, rendered
+ * nodes and one Firestore document, so a year typo (2027 to 2227) would mean 73k writes.
  */
 export const TRIP_DAYS_MAX = 730;
 
 const DAY_MS = 86_400_000;
 
 /**
- * `YYYY-MM-DD` → UTC midnight ms, or `NaN` when the string is ISO-SHAPED but not a real day.
- * `ISO_DATE` alone accepts `2026-13-45`, which `new Date` silently rolls over to 2027-02-14 (or,
- * with the `T00:00:00` suffix the date backbone uses, becomes an Invalid Date and yields an EMPTY
- * `TRIP_DATES` — the state ~15 unguarded `TRIP_DATES[0]` readers crash on). The round-trip compare
- * is what distinguishes "a real day" from "digits in the right places".
+ * `YYYY-MM-DD` to UTC ms, or NaN for a shaped-but-unreal day like 2026-13-45, which `new Date`
+ * would roll over. The round-trip compare catches it.
  */
 function isoDayMs(iso: string): number {
   const [y, m, d] = iso.split('-').map(Number);
@@ -117,12 +80,8 @@ function isoDayMs(iso: string): number {
 }
 
 /**
- * Validate a stored/caller config block — returns a clean `TripConfigBlock` or `undefined` when
- * malformed (the ENTRY is kept, only its bad config is dropped — Plan D1). TOTAL, never throws.
- *
- * This is the trust boundary ALL FOUR config sources funnel through (create form, peer trip-meta
- * doc, synced trip list, hand-edited storage), so the real-date and span checks live here rather
- * than at any one of them.
+ * Clean config or undefined; the entry survives without it. Never throws. Every config source
+ * (form, peer doc, synced list, storage) passes through here, so the date checks live here.
  */
 export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
   if (raw === null || typeof raw !== 'object') return undefined;
@@ -178,23 +137,14 @@ function sanitizeStops(raw: unknown, destinations: string[]): TripConfigBlock['s
   return out.length > 0 ? out.slice(0, STOPS_MAX) : undefined;
 }
 
-/** Validate a raw `cityCoords` map: drop any entry whose key is empty or whose coordinate isn't a
- *  finite, in-range lat/lng. `undefined` when nothing survives, so an empty/malformed map never
- *  adds a bare `{}` to the sanitized block. TOTAL, never throws.
- *
- *  The bounds arithmetic is the same as `ranged` (core/vault/item-schema.ts), but the RULE is not,
- *  and merging them would be a bug: `ranged` blanks ONE OPTIONAL field and keeps its row, whereas
- *  `CityCoord` has no optional half — blanking a latitude here hands `lib/weather.ts` a coordinate
- *  with one side missing. So a bad number takes its whole city entry with it, and the other cities
- *  survive. */
+/** Drop entries with an empty key or an out-of-range lat/lng; undefined when none survive.
+ *  Unlike `ranged` in item-schema.ts, a bad number drops the whole city: half a coordinate is
+ *  useless to the weather lookup. */
 function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const out: Record<string, CityCoord> = {};
   for (const [city, v] of Object.entries(raw as Record<string, unknown>)) {
-    // `__proto__` arrives as a real own property out of `JSON.parse`, but assigning it hits the
-    // `Object.prototype` setter instead of defining a key, so a well-formed coord under that name
-    // would REPLACE the prototype of the map we return. Same skip, and the same reason, as the two
-    // loops in `core/budget/model.ts` (D-307 family) — this one was missing it (#439).
+    // JSON.parse yields `__proto__` as an own key; assigning it would replace the prototype.
     if (city === '__proto__') continue;
     if (!city.trim() || v === null || typeof v !== 'object') continue;
     const { latitude, longitude } = v as Record<string, unknown>;
@@ -210,32 +160,20 @@ function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined
 
 /** Default-pack display name (until renamed). */
 const DEFAULT_NAME = 'Nepal × Japan';
-/**
- * Fallback name for a trip registered without one (join-by-key, pre-registry self-heal).
- * Exported so the trip-meta self-heal (`lib/trips-remote.ts` caller) can tell "still the
- * placeholder" from "the user already renamed it" without duplicating the literal.
- */
+/** Placeholder name for a trip joined without one. Exported so callers can detect it. */
 export const SHARED_NAME = 'Shared trip';
 
-/**
- * Validate ONE raw entry into a clean `TripMeta`, or `undefined` when malformed. TOTAL, never throws.
- * Base entry is byte-identical to pre- (3 keys). The additive fields (`updatedAt`, `config`) are
- * attached ONLY when valid/present, so a config-less trip serializes to the exact same 3-key object
- * as before. Shared by the local-store parse below AND the remote-list merge (`mergeTripLists`).
- *
- * #476 — that sharing is why the id is shape-checked HERE and not only at the join: a synced list
- * is a trust boundary of its own. An entry merged in with an id like `A/B/C` never passes through
- * `joinTrip` or `getTripId()`, but `ensureKnownTripMemberships` maps it straight to
- * `doc(db, 'trips', 'A/B/C')` — an even segment count, so a VALID ref that does not throw — and the
- * members map then lands under a document the rules authorize against trip `A`. Dropping the entry
- * also retires the chip such a trip would otherwise draw in the hub, which no join could honour.
- */
 /** Read-boundary option, same shape/intent as `core/places/model.ts`'s (D-374): retain keys this
  *  build does not declare, so a merge-and-write-back never strips a newer client's field. */
 export interface SanitizeOptions {
   keepUnknownKeys?: boolean;
 }
 
+/**
+ * One raw entry to a clean TripMeta, or undefined. Never throws. Also used on synced lists, which
+ * is why the id is shape-checked here: an id like `A/B/C` would otherwise become a valid Firestore
+ * ref under trip A.
+ */
 export function sanitizeTripMetaEntry(e: unknown, opts: SanitizeOptions = {}): TripMeta | undefined {
   if (
     typeof e !== 'object' ||
@@ -321,21 +259,14 @@ export function listRemovedTrips(): RemovedTrip[] {
 }
 
 /**
- * A trip entry's recency for the tombstone race: the later of its rename stamp (`updatedAt`) and its
- * (re-)join stamp (`joinedAt`). A plain re-join goes through `upsertKnownTrip`, which stamps a fresh
- * `joinedAt` but NO `updatedAt` (stamping `updatedAt` on join would wrongly win name-LWW), so
- * `joinedAt` is the signal that "this trip was re-joined after the tombstone". Either beating
- * `removedAt` revives the trip.
+ * Later of rename and (re-)join time; beating `removedAt` revives the trip. Joins don't stamp
+ * `updatedAt` (it would win name LWW), so `joinedAt` is what marks a re-join.
  */
 function entryRecency(e: TripMeta): number {
   return Math.max(e.updatedAt ?? 0, e.joinedAt);
 }
 
-/**
- * Fold any number of raw tombstone lists into an id→removedAt map, LWW by `removedAt` (higher wins).
- * The DEFAULT pack is excluded in BOTH directions (it is never in the synced list, so it is never
- * tombstoned). Malformed entries are dropped (`sanitizeRemovedEntry`). Pure, no I/O.
- */
+/** Fold tombstone lists into id to removedAt, latest wins. The sample pack is never tombstoned. */
 function mergeRemovedSets(...lists: unknown[][]): Map<string, number> {
   const map = new Map<string, number>();
   for (const list of lists) {
@@ -351,11 +282,8 @@ function mergeRemovedSets(...lists: unknown[][]): Map<string, number> {
 }
 
 /**
- * Every trip this browser knows, default pack ALWAYS first (name `'Nepal × Japan'` unless
- * renamed — synthesized when not stored, so it needs no seeding). The default entry is the
- * LOCAL-ONLY SAMPLE (#10): it has no remote path and never syncs; it exists so every browser
- * opens onto something. Self-heals: an active trip missing from the list (joined before the
- * registry existed) is upserted as `'Shared trip'`.
+ * Every known trip, the local-only sample pack first (synthesized if not stored). An active trip
+ * missing from the list is added back as 'Shared trip'.
  */
 export function listKnownTrips(): TripMeta[] {
   const active = getActiveTripId();
@@ -374,12 +302,7 @@ export function getKnownTrip(id: string): TripMeta | undefined {
   return readStored().find((t) => t.id === id);
 }
 
-/**
- * #250 — the ACTIVE trip's own resolved coordinate for a city, or `undefined` when this trip has
- * none stored yet (a config-less/default trip, or a destination never geocoded). Callers
- * (`lib/weather.ts` via its `coordsOverride` param) fall back to `lib/city-coords.ts`'s static
- * table on `undefined` — this is the trip-specific override, never a second table of its own.
- */
+/** The active trip's geocoded coordinate for a city; callers fall back to lib/city-coords.ts. */
 export function getActiveTripCityCoord(city: string): CityCoord | undefined {
   const coords = getKnownTrip(getActiveTripId())?.config?.cityCoords;
   return coords && Object.prototype.hasOwnProperty.call(coords, city) ? coords[city] : undefined;
@@ -473,12 +396,8 @@ export function applyRemoteTripMeta(
 }
 
 /**
- * D-546 — the WIRE form of a default-pack share id. A share id and a pack id are both bare uuids,
- * so a token on its own cannot say which namespace it belongs to; every entrance resolved the
- * ambiguity the same wrong way, sending a `?trip=<shareId>` joiner through `joinTrip` into a
- * single-leg custom trip (`utcOffsetMin: 0` ⇒ `tripOffsetMinFor` null ⇒ NPT +345 / JST +540 lost,
- * `contentRef: 'empty'` ⇒ every guide gone). The prefix is transport only: it is stripped here and
- * never reaches a Firestore path.
+ * Marks a sample-pack share id on the wire (D-546). Share ids and trip ids are both bare uuids,
+ * so without it a shared sample pack would be joined as an empty custom trip. Never stored.
  */
 export const DEFAULT_SHARE_PREFIX = 'pack:';
 
@@ -520,24 +439,16 @@ export function isLegacyAccountKey(id: string): boolean {
   return LEGACY_ACCOUNT_KEYS.has(id.trim().toLowerCase());
 }
 
-/**
- * The inverse: the copyable/linkable form of a pack's remote token. `''` when the pack has no
- * remote path yet (the default pack before D-542's opt-in), which is what every share affordance
- * already disables itself on.
- */
+/** Shareable form of a pack's remote token; '' when it has no remote path yet. */
 export function formatShareToken(packId: string, remoteId: string): string {
   if (!remoteId) return '';
   return packId === DEFAULT_TRIP_ID ? `${DEFAULT_SHARE_PREFIX}${remoteId}` : remoteId;
 }
 
 /**
- * D-504 — true when `raw` names this device's own account key (`getSyncCode()`, the User Token).
- * That key is an account credential, never a trip capability (D-239), so `joinTrip` refuses it:
- * joined as a custom trip it would become a registry row and a Firestore path segment, and joined
- * as a `pack:` share id every share link would then print it. Compared on the PARSED id, so the
- * `pack:` prefix cannot smuggle it past, and case-folded, because a uuid pasted in capitals is
- * still the same key to whoever reads it. Callers that refuse on a `false` from `joinTrip` use
- * this to say which refusal it was: "your own key" is a different sentence from "unusable".
+ * True when `raw` is this device's own account key (D-504). It's a credential, not a trip
+ * (D-239), so joinTrip refuses it; joined, it would end up in share links. Compared on the parsed,
+ * case-folded id.
  */
 export function isOwnAccountToken(raw: string): boolean {
   const account = getSyncCode();
@@ -553,18 +464,11 @@ export const OWN_ACCOUNT_TOKEN_COPY =
   'That’s your own key. It signs you in and can’t be added as a trip. Ask whoever owns the trip for its Trip Token.';
 
 /**
- * THE shared switch primitive: resolve the token, then write the pointer it names.
- * Does NOT reload — the caller performs the full page reload.
+ * Resolve a token and point the browser at the trip it names. A sample-pack token sets the
+ * share id instead of registering a trip. Every entrance goes through here. Caller reloads.
  *
- * D-546 — a default-pack token sets the share id (D-542's mechanism, the same one the code-paste
- * dialog uses) and points the browser at the pack, instead of registering the share id as a trip
- * of its own. Every entrance routes through here, so the `?trip=` link, the front door's held
- * invitation, the handshake and both paste boxes agree by construction.
- *
- * RETURNS whether the switch actually landed. The gateway swallows a blocked/full-storage write by
- * contract, so a call returning is not evidence anything was stored; the pointer is read back
- * here rather than at each call site, where three of the five forgot to. It also returns `false`,
- * writing nothing, for an unusable token or this device's own account key (`isOwnAccountToken`).
+ * Returns whether the switch landed: the gateway swallows failed writes, so the pointer is read
+ * back here. False, with nothing written, for an unusable token or the device's own key.
  */
 export function joinTrip(id: string, name?: string): boolean {
   // A row this browser already holds stays switchable even if parseTripToken now refuses its id:
@@ -573,10 +477,8 @@ export function joinTrip(id: string, name?: string): boolean {
   const token: TripToken | null = existing ? { kind: 'custom', id: existing.id } : parseTripToken(id);
   if (!token || isOwnAccountToken(id)) return false;
   if (token.kind === 'default') {
-    // Only brings the browser back to the pack. The id is never written and nothing is dropped
-    // here: `lib/account-share.ts` moves a device onto the shared trip once the signed-in session
-    // can read it and the person has agreed to replace their plan.
-    // A link join after an earlier declined prompt lets it ask again this session.
+    // Only switches back to the pack; lib/account-share.ts moves onto the shared trip once the
+    // person agrees. A link join lets a declined prompt ask again.
     defaultShareReloadGuard.reset();
     setActiveTripId(DEFAULT_TRIP_ID);
     return getActiveTripId() === DEFAULT_TRIP_ID;
@@ -591,18 +493,15 @@ export const REPLACE_LOCAL_PLAN_COPY =
 
 const SYNC_DOMAINS: readonly SyncDomain[] = ['itinerary', 'expenses', 'budget', 'docs', 'places'];
 
-/** Confirm copy for `joinReplacesLocalPlan`, naming how many queued-but-unsynced edits the
- * default pack's outbox would drop (issue #526). Reads the default pack's own slot, not the
- * active trip's — the join box is reachable while a custom trip is active. */
+/** Confirm copy naming how many unsynced sample-pack edits would be dropped. Reads the pack's
+ * own slot, since a custom trip may be active. */
 export function replaceLocalPlanCopy(lead: string = REPLACE_LOCAL_PLAN_COPY): string {
   const n = SYNC_DOMAINS.reduce((sum, d) => sum + outboxDirty(d, DEFAULT_TRIP_ID).length, 0);
   if (n === 0) return lead;
   return `${lead} ${n} unsynced ${n === 1 ? 'edit' : 'edits'} on this device will be lost.`;
 }
 
-/** Total unsynced edits across every pack this browser knows (#623): sign-out's
- * `wipeAllTripData()` clears the default pack's outbox AND every `trip:{id}:syncOutbox`, not just
- * the active one, so the warning shown before that wipe sums `listKnownTrips()` the same way. */
+/** Unsynced edits across all known trips, since sign-out wipes every trip's outbox. */
 export function unsyncedEditCount(): number {
   const q = readTripSyncQueue(); // #1125: the wipe drops queued renames and the trip list too
   return listKnownTrips().reduce(
@@ -693,32 +592,14 @@ export function journalDirtyDates(id: string): string[] {
     .map(([d]) => d);
 }
 
-/**
- * Tombstone cap. The prior "grows unbounded" debt note proposed a purge pass keyed on
- * a device set this app doesn't track; a fixed cap needs none. Mirrors `PLACES_CAP`'s exact idiom
- * (`core/places/model.ts`'s `addPlace`): prepend-newest then `.slice(0, CAP)` on a newest-first
- * array — NOT a FIFO shift.
- */
+/** Tombstone cap; newest first, sliced. */
 const REMOVED_TRIPS_CAP = 200;
 
 /**
- * Forget a trip: drop it from the local known list AND record a tombstone (key 29), so
- * the Sync-Code merge purges it from the additive union instead of resurrecting it. This NEVER
- * deletes the trip's remote Firestore data — anyone with the link/key can still open it, and pasting
- * the key re-joins (a fresh `joinedAt` beats the stale tombstone). Does NOT reload:
- * - REFUSES `DEFAULT_TRIP_ID` (the main pack is never removable) — no-op.
- * - Forgetting the ACTIVE trip first switches the pointer to the default pack ( semantics: the
- * CALLER performs the reload), so the browser lands on a valid pack.
- * - A-10/#100: also sweeps every `trip:{id}:*` slot (`wipeTripData`) — a forgotten trip no longer
- * leaves its itinerary/expenses/budget/etc. on disk forever, and a dirty `syncOutbox` for that id
- * can never survive to replay stale local edits over the live remote on a later re-join.
- * - …AND that trip's photo BYTES. `wipeTripData` only sweeps localStorage, so it deletes the photo
- * meta index — the only thing naming those blob ids — while the blobs themselves sit in the
- * app-scoped IndexedDB forever, unreachable from every UI and still costing origin quota. The
- * index is read here BEFORE the wipe; the delete itself is fire-and-forget (this function is
- * synchronous and its callers reload). The blob store is imported DYNAMICALLY: this module is
- * pulled in by the date backbone, i.e. by every route, and IndexedDB code has no business on that
- * first-load chunk.
+ * Forget a trip locally and record a tombstone so the synced list doesn't bring it back. Remote
+ * data is untouched; re-joining beats the tombstone. No-op for the sample pack. Forgetting the
+ * active trip switches to the sample pack; caller reloads. Also wipes the trip's local slots
+ * (a stale outbox could otherwise replay on re-join) and its photo blobs.
  */
 export function removeKnownTrip(id: string): void {
   if (!id || id === DEFAULT_TRIP_ID) return;
@@ -730,11 +611,9 @@ export function removeKnownTrip(id: string): void {
 }
 
 /**
- * The wipe half of forgetting a trip — `trip:{id}:*` (`wipeTripData`) plus its photo BYTES —
- * shared by `removeKnownTrip` (a local forget) and `importRemoteTrips` (#518: a tombstone arriving
- * from another device dropped the entry from the list but left this exact data on disk forever,
- * because only the local-forget path ran it). Never call for `DEFAULT_TRIP_ID` — see
- * `removeKnownTrip`'s docblock for why the pack is never wiped.
+ * Wipes a forgotten trip's slots and photo blobs, for local forgets and synced tombstones alike.
+ * The photo index is read before the wipe; blob deletion is fire-and-forget and imported lazily
+ * to keep IndexedDB code off every route's first load. Never call for the sample pack.
  */
 function wipeForgottenTripData(id: string): void {
   const photoMeta = readJson<unknown>('local', keyForTrip(id, 'photos'), null);
@@ -747,26 +626,13 @@ function wipeForgottenTripData(id: string): void {
 }
 
 /**
- * Pure merge of two known-trips lists + their forget-tombstones for the Sync Code ( — no
- * I/O, unit-testable).
- *
- * - Union by id: a trip present on either side survives, UNLESS a tombstone forgets it (below).
- * - name/config conflicts resolve by `updatedAt` LWW: the higher stamp wins; a MISSING `updatedAt`
- * counts as 0, so it loses to any present stamp. On a tie, LOCAL wins (stable, no needless churn).
- * When remote wins, the merged entry keeps LOCAL's `joinedAt` (a per-device "when I joined" fact,
- * not a synced field).
- * - TOMBSTONES: the two removed-sets fold LWW by `removedAt` (`mergeRemovedSets`). A tombstoned
- * id is DROPPED from the union UNLESS the surviving entry's recency (`entryRecency` = the later of
- * `updatedAt`/`joinedAt`) is newer than `removedAt` — a re-join or post-forget rename beats a stale
- * tombstone, and that stale tombstone is then discarded from the merged removed-set.
- * - The DEFAULT pack is NEVER merged or tombstoned in either direction (it is the local-only
- * sample, synthesized locally on every browser — #10) — dropped from all four inputs.
- * - Malformed entries are dropped (re-sanitized via `sanitizeTripMetaEntry` / `sanitizeRemovedEntry`).
- *
- * `localHadExtras` is true when local held a (non-default) trip OR a tombstone the remote lacked — the
- * caller pushes the union back so the removal/addition propagates. `removed` is the merged tombstone
- * list to persist/push. `localRemoved`/`remoteRemoved` default to `[]` so an old-shape doc with no
- * `removed` field is tolerated.
+ * Pure merge of two trip lists and their tombstones.
+ * - Union by id. Name/config resolve by `updatedAt` (missing = 0, tie goes to local); `joinedAt`
+ *   always stays local.
+ * - A tombstoned id is dropped unless the entry is newer than `removedAt`, in which case the
+ *   tombstone is discarded.
+ * - The sample pack is stripped from all inputs.
+ * `localHadExtras` tells the caller to push the union back.
  */
 export function mergeTripLists(
   local: TripMeta[],
@@ -792,12 +658,8 @@ export function mergeTripLists(
     } else if ((e.updatedAt ?? 0) > (existing.updatedAt ?? 0)) {
       merged.set(e.id, { ...e, joinedAt: existing.joinedAt }); // remote newer → take name/config, keep local joinedAt
     } else if (opts.keepUnknownKeys) {
-      // Local wins (newer or a tie) on the DECLARED fields, but `local` is the strict-parsed
-      // read of local storage (#519 - the common case): without this, the remote's undeclared
-      // keys are dropped here even though the caller asked to retain them for the write-back.
-      // `id`/`name`/`joinedAt`/`updatedAt`/`config` are stripped off `e` first — those are
-      // DECLARED fields local already won on, so a remote value (e.g. a config local lacks)
-      // must not fill in behind the winner's back.
+      // Local won the declared fields, but keep the remote's unknown keys for the write-back.
+      // Declared fields are stripped first so a remote value can't fill in behind the winner.
       const { id: _id, name: _name, joinedAt: _joinedAt, updatedAt: _updatedAt, config: _config, ...unknown } = e;
       merged.set(e.id, { ...unknown, ...existing });
     }
@@ -818,19 +680,12 @@ export function mergeTripLists(
 }
 
 /**
- * Apply a remote known-trips list + its tombstones into local storage: merge, then
- * persist BOTH the trip list and the folded tombstone set. Preserves a stored (possibly renamed)
- * DEFAULT pack entry verbatim — `mergeTripLists` strips the default, so we re-attach the local one,
- * first, if present. Returns `localHadExtras` so the caller can push back. `remoteRemoved` defaults to
- * `[]` (old-shape doc tolerated).
+ * Merge a remote list into storage, keeping the local sample-pack entry. Returns
+ * `localHadExtras` for the push-back.
  *
- * An incoming tombstone for the ACTIVE trip also moves the pointer, exactly as `removeKnownTrip`
- * does for a local forget. Without it the forget undoes itself: the merge drops the entry but the
- * pointer keeps naming it, so the next `listKnownTrips()` self-heals the entry back in with a fresh
- * `joinedAt`, `entryRecency` then outranks `removedAt`, and the next merge deletes the tombstone and
- * re-pushes the trip to every device — including the one that forgot it. Moving the pointer removes
- * the state the self-heal reacts to, so no second guard is needed. As with `removeKnownTrip`, the
- * CALLER is responsible for reloading; the pack is re-resolved on the next load.
+ * A tombstone for the active trip also moves the pointer. Otherwise listKnownTrips would
+ * self-heal the entry with a fresh joinedAt, which beats the tombstone and resurrects the trip
+ * everywhere. Caller reloads.
  */
 export function importRemoteTrips(
   remote: TripMeta[],
@@ -849,10 +704,7 @@ export function importRemoteTrips(
   writeRemoved(removed);
   const active = getActiveTripId();
   if (removed.some((r) => r.id === active)) setActiveTripId(DEFAULT_TRIP_ID);
-  // #518 — a tombstone that arrived through THIS merge (not one already dropped before it) wipes
-  // the id's local data, same as a local forget. Scoped to ids that (a) actually had data here —
-  // `stored`, never the whole `merged` universe — and (b) are still gone AFTER the merge, so an id
-  // re-added in the same merge (a race-losing re-join) is never wiped.
+  // Wipe local data for trips this merge removed: only ids stored here and still gone after it.
   const mergedIds = new Set(merged.map((t) => t.id));
   for (const t of stored) {
     if (t.id === DEFAULT_TRIP_ID || mergedIds.has(t.id)) continue;

@@ -1,9 +1,6 @@
 'use client';
 
-// The maplibre-gl base stylesheet (positions the canvas, controls, popups). A
-// static side-effect import so Next/webpack bundles it with THIS component — and
-// since TripMap is only ever loaded via dynamic(ssr:false) from its host islands
-//, the CSS ships only on those routes.
+// Bundled with this lazily loaded component, so the CSS only ships on map routes.
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import {
@@ -61,12 +58,8 @@ import type {
 // for the lazy-loaded module and the popup helper.
 type MapLibreNS = typeof import('maplibre-gl');
 
-// ── Category presentation (icon + Tailwind classes), unchanged vocabulary ─────
-// Kept from the prior mock so the filter chips and popup badges stay in visual
-// sync with the palette. The GL marker fills come from CATEGORY_COLOR (raw hex,
-// in lib/map-style.ts) — same colors, different consumer. Exported so the /map
-// chrome (the filter chips in MapSection) shares the same table. ( deleted
-// the duplicate legend that used to render this table a second time.)
+// Category icon and classes for DOM chips and popups. The GL fills use CATEGORY_COLOR in
+// lib/map-style.ts; keep the two in step (map-category-mirror.test.ts checks).
 export const CATEGORY_STYLES: Record<
   MarkerCategory,
   { icon: LucideIcon; pin: string; badge: string }
@@ -91,10 +84,7 @@ export const CATEGORY_STYLES: Record<
     pin: 'bg-purple-500 text-white',
     badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
   },
-  // was cyan-500 — the SAME hue as the interactive signal (hsl 189), so a
-  // "Day Trip" chip could not be told from a focused control by hue. Moved to green-500 (142
-  // deg, 47 deg off the signal). MUST stay byte-in-sync with CATEGORY_COLOR in lib/map-style.ts
-  // (the GL paint layer) — that mirror is hand-synced with no compiler tie.
+  // Green, not cyan: cyan matched the focus/interactive hue.
   'Day Trip': {
     icon: Bus,
     pin: 'bg-green-500 text-surface',
@@ -119,23 +109,14 @@ const ITIN_SOURCE_ID = 'itinerary-route';
 // handler so every marker, route line and label paints on top of it.
 const VISITED_SOURCE_ID = 'visited-footprint';
 
-// 🔴 NOT the default camera — mislabelled for a long time, corrected in.
-// This is only the frame the Map is CONSTRUCTED with when there are NO markers to frame
-// (otherwise it is constructed on the markers' own box), and the frame that survives while the
-// marker set stays EMPTY. The moment `mapReady` flips, the marker-fit effect below (deps:
-// markers/mapReady/fitBounds, and `fitBounds` defaults true) refits to the visible markers.
-// So widening these bounds to "reach" a place looks like a fix and changes nothing visible —
-// what a place needs in order to be reachable is a way to ADDRESS it, not a
-// wider startup box.
+// Only used when there are no markers; otherwise the map fits the markers. Widening this
+// doesn't make a place reachable.
 const ALL_BOUNDS: LngLatBoundsLike = [
   [83.0, 27.0], // SW (west of Kathmandu Valley)
   [141.0, 36.5], // NE (east of Tokyo)
 ];
 
-// Read prefers-reduced-motion at call time. MapLibre camera moves branch
-// on this: flyTo/easeTo when motion is allowed, instant jumpTo when reduced.
-// Issue #24: the local copy is gone; the shared `prefersReducedMotion()` in
-// lib/motion.ts reads at call time too, so D-079's "at call time" property holds.
+// Camera moves use prefersReducedMotion() from lib/motion.ts, read at call time.
 
 // Build the GeoJSON FeatureCollection for the browse markers (the given set).
 function markersToGeoJSON(markers: MapMarker[]) {
@@ -154,22 +135,11 @@ function markersToGeoJSON(markers: MapMarker[]) {
   };
 }
 
-// camera offset (px, [x, y]) applied when a marker is centred for its popup.
-// Positive y seats the marker BELOW the container centre, leaving room ABOVE it for
-// the bottom-anchored popup so its top controls stay inside the shell / below the
-// fixed navbar. Sized for the tallest realistic popup after A5's 17px body bump.
+// Seats the marker below centre so the popup above it stays clear of the navbar.
 const POPUP_VIEW_OFFSET: [number, number] = [0, 150];
 
-// ── Popup content (React, portaled into the MapLibre popup node) ──────────────
-// Rendered via createPortal so it stays in TripMap's React tree (context flows
-// → AddToPlanButton works) while its DOM lives inside the in-canvas Popup.
-// `enableFavorite` gates the heart to the curated-place context only
-// (MapSection passes it; /plan's day-map does not). `useFavorites()` here is
-// the same flat gateway-key-14 store the guide cards use — raw
-// `marker.id` (`np-*`/`jp-*`) is provably disjoint from guide rec ids
-// (`na#`/`ja#`), so no namespacing is needed (see the id-disjointness guard
-// in lib/__tests__/use-favorites.test.ts).
-// a trip day option offered in the popup's "Anchor to a day" control.
+// Popup content is portaled into the MapLibre popup so React context still reaches it.
+// Marker ids and guide ids share the favorites store without clashing (use-favorites.test.ts).
 export interface AssignDayOption {
   date: string;
   /** e.g. "Day 1 · Tue, Dec 9". */
@@ -233,10 +203,7 @@ function MarkerPopupContent({
                 and takes the instrument's geometry around it. */}
             <span className={`chip ${style.badge}`}>{marker.category}</span>
           </div>
-          {/* `/40`→`/55` — axe
-              caught this pre-existing AA contrast fail (3.72:1) once a real E2E
-              scanned the popup with content OPEN for the first time (the earlier
-              /map axe pack never opens a popup, so this was never exercised). */}
+          {/* Area and country. */}
           <p className="pr pr--lo flex items-center gap-1 mb-1.5">
             <MapPin className="w-3 h-3 text-now" aria-hidden="true" />
             {marker.area} · {marker.country}
@@ -278,12 +245,8 @@ function MarkerPopupContent({
       </a>
       <AddToPlanButton source={marker} sourceType="map" accentColor="text-now" />
 
-      {/* "Anchor to a day" — assign this pin to a trip day so that day's stops
-          re-order by distance from it. THREE equivalent affordances (a11y floor):
-          the day <select> + Assign button is the keyboard AND touch path (HTML5 drag
-          never fires on touch); the drag handle is a desktop-pointer convenience that
-          drops onto the day strip (map-section.tsx). enableDayAssign gates the whole
-          block to /map — /plan's day-map omits it (like enablePopupFavorite). */}
+      {/* Anchor to a day. The select is the keyboard and touch path; HTML5 drag never fires
+          on touch, so the drag handle is a desktop extra. */}
       {enableDayAssign && assignDays && assignDays.length > 0 && (
         <div
           data-testid={`map-popup-assign-${marker.id}`}
@@ -339,13 +302,8 @@ function MarkerPopupContent({
   );
 }
 
-// ── /(b): the popup for a DRAWN ITINERARY STOP ──────────────────
-// A stop is not a curated place: it is one or more of the user's own plans, at a point that
-// was either asserted (a pin) or DERIVED (a district, the day's city). So it gets its own,
-// quieter popup — no Directions to a centroid, no "add this place to your plan" for a place
-// that is already in the plan, and no favourite heart on a synthesized marker.
-// The approximate note QUOTES ITS OWN SOURCE verbatim — the user can check the
-// claim — and the distinction is carried by an icon + words, so it survives greyscale.
+// Popup for a drawn itinerary stop. It's the user's own plan, maybe at a derived position, so
+// no directions, add-to-plan or favourite. An approximate position quotes the text it came from.
 function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
   const approximate = stop.placement.kind === 'approximate';
   const derivedFrom = stop.placement.kind === 'approximate' ? stop.placement.derivedFrom : '';
@@ -423,83 +381,29 @@ export function restorePopupFocus(
 // parent; the map instance lives here, so the parent asks us to resize).
 export interface TripMapHandle {
   resize: () => void;
-  /**
-   * search-within-map seam: fly the camera to `marker` (reduced-motion-aware
-   * — instant jump vs animated flyTo, mirroring the camera behavior already used
-   * for fitBounds/cluster-expand) then open its popup via the existing
-   * `openPopup`. The host is responsible for making the marker reachable first
-   * — the popup
-   * itself opens regardless, since it addresses the marker by lat/lng, not by a
-   * rendered map feature.
-   */
+  /** Fly to `marker` and open its popup (by lat/lng, so it opens even if not rendered). */
   focusMarker: (marker: MapMarker) => void;
   /**
-   * Issue #22 — fly the camera to a bare coordinate. NO popup, NO marker, no `MapMarker`
-   * anywhere in the call.
-   *
-   * 🔴 That is the whole point, not a shortcut. The caller is the world search, whose results are
-   * places the trip knows nothing about: they have no curated `area`, no `description`, and no
-   * real `country` — and `MapMarker.country`, rendered verbatim in the popup as "{area} ·
-   * {country}", is only ever legLabel(day.country)-derived or hand-authored curated content.
-   * Synthesising a marker for Reykjavík would have to invent one of those, which is D-271's
-   * defect class (a surface asserting something untrue) in one line. The popup would also offer
-   * "Add to plan", and `ItineraryDraft` carries no coordinate
-   * (D-280, deferred), so the point the user just picked would be dropped on the way into the
-   * itinerary and the item would re-place itself at the day's city centroid.
-   *
-   * So the camera moves and nothing claims to be a pin. Reduced-motion branches exactly like
-   * `focusMarker`; no `POPUP_VIEW_OFFSET`, because there is no popup to leave room for, so the
-   * place lands centred.
+   * Fly to a bare coordinate with no popup or marker. World-search results have no real area or
+   * country, so a synthesized marker would have to invent them (D-271).
    */
   flyToPoint: (lat: number, lng: number) => void;
 }
 
 export interface TripMapProps {
-  /**
-   * Curated markers to plot + cluster. /map passes the category-filtered set;
-   * /plan passes a single day's subset. Changing this re-sets the source
-   * (and, when `fitBounds`, re-fits the camera). Marker visibility is fully
-   * determined by this array — an open popup whose marker leaves the set closes.
-   */
+  /** Markers to plot and cluster. An open popup closes when its marker leaves the set. */
   markers: MapMarker[];
-  /**
-   * Ordered itinerary stops → the day-grouped route polyline + stops numbered by their
-   * per-day `seq`. Empty/undefined = no route drawn, which is how a day with nothing
-   * planned CLEARS the route (issue #1). /map passes the selected day's stops when "My
-   * itinerary" is on (the whole trip's when no day is selected); /plan passes one day and
-   * re-draws live on reorder
-   * (a prop change re-runs `setData` — cheap; no ITINERARY_CHANGED wiring here).
-   */
+  /** Ordered stops for the route line, numbered per day. Empty clears the route. */
   routeStops?: DayStop[];
-  /**
-   * Fired on an unclustered marker click, in addition to opening the popup.
-   * seam: /plan highlights the matching itinerary stop. /map omits it.
-   */
+  /** Fired on a marker click, as well as opening the popup. */
   onMarkerClick?: (marker: MapMarker) => void;
-  /**
-   * seam: marker id to visually EMPHASIZE (marker↔stop highlight). Consumed
-   * below by a `setPaintProperty` effect that fattens/gilds the matching browse
-   * marker + numbered route-stop. `undefined` (the /map case) leaves the effect a
-   * strict no-op, so /map stays byte-identical; `/plan` passes `string | null`.
-   */
+  /** Marker id to emphasize. `undefined` skips the paint effect entirely. */
   highlightId?: string | null;
-  /**
-   * seam: fired on every camera settle (`moveend`) + once on load, with the
-   * current center/zoom. `/plan` reflects it so an E2E can prove a reorder does
-   * NOT move the camera; `/map` omits it (the listener's optional-chain no-ops).
-   */
+  /** Fired on every camera settle and once on load. */
   onViewChange?: (view: { lng: number; lat: number; zoom: number }) => void;
-  /**
-   * seam: fired once the GL canvas is ready (style loaded, layers added). The
-   * /plan host uses it to gate its fit-then-release so the FIRST fit runs against a
-   * live map (the maplibre load is async — a wall-clock release races it). Inert on /map.
-   */
+  /** Fired once the style and layers are ready. */
   onReady?: () => void;
-  /**
-   * Auto-fit the camera to `markers` (and to `routeStops` on change). Default
-   * true — /map fits on filter/overlay change. can pass false to hold the
-   * camera still on reorder.
-   */
+  /** Auto-fit to markers and route changes. Default true; false holds the camera on reorder. */
   fitBounds?: boolean;
   /**
    * Frame these markers for the construct frame and the FIRST fit instead of all of `markers`,
@@ -507,74 +411,37 @@ export interface TripMapProps {
    * use `markers` as before. Empty/absent ⇒ `markers`.
    */
   initialFocus?: MapMarker[];
-  /**
-   * Surface the geolocate permission/error note to the host chrome (which owns
-   * where the banner renders). Called with a message on error, `null` on success.
-   */
+  /** Geolocate error message for the host to show; null on success. */
   onGeoNote?: (note: string | null) => void;
-  /**
-   * show a favorite/save heart in the popup (`MarkerPopupContent`).
-   * Default undefined/false. /map's `MapSection` passes `true` (curated
-   * places only); `/plan`'s day-map omits it, so the heart never
-   * shows there — the itinerary-derived day markers stay out of the
-   * favorites store entirely.
-   */
+  /** Favourite heart in the popup; curated places only. */
   enablePopupFavorite?: boolean;
-  /**
-   * show the "Anchor to a day" control in the marker popup (`MarkerPopupContent`).
-   * Default undefined/false. /map's `MapSection` passes `true` + the trip-day options +
-   * the assign callback; `/plan`'s day-map omits it, so the control never renders
-   * there. `onAssignDay` fires with (marker, dateISO) on the popup's Assign button.
-   */
+  /** "Anchor to a day" control in the popup. */
   enableDayAssign?: boolean;
   assignDays?: AssignDayOption[];
   onAssignDay?: (marker: MapMarker, date: string) => void;
   /**
-   * /(b): clicking a drawn itinerary stop opens a popup naming the plan(s) at
-   * that point and, when the position was DERIVED, the verbatim text it was derived from plus
-   * the way to fix it. /map's `MapSection` passes `true`. `/plan`'s day-map omits it — there
-   * the same points are already clickable browse markers (it feeds one array as both
-   * `markers` and `routeStops`), so registering this would open two popups for one click.
+   * Popup on drawn route stops. Off on /plan, which passes the same points as markers too and
+   * would get two popups per click.
    */
   enableStopPopup?: boolean;
-  /**
-   * pin-pick seam: while true the canvas is a coordinate picker — the cursor turns to
-   * a crosshair, marker/cluster clicks stop opening popups (a click on a pin must PLACE a
-   * pin, not browse one), and every click reports its lng/lat through `onMapClick`. Default
-   * undefined ⇒ browse behavior is byte-identical for every other consumer.
-   */
+  /** Coordinate picker: crosshair cursor, no popups, every click goes to `onMapClick`. */
   pickMode?: boolean;
   /** Fired with the clicked coordinate, ONLY while `pickMode` is on. */
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
   /**
-   * Issue #31 — the visited-footprint wash, one soft shape per country the visit record
-   * confirms. Empty/undefined draws nothing, which is what every consumer except `/map` does.
-   *
-   * 🔴 THESE ARE NOT NATIONAL BORDERS and the layers below must never be styled as though they
-   * were. Each ring is the padded convex hull of the cities you have actually been to
-   * (`lib/visited-footprint.ts`, which explains at length why no polygon dataset was added).
-   * The paint is deliberately a soft fill with a faint edge rather than a crisp outline — an
-   * outline reads as a boundary claim, and this is a wash over ground you covered. The host is
-   * responsible for saying so in words; `components/map-section.tsx` does.
+   * Visited-footprint wash per country. These are padded hulls of visited cities, not borders
+   * (lib/visited-footprint.ts), so they're painted as a soft fill, never a crisp outline.
    */
   countryFills?: CountryFootprint[];
 }
 
-// #596: TripMap is only ever mounted via dynamic(ssr:false) — no server render, no hydration
-// mismatch to guard against — so this reads the active trip directly, module-load, the same
-// pattern as `lib/leg-label.ts` and `components/wrapped-story.tsx`. Default pack ⇒ byte-identical
-// to the old literal.
+// Client-only component, so reading the active trip at module load is safe.
 const TRIP_MAP_ARIA_LABEL = `Interactive map of trip destinations across ${getActiveTrip()
   .legs.map((leg) => leg.countryLabel)
   .join(' and ')}`;
 
-// ── TripMap: the reusable MapLibre engine ─────────────────────────────────────
-// Owns the container, lazy maplibre-gl load, style/controls, the browse-marker
-// source/layers, the itinerary route source/layers, popups, and reduced-motion
-// camera behavior. It renders ONLY the map surface (canvas container + loading
-// skeleton); the host wrapper, fullscreen slot-swap and filters are the
-// consumer's chrome (see MapSection).: the maplibre runtime stays a lazy
-// chunk — the dynamic import below is the only entry point to it.
+// The MapLibre engine: markers, route, popups and camera. Hosts own the chrome (filters,
+// fullscreen). The dynamic import below is the only way maplibre-gl gets loaded.
 const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   {
     markers,
@@ -618,10 +485,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   const popupRef = useRef<MLPopup | null>(null);
   const popupElRef = useRef<HTMLElement | null>(null);
   const popupOpenerRef = useRef<HTMLElement | null>(null);
-  // The resolved maplibre-gl runtime module — stashed once the lazy
-  // import in the init effect resolves, so imperative callers (focusMarker)
-  // can reuse `openPopup` without re-importing or threading the module through
-  // every call site.
+  // The loaded maplibre module, for imperative callers like focusMarker.
   const mapLibreRef = useRef<MapLibreNS | null>(null);
 
   // Latest-value refs for props read inside the once-only init effect / stable
@@ -701,14 +565,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     el?.addEventListener('keydown', (e) => onPopupKeyDown(e, () => p.remove()));
     setPopupNode(holder);
     setPopupMarker(marker);
-    // seat the marker BELOW the container centre so the popup (anchored
-    // above the marker) opens fully inside the map-shell — clear of the shell's
-    // own `overflow-hidden` clip AND of the fixed navbar band. A5's 17px body grew
-    // the popup enough that a centred marker pushed its top controls (the favourite
-    // heart) above the shell/under the navbar, where they were click-intercepted.
-    // The offset is a LAYOUT correction, so reduced motion picks the DURATION, not
-    // whether the move happens — same shape as `focusMarker` below. Gating the whole
-    // call left reduced-motion users with a clipped close button and heart.
+    // Always move (it's a layout fix so the popup isn't clipped); reduced motion only sets the
+    // duration to 0.
     map.easeTo({
       center: [marker.lng, marker.lat],
       offset: POPUP_VIEW_OFFSET,
@@ -716,11 +574,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     });
   }, []);
 
-  // search-within-map: fly the camera to `marker` then open its popup.
-  // Reduced-motion: jumpTo (instant) + open immediately, mirroring the
-  // fitBounds/cluster-expand branch above. Otherwise: flyTo, then open once the
-  // camera settles (`moveend`) — openPopup's own easeTo is then a no-op-sized
-  // nudge since the camera is already centered on the marker.
+  // Reduced motion jumps and opens at once; otherwise fly, then open on moveend.
   const focusMarker = useCallback(
     (marker: MapMarker) => {
       const map = mapRef.current;
@@ -758,10 +612,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     }
   }, []);
 
-  // Expose resize() + focusMarker() + flyToPoint() to the host chrome. MapLibre sizes the
-  // canvas on construction; by the time the lazy import resolves and the Map is
-  // created, MapSection's relocation effect has already moved the host into its
-  // sized inline slot, so no on-ready resize is needed.
+  // The host is already in its sized slot when the Map is constructed, so no on-ready resize.
   useImperativeHandle(
     ref,
     () => ({ resize: () => mapRef.current?.resize(), focusMarker, flyToPoint }),
@@ -875,10 +726,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           type: 'fill',
           source: VISITED_SOURCE_ID,
           paint: {
-            // Gold at 0.12 — present enough to read as "this ground is yours" on the navy
-            // basemap, faint enough that a marker sitting on it keeps its own colour. Overlap
-            // between two countries' shapes is impossible (they are built from disjoint city
-            // sets), so no compounding to reason about.
+            // Faint enough that markers on it keep their colour.
             'fill-color': BRAND.gold400,
             'fill-opacity': 0.12,
           },
@@ -915,10 +763,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           source: MARKERS_SOURCE_ID,
           filter: ['has', 'point_count'],
           paint: {
-            // clusters were solid gold at 0.85 — the SAME gold family as the
-            // `Attraction` category pin, so "a cluster of 8" and "one attraction" read
-            // identically at a glance. A neutral glass fill separates the vocabularies:
-            // clusters read as chrome, pins read as content.
+            // Neutral, so a cluster doesn't read as a gold Attraction pin.
             'circle-color': '#ffffff',
             'circle-opacity': 0.22,
             'circle-stroke-color': '#ffffff',
@@ -999,10 +844,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             'line-dasharray': [1, 1.5],
           },
         });
-        // /(a): an APPROXIMATE stop is a different MARK, not a different
-        // colour — a hollow ring (dark core, gold rim) against the exact stop's solid gold
-        // disc. Shape and lightness both differ, so the distinction survives greyscale;
-        // colour alone would not clear the project's contrast floor.
+        // Approximate stops are hollow rings, exact ones solid discs: shape, not colour.
         map!.addLayer({
           id: 'itin-stop',
           type: 'circle',
@@ -1015,14 +857,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             'circle-stroke-width': ['case', ['get', 'approx'], 2.5, 2],
           },
         });
-        // Issue #1 — the number on a pin is the stop's position WITHIN ITS DAY (1, 2, 3 …
-        // in itinerary order), not the trip-day index this used to draw. On /plan and
-        // /travel, which feed one day, that index was the constant "1" on every pin; on
-        // /map it turned a day's whole route into a row of identical numbers.
-        // 🔴 Still a NUMERIC label only, deliberately: issue #8 self-hosts exactly range
-        // 0-255 of two font stacks (lib/map-style.ts) so these digits survive offline on a
-        // Kathmandu street. Anything that puts non-numeric text in this field reintroduces
-        // a glyph range nobody has shipped.
+        // Position within the day. Digits only: just glyph range 0-255 is self-hosted for offline.
         map!.addLayer({
           id: 'itin-stop-label',
           type: 'symbol',
@@ -1082,10 +917,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           onMarkerClickRef.current?.(marker);
         });
 
-        // a drawn itinerary stop click → the stop popup. Registered once,
-        // gated on a ref so it is INERT for every consumer that doesn't opt in — /plan feeds
-        // one array as both `markers` and `routeStops`, so an ungated handler there would
-        // fire alongside the `unclustered` one and open two popups for a single click.
+        // Stop popup, gated on a ref (see enableStopPopup).
         map!.on('mouseenter', 'itin-stop', () => {
           if (!enableStopPopupRef.current) return;
           map!.getCanvas().style.cursor = pickModeRef.current ? 'crosshair' : 'pointer';
@@ -1105,10 +937,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           openPopup(maplibregl, stop.marker);
         });
 
-        // pin-pick: ANY click on the canvas reports its coordinate while the picker is
-        // armed. Registered on the map (not a layer) so empty water/street clicks count too —
-        // that is the whole point of dropping a pin somewhere with no curated marker. Inert
-        // (a ref read + early return) for every consumer that never sets `pickMode`.
+        // On the map, not a layer, so clicks on empty ground count in pick mode.
         map!.on('click', (e) => {
           if (!pickModeRef.current) return;
           onMapClickRef.current?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
@@ -1201,13 +1030,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
     const stops = routeStops ?? [];
 
-    // Issue #1 — the mirror of the browse-marker rule above ("close any open popup whose
-    // marker is no longer in the visible set"), and it is load-bearing now that /map scopes
-    // the route to one day: an open STOP popup whose stop has just left `routeStops` would
-    // otherwise keep rendering, and the portal below — which falls back to the CURATED popup
-    // for a marker it can no longer find in `routeStops` — would quietly turn it into
-    // Directions-to-a-city-centroid, the exact thing D-279 exists to prevent. Curated markers
-    // are excluded because their popup is legitimate with or without a route.
+    // Close a stop popup whose stop left the route; otherwise the portal would fall back to the
+    // curated popup with directions to a centroid (D-279).
     if (
       popupMarker &&
       !MARKER_BY_ID.has(popupMarker.id) &&
@@ -1245,11 +1069,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         features.push({
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [s.marker.lng, s.marker.lat] },
-          // `id` (additive; /map ignores it) lets the highlight effect target
-          // this numbered route-stop by marker id. `approx` drives the
-          // low-confidence paint above — it is read straight off the placement the
-          // resolver returned for this render, never off stored state. `seq` is what the
-          // label layer draws (issue #1); `day` stays for the popup heading.
+          // `id` for highlighting, `approx` for the ring paint, `seq` for the label.
           properties: {
             id: s.marker.id,
             day: String(s.day),
@@ -1286,17 +1106,11 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         { padding: 72, maxZoom: 12, duration: animate ? 700 : 0, animate },
       );
     }
-    // `popupMarker` is read but deliberately NOT a dep — same as the marker effect above.
-    // It must not re-run this effect (that would re-fit the camera every time a popup
-    // opens); the closure that runs on a routeStops change already carries that render's
-    // value, which is exactly the popup that was open when the stops changed.
+    // popupMarker is not a dep: opening a popup must not re-fit the camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeStops, mapReady, fitBounds]);
 
-  // ── highlight → emphasize the matching browse marker + route stop ──────
-  // Data-driven paint keyed on the feature `id`: fatter radius + gold stroke on
-  // the highlighted one. STRICT no-op when `highlightId === undefined` (the /map
-  // case) — the effect returns before touching any paint, so /map is untouched.
+  // Highlight: bigger radius and gold stroke on the matching feature id.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || highlightId === undefined) return;
@@ -1319,19 +1133,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
   return (
     <>
-      {/* h-full w-full (NOT absolute inset-0): MapLibre stamps its own
-          `.maplibregl-map { position: relative }` onto this node, which would
-          defeat inset-0 sizing and collapse the container to 0px. An explicit
-          full-size box sizes correctly under either position, given the host
-          has a definite height (inline slot h-[560px] / fixed inset-0). */}
-      {/* (a11y): this was `role="application"` with NO tabIndex. That role tells a
-          screen reader to stop intercepting keys and hand every keystroke to the app — but
-          the element could not receive focus, so the promise was never kept. It passed axe,
-          which is why it survived. MEASURED in a real browser: MapLibre puts
-          `tabindex="0"` + `aria-label="Map"` on its own CANVAS (a child of this div), and
-          that canvas is what takes focus and handles arrow-pan / ±-zoom. The container
-          handles no keys at all, so it is a labelled REGION, not an application widget —
-          the SR keeps its normal reading keys and the canvas keeps its native keyboard. */}
+      {/* h-full w-full, not inset-0: MapLibre sets position: relative on this node. */}
+      {/* A labelled region, not role="application": MapLibre's own canvas takes focus and
+          handles the keys. */}
       <div
         ref={containerRef}
         className="h-full w-full"
@@ -1388,12 +1192,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         </div>
       )}
 
-      {/* Popup content portal: stays in this React tree so context flows
-          to AddToPlanButton, while its DOM lives inside the MapLibre Popup.
-          a popup opened on a marker that is NOT one of the 73 curated places is an
-          ITINERARY STOP — a synthesized pin or a derived position — so it gets the stop
-          popup instead of the curated one (which would offer Directions to a city centroid
-          and "add this place to your plan" for a plan that already exists). */}
+      {/* Popup portal. Non-curated markers are itinerary stops and get the stop popup. */}
       {popupNode && popupMarker
         ? createPortal(
             (() => {
@@ -1416,14 +1215,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           )
         : null}
 
-      {/* Scoped overrides for the MapLibre popup + controls. A plain <style> element
-          (local to this component; globals.css owns the token layer) — the default chrome
-          is light, so it is retinted here.
-
-          THE SEAM. These read the LIVE surface tokens rather than the BRAND.navy* copies
-          two lines of JS away, because this is DOM the page repaints and the canvas is not.
-          A ramp change reaches the popup on its own now; the GL paint properties below
-          still take the frozen hexes, which is the rule for the canvas. */}
+      {/* Dark overrides for MapLibre's popup and controls. These are DOM, so they use the
+          live tokens; the GL canvas paint uses frozen hexes. */}
       <style>{`
         .njp-map-popup .maplibregl-popup-content {
           background: rgb(var(--surface-raised));

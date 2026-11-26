@@ -61,7 +61,7 @@ const PRECACHE_LIST_SUFFIX = '/__precache-urls.json';
  * It has to be content, not filename: the built chunks are content-hashed and carry no name
  * (D-286), so there is nothing to pattern-match a URL against.
  */
-// COUPLED to `scripts/gen-sw.mjs:253`, which uses the identical marker to decide what gets
+// COUPLED to `MAPLIBRE_MARKER` in `scripts/gen-sw.mjs`, which uses the identical marker to decide what gets
 // precached. Built chunk filenames are content-hashed and carry no name (D-286), so content match
 // is the only handle either side has. If gen-sw's marker changes and this one does not, this row
 // reports "Map engine not saved yet" to EVERY user while the engine is in fact present — a false
